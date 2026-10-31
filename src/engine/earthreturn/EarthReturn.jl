@@ -2,7 +2,8 @@
     LineCableModels.Engine.EarthReturn
 
 Compute the earth-return impedances and potential coefficients of cables. A formula gives
-the impedance, the potential coefficients, or both, by the methods it defines.
+the impedance, the potential coefficients, or both, by the methods it defines. It treats the
+pairs of conductors it declares, with `Val(1)` for the air and `Val(2)` for the earth.
 
 # Formulas
 
@@ -192,6 +193,78 @@ the potential coefficients alone.
 `formula(Val(:P), Val(:self), i, buffers, input, media, s, k)` and
 `formula(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)` return an entry of
 ``\\mathbf P_g`` \\[m/F\\], with `i` the target and `j` the source.
+
+## `Formula{:gary1976}`
+
+Impedance of conductors in the air over a nonmagnetic earth, from an image plane at the complex
+depth ``p`` \\[m\\] [Gary1976, Deri1981](@cite):
+
+```math
+\\begin{aligned}
+p &= \\frac{1}{\\sqrt{s \\mu_0 \\sigma_2}}, \\\\
+Z_{g,ii} &= \\frac{s \\mu_0}{2 \\pi} \\left[\\ln\\frac{2 h_i}{r_i} + \\ln\\frac{h_i + p}{h_i}\\right], \\\\
+Z_{g,ij} &= \\frac{s \\mu_0}{2 \\pi} \\left[\\ln\\frac{D'_{ij}}{D_{ij}}
+    + \\ln\\frac{\\sqrt{y_{ij}^2 + (H_{ij} + 2 p)^2}}{D'_{ij}}\\right],
+\\end{aligned}
+```
+
+where ``\\sigma_2 = 1 / \\rho_2`` \\[S/m\\] is the conductivity of the earth. The lengths \\[m\\] are the
+height ``h_i``, the exterior radius ``r_i``, the horizontal distance ``y_{ij}`` and
+``H_{ij} = h_i + h_j``. The first logarithm of each entry is ``\\Lambda_{ii}`` or ``\\Lambda_{ij}`` at ``\\kappa = 0``. The formula
+leaves out the displacement current of the earth, and it gives the impedance alone. A computation refuses a
+magnetic earth layer.
+
+### Callables
+
+`formula(Val(:Z), Val(:self), i, buffers, input, media, s, k)` and
+`formula(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)` return an entry of
+``\\mathbf Z_g`` \\[Ω/m\\], with `i` the target and `j` the source.
+
+## `Formula{:wedepohl1973}`
+
+Impedance of buried conductors by the low-order expansion of Wedepohl and Wilcox
+[Wedepohl1973](@cite). The earth has the permeability ``\\mu_2 = \\mu_0 \\mu_{r,2}``, with
+``m = \\sqrt{s \\mu_2 / \\rho_2}`` \\[1/m\\], and ``e_c`` is the exponential of Euler's constant:
+
+```math
+\\begin{aligned}
+Z_{g,ii} &= \\frac{s \\mu_2}{2 \\pi} \\left[-\\ln\\frac{e_c m r_i}{2} + \\frac{1}{2} - \\frac{4 m h_i}{3}\\right], \\\\
+Z_{g,ij} &= \\frac{s \\mu_2}{2 \\pi} \\left[-\\ln\\frac{e_c m D_{ij}}{2} + \\frac{1}{2} - \\frac{2 m H_{ij}}{3}\\right],
+\\end{aligned}
+```
+
+where ``h_i`` is the depth \\[m\\]. The formula leaves out the displacement current of the earth, and it
+gives the impedance alone. The source bounds the entries by ``|m r_i| < 0.25`` and
+``|m D_{ij}| < 0.25``. A computation warns when the highest frequency of its scan leaves that bound, with
+``m`` from the static resistivity and permeability of the deepest layer.
+
+### Callables
+
+`formula(Val(:Z), Val(:self), i, buffers, input, media, s, k)` and
+`formula(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)` return an entry of
+``\\mathbf Z_g`` \\[Ω/m\\], with `i` the target and `j` the source.
+
+## `Formula{:saad1996}`
+
+Impedance of buried conductors in a nonmagnetic earth by the closed form of Saad, Gaba and Giroux
+[Saad1996](@cite), with ``m = \\sqrt{s \\mu_0 / \\rho_2}`` \\[1/m\\]:
+
+```math
+\\begin{aligned}
+Z_{g,ii} &= \\frac{s \\mu_0}{2 \\pi} \\left[K_0(m r_i) + \\frac{2 e^{-2 m h_i}}{4 + m^2 r_i^2}\\right], \\\\
+Z_{g,ij} &= \\frac{s \\mu_0}{2 \\pi} \\left[K_0(m D_{ij}) + \\frac{2 e^{-m H_{ij}}}{4 + m^2 y_{ij}^2}\\right],
+\\end{aligned}
+```
+
+where ``K_0`` is the modified Bessel function of the second kind and order zero. The source proves
+the form for ``y_{ij} / H_{ij} < 1``. The formula leaves out the displacement current of the earth, and it
+gives the impedance alone. A computation refuses a magnetic earth layer.
+
+### Callables
+
+`formula(Val(:Z), Val(:self), i, buffers, input, media, s, k)` and
+`formula(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)` return an entry of
+``\\mathbf Z_g`` \\[Ω/m\\], with `i` the target and `j` the source.
 """
 module EarthReturn
 
@@ -208,7 +281,7 @@ using SpecialFunctions: besselix, besselkx, besseljx, besselk
 export Formula, FORMULAS
 
 "Identifiers of the earth-return formulas."
-const FORMULAS = (:martins2026, :ideal)
+const FORMULAS = (:martins2026, :ideal, :gary1976, :wedepohl1973, :saad1996)
 
 """
 $(TYPEDEF)
@@ -271,6 +344,15 @@ function validate(Γ::Union{Number, AbstractVector}, formula::Formula{ID}) where
     return Γ
 end
 
+# A formula treats the pairs it declares, each a target and a source, `Val{1}` in the air and
+# `Val{2}` in the earth.
+function validate(formula::Formula{ID}, ::Val{t}, ::Val{s}) where {ID, t, s}
+    throw(DomainError(formula,
+        "the earth-return formula :$ID treats no pair of a receiver in the " *
+        "$(t == 1 ? "air" : "earth") and a source in the $(s == 1 ? "air" : "earth"); " *
+        "select a formula for that domain"))
+end
+
 # Formulas of one identifier are equal when their options are equal.
 Base.:(==)(a::Formula{ID}, b::Formula{ID}) where {ID} = a.options == b.options
 
@@ -303,5 +385,8 @@ end
 
 include("martins2026.jl")
 include("ideal.jl")
+include("gary1976.jl")
+include("wedepohl1973.jl")
+include("saad1996.jl")
 
 end

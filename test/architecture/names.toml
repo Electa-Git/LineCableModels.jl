@@ -290,6 +290,9 @@ i0m1 = "I₀(z) − 1 without the cancellation of the difference; three call sit
 [register."Engine.EarthReturn".formulas]
 martins2026 = "the circumferentially averaged earth return of air, earth and mixed systems with the complete current closure and a prescribed Γ, in the form of the paper (MartinsBritto2026); commit 989af96c for the implementation it continues"
 ideal = "the images of a perfectly conducting earth: the potential coefficients ln(2h/r) and ln(D′/D) over 2π ε₁ of overhead pairs, zero for a buried or mixed pair"
+gary1976 = "the impedance of overhead conductors from an image plane at a complex depth (Gary 1976; commit 9676ae6c, earthimpedance/formulas/gary1976.jl)"
+wedepohl1973 = "the impedance of buried conductors by the low-order expansion of Wedepohl and Wilcox (1973; commit 9676ae6c, earthimpedance/formulas/wedepohl1973.jl)"
+saad1996 = "the impedance of buried conductors by the closed form of Saad, Gaba and Giroux (1996; commit 9676ae6c, earthimpedance/formulas/saad1996.jl)"
 
 [register."Engine.Shunt".public]
 Formula = "a shunt formula, its identifier the type parameter"

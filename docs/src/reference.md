@@ -74,7 +74,8 @@ compute(problem::LineParametersProblem, formulation::AbstractFormulation)
 compute(backend::AbstractBackend, problem::LineParametersProblem, formulation::AbstractFormulation)
 compute(::LCMBackend, problem::LineParametersProblem{T}, formulation::CoaxialFormulation, options::ComputationOptions{LCMBackend}) where {T <: Real}
 validate(problem::LineParametersProblem, ::AbstractFormulation)
-validate(problem::LineParametersProblem, formulation::Union{CoaxialFormulation, FEM})
+validate(problem::LineParametersProblem, options::FormulationOptions{<:Union{CoaxialFormulation, FEM}})
+validate(problem::LineParametersProblem, formulation::CoaxialFormulation)
 validate(earth::Tuple{Engine.EarthReturn.Formula{ID}, Engine.EarthReturn.Formula{ID}}, ::Type{CoaxialFormulation}) where {ID}
 ```
 

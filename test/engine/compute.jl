@@ -159,5 +159,39 @@ end
         @test Pg[1, 2] == Pg[2, 1] == complex(1.0e10)
         JET.@test_opt target_modules=(LineCableModels,) Engine.potential!(
             arms, Pg, buffers, input, media, s, 1)
+
+        @test_throws "treats no pair of a receiver in the air and a source in the earth" compute(
+            mixed, arms)
+        closed = CoaxialFormulation(earth_impedance = (air = :gary1976, earth = :saad1996))
+        @test all(isfinite, compute(mixed, closed).Z)
+        bytes = Int[]
+        for formulation in (CoaxialFormulation(), closed)
+            input = Engine.CoaxialInput(mixed, formulation.options)
+            buffers = Engine.initialize_buffers(formulation, mixed, input)
+            m = length(input.kept)
+            nf = length(mixed.frequencies)
+            Z = Array{ComplexF64, 3}(undef, m, m, nf)
+            Y = similar(Z)
+            trace = (Zin = Array{ComplexF64, 3}(undef, 0, 0, 0),
+                Pin = Array{ComplexF64, 3}(undef, 0, 0, 0),
+                Zg = Array{ComplexF64, 3}(undef, 0, 0, 0),
+                Pg = Array{ComplexF64, 3}(undef, 0, 0, 0))
+            options = LineCableModels.ComputationOptions(Engine.LCMBackend; trace = false)
+            Engine.solve!(Z, Y, trace, mixed, input, formulation, buffers, options)
+            push!(bytes,
+                only(map(
+                    (z,
+                        y,
+                        t,
+                        p,
+                        i,
+                        f,
+                        b,
+                        o) -> @allocated(LineCableModels.Engine.solve!(
+                        z, y, t, p, i, f, b, o)),
+                    (Z,), (Y,), (trace,), (mixed,), (input,), (formulation,), (buffers,),
+                    (options,))))
+        end
+        @test bytes[1] == bytes[2]
     end
 end

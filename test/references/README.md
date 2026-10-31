@@ -192,3 +192,40 @@ The formula enters `Z` alone, and `Y` of each reference is unchanged to the bit.
 
 Each maximum lies near `|m r| = 3.5`, in the solid conductor. The paper gives that value for the largest
 error of the reactive part of its form for a solid conductor.
+
+## Earth-return formulas
+
+Each earth-return formula of this section has one file in each case folder whose pairs it treats,
+named after the formula. The file gives the matrix `Zg` of the formula in the form of `stages.csv`,
+at the same 101 frequencies. The reference problem of `problems.jl` computed it with
+`trace = true`, at the commit that adds the file.
+
+| Files | Formulation |
+| --- | --- |
+| `gary1976.csv` of `overhead_bare_wires` | `earth_impedance = :gary1976` |
+| `wedepohl1973.csv` of `two_bare_wires`, `two_insulated_wires` and the two coaxial cases | `earth_impedance = :wedepohl1973` |
+| `saad1996.csv` of those four cases | `earth_impedance = :saad1996` |
+
+These formulas give `Zg` alone, so each `Pg` and `Y` is that of the reference. The table gives the
+deviation e_Z of `Z`. Its maximum and RMS over the 101 frequencies compare with the `analytical`
+rows of `matrices.csv`. The last column compares with the `fem` rows over the 11 FEM frequencies:
+
+| Formula | Case | Maximum | RMS | Maximum against FEM |
+| --- | --- | --- | --- | --- |
+| `:gary1976` | `overhead_bare_wires` | 0.0285 | 0.00748 | 0.0257 |
+| `:wedepohl1973` | `two_bare_wires` | 62.2 | 12 | 62.3 |
+| `:wedepohl1973` | `two_insulated_wires` | 61.5 | 11.9 | 61.5 |
+| `:wedepohl1973` | `coaxial_circular_strands` | 0.105 | 0.0202 | 0.108 |
+| `:wedepohl1973` | `coaxial_rectangular_strands` | 0.105 | 0.0203 | 0.109 |
+| `:saad1996` | `two_bare_wires` | 0.568 | 0.126 | 0.567 |
+| `:saad1996` | `two_insulated_wires` | 0.565 | 0.126 | 0.564 |
+| `:saad1996` | `coaxial_circular_strands` | 0.058 | 0.0113 | 0.102 |
+| `:saad1996` | `coaxial_rectangular_strands` | 0.0581 | 0.0113 | 0.105 |
+
+Each deviation follows from the approximation of the formula:
+
+- `:gary1976` replaces the interface integral by an image at a complex depth.
+- `:wedepohl1973` keeps the low orders of an expansion in `m`, within `|m D| < 0.25` and
+  `|m r| < 0.25` by its source.
+- `:saad1996` approximates the interface integral in closed form, and it takes each cable as a
+  filament of the exterior radius.

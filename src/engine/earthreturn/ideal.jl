@@ -2,6 +2,7 @@ defaults(::Type{Formula{:ideal}}) = (;)
 
 # The formula gives the potential coefficients alone.
 validate(formula::Formula{:ideal}, ::typeof(potential!)) = formula
+validate(formula::Formula{:ideal}, ::Val, ::Val) = formula
 
 function (f::Formula{:ideal})(::Val{:P}, ::Val{:self}, i, buffers, input, media, s, k)
     ε₁ = ε₀ * media[1].eps_r

@@ -73,6 +73,7 @@ end
 # The formula gives both earth-return quantities.
 validate(formula::Formula{:martins2026}, ::typeof(impedance!)) = formula
 validate(formula::Formula{:martins2026}, ::typeof(potential!)) = formula
+validate(formula::Formula{:martins2026}, ::Val, ::Val) = formula
 
 validate(Γ::Union{Number, AbstractVector}, formula::Formula{:martins2026}) = Γ
 

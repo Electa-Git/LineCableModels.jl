@@ -397,7 +397,7 @@ Check that a vector longitudinal wavenumber has one entry per frequency.
 # Arguments
 
 - `problem`: line-parameters problem.
-- `formulation`: formulation with a scalar or vector `Γ` option \\[1/m\\].
+- `options`: options of a formulation, with a scalar or vector `Γ` \\[1/m\\].
 
 # Returns
 
@@ -409,11 +409,52 @@ Check that a vector longitudinal wavenumber has one entry per frequency.
   lengths.
 """
 function validate(problem::LineParametersProblem,
-        formulation::Union{CoaxialFormulation, FEM})
-    Γ = formulation.options.Γ
+        options::FormulationOptions{<:Union{CoaxialFormulation, FEM}})
+    Γ = options.Γ
     ndims(Γ) == 0 || length(Γ) == length(problem.frequencies) ||
         throw(DimensionMismatch(
             "the option Γ has $(length(Γ)) values for $(length(problem.frequencies)) " *
             "frequencies"))
+    return problem
+end
+
+function validate(problem::LineParametersProblem, formulation::FEM)
+    validate(problem, formulation.options)
+    return problem
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Check that the formula of each earth place treats the pairs of the problem, and the options
+against the frequencies.
+
+# Arguments
+
+- `problem`: line-parameters problem.
+- `formulation`: coaxial formulation with its earth-return formulas.
+
+# Returns
+
+- `problem`, unchanged.
+
+# Errors
+
+- Throws `DomainError` for a place whose formula does not treat a pair of the problem.
+- Throws `DimensionMismatch` when a `Γ` vector and the frequency vector have different lengths.
+"""
+function validate(problem::LineParametersProblem, formulation::CoaxialFormulation)
+    system = problem.system
+    above = any(k -> system.placements[k].y > 0, eachindex(system.designs))
+    below = any(k -> system.placements[k].y < 0, eachindex(system.designs))
+    for places in (formulation.earth_impedance, formulation.earth_admittance)
+        above && validate(places.air, Val(1), Val(1))
+        below && validate(places.earth, Val(2), Val(2))
+        if above && below
+            validate(places.mixed, Val(1), Val(2))
+            validate(places.mixed, Val(2), Val(1))
+        end
+    end
+    validate(problem, formulation.options)
     return problem
 end

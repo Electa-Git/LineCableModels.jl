@@ -79,6 +79,9 @@ Private = false
 defaults(::Type{EarthReturn.Formula{:martins2026}})
 validate(options::FormulationOptions{EarthReturn.Formula{:martins2026}})
 validate(problem::LineParametersProblem, formula::EarthReturn.Formula{:martins2026})
+validate(problem::LineParametersProblem, formula::EarthReturn.Formula{:gary1976})
+validate(problem::LineParametersProblem, formula::EarthReturn.Formula{:wedepohl1973})
+validate(problem::LineParametersProblem, formula::EarthReturn.Formula{:saad1996})
 initialize_buffers(formula::EarthReturn.Formula{:martins2026}, ::LineParametersProblem, input::CoaxialInput{T}, buffers) where {T}
 to_buffer!(f::EarthReturn.Formula{:martins2026}, buffers, input::CoaxialInput, media, s, k)
 impedance!(formulation::CoaxialFormulation, Zg::AbstractMatrix, buffers, input::CoaxialInput, media, s, k)

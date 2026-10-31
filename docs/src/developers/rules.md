@@ -404,6 +404,10 @@ domain of the pair, `air`, `earth` or `mixed`. A formula declares each quantity 
 `validate(formula, impedance!)` or `validate(formula, potential!)`. The fallback of the family
 refuses it in the other slot at construction.
 
+A formula of the earth return declares each pair it treats with
+`validate(formula, Val(1), Val(1))`, `Val(1)` the air and `Val(2)` the earth, for the target and
+the source. The fallback of the family refuses it before a computation that holds another pair.
+
 A formula declares its own controls in `defaults` and checks them in `validate(options)`.
 Where its direct and image term differs from the family's, it adds its own method of `Λ`. Terms
 that several entries read go to the block of the formula: `to_buffer!` writes them once per

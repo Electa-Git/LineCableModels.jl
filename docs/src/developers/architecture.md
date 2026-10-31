@@ -213,6 +213,7 @@ matrices of a computation. A formula does not write a matrix of the computation.
 | `SemiconAdmittance` | `:lossless`, `:lossy` | `formula(material, f)`, the admittivity of a semicon |
 | `EarthReturn` | `:martins2026` | the kernels `formula(Val(:J), λ, medium, pair)` and the entries `formula(Val(:Z), Val(:self), i, ...)` |
 | `EarthReturn` | `:ideal` | the entries `formula(Val(:P), Val(:self), i, ...)` of an overhead pair |
+| `EarthReturn` | `:gary1976`, `:wedepohl1973`, `:saad1996` | the entries `formula(Val(:Z), Val(:self), i, ...)` of the domains each treats |
 | `Shunt` | `:series` | `formula(r_in, r_ex, κ, s)`, the coefficient of one layer, with the chain `potential!(formula, Pin, buffers, input, kappa, s)` |
 | `Resistivity` | `:linear` | `formula(material, θ)` |
 | `EarthProperties` | `:constant` and the nine soil laws | `formula(layer, f)`, a law: the layer at a frequency |
@@ -244,7 +245,8 @@ a pair of conductors:
 
 One selection fills the three places. A selection per domain,
 `earth_impedance = (air = :martins2026,)`, fills the places it names, and the others take the
-slot's default.
+slot's default. A formula declares the pairs it treats. The computation refuses a formula in a
+place whose pairs it does not treat, before it runs.
 
 A formula of the family gives the impedance, the potential coefficients, or both, by the
 methods it defines. A formula in a slot whose quantity it does not give is refused at
