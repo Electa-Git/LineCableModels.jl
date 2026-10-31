@@ -247,13 +247,82 @@ where the option `frequency_boundary` is ``f_0`` \\[Hz\\]. Below it, the law kee
 
 - `layer`: earth layer.
 - `f`: frequency \\[Hz\\].
+
+## `Formula{:martins2020}`
+
+Equivalent conductivity of Martins-Britto, Lopes and Rondineau [MartinsBritto2020](@cite). From
+``\\sigma_{\\mathrm{eq},N} = \\sigma_N`` at the deepest layer, the recursion climbs to the layer
+below the air, where ``\\sigma_\\mathrm{eq} = \\sigma_{\\mathrm{eq},1}``:
+
+```math
+\\sigma_{\\mathrm{eq},k} = \\sigma_k \\left[
+    \\frac{\\sqrt{\\sigma_k} + \\sqrt{\\sigma_{\\mathrm{eq},k+1}}
+        - \\left(\\sqrt{\\sigma_k} - \\sqrt{\\sigma_{\\mathrm{eq},k+1}}\\right) e^{-2 h_k \\sqrt{\\pi f \\mu_k \\sigma_k}}}
+    {\\sqrt{\\sigma_k} + \\sqrt{\\sigma_{\\mathrm{eq},k+1}}
+        + \\left(\\sqrt{\\sigma_k} - \\sqrt{\\sigma_{\\mathrm{eq},k+1}}\\right) e^{-2 h_k \\sqrt{\\pi f \\mu_k \\sigma_k}}}
+    \\right]^2,
+```
+
+where layer ``k`` has the conductivity ``\\sigma_k = 1 / \\rho_k`` \\[S/m\\], the thickness ``h_k``
+\\[m\\] and the permeability ``\\mu_k = \\mu_0 \\mu_{r,k}`` \\[H/m\\], and ``\\mu_0`` is [`μ₀`](@ref). The
+layer it returns has the resistivity ``1 / \\sigma_\\mathrm{eq}`` and takes the relative
+permittivity and the relative permeability of the deepest layer. The source validates the
+equivalent on overhead conductors from 1 Hz to 2 MHz.
+
+### Callable
+
+`formula(layers, f)` returns one semi-infinite layer.
+
+- `layers`: the layers below the air, as the law describes them at `f`.
+- `f`: frequency \\[Hz\\].
+
+## `Formula{:xue2021}`
+
+Equivalent propagation constant of Xue and coauthors for a nonmagnetic earth [Xue2021](@cite). With
+``s = \\mathrm{j} \\omega``, ``\\omega = 2 \\pi f`` and the constants ``\\varepsilon_0`` and
+``\\mu_0``, layer ``k`` of conductivity ``\\sigma_k`` \\[S/m\\], relative permittivity
+``\\varepsilon_{r,k}`` and thickness ``h_k`` \\[m\\] has the constant ``\\gamma_k`` \\[1/m\\] relative
+to the air. From ``\\gamma_{\\mathrm{eq},N} = \\gamma_N`` at the deepest layer, the recursion climbs
+to the layer below the air, where ``\\gamma_\\mathrm{eq} = \\gamma_{\\mathrm{eq},1}``:
+
+```math
+\\begin{aligned}
+\\gamma_k^2 &= s \\mu_0 \\left(\\sigma_k + s \\varepsilon_0 \\varepsilon_{r,k}\\right)
+    - s^2 \\mu_0 \\varepsilon_0, \\\\
+\\gamma_{\\mathrm{eq},k} &= \\gamma_k
+    \\frac{\\gamma_k + \\gamma_{\\mathrm{eq},k+1}
+        - \\left(\\gamma_k - \\gamma_{\\mathrm{eq},k+1}\\right) e^{-2 h_k \\gamma_k}}
+    {\\gamma_k + \\gamma_{\\mathrm{eq},k+1}
+        + \\left(\\gamma_k - \\gamma_{\\mathrm{eq},k+1}\\right) e^{-2 h_k \\gamma_k}}.
+\\end{aligned}
+```
+
+The layer it returns parametrizes ``\\gamma_\\mathrm{eq}^2`` by its resistivity
+``1 / \\sigma_\\mathrm{eq}`` and its relative permittivity:
+
+```math
+\\sigma_\\mathrm{eq} = \\frac{\\Im\\left(\\gamma_\\mathrm{eq}^2\\right)}{\\omega \\mu_0}, \\qquad
+\\varepsilon_{r,\\mathrm{eq}} = 1 - \\frac{\\Re\\left(\\gamma_\\mathrm{eq}^2\\right)}{\\omega^2 \\mu_0 \\varepsilon_0}.
+```
+
+This ``\\varepsilon_{r,\\mathrm{eq}}`` is negative where the layers are inductive. The layer takes
+the relative permeability of the deepest layer. A computation refuses an earth layer whose
+relative permeability differs from 1. The source reports errors below 4 % from 1 Hz to 5 MHz on
+overhead conductors.
+
+### Callable
+
+`formula(layers, f)` returns one semi-infinite layer.
+
+- `layers`: the layers below the air, as the law describes them at `f`.
+- `f`: frequency \\[Hz\\].
 """
 module EarthProperties
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults, validate
 using ...Commons: FormulationOptions
-using ..Engine: AbstractEarthProperties, LineParametersProblem, ε₀
+using ..Engine: AbstractEarthProperties, LineParametersProblem, ε₀, μ₀
 using ...Earth: EarthLayer, EarthModel
 
 export Formula, FORMULAS
@@ -261,7 +330,7 @@ export Formula, FORMULAS
 "Identifiers of the earth-properties formulas."
 const FORMULAS = (
     :constant, :bottommost, :alipio2014, :cigre2019, :datsios2019, :longmire1975,
-    :messier1985, :portela1999, :scott1967, :visacro1987, :visacro2012)
+    :messier1985, :portela1999, :scott1967, :visacro1987, :visacro2012, :martins2020, :xue2021)
 
 """
 $(TYPEDEF)
@@ -320,6 +389,8 @@ include("portela1999.jl")
 include("scott1967.jl")
 include("visacro1987.jl")
 include("visacro2012.jl")
+include("martins2020.jl")
+include("xue2021.jl")
 
 # A law describes a layer, and a model reduces the described layers of an earth model to one.
 validate(formula::Formula{:constant}, ::Type{EarthLayer}) = formula

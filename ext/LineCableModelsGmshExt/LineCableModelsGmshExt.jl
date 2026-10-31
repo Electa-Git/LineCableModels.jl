@@ -110,10 +110,10 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Validate the problem, build and mesh its cross-section, solve the finite-element problem at
-every frequency, and apply the selected conductor reductions. For any number type of
-`problem`, the backend computes the nominal problem with each number replaced by the
-`Float64` value of its `nominal`.
+Validate the problem for the formulation and its formulas. Build and mesh its cross-section,
+solve the finite-element problem at every frequency, and apply the selected conductor
+reductions. For any number type of `problem`, the backend computes the nominal problem with
+each number replaced by the `Float64` value of its `nominal`.
 
 # Arguments
 
@@ -138,6 +138,7 @@ function compute(::GmshBackend, problem::LineParametersProblem, formulation::FEM
         options::ComputationOptions{GmshBackend})
     mapped = map(x -> Float64(nominal(x)), problem)
     validate(mapped, formulation)
+    map(formula -> validate(mapped, formula), formulation.formulas)
     model = FieldModel(mapped, formulation)
     path = directory(mapped)
     for name in (joinpath("input", "getdp"), "mesh", joinpath("results", "jobs"),

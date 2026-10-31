@@ -20,7 +20,7 @@ $(TYPEDFIELDS)
 struct EarthLayer{T <: Real}
     "Electrical resistivity \\[Ω·m\\]."
     rho::T
-    "Relative permittivity \\[dimensionless\\]."
+    "Relative permittivity, negative where an equivalent earth parametrizes an inductive stack \\[dimensionless\\]."
     eps_r::T
     "Relative permeability \\[dimensionless\\]."
     mu_r::T
@@ -39,8 +39,8 @@ of [`EarthLayer`](@ref).
 
 # Errors
 
-- Throws `DomainError` when a property is not positive, or when `eps_r` or `mu_r` is not
-  finite.
+- Throws `DomainError` when `rho`, `mu_r` or `thickness` is not positive, or when `eps_r` or
+  `mu_r` is not finite.
 """
 function EarthLayer(rho::Real, eps_r::Real, mu_r::Real, thickness::Real)
     values = map(float, promote(rho, eps_r, mu_r, thickness))
@@ -72,8 +72,8 @@ function validate(layer::EarthLayer)
     isnan(layer.rho) && throw(DomainError(layer.rho, "EarthLayer.rho must not be NaN"))
     layer.rho > zero(layer.rho) ||
         throw(DomainError(layer.rho, "EarthLayer.rho must be positive"))
-    isfinite(layer.eps_r) && layer.eps_r > zero(layer.eps_r) ||
-        throw(DomainError(layer.eps_r, "EarthLayer.eps_r must be positive and finite"))
+    isfinite(layer.eps_r) ||
+        throw(DomainError(layer.eps_r, "EarthLayer.eps_r must be finite"))
     isfinite(layer.mu_r) && layer.mu_r > zero(layer.mu_r) ||
         throw(DomainError(layer.mu_r, "EarthLayer.mu_r must be positive and finite"))
     layer.thickness > zero(layer.thickness) ||

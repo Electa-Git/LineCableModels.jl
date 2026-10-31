@@ -207,6 +207,7 @@ struct FEM{
     R <: Resistivity.Formula,
     P <: EarthProperties.Formula,
     E <: EarthProperties.Formula,
+    L <: Tuple{Vararg{AbstractFormulation}},
     O <: FormulationOptions
 } <: AbstractFormulation
     "Admittivity law for insulator layers."
@@ -219,6 +220,8 @@ struct FEM{
     earth_properties::P
     "Model of the equivalent earth of the layers below the air."
     equivalent_earth::E
+    "Formulas of the slots, which a computation validates against its problem."
+    formulas::L
     "Options: the longitudinal wavenumber `Γ` \\[1/m\\] and the reductions."
     options::O
     function FEM(insulation_admittance::K, semicon_admittance::S, resistivity::R,
@@ -233,9 +236,11 @@ struct FEM{
     }
         validate(earth_properties, EarthLayer)
         validate(equivalent_earth, EarthModel)
-        return new{K, S, R, P, E, O}(
+        formulas = (insulation_admittance, semicon_admittance, resistivity,
+            earth_properties, equivalent_earth)
+        return new{K, S, R, P, E, typeof(formulas), O}(
             insulation_admittance, semicon_admittance, resistivity,
-            earth_properties, equivalent_earth, options)
+            earth_properties, equivalent_earth, formulas, options)
     end
 end
 

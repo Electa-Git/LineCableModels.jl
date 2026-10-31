@@ -61,8 +61,9 @@ The law of the slot `earth_properties` gives the resistivity, the relative permi
 relative permeability of each earth layer at each frequency. The air keeps its declared values.
 The model of the slot `equivalent_earth` then reduces the described layers below the air to the one earth that the earth-return formulas
 read. The default law, `:constant`, gives the static values of each layer at every frequency, and the
-nine soil laws of `EarthProperties` give values that vary with it. The one model, `:bottommost`,
-takes the deepest layer.
+nine soil laws of `EarthProperties` give values that vary with it. The default model,
+`:bottommost`, takes the deepest layer, and `:martins2020` and `:xue2021` reduce all the layers
+to one equivalent layer.
 
 ## Earth-return formulas
 

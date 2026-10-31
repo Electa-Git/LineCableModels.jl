@@ -102,4 +102,40 @@ using LineCableModels.Engine: admittivity, reductions
         @test model.materials[model.material[r]].admittivity ==
               [lossy.insulation_admittance(polymer, f) for f in problem.frequencies]
     end
+    @testset "a magnetic earth is refused before a mesh" begin
+        polymer = Material(:insulator, 1.0e14, 2.3; tan_delta = 1.0e-3)
+        metal = Region(:core_metal, Circle(0.0425), Material(:conductor, 1.7241e-8))
+        design = build(CableDesign, "insulated_wire", Terminal(:core, metal),
+            Region(:core_insulation, Offset(1.0e-3), polymer))
+        system = build(CableSystem, [design, design],
+            [Placement(0.0, -1.0), Placement(1.0, -1.0)];
+            connections = [(core = 1,), (core = 2,)], id = "two_insulated_wires",
+            line_length = 1.0)
+        earth = EarthModel((EarthLayer(Inf, 1.0, 1.0), EarthLayer(100.0, 10.0, 2.0, 5.0),
+            EarthLayer(50.0, 5.0, 1.0)))
+        problem = LineParametersProblem(system, earth; frequencies = [1.0, 1.0e3])
+        formulation = FEM(earth_properties = :alipio2014, equivalent_earth = :xue2021)
+        @test_logs (:warn, r":alipio2014") (@test_throws r":xue2021" compute(problem, formulation))
+    end
+    @testset "the laws of the earth reach the model" begin
+        polymer = Material(:insulator, 1.0e14, 2.3; tan_delta = 1.0e-3)
+        metal = Region(:core_metal, Circle(0.0425), Material(:conductor, 1.7241e-8))
+        design = build(CableDesign, "insulated_wire", Terminal(:core, metal),
+            Region(:core_insulation, Offset(1.0e-3), polymer))
+        system = build(CableSystem, [design, design],
+            [Placement(0.0, -1.0), Placement(1.0, -1.0)];
+            connections = [(core = 1,), (core = 2,)], id = "two_insulated_wires",
+            line_length = 1.0)
+        layers = (EarthLayer(100.0, 10.0, 1.0, 5.0), EarthLayer(500.0, 20.0, 1.0, 10.0),
+            EarthLayer(50.0, 5.0, 1.0))
+        problem = LineParametersProblem(
+            system, EarthModel((EarthLayer(Inf, 1.0, 1.0), layers...));
+            frequencies = [1.0e3, 1.0e6])
+        formulation = FEM(earth_properties = :alipio2014, equivalent_earth = :xue2021)
+        model = FieldModel(problem, formulation)
+        @test model.earth == [formulation.equivalent_earth(
+                   map(layer -> formulation.earth_properties(layer, f), layers), f)
+               for f in problem.frequencies]
+        @test first(model.earth).eps_r < 0
+    end
 end

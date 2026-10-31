@@ -91,6 +91,14 @@ end
 
     @testset "the finite-element formulation and its options" begin
         fem = FEM()
+        @test fem.formulas === (fem.insulation_admittance, fem.semicon_admittance,
+            fem.resistivity, fem.earth_properties, fem.equivalent_earth)
+        for selection in ((internal_impedance = :schelkunoff1934,),
+            (insulation_impedance = :ametani1980,),
+            (earth_impedance = :martins2026,), (earth_admittance = :martins2026,), (shunt = :series,))
+            @test CoaxialFormulation(; selection...) isa CoaxialFormulation
+            @test_throws "unknown options" FEM(; selection...)
+        end
         @test (fem.insulation_admittance, fem.semicon_admittance, fem.resistivity,
             fem.earth_properties) === (Engine.InsulationAdmittance.Formula(Val(:lossless)),
             Engine.SemiconAdmittance.Formula(Val(:lossless)),

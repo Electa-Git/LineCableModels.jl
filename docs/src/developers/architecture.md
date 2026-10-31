@@ -216,7 +216,7 @@ matrices of a computation. A formula does not write a matrix of the computation.
 | `Shunt` | `:series` | `formula(r_in, r_ex, κ, s)`, the coefficient of one layer, with the chain `potential!(formula, Pin, buffers, input, kappa, s)` |
 | `Resistivity` | `:linear` | `formula(material, θ)` |
 | `EarthProperties` | `:constant` and the nine soil laws | `formula(layer, f)`, a law: the layer at a frequency |
-| `EarthProperties` | `:bottommost` | `formula(layers, f)`, a model: the equivalent earth of the layers |
+| `EarthProperties` | `:bottommost`, `:martins2020` and `:xue2021` | `formula(layers, f)`, a model: the equivalent earth of the layers |
 
 ### Formulation
 
@@ -261,8 +261,9 @@ law's are refused at construction.
 
 `FEM` is the formulation of the field solve. It keeps the five slots that the field solve
 reads, `insulation_admittance`, `semicon_admittance`, `resistivity`, `earth_properties` and
-`equivalent_earth`, and the same options. Every control of the field solve belongs to the
-Gmsh backend.
+`equivalent_earth`, the tuple of those formulas and the same options. Before it runs, the
+computation validates the problem against each formula, as on the coaxial path. Every control
+of the field solve belongs to the Gmsh backend.
 
 ### Backends and dispatch
 

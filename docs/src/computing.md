@@ -36,7 +36,7 @@ each slot and the other formulas that the slot admits.
 | `shunt` | `Shunt` | `:series` | | potential coefficients inside the cables |
 | `resistivity` | `Resistivity` | `:linear` | | resistivity of the conductors at the temperature |
 | `earth_properties` | `EarthProperties` | `:constant` | `:alipio2014`, `:cigre2019`, `:datsios2019`, `:longmire1975`, `:messier1985`, `:portela1999`, `:scott1967`, `:visacro1987`, `:visacro2012` | properties of each earth layer |
-| `equivalent_earth` | `EarthProperties` | `:bottommost` | | equivalent earth of the layers below the air |
+| `equivalent_earth` | `EarthProperties` | `:bottommost` | `:martins2020`, `:xue2021` | equivalent earth of the layers below the air |
 
 An earth slot records one formula per domain of a pair of cables:
 
