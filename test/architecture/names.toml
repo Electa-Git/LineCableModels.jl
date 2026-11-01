@@ -299,6 +299,7 @@ wedepohl1973 = "the impedance of buried conductors by the low-order expansion of
 saad1996 = "the impedance of buried conductors by the closed form of Saad, Gaba and Giroux (1996; commit 9676ae6c, earthimpedance/formulas/saad1996.jl)"
 lucca1994 = "the mutual impedance between an overhead and a buried conductor from an image at a complex depth and one correction term (Lucca 1994; commit 9676ae6c, earthimpedance/formulas/lucca1994.jl)"
 ametani2009 = "the mutual impedance between an overhead and a buried conductor from a complex-depth logarithm with an exponential decay in the depth (Ametani, Yoneda, Baba and Nagaoka 2009, eq. 27)"
+carson1926 = "the impedance of overhead conductors by the correction integral of a homogeneous earth (Carson 1926; commit 88f5de54, earthimpedance/homogeneous.jl)"
 
 [register."Engine.Shunt".public]
 Formula = "a shunt formula, its identifier the type parameter"

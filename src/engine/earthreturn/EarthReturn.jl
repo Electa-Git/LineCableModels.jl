@@ -314,6 +314,35 @@ refuses a magnetic earth layer.
 
 `formula(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)` returns an entry of
 ``\\mathbf Z_g`` \\[Ω/m\\], with `i` the target and `j` the source, in either order of a mixed pair.
+
+## `Formula{:carson1926}`
+
+Impedance of conductors in the air over a nonmagnetic earth, by the correction integral of Carson
+[Carson1926](@cite), with ``\\gamma^2 = s \\mu_0 \\sigma_2`` \\[1/m²\\]:
+
+```math
+\\begin{aligned}
+J_{ij} &= \\int_0^\\infty \\frac{e^{-H_{ij} \\lambda} \\cos(y_{ij} \\lambda)}
+    {\\lambda + \\sqrt{\\lambda^2 + \\gamma^2}} \\, \\mathrm{d}\\lambda, \\\\
+Z_{g,ii} &= \\frac{s \\mu_0}{2 \\pi} \\left[\\ln\\frac{2 h_i}{r_i} + 2 J_{ii}\\right], \\\\
+Z_{g,ij} &= \\frac{s \\mu_0}{2 \\pi} \\left[\\ln\\frac{D'_{ij}}{D_{ij}} + 2 J_{ij}\\right],
+\\end{aligned}
+```
+
+where ``\\sigma_2 = 1 / \\rho_2`` \\[S/m\\], ``J_{ij}`` is in \\[dimensionless\\], and the lengths are
+those of `Formula{:gary1976}`. The first logarithm of each entry is ``\\Lambda_{ii}`` or
+``\\Lambda_{ij}`` at ``\\kappa = 0``. The integral of the source is ``\\mathrm{j} J_{ij} = P + \\mathrm{j} Q``,
+at ``p = H_{ij} \\sqrt{\\omega \\mu_0 \\sigma_2}`` and ``q = y_{ij} \\sqrt{\\omega \\mu_0 \\sigma_2}``. Its series
+evaluate that integral, and this formula evaluates it on the path of [`SpectralIntegral`](@ref), under the
+options `integral` of [`integrate`](@ref). The formula leaves out the displacement currents of the air
+and the earth, and it gives the impedance alone. A computation refuses a magnetic earth layer.
+
+### Callables
+
+`formula(Val(:J), λ, γ², H, y)` returns the integrand of ``J_{ij}`` \\[m\\] at the spectral coordinate
+`λ` \\[1/m\\], with `γ²` \\[1/m²\\], `H` and `y` \\[m\\]. `formula(Val(:Z), Val(:self), i, buffers, input, media, s, k)`
+and `formula(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)` return an entry of
+``\\mathbf Z_g`` \\[Ω/m\\], with `i` the target and `j` the source.
 """
 module EarthReturn
 
@@ -331,7 +360,8 @@ export Formula, FORMULAS
 
 "Identifiers of the earth-return formulas."
 const FORMULAS = (
-    :martins2026, :ideal, :gary1976, :wedepohl1973, :saad1996, :lucca1994, :ametani2009)
+    :martins2026, :ideal, :gary1976, :wedepohl1973, :saad1996, :lucca1994, :ametani2009,
+    :carson1926)
 
 """
 $(TYPEDEF)
@@ -440,5 +470,6 @@ include("wedepohl1973.jl")
 include("saad1996.jl")
 include("lucca1994.jl")
 include("ametani2009.jl")
+include("carson1926.jl")
 
 end

@@ -205,6 +205,7 @@ at the same 101 frequencies. The reference problem of `problems.jl` computed it 
 | `gary1976.csv` of `overhead_bare_wires` | `earth_impedance = :gary1976` |
 | `wedepohl1973.csv` of `two_bare_wires`, `two_insulated_wires` and the two coaxial cases | `earth_impedance = :wedepohl1973` |
 | `saad1996.csv` of those four cases | `earth_impedance = :saad1996` |
+| `carson1926.csv` of `overhead_bare_wires` | `earth_impedance = :carson1926` |
 | `lucca1994.csv` of `mixed_bare_wires` | `earth_impedance = (air = :gary1976, earth = :saad1996, mixed = :lucca1994)` |
 | `ametani2009.csv` of `mixed_bare_wires` | `earth_impedance = (air = :gary1976, earth = :saad1996, mixed = :ametani2009)` |
 
@@ -223,6 +224,7 @@ rows of `matrices.csv`. The last column compares with the `fem` rows over the 11
 | `:saad1996` | `two_insulated_wires` | 0.565 | 0.126 | 0.564 |
 | `:saad1996` | `coaxial_circular_strands` | 0.058 | 0.0113 | 0.102 |
 | `:saad1996` | `coaxial_rectangular_strands` | 0.0581 | 0.0113 | 0.105 |
+| `:carson1926` | `overhead_bare_wires` | 0.0285 | 0.00422 | 0.0257 |
 
 Each deviation follows from the approximation of the formula:
 
@@ -231,6 +233,13 @@ Each deviation follows from the approximation of the formula:
   `|m r| < 0.25` by its source.
 - `:saad1996` approximates the interface integral in closed form, and it takes each cable as a
   filament of the exterior radius.
+- `:carson1926` leaves out the displacement currents of the air and the earth. Its deviation grows
+  with frequency.
+
+The implementation at commit `88f5de54` stops the integral at `λ = 1` 1/m and keeps the displacement
+current of the air in its root. It differs from `:carson1926` by 0.0105 of the largest diagonal entry
+of `Zg` at 13.2 kHz, where the stop of the integral acts. At 10 MHz, where the air acts, it differs by
+0.0281.
 
 A mixed formula gives the entries of a pair across the interface, so the air and earth places give
 the other entries of `Zg`. The table gives e_Z of `mixed_bare_wires` for each mixed formula, under

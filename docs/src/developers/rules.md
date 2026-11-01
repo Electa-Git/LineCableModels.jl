@@ -373,17 +373,17 @@ Three parts. The example is an earth-return formula that gives the impedance alo
 
 ```julia
 # in src/engine/earthreturn/EarthReturn.jl
-const FORMULAS = (:martins2026, :ideal, :carson1926)
+const FORMULAS = (:martins2026, :ideal, :saad1996)
 
-# in src/engine/earthreturn/carson1926.jl
-defaults(::Type{Formula{:carson1926}}) = (;)
-validate(formula::Formula{:carson1926}, ::typeof(impedance!)) = formula
+# in src/engine/earthreturn/saad1996.jl
+defaults(::Type{Formula{:saad1996}}) = (;)
+validate(formula::Formula{:saad1996}, ::typeof(impedance!)) = formula
 
-function (f::Formula{:carson1926})(::Val{:Z}, ::Val{:self}, i, buffers, input, media, s, k)
+function (f::Formula{:saad1996})(::Val{:Z}, ::Val{:self}, i, buffers, input, media, s, k)
     # the entry of Zg for conductor i, written here from the per-frequency arguments
 end
 
-function (f::Formula{:carson1926})(::Val{:Z}, ::Val{:mutual}, i, j, buffers, input, media, s, k)
+function (f::Formula{:saad1996})(::Val{:Z}, ::Val{:mutual}, i, j, buffers, input, media, s, k)
     # the entry of Zg for the target i and the source j
 end
 ```

@@ -215,6 +215,7 @@ matrices of a computation. A formula does not write a matrix of the computation.
 | `EarthReturn` | `:ideal` | the entries `formula(Val(:P), Val(:self), i, ...)` of an overhead pair |
 | `EarthReturn` | `:gary1976`, `:wedepohl1973`, `:saad1996` | the entries `formula(Val(:Z), Val(:self), i, ...)` of the domains each treats |
 | `EarthReturn` | `:lucca1994`, `:ametani2009` | the entry `formula(Val(:Z), Val(:mutual), i, j, ...)` of a mixed pair |
+| `EarthReturn` | `:carson1926` | the kernel `formula(Val(:J), λ, γ², H, y)` and the entries `formula(Val(:Z), Val(:self), i, ...)` |
 | `Shunt` | `:series` | `formula(r_in, r_ex, κ, s)`, the coefficient of one layer, with the chain `potential!(formula, Pin, buffers, input, kappa, s)` |
 | `Resistivity` | `:linear` | `formula(material, θ)` |
 | `EarthProperties` | `:constant` and the nine soil laws | `formula(layer, f)`, a law: the layer at a frequency |
