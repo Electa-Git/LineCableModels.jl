@@ -196,9 +196,9 @@ error of the reactive part of its form for a solid conductor.
 ## Earth-return formulas
 
 Each earth-return formula of this section has one file in each case folder whose pairs it treats,
-named after the formula. The file gives the matrix `Zg` of the formula in the form of `stages.csv`,
-at the same 101 frequencies. The reference problem of `problems.jl` computed it with
-`trace = true`, at the commit that adds the file.
+named after the formula. The file gives the matrix `Zg` of the formula, and `Pg` where the formula
+gives it, in the form of `stages.csv`, at the same 101 frequencies. The reference problem of
+`problems.jl` computed it with `trace = true`, at the commit that adds the file.
 
 | Files | Formulation |
 | --- | --- |
@@ -208,6 +208,7 @@ at the same 101 frequencies. The reference problem of `problems.jl` computed it 
 | `carson1926.csv` of `overhead_bare_wires` | `earth_impedance = :carson1926` |
 | `pollaczek1926.csv` of `two_bare_wires`, `two_insulated_wires` and the two coaxial cases | `earth_impedance = :pollaczek1926` |
 | `pollaczek1926.csv` of `mixed_bare_wires` | `earth_impedance = (air = :carson1926, earth = :pollaczek1926, mixed = :pollaczek1926)` |
+| `papadopoulos2010.csv` of `two_bare_wires`, `two_insulated_wires` and the two coaxial cases | `earth_impedance = :papadopoulos2010, earth_admittance = :papadopoulos2010` |
 | `lucca1994.csv` of `mixed_bare_wires` | `earth_impedance = (air = :gary1976, earth = :saad1996, mixed = :lucca1994)` |
 | `ametani2009.csv` of `mixed_bare_wires` | `earth_impedance = (air = :gary1976, earth = :saad1996, mixed = :ametani2009)` |
 
@@ -277,3 +278,31 @@ Each deviation of a mixed formula follows from its approximation:
 differs by at most 0.0258, at 2.51 kHz. At commit `88f5de54` the buried integral stops at `λ = 1` 1/m. On
 `two_bare_wires` it differs from `:pollaczek1926` by at most 0.0125 of the largest diagonal entry of `Zg`,
 at 9.12 kHz.
+
+`:papadopoulos2010` gives `Zg` and `Pg`, so `Z` and `Y` both follow from it. The table gives e_Z and e_Y.
+Their maximum and RMS over the 101 frequencies compare with the `analytical` rows of `matrices.csv`. The
+last two columns compare with the `fem` rows over the 11 FEM frequencies:
+
+| Case | e_Z maximum | e_Z RMS | e_Y maximum | e_Y RMS | e_Z against FEM | e_Y against FEM |
+| --- | --- | --- | --- | --- | --- | --- |
+| `two_bare_wires` | 0.568 | 0.126 | 1.95 | 0.374 | 0.567 | 0.788 |
+| `two_insulated_wires` | 0.565 | 0.126 | 0.00202 | 0.000336 | 0.564 | 0.00214 |
+| `coaxial_circular_strands` | 0.0778 | 0.0162 | 0.0668 | 0.0249 | 0.118 | 0.117 |
+| `coaxial_rectangular_strands` | 0.0779 | 0.0162 | 0.0668 | 0.0249 | 0.121 | 0.118 |
+
+`e_Z` follows from the filament and from the longitudinal constant. `e_Y` follows from the term `G` of
+equation (6c) of the source. On `two_bare_wires`, that term of a diagonal entry is 8 to 9 times the rest
+of the entry below 1 kHz. On `coaxial_circular_strands` it is 2.4 times the rest at 0.1 Hz. The source
+writes the direct and image term as a spectral integral. Its cosine converges only conditionally at
+equal depths, so the formula takes that term in closed form.
+
+At commit `88f5de54` the integral of `Zg` stops at `λ = 1` 1/m, and the direct and image term has
+`√(s μ₂ σ̃₂)` in place of `√(s μ₂ σ₂)`. The table gives the deviation of its `Zg` and `Pg` from those of
+`:papadopoulos2010`, as a fraction of the largest diagonal entry of the matrix:
+
+| Case | `Zg` maximum | At | `Pg` maximum | At |
+| --- | --- | --- | --- | --- |
+| `two_bare_wires` | 0.0125 | 9.12 kHz | 4.33e-5 | 10 MHz |
+| `two_insulated_wires` | 0.0125 | 9.12 kHz | 4.41e-5 | 10 MHz |
+| `coaxial_circular_strands` | 0.0539 | 10 MHz | 0.0589 | 10 MHz |
+| `coaxial_rectangular_strands` | 0.0539 | 10 MHz | 0.0589 | 10 MHz |

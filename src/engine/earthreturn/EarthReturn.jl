@@ -384,6 +384,51 @@ the integrands \\[m\\] at the spectral coordinate `λ` \\[1/m\\], with `γ²` \\
 ``\\mathbf Z_g`` \\[Ω/m\\] for a pair in the earth and for a pair across the interface. In each, `i` is the
 target and `j` the source. `formula(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)` calls the one
 that the pair needs. `formula(Val(:Z), Val(:self), i, buffers, input, media, s, k)` returns a diagonal entry.
+
+## `Formula{:papadopoulos2010}`
+
+Impedance and potential coefficients of conductors in the earth, by Papadopoulos and coauthors
+[Papadopoulos2010](@cite), under the longitudinal constant of the earth,
+``k_x^2 = \\omega^2 \\mu_2 \\varepsilon_0 \\varepsilon_{r,2}`` \\[1/m²\\]. The symbols are
+``\\gamma_t^2 = s \\mu_t \\tilde\\sigma_t`` and ``\\kappa_t^2 = \\gamma_t^2 + k_x^2`` \\[1/m²\\], and
+``a_t = \\sqrt{\\lambda^2 + \\kappa_t^2}`` \\[1/m\\], the air ``t = 1`` and the earth ``t = 2``. Their equations
+(5) and (6) give:
+
+```math
+\\begin{aligned}
+\\Delta &= a_2 \\mu_0 + a_1 \\mu_2, \\\\
+J_{ij} &= \\int_0^\\infty \\frac{\\mu_0}{\\Delta} e^{-a_2 H_{ij}} \\cos(y_{ij} \\lambda)
+    \\, \\mathrm{d}\\lambda, \\\\
+\\tilde P_{ij} &= \\int_0^\\infty \\frac{\\mu_0}{\\Delta}
+    \\left[1 + \\frac{\\mu_2 a_2 (\\gamma_2^2 - \\gamma_1^2)}{a_2 \\gamma_1^2 \\mu_2 + a_1 \\gamma_2^2 \\mu_0}\\right]
+    e^{-a_2 H_{ij}} \\cos(y_{ij} \\lambda) \\, \\mathrm{d}\\lambda, \\\\
+\\Lambda_{ij} &= K_0(\\kappa_2 D_{ij}) - K_0(\\kappa_2 D'_{ij}), \\\\
+Z_{g,ij} &= \\frac{s \\mu_2}{2 \\pi} (\\Lambda_{ij} + 2 J_{ij}), \\qquad
+P_{g,ij} = \\frac{s}{2 \\pi \\tilde\\sigma_2} (\\Lambda_{ij} + 2 \\tilde P_{ij}),
+\\end{aligned}
+```
+
+where ``\\tilde\\sigma_1 = s \\varepsilon_0 \\varepsilon_{r,1}`` and
+``\\tilde\\sigma_2 = 1 / \\rho_2 + s \\varepsilon_0 \\varepsilon_{r,2}`` \\[S/m\\], ``\\mu_1 = \\mu_0`` and
+``\\mu_2 = \\mu_0 \\mu_{r,2}`` \\[H/m\\], and ``J_{ij}`` and ``\\tilde P_{ij}`` are in \\[dimensionless\\]. The
+lengths are those of `Formula{:gary1976}`, with ``h_i`` the depth of the conductor. A diagonal entry takes
+``y_{ii} = r_i``, ``D_{ii} = r_i`` and ``D'_{ii} = \\sqrt{r_i^2 + 4 h_i^2}``, by the substitution of the source.
+
+The earth's displacement current cancels in ``\\kappa_2^2 = s \\mu_2 / \\rho_2``. The source writes the direct
+and image term as a spectral integral, and ``\\Lambda_{ij}`` is its closed form. The integrals run on the
+path of [`SpectralIntegral`](@ref), under the options `integral` of [`integrate`](@ref). Each cable enters
+as a filament of its exterior radius. At ``\\varepsilon_{r,2} = \\varepsilon_{r,1}`` for a nonmagnetic earth,
+``a_1 = \\lambda``, and the integrand of ``\\tilde P_{ij}`` has a pole off the real axis near ``\\lambda = 0``.
+
+### Callables
+
+`formula(Val(:J), λ, κ₁², κ₂², μ₂, H, y)` and `formula(Val(:P̃), λ, κ₁², κ₂², γ₁², γ₂², μ₂, H, y)` return the
+integrands \\[m\\] at the spectral coordinate `λ` \\[1/m\\], with `κ₁²`, `κ₂²`, `γ₁²`, `γ₂²` \\[1/m²\\], `μ₂` \\[H/m\\],
+`H` and `y` \\[m\\]. `formula(Val(:Z), Val(:self), i, buffers, input, media, s, k)` and
+`formula(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)` return an entry of ``\\mathbf Z_g``
+\\[Ω/m\\], and `formula(Val(:P), Val(:self), i, buffers, input, media, s, k)` and
+`formula(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)` an entry of ``\\mathbf P_g`` \\[m/F\\],
+with `i` the target and `j` the source.
 """
 module EarthReturn
 
@@ -402,7 +447,7 @@ export Formula, FORMULAS
 "Identifiers of the earth-return formulas."
 const FORMULAS = (
     :martins2026, :ideal, :gary1976, :wedepohl1973, :saad1996, :lucca1994, :ametani2009,
-    :carson1926, :pollaczek1926)
+    :carson1926, :pollaczek1926, :papadopoulos2010)
 
 """
 $(TYPEDEF)
@@ -513,5 +558,6 @@ include("lucca1994.jl")
 include("ametani2009.jl")
 include("carson1926.jl")
 include("pollaczek1926.jl")
+include("papadopoulos2010.jl")
 
 end

@@ -217,6 +217,7 @@ matrices of a computation. A formula does not write a matrix of the computation.
 | `EarthReturn` | `:lucca1994`, `:ametani2009` | the entry `formula(Val(:Z), Val(:mutual), i, j, ...)` of a mixed pair |
 | `EarthReturn` | `:carson1926` | the kernel `formula(Val(:J), λ, γ², H, y)` and the entries `formula(Val(:Z), Val(:self), i, ...)` |
 | `EarthReturn` | `:pollaczek1926` | the kernels and the entries of each pair of media, `formula(Val(:Z), Val(2), Val(2), i, j, ...)` and `formula(Val(:Z), Val(1), Val(2), i, j, ...)` |
+| `EarthReturn` | `:papadopoulos2010` | the kernels `formula(Val(:J), λ, ...)` and `formula(Val(:P̃), λ, ...)`, and the entries `formula(Val(:Z), Val(:self), i, ...)` and `formula(Val(:P), Val(:self), i, ...)` |
 | `Shunt` | `:series` | `formula(r_in, r_ex, κ, s)`, the coefficient of one layer, with the chain `potential!(formula, Pin, buffers, input, kappa, s)` |
 | `Resistivity` | `:linear` | `formula(material, θ)` |
 | `EarthProperties` | `:constant` and the nine soil laws | `formula(layer, f)`, a law: the layer at a frequency |
