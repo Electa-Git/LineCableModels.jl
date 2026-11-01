@@ -492,6 +492,52 @@ a magnetic earth layer.
 \\[1/m\\]. Its arguments `κ₁²` and `κ₂²` are in \\[1/m²\\], `σ̃₁` and `σ̃₂` in \\[S/m\\], `H` and `y` in \\[m\\]. `formula(Val(:P), Val(:self), i, buffers, input, media, s, k)`
 and `formula(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)` return an entry of
 ``\\mathbf P_g`` \\[m/F\\], with `i` the target and `j` the source.
+
+## `Formula{:xue2018}`
+
+Impedance and potential coefficients of conductors in a nonmagnetic earth, by the complete field of
+Xue and coauthors [XueEtAl2018](@cite). The voltage refers to infinite depth. The formulation's
+``\\Gamma`` takes the place of the modal constant of the source, ``\\Gamma = \\mathrm{j} k_v``. The symbols
+are ``\\kappa_t^2 = s \\mu_0 \\tilde\\sigma_t - \\Gamma^2`` \\[1/m²\\] and
+``a_t = \\sqrt{\\lambda^2 + \\kappa_t^2}`` \\[1/m\\], the air ``t = 1`` and the earth ``t = 2``. Their equations
+(25) and (31) give:
+
+```math
+\\begin{aligned}
+\\Delta &= \\tilde\\sigma_2 a_1 + \\tilde\\sigma_1 a_2, \\\\
+J_{ij} &= \\int_0^\\infty \\frac{e^{-a_2 H_{ij}} \\cos(y_{ij} \\lambda)}{a_1 + a_2} \\, \\mathrm{d}\\lambda, \\\\
+M_{ij} &= \\int_0^\\infty \\frac{(\\tilde\\sigma_2 - \\tilde\\sigma_1) e^{-a_2 H_{ij}} \\cos(y_{ij} \\lambda)}
+    {a_2 (a_1 + a_2) \\Delta} \\, \\mathrm{d}\\lambda, \\\\
+\\tilde P_{ij} &= \\int_0^\\infty \\frac{\\tilde\\sigma_2 a_1 e^{-a_2 H_{ij}} \\cos(y_{ij} \\lambda)}{a_2 \\Delta}
+    \\, \\mathrm{d}\\lambda, \\\\
+\\Lambda_{ij} &= K_0(\\kappa_2 D_{ij}) - K_0(\\kappa_2 D'_{ij}), \\\\
+Z_{g,ij} &= \\frac{s \\mu_0}{2 \\pi} (\\Lambda_{ij} + 2 J_{ij} - 2 \\Gamma^2 M_{ij}), \\qquad
+P_{g,ij} = \\frac{s}{2 \\pi \\tilde\\sigma_2} (\\Lambda_{ij} + 2 \\tilde P_{ij}),
+\\end{aligned}
+```
+
+where ``\\tilde\\sigma_1 = s \\varepsilon_0 \\varepsilon_{r,1}`` and
+``\\tilde\\sigma_2 = 1 / \\rho_2 + s \\varepsilon_0 \\varepsilon_{r,2}`` \\[S/m\\]. ``J_{ij}`` and ``\\tilde P_{ij}`` are in
+\\[dimensionless\\], and ``M_{ij}`` is in \\[m²\\]. The lengths are those of `Formula{:gary1976}`, with ``h_i``
+the depth of the conductor. A diagonal entry takes ``y_{ii} = r_i``, ``D_{ii} = r_i`` and
+``D'_{ii} = \\sqrt{r_i^2 + 4 h_i^2}``.
+
+At ``\\Gamma = 0`` the formula is the quasi-TEM form of their equations (33) and (34), and the diagonal
+entry is the prescription of that form. The source solves a modal equation for ``k_v``, and the formula
+reads the prescribed ``\\Gamma`` instead. The integrals run on the path of [`SpectralIntegral`](@ref), under
+the options `integral` of [`integrate`](@ref). Each cable enters as a filament of its exterior radius. A
+computation refuses a magnetic earth layer.
+
+### Callables
+
+`formula(Val(:J), λ, κ₁², κ₂², H, y)`, `formula(Val(:M), λ, κ₁², κ₂², σ̃₁, σ̃₂, H, y)` and
+`formula(Val(:P̃), λ, κ₁², κ₂², σ̃₁, σ̃₂, H, y)` return the integrands at the spectral coordinate `λ` \\[1/m\\].
+The arguments `κ₁²` and `κ₂²` are in \\[1/m²\\], `σ̃₁` and `σ̃₂` in \\[S/m\\], `H` and `y` in \\[m\\].
+`formula(Val(:Z), Val(:self), i, buffers, input, media, s, k)` and
+`formula(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)` return an entry of ``\\mathbf Z_g``
+\\[Ω/m\\], and `formula(Val(:P), Val(:self), i, buffers, input, media, s, k)` and
+`formula(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)` an entry of ``\\mathbf P_g`` \\[m/F\\],
+with `i` the target and `j` the source.
 """
 module EarthReturn
 
@@ -510,7 +556,7 @@ export Formula, FORMULAS
 "Identifiers of the earth-return formulas."
 const FORMULAS = (
     :martins2026, :ideal, :gary1976, :wedepohl1973, :saad1996, :lucca1994, :ametani2009,
-    :carson1926, :pollaczek1926, :papadopoulos2010, :wise1934, :wise1948)
+    :carson1926, :pollaczek1926, :papadopoulos2010, :wise1934, :wise1948, :xue2018)
 
 """
 $(TYPEDEF)
@@ -624,5 +670,6 @@ include("pollaczek1926.jl")
 include("papadopoulos2010.jl")
 include("wise1934.jl")
 include("wise1948.jl")
+include("xue2018.jl")
 
 end

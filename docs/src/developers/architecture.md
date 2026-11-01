@@ -220,6 +220,7 @@ matrices of a computation. A formula does not write a matrix of the computation.
 | `EarthReturn` | `:papadopoulos2010` | the kernels `formula(Val(:J), λ, ...)` and `formula(Val(:P̃), λ, ...)`, and the entries `formula(Val(:Z), Val(:self), i, ...)` and `formula(Val(:P), Val(:self), i, ...)` |
 | `EarthReturn` | `:wise1934` | the kernel `formula(Val(:J), λ, κ₁², κ₂², H, y)` and the entries `formula(Val(:Z), Val(:self), i, ...)` |
 | `EarthReturn` | `:wise1948` | the kernel `formula(Val(:P̃), λ, κ₁², κ₂², σ̃₁, σ̃₂, H, y)` and the entries `formula(Val(:P), Val(:self), i, ...)` |
+| `EarthReturn` | `:xue2018` | the kernels `formula(Val(:J), λ, ...)`, `formula(Val(:M), λ, ...)` and `formula(Val(:P̃), λ, ...)`, and the entries `formula(Val(:Z), Val(:self), i, ...)` and `formula(Val(:P), Val(:self), i, ...)` |
 | `Shunt` | `:series` | `formula(r_in, r_ex, κ, s)`, the coefficient of one layer, with the chain `potential!(formula, Pin, buffers, input, kappa, s)` |
 | `Resistivity` | `:linear` | `formula(material, θ)` |
 | `EarthProperties` | `:constant` and the nine soil laws | `formula(layer, f)`, a law: the layer at a frequency |

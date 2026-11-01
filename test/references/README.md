@@ -211,6 +211,8 @@ gives it, in the form of `stages.csv`, at the same 101 frequencies. The referenc
 | `pollaczek1926.csv` of `two_bare_wires`, `two_insulated_wires` and the two coaxial cases | `earth_impedance = :pollaczek1926` |
 | `pollaczek1926.csv` of `mixed_bare_wires` | `earth_impedance = (air = :carson1926, earth = :pollaczek1926, mixed = :pollaczek1926)` |
 | `papadopoulos2010.csv` of `two_bare_wires`, `two_insulated_wires` and the two coaxial cases | `earth_impedance = :papadopoulos2010, earth_admittance = :papadopoulos2010` |
+| `xue2018.csv` of `two_bare_wires`, `two_insulated_wires` and the two coaxial cases | `earth_impedance = :xue2018, earth_admittance = :xue2018` |
+| `xue2018-gamma.csv` of `two_insulated_wires` | those two slots, with the `Γ_k` of `stages-gamma.csv` |
 | `lucca1994.csv` of `mixed_bare_wires` | `earth_impedance = (air = :gary1976, earth = :saad1996, mixed = :lucca1994)` |
 | `ametani2009.csv` of `mixed_bare_wires` | `earth_impedance = (air = :gary1976, earth = :saad1996, mixed = :ametani2009)` |
 
@@ -326,3 +328,20 @@ field referred to the interface at `Γ = 0`.
 Each corrects the ideal images. Over 100 Ω·m with `eps_r = 10`, the ratio of the correction of
 `:martins2026` to that of `:wise1948` is -0.0235 - 0.00190j at 0.1 Hz. At 10 MHz it is -0.297 - 0.839j. At low
 frequency they have opposite signs, and that of `:wise1948` is the larger.
+
+`:xue2018` gives `Zg` and `Pg`. The table compares them with `stages.csv`, and on its last row with
+`stages-gamma.csv`, as a fraction of the largest diagonal entry of the matrix at each frequency. It gives
+the maximum and RMS over the 101 frequencies:
+
+| Case | `Zg` maximum | `Zg` RMS | `Pg` maximum | `Pg` RMS |
+| --- | --- | --- | --- | --- |
+| `two_bare_wires` | 0.568 | 0.126 | 0.568 | 0.126 |
+| `two_insulated_wires` | 0.582 | 0.129 | 0.582 | 0.129 |
+| `coaxial_circular_strands` | 0.00201 | 0.000364 | 0.00198 | 0.000361 |
+| `coaxial_rectangular_strands` | 0.00201 | 0.000364 | 0.00198 | 0.000361 |
+| `two_insulated_wires`, `Γ_k` | 0.582 | 0.129 | 0.582 | 0.129 |
+
+The deviation follows from the finite radius. `:xue2018` takes each cable as a filament, and
+`:martins2026` closes the current on its circumference. At low frequency the deviation falls with the
+square of the radius, up to a logarithm, in `Zg` and in `Pg`. So `Pg` refers to the same infinite depth
+as `:martins2026`.

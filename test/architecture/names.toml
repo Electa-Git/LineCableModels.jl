@@ -304,6 +304,7 @@ pollaczek1926 = "the impedance of buried and mixed pairs by the Green functions 
 papadopoulos2010 = "the impedance and potential coefficients of buried conductors under the longitudinal constant of the earth (Papadopoulos, Tsiamitros and Papagiannis 2010; commit 88f5de54, earthimpedance/homogeneous.jl and earthadmittance/homogeneous.jl)"
 wise1934 = "the impedance of overhead conductors by the correction integral of a homogeneous earth with its displacement current (Wise 1934, Proc. IRE 22(4), p. 526)"
 wise1948 = "the potential coefficients of overhead conductors by the correction integral of a homogeneous earth (Wise 1948, Bell Syst. Tech. J. 27(2), eqs. 7, 8)"
+xue2018 = "the complete field of Xue, Ametani, Mahseredjian and Kocar for buried pairs, with the prescribed Γ in place of the modal k_v and the voltage referred to infinite depth; at Γ = 0 the paper's quasi-TEM reduction (TPWRD 33(6), 2018)"
 
 [register."Engine.Shunt".public]
 Formula = "a shunt formula, its identifier the type parameter"

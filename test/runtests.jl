@@ -39,6 +39,7 @@ using Measurements
     include("engine/papadopoulos2010.jl")
     include("engine/wise1934.jl")
     include("engine/wise1948.jl")
+    include("engine/xue2018.jl")
     include("engine/formulation.jl")
     include("engine/compute.jl")
     include("engine/result.jl")
