@@ -35,6 +35,7 @@ using Measurements
     include("engine/lucca1994.jl")
     include("engine/ametani2009.jl")
     include("engine/carson1926.jl")
+    include("engine/pollaczek1926.jl")
     include("engine/formulation.jl")
     include("engine/compute.jl")
     include("engine/result.jl")

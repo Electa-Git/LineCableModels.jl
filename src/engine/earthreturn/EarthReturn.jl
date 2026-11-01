@@ -343,6 +343,47 @@ and the earth, and it gives the impedance alone. A computation refuses a magneti
 `λ` \\[1/m\\], with `γ²` \\[1/m²\\], `H` and `y` \\[m\\]. `formula(Val(:Z), Val(:self), i, buffers, input, media, s, k)`
 and `formula(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)` return an entry of
 ``\\mathbf Z_g`` \\[Ω/m\\], with `i` the target and `j` the source.
+
+## `Formula{:pollaczek1926}`
+
+Impedance of conductors in a nonmagnetic earth and of a pair across the interface, by the Green
+functions of Pollaczek [Pollaczek1926](@cite). The symbols are ``\\gamma^2 = s \\mu_0 \\sigma_2``
+\\[1/m²\\] and ``a = \\sqrt{\\lambda^2 + \\gamma^2}`` \\[1/m\\]. For conductors in the earth, his equation
+(20b) gives:
+
+```math
+\\begin{aligned}
+J_{ij} &= \\int_0^\\infty \\frac{e^{-a H_{ij}} \\cos(y_{ij} \\lambda)}{\\lambda + a}
+    \\, \\mathrm{d}\\lambda, \\\\
+Z_{g,ii} &= \\frac{s \\mu_0}{2 \\pi} \\left[K_0(\\gamma r_i) - K_0(2 \\gamma h_i) + 2 J_{ii}\\right], \\\\
+Z_{g,ij} &= \\frac{s \\mu_0}{2 \\pi} \\left[K_0(\\gamma D_{ij}) - K_0(\\gamma D'_{ij}) + 2 J_{ij}\\right].
+\\end{aligned}
+```
+
+For a pair across the interface, his equations (19a) and (20a) are one expression, since (9) makes the
+field symmetric in the two points:
+
+```math
+Z_{g,ij} = \\frac{s \\mu_0}{\\pi} \\int_0^\\infty
+    \\frac{e^{-h_a \\lambda - h_g a} \\cos(y_{ij} \\lambda)}{\\lambda + a} \\, \\mathrm{d}\\lambda,
+```
+
+where ``\\sigma_2 = 1 / \\rho_2`` \\[S/m\\] and ``J_{ij}`` is in \\[dimensionless\\]. The lengths are those of
+`Formula{:gary1976}`, with ``h_i`` the depth of the conductor, and ``h_a`` and ``h_g`` those of `Formula{:lucca1994}`.
+The formula evaluates the integrals on the path of [`SpectralIntegral`](@ref), under the options
+`integral` of [`integrate`](@ref). Each cable enters as a filament of its exterior radius. The formula
+leaves out the displacement currents of the air and the earth, and it gives the impedance alone. A
+computation refuses a magnetic earth layer.
+
+### Callables
+
+`formula(Val(:J), Val(2), Val(2), λ, γ², H, y)` and `formula(Val(:J), Val(1), Val(2), λ, γ², h_g, H, y)` return
+the integrands \\[m\\] at the spectral coordinate `λ` \\[1/m\\], with `γ²` \\[1/m²\\] and the lengths \\[m\\].
+`formula(Val(:Z), Val(2), Val(2), i, j, buffers, input, media, s)` and
+`formula(Val(:Z), Val(1), Val(2), i, j, buffers, input, media, s)` return an off-diagonal entry of
+``\\mathbf Z_g`` \\[Ω/m\\] for a pair in the earth and for a pair across the interface. In each, `i` is the
+target and `j` the source. `formula(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)` calls the one
+that the pair needs. `formula(Val(:Z), Val(:self), i, buffers, input, media, s, k)` returns a diagonal entry.
 """
 module EarthReturn
 
@@ -361,7 +402,7 @@ export Formula, FORMULAS
 "Identifiers of the earth-return formulas."
 const FORMULAS = (
     :martins2026, :ideal, :gary1976, :wedepohl1973, :saad1996, :lucca1994, :ametani2009,
-    :carson1926)
+    :carson1926, :pollaczek1926)
 
 """
 $(TYPEDEF)
@@ -471,5 +512,6 @@ include("saad1996.jl")
 include("lucca1994.jl")
 include("ametani2009.jl")
 include("carson1926.jl")
+include("pollaczek1926.jl")
 
 end

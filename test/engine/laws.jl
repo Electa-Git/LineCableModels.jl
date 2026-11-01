@@ -91,7 +91,7 @@
         @test select(CoaxialFormulation, Val(:resistivity), :linear => (;)) === law
         @test select(CoaxialFormulation, Val(:resistivity), law) === law
         @test_throws "the formulas are (:linear,)" select(CoaxialFormulation, Val(:resistivity), :quadratic)
-        @test_throws "the formulas are (:martins2026, :ideal, :gary1976, :wedepohl1973, :saad1996, :lucca1994, :ametani2009, :carson1926)" select(
+        @test_throws "the formulas are (:martins2026, :ideal, :gary1976, :wedepohl1973, :saad1996, :lucca1994, :ametani2009, :carson1926, :pollaczek1926)" select(
             CoaxialFormulation, Val(:earth_impedance), :nonexistent)
         @test_throws ArgumentError select(CoaxialFormulation, Val(:resistivity), :linear => (rate = 1.0,))
     end

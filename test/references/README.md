@@ -206,6 +206,8 @@ at the same 101 frequencies. The reference problem of `problems.jl` computed it 
 | `wedepohl1973.csv` of `two_bare_wires`, `two_insulated_wires` and the two coaxial cases | `earth_impedance = :wedepohl1973` |
 | `saad1996.csv` of those four cases | `earth_impedance = :saad1996` |
 | `carson1926.csv` of `overhead_bare_wires` | `earth_impedance = :carson1926` |
+| `pollaczek1926.csv` of `two_bare_wires`, `two_insulated_wires` and the two coaxial cases | `earth_impedance = :pollaczek1926` |
+| `pollaczek1926.csv` of `mixed_bare_wires` | `earth_impedance = (air = :carson1926, earth = :pollaczek1926, mixed = :pollaczek1926)` |
 | `lucca1994.csv` of `mixed_bare_wires` | `earth_impedance = (air = :gary1976, earth = :saad1996, mixed = :lucca1994)` |
 | `ametani2009.csv` of `mixed_bare_wires` | `earth_impedance = (air = :gary1976, earth = :saad1996, mixed = :ametani2009)` |
 
@@ -225,6 +227,10 @@ rows of `matrices.csv`. The last column compares with the `fem` rows over the 11
 | `:saad1996` | `coaxial_circular_strands` | 0.058 | 0.0113 | 0.102 |
 | `:saad1996` | `coaxial_rectangular_strands` | 0.0581 | 0.0113 | 0.105 |
 | `:carson1926` | `overhead_bare_wires` | 0.0285 | 0.00422 | 0.0257 |
+| `:pollaczek1926` | `two_bare_wires` | 0.568 | 0.126 | 0.567 |
+| `:pollaczek1926` | `two_insulated_wires` | 0.565 | 0.126 | 0.564 |
+| `:pollaczek1926` | `coaxial_circular_strands` | 0.0599 | 0.011 | 0.101 |
+| `:pollaczek1926` | `coaxial_rectangular_strands` | 0.06 | 0.011 | 0.104 |
 
 Each deviation follows from the approximation of the formula:
 
@@ -235,6 +241,7 @@ Each deviation follows from the approximation of the formula:
   filament of the exterior radius.
 - `:carson1926` leaves out the displacement currents of the air and the earth. Its deviation grows
   with frequency.
+- `:pollaczek1926` takes each cable as a filament and leaves out both displacement currents.
 
 The implementation at commit `88f5de54` stops the integral at `λ = 1` 1/m and keeps the displacement
 current of the air in its root. It differs from `:carson1926` by 0.0105 of the largest diagonal entry
@@ -252,6 +259,8 @@ entries alone:
 | `:lucca1994` | `:martins2026` | 0.0907 | 0.0427 | 0.0879 |
 | `:ametani2009` | `:gary1976`, `:saad1996` | 0.0921 | 0.0305 | 0.0924 |
 | `:ametani2009` | `:martins2026` | 0.0258 | 0.0122 | 0.0239 |
+| `:pollaczek1926` | `:carson1926`, `:pollaczek1926` | 0.0921 | 0.0277 | 0.0924 |
+| `:pollaczek1926` | `:martins2026` | 0.000341 | 0.000139 | 0.00613 |
 
 At 631 kHz the mixed entry of `Zg` is `-4.61e-4 + 6.80e-4j` Ω/m under `:martins2026`,
 `5.98e-2 + 6.35e-2j` under `:lucca1994` and `-3.03e-4 + 5.10e-4j` under `:ametani2009`. `:lucca1994`
@@ -262,3 +271,9 @@ Each deviation of a mixed formula follows from its approximation:
 - `:lucca1994` takes an image at a complex depth and one correction term. Its logarithm does not
   decay with depth.
 - `:ametani2009` multiplies that logarithm by the decay `exp(-h_g / p)` over the depth `h_g`.
+
+`:pollaczek1926` in the mixed place is the integral that the two others approximate. Against it,
+`:lucca1994` differs by at most 0.0911 of the largest diagonal entry of `Zg`, at 22.9 kHz. `:ametani2009`
+differs by at most 0.0258, at 2.51 kHz. At commit `88f5de54` the buried integral stops at `λ = 1` 1/m. On
+`two_bare_wires` it differs from `:pollaczek1926` by at most 0.0125 of the largest diagonal entry of `Zg`,
+at 9.12 kHz.
