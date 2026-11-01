@@ -429,6 +429,69 @@ integrands \\[m\\] at the spectral coordinate `λ` \\[1/m\\], with `κ₁²`, `�
 \\[Ω/m\\], and `formula(Val(:P), Val(:self), i, buffers, input, media, s, k)` and
 `formula(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)` an entry of ``\\mathbf P_g`` \\[m/F\\],
 with `i` the target and `j` the source.
+
+## `Formula{:wise1934}`
+
+Impedance of conductors in the air over a nonmagnetic earth, by the correction integral of Wise
+[Wise1934](@cite). The symbols are ``\\kappa_t^2 = s \\mu_0 \\tilde\\sigma_t`` \\[1/m²\\], the air ``t = 1``
+and the earth ``t = 2``:
+
+```math
+\\begin{aligned}
+J_{ij} &= \\int_0^\\infty \\frac{e^{-H_{ij} \\lambda} \\cos(y_{ij} \\lambda)}
+    {\\lambda + \\sqrt{\\lambda^2 + \\kappa_2^2 - \\kappa_1^2}} \\, \\mathrm{d}\\lambda, \\\\
+Z_{g,ii} &= \\frac{s \\mu_0}{2 \\pi} \\left[\\ln\\frac{2 h_i}{r_i} + 2 J_{ii}\\right], \\\\
+Z_{g,ij} &= \\frac{s \\mu_0}{2 \\pi} \\left[\\ln\\frac{D'_{ij}}{D_{ij}} + 2 J_{ij}\\right],
+\\end{aligned}
+```
+
+where ``\\tilde\\sigma_1 = s \\varepsilon_0 \\varepsilon_{r,1}`` and
+``\\tilde\\sigma_2 = 1 / \\rho_2 + s \\varepsilon_0 \\varepsilon_{r,2}`` \\[S/m\\], ``J_{ij}`` is in \\[dimensionless\\],
+and the lengths are those of `Formula{:gary1976}`. The displacement current of the earth enters through
+``\\kappa_2^2``. The source fixes the longitudinal constant at that of the air, as a first approximation. Where the earth has the permittivity of the air, ``J_{ij}`` is that of
+`Formula{:carson1926}`. Otherwise the series of Carson hold with their argument multiplied by
+``\\sqrt{(\\kappa_2^2 - \\kappa_1^2) \\rho_2 / (s \\mu_0)}``.
+
+The formula evaluates the integral on the path of [`SpectralIntegral`](@ref), under the options
+`integral` of [`integrate`](@ref), and it gives the impedance alone. A computation refuses a magnetic
+earth layer.
+
+### Callables
+
+`formula(Val(:J), λ, κ₁², κ₂², H, y)` returns the integrand of ``J_{ij}`` \\[m\\] at the spectral coordinate
+`λ` \\[1/m\\], with `κ₁²`, `κ₂²` \\[1/m²\\], `H` and `y` \\[m\\]. `formula(Val(:Z), Val(:self), i, buffers, input, media, s, k)`
+and `formula(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)` return an entry of
+``\\mathbf Z_g`` \\[Ω/m\\], with `i` the target and `j` the source.
+
+## `Formula{:wise1948}`
+
+Potential coefficients of conductors in the air over a nonmagnetic earth, by equations (7) and (8) of
+Wise [Wise1948](@cite), with the symbols of `Formula{:wise1934}`:
+
+```math
+\\begin{aligned}
+M_{ij} + \\mathrm{j} N_{ij} &= \\int_0^\\infty \\frac{e^{-H_{ij} \\lambda} \\cos(y_{ij} \\lambda)}
+    {(\\tilde\\sigma_2 / \\tilde\\sigma_1) \\lambda + \\sqrt{\\lambda^2 + \\kappa_2^2 - \\kappa_1^2}}
+    \\, \\mathrm{d}\\lambda, \\\\
+P_{g,ii} &= \\frac{1}{2 \\pi \\varepsilon_1} \\left[\\ln\\frac{2 h_i}{r_i} + 2 (M_{ii} + \\mathrm{j} N_{ii})\\right], \\\\
+P_{g,ij} &= \\frac{1}{2 \\pi \\varepsilon_1} \\left[\\ln\\frac{D'_{ij}}{D_{ij}} + 2 (M_{ij} + \\mathrm{j} N_{ij})\\right],
+\\end{aligned}
+```
+
+where ``\\varepsilon_1 = \\varepsilon_0 \\varepsilon_{r,1}`` \\[F/m\\], and ``M_{ij}`` and ``N_{ij}`` are in
+\\[dimensionless\\]. The source fixes the longitudinal constant at that of the air, as a first
+approximation. Its charts and its closed approximation evaluate the same integral.
+
+The formula evaluates the integral on the path of [`SpectralIntegral`](@ref), under the options
+`integral` of [`integrate`](@ref), and it gives the potential coefficients alone. A computation refuses
+a magnetic earth layer.
+
+### Callables
+
+`formula(Val(:P̃), λ, κ₁², κ₂², σ̃₁, σ̃₂, H, y)` returns the integrand \\[m\\] at the spectral coordinate `λ`
+\\[1/m\\]. Its arguments `κ₁²` and `κ₂²` are in \\[1/m²\\], `σ̃₁` and `σ̃₂` in \\[S/m\\], `H` and `y` in \\[m\\]. `formula(Val(:P), Val(:self), i, buffers, input, media, s, k)`
+and `formula(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)` return an entry of
+``\\mathbf P_g`` \\[m/F\\], with `i` the target and `j` the source.
 """
 module EarthReturn
 
@@ -447,7 +510,7 @@ export Formula, FORMULAS
 "Identifiers of the earth-return formulas."
 const FORMULAS = (
     :martins2026, :ideal, :gary1976, :wedepohl1973, :saad1996, :lucca1994, :ametani2009,
-    :carson1926, :pollaczek1926, :papadopoulos2010)
+    :carson1926, :pollaczek1926, :papadopoulos2010, :wise1934, :wise1948)
 
 """
 $(TYPEDEF)
@@ -559,5 +622,7 @@ include("ametani2009.jl")
 include("carson1926.jl")
 include("pollaczek1926.jl")
 include("papadopoulos2010.jl")
+include("wise1934.jl")
+include("wise1948.jl")
 
 end

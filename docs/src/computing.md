@@ -31,8 +31,8 @@ each slot and the other formulas that the slot admits.
 | `insulation_impedance` | `InsulationImpedance` | `:ametani1980` | | magnetic series term of a dielectric interval |
 | `insulation_admittance` | `InsulationAdmittance` | `:lossless` | `:lossy` | admittivity of insulator layers |
 | `semicon_admittance` | `SemiconAdmittance` | `:lossless` | `:lossy` | admittivity of semicon layers |
-| `earth_impedance` | `EarthReturn` | `:martins2026` | `:gary1976`, `:wedepohl1973`, `:saad1996`, `:lucca1994`, `:ametani2009`, `:carson1926`, `:pollaczek1926`, `:papadopoulos2010` | earth-return impedance |
-| `earth_admittance` | `EarthReturn` | `:martins2026` | `:ideal`, `:papadopoulos2010` | earth-return potential coefficients |
+| `earth_impedance` | `EarthReturn` | `:martins2026` | `:gary1976`, `:wedepohl1973`, `:saad1996`, `:lucca1994`, `:ametani2009`, `:carson1926`, `:pollaczek1926`, `:papadopoulos2010`, `:wise1934` | earth-return impedance |
+| `earth_admittance` | `EarthReturn` | `:martins2026` | `:ideal`, `:papadopoulos2010`, `:wise1948` | earth-return potential coefficients |
 | `shunt` | `Shunt` | `:series` | | potential coefficients inside the cables |
 | `resistivity` | `Resistivity` | `:linear` | | resistivity of the conductors at the temperature |
 | `earth_properties` | `EarthProperties` | `:constant` | `:alipio2014`, `:cigre2019`, `:datsios2019`, `:longmire1975`, `:messier1985`, `:portela1999`, `:scott1967`, `:visacro1987`, `:visacro2012` | properties of each earth layer |

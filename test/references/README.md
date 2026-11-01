@@ -206,6 +206,8 @@ gives it, in the form of `stages.csv`, at the same 101 frequencies. The referenc
 | `wedepohl1973.csv` of `two_bare_wires`, `two_insulated_wires` and the two coaxial cases | `earth_impedance = :wedepohl1973` |
 | `saad1996.csv` of those four cases | `earth_impedance = :saad1996` |
 | `carson1926.csv` of `overhead_bare_wires` | `earth_impedance = :carson1926` |
+| `wise1934.csv` of `overhead_bare_wires` | `earth_impedance = :wise1934` |
+| `wise1948.csv` of `overhead_bare_wires` | `earth_admittance = :wise1948` |
 | `pollaczek1926.csv` of `two_bare_wires`, `two_insulated_wires` and the two coaxial cases | `earth_impedance = :pollaczek1926` |
 | `pollaczek1926.csv` of `mixed_bare_wires` | `earth_impedance = (air = :carson1926, earth = :pollaczek1926, mixed = :pollaczek1926)` |
 | `papadopoulos2010.csv` of `two_bare_wires`, `two_insulated_wires` and the two coaxial cases | `earth_impedance = :papadopoulos2010, earth_admittance = :papadopoulos2010` |
@@ -228,6 +230,7 @@ rows of `matrices.csv`. The last column compares with the `fem` rows over the 11
 | `:saad1996` | `coaxial_circular_strands` | 0.058 | 0.0113 | 0.102 |
 | `:saad1996` | `coaxial_rectangular_strands` | 0.0581 | 0.0113 | 0.105 |
 | `:carson1926` | `overhead_bare_wires` | 0.0285 | 0.00422 | 0.0257 |
+| `:wise1934` | `overhead_bare_wires` | 0.0285 | 0.00422 | 0.0257 |
 | `:pollaczek1926` | `two_bare_wires` | 0.568 | 0.126 | 0.567 |
 | `:pollaczek1926` | `two_insulated_wires` | 0.565 | 0.126 | 0.564 |
 | `:pollaczek1926` | `coaxial_circular_strands` | 0.0599 | 0.011 | 0.101 |
@@ -242,6 +245,7 @@ Each deviation follows from the approximation of the formula:
   filament of the exterior radius.
 - `:carson1926` leaves out the displacement currents of the air and the earth. Its deviation grows
   with frequency.
+- `:wise1934` is the integral of `:carson1926` at `eps_r = 1`, so the two share their cause.
 - `:pollaczek1926` takes each cable as a filament and leaves out both displacement currents.
 
 The implementation at commit `88f5de54` stops the integral at `λ = 1` 1/m and keeps the displacement
@@ -306,3 +310,19 @@ At commit `88f5de54` the integral of `Zg` stops at `λ = 1` 1/m, and the direct 
 | `two_insulated_wires` | 0.0125 | 9.12 kHz | 4.41e-5 | 10 MHz |
 | `coaxial_circular_strands` | 0.0539 | 10 MHz | 0.0589 | 10 MHz |
 | `coaxial_rectangular_strands` | 0.0539 | 10 MHz | 0.0589 | 10 MHz |
+
+`:wise1948` gives `Pg` alone, so `Z` is that of the reference. The table gives the deviation e_Y of `Y`.
+Its maximum and RMS over the 101 frequencies compare with the `analytical` rows of `matrices.csv`. The
+last column compares with the `fem` rows over the 11 FEM frequencies:
+
+| Case | Maximum | RMS | Maximum against FEM |
+| --- | --- | --- | --- |
+| `overhead_bare_wires` | 0.0202 | 0.00297 | 0.0174 |
+
+`:wise1948` is another quantity than `:martins2026`. It is a scalar potential coefficient under a
+longitudinal constant fixed at that of the air. `:martins2026` gives the mean of the integrated vertical
+field referred to the interface at `Γ = 0`.
+
+Each corrects the ideal images. Over 100 Ω·m with `eps_r = 10`, the ratio of the correction of
+`:martins2026` to that of `:wise1948` is -0.0235 - 0.00190j at 0.1 Hz. At 10 MHz it is -0.297 - 0.839j. At low
+frequency they have opposite signs, and that of `:wise1948` is the larger.
