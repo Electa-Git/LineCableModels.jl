@@ -1,4 +1,5 @@
-using Documenter, DocumenterCitations, Literate, LineCableModels, Measurements, Gmsh
+using Documenter, DocumenterCitations, Literate, LineCableModels, Measurements, Gmsh,
+      getdp_jll
 using TOML
 
 const GmshExt = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)

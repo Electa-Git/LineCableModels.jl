@@ -7,6 +7,38 @@ end
     Engine = LineCableModels.Engine
     backend = LineCableModels.backend
 
+    @testset "every formula slot accepts its three forms" begin
+        for constructor in (CoaxialFormulation, FEM)
+            formulation = constructor()
+            for slot in fieldnames(typeof(formulation))[1:(end - 1)]
+                law = getproperty(formulation, slot)
+                family = parentmodule(typeof(law))
+                id = only(family.FORMULAS)
+                expected = constructor(; (slot => id,)...)
+                @test constructor(; (slot => (id => (;)),)...) == expected
+                @test constructor(; (slot => law,)...) == expected
+            end
+        end
+        section = (integral = (rtol = 1e-10,),)
+        law = Engine.EarthReturn.Formula(Val(:unified); section...)
+        formulation = CoaxialFormulation(; earth_impedance = :unified => section,
+            earth_admittance = :unified => section)
+        @test formulation == CoaxialFormulation(; earth_impedance = law,
+            earth_admittance = law)
+        @test formulation.earth_impedance.options.integral.rtol == 1e-10
+        @test formulation.earth_admittance.options.integral.rtol == 1e-10
+    end
+
+    @testset "unknown formula identifiers name the available formulas" begin
+        for family in (Engine.InternalImpedance, Engine.InsulationImpedance,
+            Engine.InsulationAdmittance, Engine.SemiconAdmittance, Engine.Shunt,
+            Engine.EarthProperties)
+            @test_throws ArgumentError LineCableModels.select(family.Formula, :unknown)
+            @test_throws "formula :unknown; the formulas are $(family.FORMULAS)" LineCableModels.select(
+                family.Formula, :unknown)
+        end
+    end
+
     @testset "a backend runs each formulation type" begin
         @test backend(CoaxialFormulation) === LineCableModels.LCMBackend()
         @test backend(typeof(FEM())) === LineCableModels.GmshBackend()
@@ -74,6 +106,6 @@ end
             CableSystem, [wire, wire], [Placement(0.0, -1.0), Placement(1.0, -1.0)];
             connections = [(core = 1,), (core = 2,)], id = "two_wires", line_length = 1.0)
         problem = LineParametersProblem(system, homogeneous(rho = 100); frequencies = [50.0])
-        @test_throws "using Gmsh" compute(problem, FEM())
+        @test_throws "using Gmsh, getdp_jll" compute(problem, FEM())
     end
 end

@@ -74,9 +74,8 @@ and for nothing else.
 
 A physical element takes a physical noun: `Circle`, `Annulus`, `CircularPattern`,
 `Helix`. An operator on an element takes the name of its action: `Offset`, `Repeat`, `Lay`,
-`Enclosure`. A selector symbol stands for a definite act, law or source: `:discover`,
-`:download`, `:unified`, `:schelkunoff1934`. No selector is `:auto`, `:default` or a vague
-quality.
+`Enclosure`. A selector symbol stands for a definite act, law or source: `:unified`,
+`:schelkunoff1934`. No selector is `:auto`, `:default` or a vague quality.
 
 ### Equality is equality of the computation
 
@@ -203,14 +202,7 @@ exemption is the result of a Julia function that returns `nothing` by its own pr
 as `findfirst`, `match`, `tryparse` or `Sys.which`, tested directly.
 
 A fact that does not hold is a row that does not exist. A result without a trace stores an
-empty record. An optional external resource takes a positive default: a public type that
-names where the resource comes from, or a path.
-
-```julia
-getdp_executable = GetdpBinary{:discover}()   # the default: PATH, else the download
-getdp_executable = :download                  # the pinned artifact
-getdp_executable = "/opt/getdp/bin/getdp"     # a path, used as is
-```
+empty record.
 
 Reason: a decision by absence is a hidden branch with a hidden default, and the type system
 cannot see either.

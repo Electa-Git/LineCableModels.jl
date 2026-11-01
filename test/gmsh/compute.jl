@@ -1,5 +1,33 @@
 @testset "Gmsh computation" begin
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
+    @testset "MUMPS backward-error diagnostics" begin
+        reference = last(first(REFERENCES))
+        problem = LineParametersProblem(reference.system, reference.earth;
+            temperature = reference.temperature, frequencies = reference.frequencies[1:1])
+        mktempdir() do folder
+            cd(folder) do
+                result = @test_logs (:warn, r"MUMPS backward-error target not met") match_mode = :any compute(
+                    problem, FEM(); overrides = (MumpsBackwardErrorTolerance = 1e-30,),
+                    getdp_verbosity = 4, keep_run_directory = true)
+                @test all(isfinite, result.Z)
+                retained = only(readdir(
+                    joinpath(folder, ".linecablemodels", "fem", problem.system.id); join = true))
+                @test isfile(joinpath(retained, "logs", "frequency-0001-petsc.log"))
+            end
+        end
+    end
+    @testset "earth sizing ceiling" begin
+        reference = last(first(REFERENCES))
+        problem = LineParametersProblem(reference.system, homogeneous(rho = 1e6);
+            temperature = reference.temperature, frequencies = reference.frequencies[1:1])
+        mktempdir() do folder
+            cd(folder) do
+                result = @test_logs (:warn, r"earth too resistive for FEM domain sizing") match_mode = :any compute(
+                    problem, FEM())
+                @test all(isfinite, result.Z)
+            end
+        end
+    end
     facts = Dict(
         "two_bare_wires" => (1e-6, (Z = 0.00568, Y = 0.00798)),
         "two_insulated_wires" => (1e-6, (Z = 0.00407, Y = 0.000447)),
@@ -33,13 +61,11 @@
                 @test occursin(r"^\d{8}-\d{6}-[a-z0-9]{4}$", basename(path))
                 @test !ispath(path)
                 result = compute(
-                    problem, formulation; trace = true, keep_run_directory = true,
-                    getdp_executable = :download)
+                    problem, formulation; trace = true, keep_run_directory = true)
                 root = dirname(path)
                 retained = only(readdir(root; join = true))
                 lines = readlines(joinpath(retained, "logs", "getdp-info.log"))
-                @test lines[1] == realpath(extension.GetdpBinary{:download}())
-                @test lines[2] == string(extension.GetdpBinary{:download}())
+                @test lines[1] == getdp_jll.getdp().exec[1]
                 @test result.frequencies == problem.frequencies
                 @test result.terminals ==
                       ["cable:$(row.cable):$(problem.system.designs[row.cable].terminals[row.terminal].name)"
@@ -102,8 +128,7 @@
                     temperature = reference.temperature,
                     frequencies = problem.frequencies[1:1])
                 result = compute(
-                    single, formulation; trace = false, keep_run_directory = false,
-                    getdp_executable = :download)
+                    single, formulation; trace = false, keep_run_directory = false)
                 @test size(result.trace.Z) == (0, 0, 0)
                 @test size(result.trace.P) == (0, 0, 0)
                 @test isempty(readdir(joinpath(folder, ".linecablemodels", "fem")))
@@ -125,7 +150,7 @@
                     current = gmsh.model.getCurrent()
                     terminal = gmsh.option.getNumber("General.Terminal")
                     verbosity = gmsh.option.getNumber("General.Verbosity")
-                    compute(problem, FEM(); getdp_executable = :download)
+                    compute(problem, FEM())
                     @test Bool(gmsh.isInitialized())
                     @test gmsh.model.list() == models
                     @test gmsh.model.getCurrent() == current
@@ -147,7 +172,7 @@
         problem = LineParametersProblem(system, homogeneous(rho = 100); frequencies = [50.0])
         mktempdir() do folder
             cd(folder) do
-                result = compute(problem, FEM(); getdp_executable = :download)
+                result = compute(problem, FEM())
                 @test result isa LineParameters{Float64}
                 @test all(isfinite, result.Z)
                 @test all(isfinite, result.Y)
@@ -168,11 +193,9 @@
         mktempdir() do folder
             cd(folder) do
                 result = compute(problem,
-                    FEM(; bundle = false, kron = false, transposition = false);
-                    getdp_executable = :download)
+                    FEM(; bundle = false, kron = false, transposition = false))
                 expected = compute(deterministic,
-                    FEM(; bundle = false, kron = false, transposition = false);
-                    getdp_executable = :download)
+                    FEM(; bundle = false, kron = false, transposition = false))
                 @test result isa LineParameters{Float64}
                 for quantity in (:Z, :Y)
                     actual = getfield(result, quantity)
@@ -201,7 +224,7 @@
             cd(folder) do
                 path = extension.directory(problem)
                 @test basename(dirname(path)) == "two_cables_grounded"
-                result = compute(problem, FEM(); trace = true, getdp_executable = :download)
+                result = compute(problem, FEM(); trace = true)
                 coaxial = compute(problem, CoaxialFormulation())
                 @test result.terminals == coaxial.terminals
                 @test result.terminals == ["cable:1:core+cable:2:core", "cable:2:sheath"]
@@ -234,11 +257,9 @@
         mktempdir() do folder
             cd(folder) do
                 transposed = compute(problem,
-                    FEM(; bundle = false, kron = false, transposition = true);
-                    getdp_executable = :download)
+                    FEM(; bundle = false, kron = false, transposition = true))
                 unreduced = compute(problem,
-                    FEM(; bundle = false, kron = false, transposition = false);
-                    getdp_executable = :download)
+                    FEM(; bundle = false, kron = false, transposition = false))
                 for (computed, original) in ((transposed.Z, unreduced.Z),
                     (transposed.Y, unreduced.Y))
                     @test all(norm(computed[:, :, k] -
