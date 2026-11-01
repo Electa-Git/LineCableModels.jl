@@ -216,7 +216,7 @@ matrices of a computation. A formula does not write a matrix of the computation.
 | `EarthReturn` | `:gary1976`, `:wedepohl1973`, `:saad1996` | the entries `formula(Val(:Z), Val(:self), i, ...)` of the domains each treats |
 | `EarthReturn` | `:lucca1994`, `:ametani2009` | the entry `formula(Val(:Z), Val(:mutual), i, j, ...)` of a mixed pair |
 | `EarthReturn` | `:carson1926` | the kernel `formula(Val(:J), λ, γ², H, y)` and the entries `formula(Val(:Z), Val(:self), i, ...)` |
-| `EarthReturn` | `:pollaczek1926` | the kernels and the entries of each pair of media, `formula(Val(:Z), Val(2), Val(2), i, j, ...)` and `formula(Val(:Z), Val(1), Val(2), i, j, ...)` |
+| `EarthReturn` | `:pollaczek1926` | the kernels and the entries of its two expressions, `formula(Val(:Z), Val(:earth), i, j, ...)` and `formula(Val(:Z), Val(:mixed), i, j, ...)` |
 | `EarthReturn` | `:papadopoulos2010` | the kernels `formula(Val(:J), λ, ...)` and `formula(Val(:P̃), λ, ...)`, and the entries `formula(Val(:Z), Val(:self), i, ...)` and `formula(Val(:P), Val(:self), i, ...)` |
 | `EarthReturn` | `:wise1934` | the kernel `formula(Val(:J), λ, κ₁², κ₂², H, y)` and the entries `formula(Val(:Z), Val(:self), i, ...)` |
 | `EarthReturn` | `:wise1948` | the kernel `formula(Val(:P̃), λ, κ₁², κ₂², σ̃₁, σ̃₂, H, y)` and the entries `formula(Val(:P), Val(:self), i, ...)` |
@@ -302,14 +302,16 @@ it arrives, calls it per point, never the reverse. Its steps are fixed.
 1. `validate(problem, formulation)` and `validate(problem, formula)` for each formula.
 2. `CoaxialInput(problem, options)` builds the blueprint of every cable, the placements and
    the reduction plan from `reductions(system, options)`.
-3. `initialize_buffers(formulation, problem, input)`: every array once, before the loop.
-4. The loop `solve!`, its own method, over the frequencies.
-5. `LineParameters` from the filled arrays, validated once.
+3. `validate(input, formulation)`: the formula of each earth place against the pairs of layers
+   of the input.
+4. `initialize_buffers(formulation, problem, input)`: every array once, before the loop.
+5. The loop `solve!`, its own method, over the frequencies.
+6. `LineParameters` from the filled arrays, validated once.
 
 At each frequency the loop runs these steps in order.
 
-1. The admittivity of each layer, the described layers of the earth model and their equivalent
-   earth.
+1. The admittivity of each layer, the described layers of the earth model, their equivalent
+   earth, and `to_buffer!` of the formulation.
 2. The series matrix inside each cable, by the loop recursion of the surface impedances.
 3. The potential matrix inside each cable, by the series chain of the layers.
 4. `to_buffer!` of each distinct formula, then `impedance!` and `potential!` of the

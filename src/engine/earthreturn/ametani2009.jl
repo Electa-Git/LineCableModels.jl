@@ -1,8 +1,10 @@
 defaults(::Type{Formula{:ametani2009}}) = (;)
 
 validate(formula::Formula{:ametani2009}, ::typeof(impedance!)) = formula
-validate(formula::Formula{:ametani2009}, ::Val{1}, ::Val{2}) = formula
-validate(formula::Formula{:ametani2009}, ::Val{2}, ::Val{1}) = formula
+function validate(formula::Formula{:ametani2009}, t::Int, s::Int)
+    (t == 1) != (s == 1) || invoke(validate, Tuple{Formula, Int, Int}, formula, t, s)
+    return formula
+end
 
 """
 $(TYPEDSIGNATURES)

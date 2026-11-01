@@ -7,7 +7,10 @@ end
 
 validate(formula::Formula{:papadopoulos2010}, ::typeof(impedance!)) = formula
 validate(formula::Formula{:papadopoulos2010}, ::typeof(potential!)) = formula
-validate(formula::Formula{:papadopoulos2010}, ::Val{2}, ::Val{2}) = formula
+function validate(formula::Formula{:papadopoulos2010}, t::Int, s::Int)
+    t > 1 && s > 1 || invoke(validate, Tuple{Formula, Int, Int}, formula, t, s)
+    return formula
+end
 
 function initialize_buffers(f::Formula{:papadopoulos2010}, ::LineParametersProblem,
         input::CoaxialInput{T}, buffers) where {T}
@@ -38,8 +41,8 @@ end
 
 function (f::Formula{:papadopoulos2010})(
         ::Val{:Z}, ::Val{:self}, i, buffers, input, media, s, k)
-    μ₂ = μ₀ * media[2].mu_r
-    σ̃₂ = inv(media[2].rho) + s * (ε₀ * media[2].eps_r)
+    μ₂ = buffers.μ[2]
+    σ̃₂ = buffers.σ̃[2]
     γ₁² = s^2 * μ₀ * (ε₀ * media[1].eps_r)
     γ₂² = s * μ₂ * σ̃₂
     κ₁² = γ₁² - s^2 * μ₂ * (ε₀ * media[2].eps_r)
@@ -58,8 +61,8 @@ end
 
 function (f::Formula{:papadopoulos2010})(
         ::Val{:Z}, ::Val{:mutual}, i, j, buffers, input, media, s, k)
-    μ₂ = μ₀ * media[2].mu_r
-    σ̃₂ = inv(media[2].rho) + s * (ε₀ * media[2].eps_r)
+    μ₂ = buffers.μ[2]
+    σ̃₂ = buffers.σ̃[2]
     γ₁² = s^2 * μ₀ * (ε₀ * media[1].eps_r)
     γ₂² = s * μ₂ * σ̃₂
     κ₁² = γ₁² - s^2 * μ₂ * (ε₀ * media[2].eps_r)
@@ -80,8 +83,8 @@ end
 
 function (f::Formula{:papadopoulos2010})(
         ::Val{:P}, ::Val{:self}, i, buffers, input, media, s, k)
-    μ₂ = μ₀ * media[2].mu_r
-    σ̃₂ = inv(media[2].rho) + s * (ε₀ * media[2].eps_r)
+    μ₂ = buffers.μ[2]
+    σ̃₂ = buffers.σ̃[2]
     γ₁² = s^2 * μ₀ * (ε₀ * media[1].eps_r)
     γ₂² = s * μ₂ * σ̃₂
     κ₁² = γ₁² - s^2 * μ₂ * (ε₀ * media[2].eps_r)
@@ -100,8 +103,8 @@ end
 
 function (f::Formula{:papadopoulos2010})(
         ::Val{:P}, ::Val{:mutual}, i, j, buffers, input, media, s, k)
-    μ₂ = μ₀ * media[2].mu_r
-    σ̃₂ = inv(media[2].rho) + s * (ε₀ * media[2].eps_r)
+    μ₂ = buffers.μ[2]
+    σ̃₂ = buffers.σ̃[2]
     γ₁² = s^2 * μ₀ * (ε₀ * media[1].eps_r)
     γ₂² = s * μ₂ * σ̃₂
     κ₁² = γ₁² - s^2 * μ₂ * (ε₀ * media[2].eps_r)

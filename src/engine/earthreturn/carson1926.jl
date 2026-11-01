@@ -6,7 +6,10 @@ function validate(options::FormulationOptions{Formula{:carson1926}})
 end
 
 validate(formula::Formula{:carson1926}, ::typeof(impedance!)) = formula
-validate(formula::Formula{:carson1926}, ::Val{1}, ::Val{1}) = formula
+function validate(formula::Formula{:carson1926}, t::Int, s::Int)
+    t == 1 && s == 1 || invoke(validate, Tuple{Formula, Int, Int}, formula, t, s)
+    return formula
+end
 
 """
 $(TYPEDSIGNATURES)

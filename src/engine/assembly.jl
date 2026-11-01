@@ -90,13 +90,13 @@ function impedance!(formulation::CoaxialFormulation, Zg::AbstractMatrix, buffers
         input::CoaxialInput, media, s, k)
     (; air, earth, mixed) = formulation.earth_impedance
     for i in eachindex(input.radius)
-        Zg[i, i] = (input.y[i] > 0 ? air : earth)(
+        Zg[i, i] = (input.earth_layer[i] == 1 ? air : earth)(
             Val(:Z), Val(:self), i, buffers, input, media, s, k)
     end
     for j in eachindex(input.radius), i in eachindex(input.radius)
 
         i == j && continue
-        above_i, above_j = input.y[i] > 0, input.y[j] > 0
+        above_i, above_j = input.earth_layer[i] == 1, input.earth_layer[j] == 1
         Zg[i, j] = if above_i && above_j
             air(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)
         elseif !above_i && !above_j
@@ -133,13 +133,13 @@ function potential!(formulation::CoaxialFormulation, Pg::AbstractMatrix, buffers
         input::CoaxialInput, media, s, k)
     (; air, earth, mixed) = formulation.earth_admittance
     for i in eachindex(input.radius)
-        Pg[i, i] = (input.y[i] > 0 ? air : earth)(
+        Pg[i, i] = (input.earth_layer[i] == 1 ? air : earth)(
             Val(:P), Val(:self), i, buffers, input, media, s, k)
     end
     for j in eachindex(input.radius), i in eachindex(input.radius)
 
         i == j && continue
-        above_i, above_j = input.y[i] > 0, input.y[j] > 0
+        above_i, above_j = input.earth_layer[i] == 1, input.earth_layer[j] == 1
         Pg[i, j] = if above_i && above_j
             air(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)
         elseif !above_i && !above_j

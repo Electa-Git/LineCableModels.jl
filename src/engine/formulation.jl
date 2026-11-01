@@ -426,13 +426,12 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Check that the formula of each earth place treats the pairs of the problem, and the options
-against the frequencies.
+Check the options of the formulation against the frequencies.
 
 # Arguments
 
 - `problem`: line-parameters problem.
-- `formulation`: coaxial formulation with its earth-return formulas.
+- `formulation`: coaxial formulation.
 
 # Returns
 
@@ -440,23 +439,46 @@ against the frequencies.
 
 # Errors
 
-- Throws `DomainError` for a place whose formula does not treat a pair of the problem.
 - Throws `DimensionMismatch` when a `Γ` vector and the frequency vector have different lengths.
 """
 function validate(problem::LineParametersProblem, formulation::CoaxialFormulation)
-    system = problem.system
-    above = any(k -> system.placements[k].y > 0, eachindex(system.designs))
-    below = any(k -> system.placements[k].y < 0, eachindex(system.designs))
-    for places in (formulation.earth_impedance, formulation.earth_admittance)
-        above && validate(places.air, Val(1), Val(1))
-        below && validate(places.earth, Val(2), Val(2))
-        if above && below
-            validate(places.mixed, Val(1), Val(2))
-            validate(places.mixed, Val(2), Val(1))
-        end
-    end
     validate(problem, formulation.options)
     return problem
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Check that the formula of each earth place treats the pairs of layers of the input, before the
+loop. A pair of two conductors in the air takes the place `air`, a pair of two conductors below
+the air takes `earth`, and any other pair takes `mixed`.
+
+# Arguments
+
+- `input`: numerical cable geometry with the layer of each cable.
+- `formulation`: coaxial formulation with its earth-return formulas.
+
+# Returns
+
+- `input`, unchanged.
+
+# Errors
+
+- Throws `DomainError` for a place whose formula does not treat a pair of the input.
+"""
+function validate(input::CoaxialInput, formulation::CoaxialFormulation)
+    present = sort!(unique(input.earth_layer))
+    for places in (formulation.earth_impedance, formulation.earth_admittance),
+        t in present, s in present
+        if t == 1 && s == 1
+            validate(places.air, t, s)
+        elseif t > 1 && s > 1
+            validate(places.earth, t, s)
+        else
+            validate(places.mixed, t, s)
+        end
+    end
+    return input
 end
 
 """

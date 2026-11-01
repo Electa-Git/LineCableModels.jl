@@ -110,6 +110,7 @@ end
     buffers = Engine.initialize_buffers(formulation, reference, input)
     media = reference.earth.layers
     s = complex(0.0, 2π * 50.0)
+    Engine.to_buffer!(formulation, buffers, input, media, s, 1)
     formula = formulation.earth_admittance.air
     formula(Val(:P), Val(:self), 1, buffers, input, media, s, 1)
     formula(Val(:P), Val(:mutual), 1, 2, buffers, input, media, s, 1)

@@ -58,8 +58,24 @@ arrays of each formula from the distinct formulas of the formulation.
 
 - A named tuple of conductor resistivities `rho` \\[Ω·m\\], dielectric admittivities `kappa`
   \\[S/m\\], and longitudinal wavenumbers `gamma` \\[1/m\\].
+- The same tuple contains, for each medium, the complex conductivity `σ̃` \\[S/m\\] and the
+  permeability `μ` \\[H/m\\].
 - The same tuple contains `Zin`, `Zg` \\[Ω/m\\], `Pin`, `Pg` \\[m/F\\], reduction arrays, an
   identity matrix, and formula-specific arrays.
+
+# Notes
+
+A formula reads these terms and derives everything else itself:
+
+| Term | Where a formula reads it | When the engine computes it |
+| --- | --- | --- |
+| `s` | the argument | the loop |
+| geometry and layer map | `input`, with `x`, `y`, `radius`, `earth_layer`, the tubes and the dielectric layers | once, in `CoaxialInput` |
+| `ρ_i` at the operating temperature, by the resistivity law | `buffers.rho[i]` | once, before the loop |
+| `κ_l`, the admittivity of dielectric layer `l`, by its law | `buffers.kappa[l]` | per frequency, in `solve!` |
+| `Γ_k` | `buffers.gamma[k]` | once, from the options |
+| media as the law describes them and the model reduces them | `media[t]`, with `rho`, `eps_r`, `mu_r`, `thickness` | per frequency, in `solve!` |
+| `σ̃_t = 1/ρ_t + s ε₀ ε_r,t` and `μ_t = μ₀ μ_r,t` | `buffers.σ̃[t]`, `buffers.μ[t]` | per frequency, by `to_buffer!` of the formulation |
 """
 function initialize_buffers(
         formulation::CoaxialFormulation, problem::LineParametersProblem,
@@ -73,6 +89,8 @@ function initialize_buffers(
     base = (rho = Vector{T}(undef, n),
         kappa = Vector{Complex{T}}(undef, l),
         gamma = Vector{Complex{T}}(undef, nf),
+        σ̃ = Vector{Complex{T}}(undef, 2),
+        μ = Vector{T}(undef, 2),
         Zin = Matrix{Complex{T}}(undef, n, n),
         Pin = Matrix{Complex{T}}(undef, n, n),
         Zg = Matrix{Complex{T}}(undef, c, c),
@@ -86,6 +104,41 @@ function initialize_buffers(
     return foldl(
         (buffers, formula) -> initialize_buffers(formula, problem, input, buffers),
         formulation.formulas; init = base)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Fill the terms that the engine provides to every formula at one frequency, one entry per medium
+of `media`:
+
+```math
+\\tilde\\sigma_t = \\frac{1}{\\rho_t} + s \\varepsilon_0 \\varepsilon_{r,t}, \\qquad
+\\mu_t = \\mu_0 \\mu_{r,t},
+```
+
+where ``\\rho_t`` is the resistivity \\[Ω·m\\], and ``\\varepsilon_{r,t}`` and ``\\mu_{r,t}`` are the
+relative permittivity and permeability \\[dimensionless\\] of medium ``t``.
+
+# Arguments
+
+- `CoaxialFormulation`: coaxial formulation.
+- `buffers`: computation arrays with `σ̃` \\[S/m\\] and `μ` \\[H/m\\].
+- `input`: numerical cable geometry.
+- `media`: the air and the equivalent earth at the frequency.
+- `s`: complex frequency, `j 2π f`, in \\[1/s\\].
+- `k`: frequency index.
+
+# Returns
+
+- `buffers`, with `σ̃` and `μ` filled.
+"""
+function to_buffer!(::CoaxialFormulation, buffers, input::CoaxialInput, media, s, k)
+    for t in eachindex(media)
+        buffers.σ̃[t] = inv(media[t].rho) + s * (ε₀ * media[t].eps_r)
+        buffers.μ[t] = μ₀ * media[t].mu_r
+    end
+    return buffers
 end
 
 """
@@ -149,6 +202,7 @@ function solve!(
         described = map(layer -> formulation.earth_properties(layer, f),
             Base.tail(problem.earth.layers))
         media = (air, formulation.equivalent_earth(described, f))
+        to_buffer!(formulation, buffers, input, media, s, k)
         impedance!(formulation.internal_impedance,
             formulation.insulation_impedance, Zin, input, rho, s)
         potential!(formulation.shunt, Pin, buffers, input, kappa, s)
@@ -217,6 +271,7 @@ function compute(
     validate(problem, formulation)
     map(formula -> validate(problem, formula), formulation.formulas)
     input = CoaxialInput(problem, formulation.options)
+    validate(input, formulation)
     buffers = initialize_buffers(formulation, problem, input)
     n = length(input.cable)
     c = length(input.radius)

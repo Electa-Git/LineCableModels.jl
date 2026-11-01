@@ -73,7 +73,7 @@ end
 # The formula gives both earth-return quantities.
 validate(formula::Formula{:martins2026}, ::typeof(impedance!)) = formula
 validate(formula::Formula{:martins2026}, ::typeof(potential!)) = formula
-validate(formula::Formula{:martins2026}, ::Val, ::Val) = formula
+validate(formula::Formula{:martins2026}, ::Int, ::Int) = formula
 
 validate(Γ::Union{Number, AbstractVector}, formula::Formula{:martins2026}) = Γ
 
@@ -149,8 +149,8 @@ function to_buffer!(f::Formula{:martins2026}, buffers, input::CoaxialInput, medi
     R = eltype(buffers.integral.points)
     Γ = buffers.gamma[k]
     # The medium state of the air and of the earth.
-    σ̃ = map(m -> inv(m.rho) + s * (ε₀ * m.eps_r), media)
-    μ = map(m -> μ₀ * m.mu_r, media)
+    σ̃ = (buffers.σ̃[1], buffers.σ̃[2])
+    μ = (buffers.μ[1], buffers.μ[2])
     κ² = map((m, a) -> sqrt(s * m * a)^2 - Γ^2, μ, σ̃)
     κ = map(sqrt, κ²)
     # The candidates of the squared electric denominator are poles where the denominator is
@@ -171,7 +171,7 @@ function to_buffer!(f::Formula{:martins2026}, buffers, input::CoaxialInput, medi
         abs(nominal(κ[1] * σ̃[2] / σ̃[1])))
     # The state of each cable.
     for i in eachindex(input.radius)
-        t = input.y[i] > 0 ? 1 : 2
+        t = min(input.earth_layer[i], 2)
         ξ = κ[t] * input.radius[i]
         block.ξ[i] = ξ
         block.scaling[i] = abs(real(ξ))
@@ -191,8 +191,8 @@ function to_buffer!(f::Formula{:martins2026}, buffers, input::CoaxialInput, medi
     πT = one(s) * π
     for j in eachindex(input.radius), i in eachindex(input.radius)
 
-        t = input.y[i] > 0 ? 1 : 2
-        u = input.y[j] > 0 ? 1 : 2
+        t = min(input.earth_layer[i], 2)
+        u = min(input.earth_layer[j], 2)
         h_i = abs(input.y[i])
         h_j = abs(input.y[j])
         r = input.radius[i]

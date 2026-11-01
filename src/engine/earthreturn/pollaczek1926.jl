@@ -6,9 +6,10 @@ function validate(options::FormulationOptions{Formula{:pollaczek1926}})
 end
 
 validate(formula::Formula{:pollaczek1926}, ::typeof(impedance!)) = formula
-validate(formula::Formula{:pollaczek1926}, ::Val{2}, ::Val{2}) = formula
-validate(formula::Formula{:pollaczek1926}, ::Val{1}, ::Val{2}) = formula
-validate(formula::Formula{:pollaczek1926}, ::Val{2}, ::Val{1}) = formula
+function validate(formula::Formula{:pollaczek1926}, t::Int, s::Int)
+    t > 1 || s > 1 || invoke(validate, Tuple{Formula, Int, Int}, formula, t, s)
+    return formula
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -47,13 +48,13 @@ function Λ(::Formula{:pollaczek1926}, ::Val{:mutual}, κ, r, D, D′)
     besselk(0, κ * D) - besselk(0, κ * D′)
 end
 
-function (::Formula{:pollaczek1926})(::Val{:J}, ::Val{2}, ::Val{2}, λ, γ², H, y)
+function (::Formula{:pollaczek1926})(::Val{:J}, ::Val{:earth}, λ, γ², H, y)
     a = sqrt(λ^2 + γ²)
     return (exp(-(H + im * y) * λ) + exp(-(H - im * y) * λ)) * exp(-H * γ² / (a + λ)) /
            (2 * (λ + a))
 end
 
-function (::Formula{:pollaczek1926})(::Val{:J}, ::Val{1}, ::Val{2}, λ, γ², h_g, H, y)
+function (::Formula{:pollaczek1926})(::Val{:J}, ::Val{:mixed}, λ, γ², h_g, H, y)
     a = sqrt(λ^2 + γ²)
     return (exp(-(H + im * y) * λ) + exp(-(H - im * y) * λ)) * exp(-h_g * γ² / (a + λ)) /
            (2 * (λ + a))
@@ -69,7 +70,7 @@ function (f::Formula{:pollaczek1926})(
     section = f.options.integral
     J = first(integrate(
         SpectralIntegral(
-            λ -> f(Val(:J), Val(2), Val(2), λ, γ², H, y), buffers,
+            λ -> f(Val(:J), Val(:earth), λ, γ², H, y), buffers,
             (zero(s), sqrt(γ²)), (), (), H, y),
         section.method, section, buffers))
     return s * μ₀ / (2π) * (Λ(f, Val(:self), sqrt(γ²), r_i, h_i) + 2J)
@@ -77,13 +78,13 @@ end
 
 function (f::Formula{:pollaczek1926})(
         ::Val{:Z}, ::Val{:mutual}, i, j, buffers, input, media, s, k)
-    input.y[i] < 0 && input.y[j] < 0 &&
-        return f(Val(:Z), Val(2), Val(2), i, j, buffers, input, media, s)
-    return f(Val(:Z), Val(1), Val(2), i, j, buffers, input, media, s)
+    (input.earth_layer[i] == 1) == (input.earth_layer[j] == 1) &&
+        return f(Val(:Z), Val(:earth), i, j, buffers, input, media, s)
+    return f(Val(:Z), Val(:mixed), i, j, buffers, input, media, s)
 end
 
 function (f::Formula{:pollaczek1926})(
-        ::Val{:Z}, ::Val{2}, ::Val{2}, i, j, buffers, input, media, s)
+        ::Val{:Z}, ::Val{:earth}, i, j, buffers, input, media, s)
     h_i = abs(input.y[i])
     h_j = abs(input.y[j])
     y = abs(input.x[i] - input.x[j])
@@ -94,14 +95,14 @@ function (f::Formula{:pollaczek1926})(
     section = f.options.integral
     J = first(integrate(
         SpectralIntegral(
-            λ -> f(Val(:J), Val(2), Val(2), λ, γ², H, y), buffers,
+            λ -> f(Val(:J), Val(:earth), λ, γ², H, y), buffers,
             (zero(s), sqrt(γ²)), (), (), H, y),
         section.method, section, buffers))
     return s * μ₀ / (2π) * (Λ(f, Val(:mutual), sqrt(γ²), input.radius[i], D, D′) + 2J)
 end
 
 function (f::Formula{:pollaczek1926})(
-        ::Val{:Z}, ::Val{1}, ::Val{2}, i, j, buffers, input, media, s)
+        ::Val{:Z}, ::Val{:mixed}, i, j, buffers, input, media, s)
     h_a = max(input.y[i], input.y[j])
     h_g = -min(input.y[i], input.y[j])
     y = abs(input.x[i] - input.x[j])
@@ -110,7 +111,7 @@ function (f::Formula{:pollaczek1926})(
     section = f.options.integral
     J = first(integrate(
         SpectralIntegral(
-            λ -> f(Val(:J), Val(1), Val(2), λ, γ², h_g, H, y), buffers,
+            λ -> f(Val(:J), Val(:mixed), λ, γ², h_g, H, y), buffers,
             (zero(s), sqrt(γ²)), (), (), H, y),
         section.method, section, buffers))
     return s * μ₀ / (2π) * 2J

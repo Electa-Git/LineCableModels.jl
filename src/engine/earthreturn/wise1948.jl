@@ -6,7 +6,10 @@ function validate(options::FormulationOptions{Formula{:wise1948}})
 end
 
 validate(formula::Formula{:wise1948}, ::typeof(potential!)) = formula
-validate(formula::Formula{:wise1948}, ::Val{1}, ::Val{1}) = formula
+function validate(formula::Formula{:wise1948}, t::Int, s::Int)
+    t == 1 && s == 1 || invoke(validate, Tuple{Formula, Int, Int}, formula, t, s)
+    return formula
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -47,8 +50,8 @@ end
 
 function (f::Formula{:wise1948})(::Val{:P}, ::Val{:self}, i, buffers, input, media, s, k)
     ε₁ = ε₀ * media[1].eps_r
-    σ̃₁ = s * ε₁
-    σ̃₂ = inv(media[2].rho) + s * (ε₀ * media[2].eps_r)
+    σ̃₁ = buffers.σ̃[1]
+    σ̃₂ = buffers.σ̃[2]
     κ₁² = s * μ₀ * σ̃₁
     κ₂² = s * μ₀ * σ̃₂
     r_i = input.radius[i]
@@ -68,8 +71,8 @@ end
 function (f::Formula{:wise1948})(
         ::Val{:P}, ::Val{:mutual}, i, j, buffers, input, media, s, k)
     ε₁ = ε₀ * media[1].eps_r
-    σ̃₁ = s * ε₁
-    σ̃₂ = inv(media[2].rho) + s * (ε₀ * media[2].eps_r)
+    σ̃₁ = buffers.σ̃[1]
+    σ̃₂ = buffers.σ̃[2]
     κ₁² = s * μ₀ * σ̃₁
     κ₂² = s * μ₀ * σ̃₂
     r_i = input.radius[i]

@@ -191,9 +191,11 @@ using SpecialFunctions: besseli, besselk
         @test Engine.validate(problem, formula) === problem
         input = Engine.CoaxialInput(problem, reductions)
         buffers = Engine.initialize_buffers(formula, problem, input,
-            (gamma = zeros(ComplexF64, 3),))
+            (gamma = zeros(ComplexF64, 3), σ̃ = zeros(ComplexF64, 2), μ = zeros(2)))
         for (k, f) in enumerate(problem.frequencies)
             media = map(layer -> law(layer, f), problem.earth.layers)
+            Engine.to_buffer!(
+                CoaxialFormulation(), buffers, input, media, im * (2 * π * f), k)
             Engine.to_buffer!(formula, buffers, input, media, im * (2 * π * f), k)
             for (index, p, x, A, F) in case.state
                 index == k || continue
@@ -235,7 +237,8 @@ using SpecialFunctions: besseli, besselk
                 frequencies = [50.0, 1e4, 1e6])
             input = Engine.CoaxialInput(problem, reductions)
             buffers = [Engine.initialize_buffers(formula, problem, input,
-                           (gamma = fill(im * scale / r, length(problem.frequencies)),))
+                           (gamma = fill(im * scale / r, length(problem.frequencies)),
+                               σ̃ = zeros(ComplexF64, 2), μ = zeros(2)))
                        for scale in (299.0, 299.9, 300.1, 301.0)]
             terms = [(H = zeros(ComplexF64, 2, 2, 3), K = zeros(ComplexF64, 2, 2, 3),
                          Pg = zeros(ComplexF64, 2, 2, 3)) for _ in buffers]
@@ -243,6 +246,8 @@ using SpecialFunctions: besseli, besselk
             for (k, f) in enumerate(problem.frequencies)
                 media = map(layer -> law(layer, f), problem.earth.layers)
                 for (buffer, term) in zip(buffers, terms)
+                    Engine.to_buffer!(
+                        CoaxialFormulation(), buffer, input, media, im * (2 * π * f), k)
                     Engine.to_buffer!(formula, buffer, input, media, im * (2 * π * f), k)
                     Engine.potential!(
                         CoaxialFormulation(), Pg, buffer, input, media, im * (2 * π * f), k)
@@ -298,7 +303,8 @@ using SpecialFunctions: besseli, besselk
             line_length = 1.0)
         problem = LineParametersProblem(system, earth; frequencies)
         input = Engine.CoaxialInput(problem, reductions)
-        buffers = Engine.initialize_buffers(formula, problem, input, (gamma = gamma,))
+        buffers = Engine.initialize_buffers(formula, problem, input,
+            (gamma = gamma, σ̃ = zeros(ComplexF64, 2), μ = zeros(2)))
         c = length(placements)
         targets = Dict(matrix => zeros(ComplexF64, c, c, length(frequencies))
         for matrix in ("Zg", "Pg"))
@@ -314,6 +320,8 @@ using SpecialFunctions: besseli, besselk
         Pg = zeros(ComplexF64, c, c)
         for (k, f) in enumerate(frequencies)
             media = map(layer -> law(layer, f), problem.earth.layers)
+            Engine.to_buffer!(
+                CoaxialFormulation(), buffers, input, media, im * (2 * π * f), k)
             Engine.to_buffer!(formula, buffers, input, media, im * (2 * π * f), k)
             Engine.impedance!(
                 CoaxialFormulation(), Zg, buffers, input, media, im * (2 * π * f), k)
@@ -351,9 +359,10 @@ using SpecialFunctions: besseli, besselk
     contact = LineCableModels.Engine.EarthReturn.Formula(Val(:martins2026))
     input = LineCableModels.Engine.CoaxialInput(buried, reductions)
     buffers = LineCableModels.initialize_buffers(contact, buried, input,
-        (gamma = zeros(ComplexF64, 3),))
+        (gamma = zeros(ComplexF64, 3), σ̃ = zeros(ComplexF64, 2), μ = zeros(2)))
     media = map(layer -> law(layer, 1.0e3), buried.earth.layers)
     s = im * (2 * π * 1.0e3)
+    LineCableModels.to_buffer!(CoaxialFormulation(), buffers, input, media, s, 1)
     LineCableModels.to_buffer!(contact, buffers, input, media, s, 1)
     @test all(isfinite, buffers.martins2026.Zg) && all(isfinite, buffers.martins2026.Pg)
     block = Matrix{ComplexF64}(I, 2, 2)

@@ -302,6 +302,10 @@ of the entry below 1 kHz. On `coaxial_circular_strands` it is 2.4 times the rest
 writes the direct and image term as a spectral integral. Its cosine converges only conditionally at
 equal depths, so the formula takes that term in closed form.
 
+The logarithm in `G` stops at `|κ₂ σ̃₁/σ̃₂|` or at `k₀ √(ε_r - 1)`, the larger of the two, so `Pg` is
+sensitive to `eps_r` near 1 at low frequency. At 0.1 Hz on `two_bare_wires` a diagonal entry moves by
+11 % from `eps_r = 1` to `1 + 1e-9`, and by 39 % to `eps_r = 2`.
+
 At commit `88f5de54` the integral of `Zg` stops at `λ = 1` 1/m, and the direct and image term has
 `√(s μ₂ σ̃₂)` in place of `√(s μ₂ σ₂)`. The table gives the deviation of its `Zg` and `Pg` from those of
 `:papadopoulos2010`, as a fraction of the largest diagonal entry of the matrix:
@@ -343,5 +347,5 @@ the maximum and RMS over the 101 frequencies:
 
 The deviation follows from the finite radius. `:xue2018` takes each cable as a filament, and
 `:martins2026` closes the current on its circumference. At low frequency the deviation falls with the
-square of the radius, up to a logarithm, in `Zg` and in `Pg`. So `Pg` refers to the same infinite depth
-as `:martins2026`.
+square of the radius times the square of the filament's logarithm, in `Zg` and in `Pg`. So `Pg` refers
+to the same infinite depth as `:martins2026`.

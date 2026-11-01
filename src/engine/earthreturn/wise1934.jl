@@ -6,7 +6,10 @@ function validate(options::FormulationOptions{Formula{:wise1934}})
 end
 
 validate(formula::Formula{:wise1934}, ::typeof(impedance!)) = formula
-validate(formula::Formula{:wise1934}, ::Val{1}, ::Val{1}) = formula
+function validate(formula::Formula{:wise1934}, t::Int, s::Int)
+    t == 1 && s == 1 || invoke(validate, Tuple{Formula, Int, Int}, formula, t, s)
+    return formula
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -51,7 +54,7 @@ function (f::Formula{:wise1934})(::Val{:Z}, ::Val{:self}, i, buffers, input, med
     H = 2h_i
     y = zero(H)
     κ₁² = s^2 * μ₀ * (ε₀ * media[1].eps_r)
-    κ₂² = s * μ₀ * (inv(media[2].rho) + s * (ε₀ * media[2].eps_r))
+    κ₂² = s * μ₀ * buffers.σ̃[2]
     section = f.options.integral
     J = first(integrate(
         SpectralIntegral(
@@ -70,7 +73,7 @@ function (f::Formula{:wise1934})(
     D = hypot(y, h_i - h_j)
     D′ = hypot(y, H)
     κ₁² = s^2 * μ₀ * (ε₀ * media[1].eps_r)
-    κ₂² = s * μ₀ * (inv(media[2].rho) + s * (ε₀ * media[2].eps_r))
+    κ₂² = s * μ₀ * buffers.σ̃[2]
     section = f.options.integral
     J = first(integrate(
         SpectralIntegral(

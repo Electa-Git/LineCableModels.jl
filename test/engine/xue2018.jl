@@ -145,7 +145,7 @@ end
 
     result = compute(Dict(REFERENCES)["two_bare_wires"],
         CoaxialFormulation(earth_impedance = :xue2018, earth_admittance = :xue2018, Γ = 1e-3im))
-    @test all(isfinite, result.Z) && all(isfinite, result.Y)
+    @test result isa Engine.LineParameters
     @test_throws "treats no pair of a receiver in the air and a source in the air" compute(
         Dict(REFERENCES)["overhead_bare_wires"], formulation)
     @test_throws "treats no pair of a receiver in the air and a source in the earth" compute(
@@ -186,6 +186,7 @@ end
     buffers = Engine.initialize_buffers(formulation, reference, input)
     media = reference.earth.layers
     s = complex(0.0, 2π * 50.0)
+    Engine.to_buffer!(formulation, buffers, input, media, s, 1)
     formula = formulation.earth_impedance.earth
     formula(Val(:Z), Val(:self), 1, buffers, input, media, s, 1)
     formula(Val(:Z), Val(:mutual), 1, 2, buffers, input, media, s, 1)

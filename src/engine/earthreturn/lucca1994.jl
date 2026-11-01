@@ -1,8 +1,10 @@
 defaults(::Type{Formula{:lucca1994}}) = (;)
 
 validate(formula::Formula{:lucca1994}, ::typeof(impedance!)) = formula
-validate(formula::Formula{:lucca1994}, ::Val{1}, ::Val{2}) = formula
-validate(formula::Formula{:lucca1994}, ::Val{2}, ::Val{1}) = formula
+function validate(formula::Formula{:lucca1994}, t::Int, s::Int)
+    (t == 1) != (s == 1) || invoke(validate, Tuple{Formula, Int, Int}, formula, t, s)
+    return formula
+end
 
 """
 $(TYPEDSIGNATURES)

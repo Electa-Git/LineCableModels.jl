@@ -206,6 +206,7 @@ functions of the engine. A method of a formula takes the formula first.
 impedance!
 potential!
 to_buffer!(::AbstractFormulation, buffers, input, media, s, k)
+to_buffer!(::CoaxialFormulation, buffers, input::CoaxialInput, media, s, k)
 from_buffer
 initialize_buffers(::AbstractFormulation, problem, input, buffers)
 initialize_buffers(formulation::CoaxialFormulation, problem::LineParametersProblem, input::CoaxialInput{T}) where {T <: Real}

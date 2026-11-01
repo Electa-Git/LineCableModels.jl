@@ -7,7 +7,10 @@ end
 
 validate(formula::Formula{:xue2018}, ::typeof(impedance!)) = formula
 validate(formula::Formula{:xue2018}, ::typeof(potential!)) = formula
-validate(formula::Formula{:xue2018}, ::Val{2}, ::Val{2}) = formula
+function validate(formula::Formula{:xue2018}, t::Int, s::Int)
+    t > 1 && s > 1 || invoke(validate, Tuple{Formula, Int, Int}, formula, t, s)
+    return formula
+end
 
 validate(Γ::Union{Number, AbstractVector}, formula::Formula{:xue2018}) = Γ
 
@@ -73,8 +76,8 @@ end
 function (f::Formula{:xue2018})(
         ::Val{:Z}, ::Val{:self}, i, buffers, input, media, s, k)
     Γ = buffers.gamma[k]
-    σ̃₁ = s * (ε₀ * media[1].eps_r)
-    σ̃₂ = inv(media[2].rho) + s * (ε₀ * media[2].eps_r)
+    σ̃₁ = buffers.σ̃[1]
+    σ̃₂ = buffers.σ̃[2]
     κ₁² = s * μ₀ * σ̃₁ - Γ^2
     κ₂² = s * μ₀ * σ̃₂ - Γ^2
     r_i = input.radius[i]
@@ -97,8 +100,8 @@ end
 function (f::Formula{:xue2018})(
         ::Val{:Z}, ::Val{:mutual}, i, j, buffers, input, media, s, k)
     Γ = buffers.gamma[k]
-    σ̃₁ = s * (ε₀ * media[1].eps_r)
-    σ̃₂ = inv(media[2].rho) + s * (ε₀ * media[2].eps_r)
+    σ̃₁ = buffers.σ̃[1]
+    σ̃₂ = buffers.σ̃[2]
     κ₁² = s * μ₀ * σ̃₁ - Γ^2
     κ₂² = s * μ₀ * σ̃₂ - Γ^2
     h_i = abs(input.y[i])
@@ -124,8 +127,8 @@ end
 function (f::Formula{:xue2018})(
         ::Val{:P}, ::Val{:self}, i, buffers, input, media, s, k)
     Γ = buffers.gamma[k]
-    σ̃₁ = s * (ε₀ * media[1].eps_r)
-    σ̃₂ = inv(media[2].rho) + s * (ε₀ * media[2].eps_r)
+    σ̃₁ = buffers.σ̃[1]
+    σ̃₂ = buffers.σ̃[2]
     κ₁² = s * μ₀ * σ̃₁ - Γ^2
     κ₂² = s * μ₀ * σ̃₂ - Γ^2
     r_i = input.radius[i]
@@ -143,8 +146,8 @@ end
 function (f::Formula{:xue2018})(
         ::Val{:P}, ::Val{:mutual}, i, j, buffers, input, media, s, k)
     Γ = buffers.gamma[k]
-    σ̃₁ = s * (ε₀ * media[1].eps_r)
-    σ̃₂ = inv(media[2].rho) + s * (ε₀ * media[2].eps_r)
+    σ̃₁ = buffers.σ̃[1]
+    σ̃₂ = buffers.σ̃[2]
     κ₁² = s * μ₀ * σ̃₁ - Γ^2
     κ₂² = s * μ₀ * σ̃₂ - Γ^2
     h_i = abs(input.y[i])

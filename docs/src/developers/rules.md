@@ -404,9 +404,23 @@ domain of the pair, `air`, `earth` or `mixed`. A formula declares each quantity 
 `validate(formula, impedance!)` or `validate(formula, potential!)`. The fallback of the family
 refuses it in the other slot at construction.
 
-A formula of the earth return declares each pair it treats with
-`validate(formula, Val(1), Val(1))`, `Val(1)` the air and `Val(2)` the earth, for the target and
-the source. The fallback of the family refuses it before a computation that holds another pair.
+A formula of the earth return declares the pairs it treats by one method
+`validate(formula, t::Int, s::Int)`. Its condition reads the layers of the target and the source,
+1 for the air and `k` for the `(k - 1)`-th earth layer. The fallback of the family gives the
+refusal, and `validate(input, formulation)` walks the pairs of a problem before its computation.
+A variant takes no layer in its call form. It reads `input.earth_layer[i]` as a value.
+
+A formula reads these terms and derives everything else itself:
+
+| Term | Where a formula reads it | When the engine computes it |
+| --- | --- | --- |
+| `s` | the argument | the loop |
+| geometry and layer map | `input`, with `x`, `y`, `radius`, `earth_layer`, the tubes and the dielectric layers | once, in `CoaxialInput` |
+| `ρ_i` at the operating temperature, by the resistivity law | `buffers.rho[i]` | once, before the loop |
+| `κ_l`, the admittivity of dielectric layer `l`, by its law | `buffers.kappa[l]` | per frequency, in `solve!` |
+| `Γ_k` | `buffers.gamma[k]` | once, from the options |
+| media as the law describes them and the model reduces them | `media[t]`, with `rho`, `eps_r`, `mu_r`, `thickness` | per frequency, in `solve!` |
+| `σ̃_t = 1/ρ_t + s ε₀ ε_r,t` and `μ_t = μ₀ μ_r,t` | `buffers.σ̃[t]`, `buffers.μ[t]` | per frequency, by `to_buffer!` of the formulation |
 
 A formula declares its own controls in `defaults` and checks them in `validate(options)`.
 Where its direct and image term differs from the family's, it adds its own method of `Λ`. Terms

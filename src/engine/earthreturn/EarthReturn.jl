@@ -3,7 +3,8 @@
 
 Compute the earth-return impedances and potential coefficients of cables. A formula gives
 the impedance, the potential coefficients, or both, by the methods it defines. It treats the
-pairs of conductors it declares, with `Val(1)` for the air and `Val(2)` for the earth.
+pairs of conductors it declares by their layers: `input.earth_layer` gives 1 for the air and `k` for
+the `(k - 1)`-th earth layer.
 
 # Formulas
 
@@ -377,10 +378,10 @@ computation refuses a magnetic earth layer.
 
 ### Callables
 
-`formula(Val(:J), Val(2), Val(2), λ, γ², H, y)` and `formula(Val(:J), Val(1), Val(2), λ, γ², h_g, H, y)` return
+`formula(Val(:J), Val(:earth), λ, γ², H, y)` and `formula(Val(:J), Val(:mixed), λ, γ², h_g, H, y)` return
 the integrands \\[m\\] at the spectral coordinate `λ` \\[1/m\\], with `γ²` \\[1/m²\\] and the lengths \\[m\\].
-`formula(Val(:Z), Val(2), Val(2), i, j, buffers, input, media, s)` and
-`formula(Val(:Z), Val(1), Val(2), i, j, buffers, input, media, s)` return an off-diagonal entry of
+`formula(Val(:Z), Val(:earth), i, j, buffers, input, media, s)` and
+`formula(Val(:Z), Val(:mixed), i, j, buffers, input, media, s)` return an off-diagonal entry of
 ``\\mathbf Z_g`` \\[Ω/m\\] for a pair in the earth and for a pair across the interface. In each, `i` is the
 target and `j` the source. `formula(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)` calls the one
 that the pair needs. `formula(Val(:Z), Val(:self), i, buffers, input, media, s, k)` returns a diagonal entry.
@@ -619,9 +620,8 @@ function validate(Γ::Union{Number, AbstractVector}, formula::Formula{ID}) where
     return Γ
 end
 
-# A formula treats the pairs it declares, each a target and a source, `Val{1}` in the air and
-# `Val{2}` in the earth.
-function validate(formula::Formula{ID}, ::Val{t}, ::Val{s}) where {ID, t, s}
+# A formula treats the pairs it declares, each the layer of a target and of a source, 1 the air.
+function validate(formula::Formula{ID}, t::Int, s::Int) where {ID}
     throw(DomainError(formula,
         "the earth-return formula :$ID treats no pair of a receiver in the " *
         "$(t == 1 ? "air" : "earth") and a source in the $(s == 1 ? "air" : "earth"); " *

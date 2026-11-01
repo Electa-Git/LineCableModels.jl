@@ -127,6 +127,7 @@ end
     buffers = Engine.initialize_buffers(formulation, reference, input)
     media = reference.earth.layers
     s = complex(0.0, 2π * 50.0)
+    Engine.to_buffer!(formulation, buffers, input, media, s, 1)
     formula = formulation.earth_impedance.air
     formula(Val(:Z), Val(:self), 1, buffers, input, media, s, 1)
     formula(Val(:Z), Val(:mutual), 1, 2, buffers, input, media, s, 1)

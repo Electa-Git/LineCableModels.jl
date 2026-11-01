@@ -50,6 +50,8 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     y::Vector{T}
     "Outer radius \\[m\\] of each cable."
     radius::Vector{T}
+    "Layer of the earth model at the center of each cable: 1 for the air, `k` for the `(k - 1)`-th earth layer."
+    earth_layer::Vector{Int}
     "Conductor pairs `(first, other)` to merge with [`bundle!`](@ref), or an empty list."
     bundles::Vector{Tuple{Int, Int}}
     """
@@ -98,10 +100,13 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
         x = [convert(T, center.x) for center in centers]
         y = [convert(T, center.y) for center in centers]
         radius = [convert(T, support(design.outer)) for design in system.designs]
+        depths = cumsum([stratum.thickness for stratum in Base.tail(problem.earth.layers)])
+        earth_layer = [center > 0 ? 1 : 1 + searchsortedfirst(depths, -center)
+                       for center in y]
         return new{T, typeof(layer_material)}(
             cable, connection, label, r_in, r_ex, material,
             r_ins_ex, mu_r_ins, layers, layer_r_in, layer_r_ex, layer_material, assemblies,
-            x, y, radius, bundles, kept,
+            x, y, radius, earth_layer, bundles, kept,
             eliminated, terminals)
     end
 end

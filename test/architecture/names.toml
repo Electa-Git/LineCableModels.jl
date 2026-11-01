@@ -101,7 +101,7 @@ qualifiers = ["coaxial", "equivalent", "internal", "kept", "eliminated", "spectr
 symbols = ["Z", "Y", "r_ins_ex", "Λ", "ζ", "ε₀", "μ₀"]
 
 [modules.Engine.verbs]
-to_buffer = "move a formula's per-frequency terms into its block of the buffers"
+to_buffer = "move a formula's per-frequency terms into its block of the buffers, or the formulation's into the base buffers"
 from_buffer = "the block of the buffers that holds a formula's terms, keyed by its identifier"
 initialize = "build the arrays of a computation once, before its loop"
 bundle = "merge each other conductor of a bundle into the first conductor of its index, in the rows and columns of a matrix"
@@ -238,7 +238,7 @@ LineParameters = "the series impedance and shunt admittance per unit length of a
 admittivity = "the admittivity of a dielectric layer at a frequency, by the law of its class in the formulation"
 "impedance!" = "series impedances per unit length written into a matrix [Ω/m]: the assembly of the cable-internal terms, and the earth step's recipe on the formulation"
 "potential!" = "potential coefficients per unit length written into a matrix [m/F]: the shunt step's chain with the buffers, and the earth step's recipe on the formulation"
-"to_buffer!" = "move a formula's per-frequency terms into its block of the buffers, at one frequency"
+"to_buffer!" = "move a formula's per-frequency terms into its block of the buffers, or the formulation's into the base buffers, at one frequency"
 from_buffer = "the block of the buffers that holds a formula's terms, keyed by its identifier"
 initialize_buffers = "build the preallocated arrays of a computation once, before its loop"
 CoaxialInput = "the numerical input of a computation in the coaxial model: each cable's equivalent tubular conductors and dielectric layers, the cables' centers and radii, and the reduction plan for the formulation's bundle and kron"

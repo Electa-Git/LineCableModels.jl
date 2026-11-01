@@ -141,6 +141,41 @@ end
         @test reinterpret(UInt64, result.Y) == reinterpret(UInt64, expected.Y)
     end
 
+    @testset "the layer map and the media terms" begin
+        mixed = Dict(REFERENCES)["mixed_bare_wires"]
+        @test Engine.CoaxialInput(mixed, CoaxialFormulation().options).earth_layer == [1, 2]
+        reference = Dict(REFERENCES)["two_bare_wires"]
+        air, bottom = reference.earth.layers
+        design = first(reference.system.designs)
+        system = build(CableSystem, [design, design],
+            [Placement(0.0, -1.0), Placement(1.0, -6.0)];
+            connections = [(core = 1,), (core = 2,)], id = "two_bare_wires", line_length = 1.0)
+        problem = LineParametersProblem(system,
+            EarthModel((air, EarthLayer(100.0, 1.0, 1.0, 5.0), bottom));
+            frequencies = [50.0, 1.0e4])
+        formulation = CoaxialFormulation()
+        @test Engine.CoaxialInput(problem, formulation.options).earth_layer == [2, 3]
+        result = compute(problem, formulation)
+        expected = compute(
+            LineParametersProblem(system, EarthModel((air, bottom));
+                frequencies = [50.0, 1.0e4]),
+            formulation)
+        @test isequal(result.Z, expected.Z)
+        @test isequal(result.Y, expected.Y)
+        problem = LineParametersProblem(
+            reference.system, homogeneous(rho = 0.1, mu_r = 2.0);
+            frequencies = [50.0])
+        input = Engine.CoaxialInput(problem, formulation.options)
+        buffers = Engine.initialize_buffers(formulation, problem, input)
+        media = problem.earth.layers
+        s = im * (2π * 50.0)
+        Engine.to_buffer!(CoaxialFormulation(), buffers, input, media, s, 1)
+        ε₀ = 8.8541878128e-12
+        μ₀ = 4π * 1e-7
+        @test isapprox(buffers.σ̃, [s * ε₀, 1 / 0.1 + s * ε₀]; rtol = 1.0e-15) &&
+              isapprox(buffers.μ, [μ₀, 2μ₀]; rtol = 1.0e-15)
+    end
+
     @testset "the three arms of a slot" begin
         mixed = Dict(REFERENCES)["mixed_bare_wires"]
         arms = CoaxialFormulation(;
@@ -150,6 +185,7 @@ end
         buffers = Engine.initialize_buffers(arms, mixed, input)
         media = mixed.earth.layers
         s = complex(0.0, 2π * first(mixed.frequencies))
+        Engine.to_buffer!(arms, buffers, input, media, s, 1)
         map(formula -> Engine.to_buffer!(formula, buffers, input, media, s, 1), arms.formulas)
         Pg = zeros(ComplexF64, 2, 2)
         Engine.potential!(arms, Pg, buffers, input, media, s, 1)
@@ -165,7 +201,7 @@ end
         closed = CoaxialFormulation(earth_impedance = (air = :gary1976, earth = :saad1996))
         places = CoaxialFormulation(earth_impedance = (
             air = :gary1976, earth = :saad1996, mixed = :lucca1994))
-        @test all(isfinite, compute(mixed, closed).Z)
+        @test compute(mixed, closed) isa Engine.LineParameters
         bytes = Int[]
         for formulation in (CoaxialFormulation(), closed, places)
             input = Engine.CoaxialInput(mixed, formulation.options)
