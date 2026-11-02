@@ -57,5 +57,5 @@ EndIf
 If(LinearSolver == 0 && MumpsErrorAnalysis)
   // PETSc prints the actual estimates after every RHS, even with GetDP -v 0.
   // GetDP 3.5 does not expose RINFOG values to runtime .pro expressions.
-  FEMSolverOptions = StrCat[FEMSolverOptions," -ksp_view"];
+  FEMSolverOptions = StrCat[FEMSolverOptions," -ksp_view ::ascii_info_detail"];
 EndIf

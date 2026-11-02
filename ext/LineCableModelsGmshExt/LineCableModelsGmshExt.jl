@@ -10,8 +10,8 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using Gmsh: Gmsh, gmsh
 using Printf: @sprintf
 using LinearAlgebra: I, ldiv!, lu!
-using Pkg.Artifacts: ensure_artifact_installed
-import LineCableModels.Commons: build, compute, defaults, select, validate
+using getdp_jll: getdp_jll
+import LineCableModels.Commons: build, compute, defaults, validate
 using LineCableModels.Commons: ComputationOptions, resolve
 using LineCableModels.Materials: Material
 import LineCableModels.DataModel: area
@@ -27,8 +27,6 @@ using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem, LineParam
                               vacuum_permittivity,
                               vacuum_permeability
 
-public GetdpBinary
-
 include("options.jl")
 include("model.jl")
 include("geometry.jl")
@@ -40,6 +38,8 @@ include("result.jl")
 $(TYPEDSIGNATURES)
 
 Return the declared computation options of the Gmsh backend.
+The backend runs getdp_jll's GetDP. A build of your own is selected through getdp_jll's
+`getdp_path` preference.
 
 # Arguments
 
@@ -58,8 +58,6 @@ Return the declared computation options of the Gmsh backend.
 - `keep_run_directory`: whether to keep the run directory.
 - `trace`: whether to keep the primitive matrices `Z` \\[Ω/m\\] and `P` \\[Ω·m\\] by
   terminal in the result.
-- `getdp_executable`: GetDP binary as `:discover`, `:download`, or a path
-  ([`GetdpBinary`](@ref)).
 - `gmsh_verbosity`: Gmsh's `-v` level, from 0 to 5.
 - `getdp_verbosity`: GetDP's `-v` level, from 0 to 5.
 - `overrides`: native expert controls by native name, each at its default in
@@ -73,7 +71,6 @@ function defaults(::Type{GmshBackend})
         solver_threads = 1,
         keep_run_directory = false,
         trace = false,
-        getdp_executable = GetdpBinary{:discover}(),
         gmsh_verbosity = 2,
         getdp_verbosity = 2,
         overrides = map(entry -> entry.default, OVERRIDES))

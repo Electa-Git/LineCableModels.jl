@@ -29,6 +29,7 @@ jobs:
         os:
           - ubuntu-latest
           - macos-latest
+          - macos-15-intel
           - windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -51,8 +52,12 @@ jobs:
           fail_ci_if_error: true
   install:
     name: Install
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, macos-15-intel, windows-latest]
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -79,6 +84,10 @@ jobs:
             @assert Base.get_extension(LineCableModels, :LineCableModelsGmshExt) === nothing
             Pkg.add("Gmsh")
             using Gmsh
+            @assert Base.get_extension(LineCableModels, :LineCableModelsGmshExt) === nothing
+            # Interim until getdp_jll is in General.
+            Pkg.add(url = "https://github.com/amaurigmartins/getdp_jll.jl")
+            using Gmsh, getdp_jll
             @assert Base.get_extension(LineCableModels, :LineCableModelsGmshExt) !== nothing
           '
   prose:

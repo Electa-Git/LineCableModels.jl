@@ -321,11 +321,11 @@ placed regions and their cross-sections, and from `CAD` the curves. It defines
 `defaults(::Type{GmshBackend})` and the `compute` methods of `GmshBackend`.
 
 Its files follow the computation. `options.jl` validates the record and defines
-`GetdpBinary` and the table of native controls. `model.jl` builds the field model of a
+the table of native controls. `model.jl` builds the field model of a
 problem: the material groups, the terminals and the medium of each cable. `geometry.jl`
 builds the Gmsh geometry through `draw` and writes `physical.geo`. `mesh.jl` writes the
 model data and meshes every frequency, one Gmsh process at a time per worker. `getdp.jl`
-selects the executable and scans the frequencies with GetDP. `result.jl` reduces the
+scans the frequencies with GetDP. `result.jl` reduces the
 terminal matrices and builds the result. The twelve native sources under `getdp/` are the
 GetDP problem definitions, kept byte for byte.
 

@@ -97,5 +97,5 @@ end
 # The Gmsh extension defines the finite-element computation.
 function compute(::GmshBackend, ::LineParametersProblem, ::AbstractFormulation; kw...)
     throw(ArgumentError(
-        "the Gmsh backend implements only FEM, in the Gmsh extension, which `using Gmsh` loads"))
+        "the Gmsh backend implements only FEM, in the Gmsh extension, which `using Gmsh, getdp_jll` loads"))
 end
