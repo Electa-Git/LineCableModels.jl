@@ -6,17 +6,21 @@ authors = ["Amauri Martins"]
 [deps]
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 QuadGK = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 
+[sources]
+# Interim until getdp_jll is in General.
+getdp_jll = {url = "https://github.com/amaurigmartins/getdp_jll.jl"}
+
 [weakdeps]
 Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
 Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
+getdp_jll = "748e3284-65fd-5b96-9e8f-f6d9cd1a6898"
 
 [extensions]
-LineCableModelsGmshExt = "Gmsh"
+LineCableModelsGmshExt = ["Gmsh", "getdp_jll"]
 LineCableModelsMeasurementsExt = "Measurements"
 
 [compat]
@@ -28,12 +32,12 @@ JET = "0.12"
 JuliaSyntax = "1"
 LinearAlgebra = "1"
 Measurements = "2.11"
-Pkg = "1.12"
 Printf = "1"
 QuadGK = "2.11"
 SpecialFunctions = "2.5"
 TOML = "1"
 Test = "1"
+getdp_jll = "3.5"
 julia = "1.12"
 
 [extras]
@@ -45,6 +49,7 @@ JuliaSyntax = "70703baa-626e-46a2-a12c-08ffd08c73b4"
 Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+getdp_jll = "748e3284-65fd-5b96-9e8f-f6d9cd1a6898"
 
 [targets]
-test = ["Aqua", "ExplicitImports", "Gmsh", "JET", "JuliaSyntax", "Measurements", "TOML", "Test"]
+test = ["Aqua", "ExplicitImports", "Gmsh", "JET", "JuliaSyntax", "Measurements", "TOML", "Test", "getdp_jll"]

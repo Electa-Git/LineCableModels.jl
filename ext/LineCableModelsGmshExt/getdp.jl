@@ -156,42 +156,6 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Install the GetDP 3.5.0 artifact on first use and return the real path of its executable.
-"""
-function Base.realpath(::GetdpBinary{:download})
-    toml = joinpath(@__DIR__, "..", "..", "Artifacts.toml")
-    root = ensure_artifact_installed("getdp", toml)
-    if Sys.iswindows()
-        return realpath(joinpath(root, "getdp-3.5.0-Windows64", "getdp.exe"))
-    end
-    folder = Sys.isapple() ? "getdp-3.5.0-MacOSX" : "getdp-3.5.0-Linux64"
-    return realpath(joinpath(root, folder, "bin", "getdp"))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the real path of GetDP on `PATH` when it reports version 3.5 and complex
-arithmetic. Otherwise, install the artifact on first use and return its executable's
-real path.
-"""
-function Base.realpath(::GetdpBinary{:discover})
-    path = Sys.which("getdp")
-    if path !== nothing
-        buffer = IOBuffer()
-        run(pipeline(ignorestatus(Cmd([path, "-info"])); stdout = buffer, stderr = buffer))
-        output = String(take!(buffer))
-        if occursin(r"Version\s*:\s*3\.5(?:\.|\s|$)", output) &&
-           occursin("complex arithmetic", output)
-            return realpath(path)
-        end
-    end
-    return realpath(GetdpBinary{:download}())
-end
-
-"""
-$(TYPEDSIGNATURES)
-
 Scan the frequencies with at most `options.workers` GetDP processes at once.
 Each process uses one mesh and reuses its factorization for every terminal basis. Read the
 outputs after every process stops, keep each log under `logs/`, and remove each work
@@ -201,7 +165,7 @@ directory. Write the combined rows to `results/Z.tsv` and `results/P.tsv`.
 
 - `directory`: run directory with `input/getdp/`, `input/model_data.pro`, and the meshes.
 - `model`: field model with terminal labels and frequencies \\[Hz\\].
-- `options`: executable, concurrency, and native solver controls.
+- `options`: concurrency and native solver controls.
 
 # Returns
 
@@ -220,20 +184,22 @@ Process failures also give the exit code and signal. The run directory stays on 
 """
 function scan(directory::AbstractString, model::FieldModel{T},
         options::ComputationOptions{GmshBackend}) where {T}
-    executable = realpath(options.getdp_executable)
-    isfile(executable) || error("getdp_executable: not a file: $executable")
+    getdp_jll.is_available() || error("getdp_jll has no GetDP build for $(Sys.MACHINE)")
+    command = getdp_jll.getdp()
+    executable = command.exec[1]
     ncodeunits(executable) < 256 ||
-        error("getdp_executable: native paths must be shorter than 256 bytes: $executable")
+        error("GetDP native paths must be shorter than 256 bytes: $executable")
     buffer = IOBuffer()
-    run(pipeline(Cmd([executable, "-info"]); stdout = buffer, stderr = buffer))
+    run(pipeline(`$command -info`; stdout = buffer, stderr = buffer))
     output = String(take!(buffer))
-    occursin("getdp", lowercase(output)) && occursin(r"\d+\.\d+", output) ||
-        error("getdp_executable: identity check did not report GetDP: $executable")
     open(joinpath(directory, "logs", "getdp-info.log"), "w") do io
         println(io, executable)
-        println(io, options.getdp_executable)
         write(io, output)
     end
+    parts = collect(eachmatch(r"(?m)^\h*Version\b[^\r\n]*?(\d+)\.(\d+)", output))
+    !isempty(parts) && Tuple(parse.(Int, first(parts).captures)) >= (3, 5) &&
+    occursin(r"(?m)^\h*PETSc version\b[^\r\n]*\bcomplex arithmetic\b", output) ||
+        error("GetDP executable $executable reported:\n$output\ngetdp_jll's getdp_path preference must point to a GetDP 3.5 build with complex arithmetic")
     n = length(model.label)
     nf = length(model.problem.frequencies)
     Z = Array{Complex{T}, 3}(undef, n, n, nf)
@@ -255,7 +221,7 @@ function scan(directory::AbstractString, model::FieldModel{T},
         mesh_path = @sprintf("../../mesh/frequency-%04d.msh", k)
         controls = options.overrides
         tolerance = string(controls.MumpsBackwardErrorTolerance)
-        arguments = [executable, "model.pro", "-solve", "LineCableModelsFEMScan",
+        arguments = ["model.pro", "-solve", "LineCableModelsFEMScan",
             "-setnumber", "Physics", "1", "-setnumber", "PreparedGaugeTree", "1",
             "-msh", mesh_path, "-name", "solver", "-v", string(options.getdp_verbosity),
             "-setstring", "ModelDataPath", "model_data.pro",
@@ -270,27 +236,17 @@ function scan(directory::AbstractString, model::FieldModel{T},
             "-setnumber", "MumpsRefinementMax", string(controls.MumpsRefinementMax),
             "-setnumber", "MumpsBackwardErrorTolerance", tolerance]
         if options.getdp_verbosity >= 4
-            append!(arguments, ["-cpu", "-ksp_view", "-log_view", ":petsc.log"])
+            append!(arguments, [
+                "-cpu", "-ksp_view", "::ascii_info_detail", "-log_view", ":petsc.log"])
         end
         threads = string(options.solver_threads)
-        commands[k] = addenv(Cmd(Cmd(arguments); dir = folder),
+        commands[k] = addenv(Cmd(`$command $arguments`; dir = folder),
             "OPENBLAS_NUM_THREADS" => threads, "OPENBLAS_DEFAULT_NUM_THREADS" => threads,
             "OMP_NUM_THREADS" => threads, "MKL_NUM_THREADS" => threads)
         logs[k] = joinpath(folder, "getdp.log")
         labels[k] = "solve: frequency $f Hz, run directory $directory"
     end
-    try
-        run(commands, logs, labels, options)
-    catch exception
-        if exception isa ErrorException &&
-           occursin(r"(?i)(unknown|syntax error).*?(GenerateRHS|SolveAgain)", exception.msg)
-            parts = split(exception.msg, '\n'; limit = 3)
-            error(parts[1] * "\n" * parts[2] * "\n" *
-                  "GetDP 3.5 with GenerateRHSGroup and SolveAgain is required.\n" *
-                  parts[3])
-        end
-        rethrow()
-    end
+    run(commands, logs, labels, options)
     for k in eachindex(model.problem.frequencies)
         stem = @sprintf("frequency-%04d", k)
         folder = joinpath(directory, "work", stem)

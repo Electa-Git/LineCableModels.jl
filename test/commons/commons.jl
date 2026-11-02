@@ -53,6 +53,13 @@ end
         @test @inferred((options -> options.Γ)(FormulationOptions(FEM))) === complex(0.0)
         @test FormulationOptions(FEM; Γ = 0.5im) == FormulationOptions(FEM; Γ = 0.5im)
         @test FormulationOptions(FEM; Γ = 0.5im) != FormulationOptions(FEM)
+        @test propertynames(reductions) == keys(defaults(CoaxialFormulation))
+        @test propertynames(ComputationOptions(LineCableModels.LCMBackend)) ==
+              keys(defaults(LineCableModels.LCMBackend))
+        @test ComputationOptions(LineCableModels.LCMBackend; trace = true) ==
+              ComputationOptions(LineCableModels.LCMBackend; trace = true)
+        @test ComputationOptions(LineCableModels.LCMBackend; trace = true) !=
+              ComputationOptions(LineCableModels.LCMBackend; trace = false)
         @test_throws ArgumentError FormulationOptions(CoaxialFormulation; bundled = false)
         @test_throws DomainError FormulationOptions(FEM; Γ = complex(NaN))
         @test ComputationOptions(LineCableModels.LCMBackend; trace = true).trace

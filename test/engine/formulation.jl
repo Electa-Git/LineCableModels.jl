@@ -7,6 +7,80 @@ end
     Engine = LineCableModels.Engine
     backend = LineCableModels.backend
 
+    @testset "every formula slot accepts its three forms" begin
+        for (constructor, slots) in (
+            (CoaxialFormulation,
+                (
+                    (:internal_impedance, Engine.InternalImpedance,
+                        (:schelkunoff1934, :wedepohl1973)),
+                    (:insulation_impedance, Engine.InsulationImpedance, (:ametani1980,)),
+                    (:insulation_admittance,
+                        Engine.InsulationAdmittance, (:lossless, :lossy)),
+                    (:semicon_admittance, Engine.SemiconAdmittance, (:lossless, :lossy)),
+                    (:earth_impedance, Engine.EarthReturn,
+                        (:martins2026, :gary1976, :wedepohl1973, :saad1996, :lucca1994,
+                            :ametani2009, :carson1926, :pollaczek1926, :papadopoulos2010,
+                            :wise1934, :xue2018)),
+                    (:earth_admittance, Engine.EarthReturn,
+                        (:martins2026, :ideal, :papadopoulos2010, :wise1948, :xue2018)),
+                    (:shunt, Engine.Shunt, (:series,)),
+                    (:resistivity, Engine.Resistivity, (:linear,)),
+                    (:earth_properties, Engine.EarthProperties,
+                        (:constant, :alipio2014, :cigre2019, :datsios2019, :longmire1975,
+                            :messier1985, :portela1999, :scott1967, :visacro1987, :visacro2012)),
+                    (:equivalent_earth, Engine.EarthProperties,
+                        (:bottommost, :martins2020, :xue2021)))),
+            (FEM,
+                (
+                    (:insulation_admittance,
+                        Engine.InsulationAdmittance, (:lossless, :lossy)),
+                    (:semicon_admittance, Engine.SemiconAdmittance, (:lossless, :lossy)),
+                    (:resistivity, Engine.Resistivity, (:linear,)),
+                    (:earth_properties, Engine.EarthProperties,
+                        (:constant, :alipio2014, :cigre2019, :datsios2019, :longmire1975,
+                            :messier1985, :portela1999, :scott1967, :visacro1987, :visacro2012)),
+                    (:equivalent_earth, Engine.EarthProperties,
+                        (:bottommost, :martins2020, :xue2021)))))
+            for (slot, Family, identifiers) in slots, id in identifiers
+
+                expected = constructor(; slot => id)
+                @test constructor(; slot => (id => (;))) == expected
+                @test constructor(; slot => Family.Formula(Val(id))) == expected
+                if slot in (:earth_impedance, :earth_admittance)
+                    record = constructor(; slot => (earth = id,))
+                    if id in (:martins2026, :wedepohl1973, :saad1996, :pollaczek1926,
+                        :papadopoulos2010, :xue2018, :ideal)
+                        @test getproperty(record, slot).earth ==
+                              getproperty(expected, slot).earth
+                    end
+                end
+            end
+        end
+        section = (integral = (rtol = 1e-10,),)
+        law = Engine.EarthReturn.Formula(Val(:martins2026); section...)
+        formulation = CoaxialFormulation(; earth_impedance = :martins2026 => section,
+            earth_admittance = :martins2026 => section)
+        @test formulation == CoaxialFormulation(; earth_impedance = law,
+            earth_admittance = law)
+        @test formulation.earth_impedance.earth.options.integral.rtol == 1e-10
+        @test formulation.earth_admittance.earth.options.integral.rtol == 1e-10
+    end
+
+    @testset "unknown formula identifiers name the available formulas" begin
+        for (constructor, slot, Family) in (
+            (CoaxialFormulation, :internal_impedance, Engine.InternalImpedance),
+            (CoaxialFormulation, :insulation_impedance, Engine.InsulationImpedance),
+            (CoaxialFormulation, :insulation_admittance, Engine.InsulationAdmittance),
+            (CoaxialFormulation, :semicon_admittance, Engine.SemiconAdmittance),
+            (CoaxialFormulation, :shunt, Engine.Shunt),
+            (CoaxialFormulation, :earth_properties, Engine.EarthProperties),
+            (FEM, :insulation_admittance, Engine.InsulationAdmittance))
+            @test_throws ArgumentError LineCableModels.select(constructor, Val(slot), :unknown)
+            @test_throws "formula :unknown; the formulas are $(Family.FORMULAS)" LineCableModels.select(
+                constructor, Val(slot), :unknown)
+        end
+    end
+
     @testset "a backend runs each formulation type" begin
         @test backend(CoaxialFormulation) === LineCableModels.LCMBackend()
         @test backend(typeof(FEM())) === LineCableModels.GmshBackend()
@@ -177,6 +251,6 @@ end
             CableSystem, [wire, wire], [Placement(0.0, -1.0), Placement(1.0, -1.0)];
             connections = [(core = 1,), (core = 2,)], id = "two_wires", line_length = 1.0)
         problem = LineParametersProblem(system, homogeneous(rho = 100); frequencies = [50.0])
-        @test_throws "using Gmsh" compute(problem, FEM())
+        @test_throws "using Gmsh, getdp_jll" compute(problem, FEM())
     end
 end

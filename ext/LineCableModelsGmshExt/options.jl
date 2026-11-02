@@ -1,30 +1,6 @@
 """
 $(TYPEDEF)
 
-Represent the GetDP binary that a computation runs, chosen by the action `S`. The default
-`:discover` runs the GetDP found on `PATH` when its `-info` reports version 3.5 and complex
-arithmetic, and the downloaded one otherwise. `:download` runs getdp.info's GetDP 3.5.0
-complex build, downloaded by its pinned hash. The Windows build is the same files repacked
-as a tarball in the package's release `getdp-3.5.0`. A path given as a string runs as is.
-
-The download happens once per Julia depot, at the first use, and needs the network then.
-`:discover` looks at `PATH` first at every run, so a suitable GetDP installed later runs in
-place of the download. The downloaded copy stays under the depot's `artifacts/` folder
-until `Pkg.gc()` removes it.
-"""
-struct GetdpBinary{S} end
-
-select(default::GetdpBinary, id::Symbol) = select(default, GetdpBinary{id}())
-select(::GetdpBinary, binary::GetdpBinary{:discover}) = binary
-select(::GetdpBinary, binary::GetdpBinary{:download}) = binary
-function select(::GetdpBinary, ::GetdpBinary)
-    throw(ArgumentError("getdp_executable must be :discover, :download, or a path"))
-end
-select(::GetdpBinary, path::AbstractString) = String(path)
-
-"""
-$(TYPEDEF)
-
 Represent a real interval for a native control. The low bound is inside when `closed`
 is true. The high bound is always outside.
 

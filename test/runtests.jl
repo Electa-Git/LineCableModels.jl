@@ -5,10 +5,7 @@ using Measurements
 
 @testset "LineCableModels" begin
     @testset "Aqua" begin
-        # Only LineCableModelsGmshExt loads Pkg, and Aqua does not load extensions.
-        # So the stale-dependency check of Aqua cannot see the import.
-        # The architecture tests check the import instead.
-        Aqua.test_all(LineCableModels; stale_deps = (ignore = [:Pkg],))
+        Aqua.test_all(LineCableModels)
     end
     include("commons/commons.jl")
     include("materials/materials.jl")

@@ -39,8 +39,11 @@ arrangements of underground and overhead power cables, with uncertainty propagat
 - **Phase-domain matrices:** Series impedance and shunt admittance matrices of polyphase
   systems with any number of conductors per phase, with bundling of bonded conductors, Kron
   elimination of grounded conductors and ideal transposition.
-- **Finite element modeling:** Computation of the same problems on a mesh of the actual
-  cross-section of the cables, by means of Gmsh and GetDP.
+- **Analytical and FEM solutions:** The same problem is solved by the analytical coaxial
+  formulation of the package, which combines the closed-form internal impedances of the
+  tubular conductors with the earth-return integrals, or by the finite-element backend, which
+  solves the field equations on a mesh of the actual cross-section of the cables with Gmsh
+  and GetDP. Both return the same result.
 - **Uncertainty quantification:** Linear propagation of the uncertainties of materials,
   dimensions, positions, earth properties and temperature to the line parameters, by means of
   the [Measurements.jl](https://github.com/JuliaPhysics/Measurements.jl) package.
@@ -59,10 +62,7 @@ Then, in your Julia code, import the package:
 using LineCableModels
 ```
 
-The extensions are loaded together with their packages, namely `using Measurements` for the
-propagation of uncertainties and `using Gmsh` for the finite-element backend. The
-finite-element backend uses the GetDP executable found on `PATH` when it is suitable, and
-otherwise downloads GetDP 3.5.0 at its first use.
+The extension modules are loaded with the packages they build on, as described below.
 
 ## Example
 
@@ -89,19 +89,28 @@ result.Z[:, :, 1] # [Ω/m] at 50 Hz
 result.terminals
 ```
 
-## Finite element solver
+## Extension modules
 
-After `using Gmsh`, the same problem is computed with Gmsh and GetDP by
-`compute(problem, FEM())`. The
-[finite-element guide](https://electa-git.github.io/LineCableModels.jl/dev/fem/) describes the
-options of the backend, its run directory and its accuracy on the reference systems.
+LineCableModels.jl provides extension modules that load with the packages they build on and
+add a backend or a number type to the same problems and results.
 
-## Uncertainty quantification
+### Gmsh.jl
 
-After `using Measurements`, any input of the problem can be given as an uncertain value, such
-as `Circle(4.0e-3 ± 1.0e-5)`, and the resulting `Z` and `Y` have uncertain real and imaginary
-parts. The [uncertainty guide](https://electa-git.github.io/LineCableModels.jl/dev/uncertainty/)
-describes the propagation and the tests that verify it.
+Finite-element capabilities are introduced with `using Gmsh, getdp_jll`, which loads the
+finite-element extension. Gmsh.jl provides the Gmsh library that meshes the cross-section,
+and getdp_jll provides the GetDP 3.5.0 executable that solves the field equations in complex
+arithmetic. A build of your own is selected through getdp_jll's `getdp_path` preference,
+and the same problem is computed by `compute(problem, FEM())`. The
+[finite-element guide](https://electa-git.github.io/LineCableModels.jl/dev/fem/) describes the options of the backend, its run directory and
+its accuracy on the reference systems.
+
+### Measurements.jl
+
+Uncertainty quantification is introduced with `using Measurements`. Any input of the problem
+can then be given as an uncertain value, such as `Circle(4.0e-3 ± 1.0e-5)`. The resulting `Z`
+and `Y` have uncertain real and imaginary parts, which the extension propagates linearly
+through every formula. The [uncertainty quantification guide](https://electa-git.github.io/LineCableModels.jl/dev/uncertainty/) describes the propagation and the
+tests that verify it.
 
 ## Documentation
 

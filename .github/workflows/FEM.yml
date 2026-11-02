@@ -1,5 +1,8 @@
 name: FEM
 on:
+  push:
+    branches:
+      - main
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 concurrency:
@@ -8,9 +11,13 @@ concurrency:
 jobs:
   fem:
     if: ${{ !github.event.pull_request.draft }}
-    name: FEM - Julia 1.12 - ubuntu-latest
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    name: FEM - Julia 1.12 - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, macos-15-intel, windows-latest]
     permissions: # The Julia cache step deletes the old caches that it created.
       actions: write
       contents: read
@@ -33,5 +40,5 @@ jobs:
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
-          flags: fem
+          flags: fem-${{ matrix.os }}
           fail_ci_if_error: true

@@ -110,6 +110,8 @@ The port's run gives these maxima against the analytical rows:
 For `two_bare_wires`, `two_insulated_wires`, `overhead_bare_wires` and
 `mixed_bare_wires`, the meshes coincide with the source meshes.
 Their rows agree with the frozen `fem` rows within 1e-6 scaled.
+The frozen wire-pair rows use a tolerance of 1e-6 of the largest diagonal entry on the reference
+platform, x86_64 Linux, and 1e-2, the FEM acceptance metric, on other platforms.
 For the coaxial cases, the maxima against the frozen `fem` rows are:
 
 | Case | Scaled difference in Z | Scaled difference in Y |

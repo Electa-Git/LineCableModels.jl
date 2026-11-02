@@ -11,45 +11,32 @@ same way as in the coaxial computation.
 
 ## Loading the extension
 
-The extension is loaded by `using Gmsh`, and the Julia package Gmsh.jl provides the Gmsh
-library with it. The field equations are solved by GetDP 3.5.0 in complex arithmetic, an
-external executable that the extension finds or installs as described below. The
-finite-element computation is tested on Linux.
+The extension is loaded by `using LineCableModels, Gmsh, getdp_jll`, and the Julia package
+Gmsh.jl provides the Gmsh library with it. The field equations are solved by GetDP 3.5.0 in
+complex arithmetic, provided by getdp_jll as described below. The
+finite-element computation is tested on Linux, macOS and Windows.
 
 ## GetDP executable
 
-The computation option `getdp_executable` selects the executable by a
-[`GetdpBinary`](@ref Main.GmshExt.GetdpBinary) choice or by a path:
+getdp_jll provides GetDP 3.5.0 with PETSc in complex arithmetic and MUMPS for the platforms
+of its Yggdrasil recipe. On a platform without a getdp_jll build, the finite-element backend
+is unavailable.
 
-| Choice | Executable |
-| --- | --- |
-| `:discover`, the default | the `getdp` found on `PATH` when its output of `getdp -info` reports version 3.5 and complex arithmetic, and otherwise the executable of `:download` |
-| `:download` | the GetDP 3.5.0 complex build installed as an artifact of the package |
-| a path, given as a string | the executable at that path, used as is |
+The backend runs getdp_jll's GetDP through `getdp_jll.getdp()`. A build of your own is
+selected through getdp_jll's `getdp_path` preference. Set it in the project:
 
-Any other symbol throws an `ArgumentError`. With `:download`, or with `:discover` when no
-suitable GetDP is found on `PATH`, the extension installs the lazy artifact `getdp` of the
-`Artifacts.toml` of the package at its first use. Pkg then downloads the archive of the
-platform and verifies its SHA-256 hash and its tree hash. The archive is unpacked under the
-`artifacts/` folder of the Julia depot. Only this first use requires network access: later computations
-run the installed copy, which stays in the depot until `Pkg.gc()` removes it. Since
-`:discover` looks at `PATH` before every computation, a suitable GetDP installed later is
-used in place of the artifact.
+```julia
+using Preferences, getdp_jll
+set_preferences!(getdp_jll, "getdp_path" => "/opt/getdp/bin/getdp")
+```
 
-| Platform | Archive |
-| --- | --- |
-| Linux on x86-64, glibc | `getdp-3.5.0-Linux64c.tgz` of getdp.info |
-| macOS on x86-64 and on Apple silicon | `getdp-3.5.0-MacOSXc.tgz` of getdp.info, an x86-64 build that Apple silicon runs through Rosetta 2 |
-| Windows on x86-64 | `getdp-3.5.0-Windows64c.tar.gz`, the files of the getdp.info build repacked as a tarball in the release `getdp-3.5.0` of the package |
+Restart Julia after setting the preference: JLLWrappers reads it when getdp_jll loads.
 
-On another platform, or on a machine without network access, GetDP 3.5 with complex
-arithmetic is installed separately and given on `PATH` or by its path.
-
-Before each computation, the extension runs the selected executable with `-info` and
-requires an output that names GetDP and a version number. Otherwise, it throws an error. The
-path of the executable must be shorter than 256 bytes, a limit of the native path
-arguments. The file `logs/getdp-info.log` of the run directory records the executable, the
-choice and the output of `-info`.
+Before a computation, the extension runs the executable with `-info` and checks that the
+`Version` line reports GetDP 3.5 or later and the `PETSc version` line reports complex
+arithmetic. The executable path must be shorter than 256 bytes, a limit of the native path
+arguments. In a kept run directory, `logs/getdp-info.log` records the executable path and
+its `-info` report.
 
 ## Finite-element formulation
 
@@ -304,7 +291,6 @@ The keywords of `compute(problem, FEM(); kw...)` are the computation options of
 | `solver_threads` | `1` | number of BLAS and OpenMP threads of each GetDP process |
 | `keep_run_directory` | `false` | whether to keep the run directory |
 | `trace` | `false` | whether to keep the matrices `Z` and `P` by terminal in the result |
-| `getdp_executable` | `:discover` | the GetDP binary, a [`GetdpBinary`](@ref Main.GmshExt.GetdpBinary) choice or a path |
 | `gmsh_verbosity` | `2` | Gmsh's `-v` level, from 0 to 5 |
 | `getdp_verbosity` | `2` | GetDP's `-v` level, from 0 to 5 |
 | `overrides` | each at its default | native expert controls by native name |

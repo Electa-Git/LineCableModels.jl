@@ -6,6 +6,11 @@
         circle = map(x -> 2x, Circle(1.5e-3, placement))
         @test circle.r == 3.0e-3
         @test (circle.at.x, circle.at.y, circle.at.φ) == (2.0, -4.0, 0.5)
+        pattern = CircularPattern(6; r = Offset(1.0e-3), φ0 = 0.25, span = π,
+            gap_frac = 0.1)
+        mapped = map(x -> 2x, pattern)
+        @test (mapped.n, mapped.r.t, mapped.φ0, mapped.span, mapped.gap_frac) ==
+              (6, 2.0e-3, 0.5, 2π, 0.2)
     end
 
     @testset "an offset around a part is an annulus" begin
