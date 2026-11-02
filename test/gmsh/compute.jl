@@ -271,32 +271,23 @@
         mktempdir() do folder
             cd(folder) do
                 untransposed = compute(problem,
-                    FEM(; bundle = false, kron = false, transposition = false);
-                    keep_run_directory = true)
-                rerun = compute(problem,
-                    FEM(; bundle = false, kron = false, transposition = false);
-                    keep_run_directory = true)
+                    FEM(; bundle = false, kron = false, transposition = false))
                 transposed = compute(problem,
-                    FEM(; bundle = false, kron = false, transposition = true);
-                    keep_run_directory = true)
-                runs = sort(readdir(dirname(extension.directory(problem)); join = true))
-                mesh_first = joinpath(runs[1], "mesh", "frequency-0001.msh")
-                mesh_second = joinpath(runs[2], "mesh", "frequency-0001.msh")
-                @test filesize(mesh_first) == filesize(mesh_second)
-                @test read(mesh_first) == read(mesh_second)
-                for (quantity, original, repeated, computed) in
-                    ((:Z, untransposed.Z, rerun.Z, transposed.Z),
-                    (:Y, untransposed.Y, rerun.Y, transposed.Y))
-                    @testset "$quantity solve reproducibility" begin
-                        ratio = norm(repeated - original) / norm(original)
-                        @test ratio <= 1e-14
-                    end
+                    FEM(; bundle = false, kron = false, transposition = true))
+                # The identity compares two computations of one problem. On macOS and Windows,
+                # Gmsh numbers the same mesh's nodes differently each run, changing the solve's
+                # elimination order and round-off. Pull request 68 measured differences up to
+                # 1.1e-13 of the norm and none on Linux, so the bound is 1e-12.
+                # A wrong transposition would miss by orders of magnitude.
+                for (quantity, original, computed) in
+                    ((:Z, untransposed.Z, transposed.Z),
+                    (:Y, untransposed.Y, transposed.Y))
                     @testset "$quantity transposition k=$k" for k in
                                                                 eachindex(problem.frequencies)
                         ratio = norm(computed[:, :, k] -
                                      sum(original[circshift(1:4, j), circshift(1:4, j), k]
                         for j in 0:3) / 4) / norm(original[:, :, k])
-                        @test ratio <= 1e-14
+                        @test ratio <= 1e-12
                     end
                 end
             end
