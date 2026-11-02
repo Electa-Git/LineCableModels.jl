@@ -23,11 +23,19 @@ arrangements of underground and overhead power cables, with uncertainty propagat
   helices. The relative permeability of the insulation layers is corrected to account for the
   solenoid effect introduced by the helical path of the current in stranded conductors.
 - **Internal impedances and admittances:** Internal impedances of multilayered coaxial cables
-  based on the surface impedances of Schelkunoff and on the general formulation of Ametani,
-  with conductor resistivities corrected to the operating temperature.
+  by the general formulation of Ametani. The surface impedances of the conductors follow
+  Schelkunoff or Wedepohl and Wilcox, and their resistivities follow the operating
+  temperature.
+- **Lossy dielectrics:** The admittivity of an insulation or semicon layer includes its
+  conduction and polarization loss when the formulation selects the lossy law.
 - **Earth-return impedances and admittances:** Earth-return impedances and potential
-  coefficients of underground, overhead and mixed systems in homogeneous earth, computed by a
-  unified formulation with a prescribed longitudinal wavenumber.
+  coefficients of underground, overhead and mixed systems, computed by a unified formulation
+  with a prescribed longitudinal wavenumber.
+- **Classical earth-return formulas:** Carson, Pollaczek, Wise, Gary, Wedepohl and Wilcox,
+  Saad, Papadopoulos, Xue, Lucca and Ametani, selected per domain of a pair of cables.
+  The macro `@formulation` writes a selection per domain as a block.
+- **Earth models:** Layered earth models, with nine soil laws for the frequency dependence of
+  each layer and two models of an equivalent homogeneous earth.
 - **Phase-domain matrices:** Series impedance and shunt admittance matrices of polyphase
   systems with any number of conductors per phase, with bundling of bonded conductors, Kron
   elimination of grounded conductors and ideal transposition.

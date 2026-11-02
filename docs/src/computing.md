@@ -48,7 +48,24 @@ One selection fills the three domains. With `earth_impedance = (air = :martins20
 domain not given takes the default of the slot. A formula that treats one domain goes in that
 place, as `earth_impedance = (air = :gary1976, earth = :saad1996, mixed = :lucca1994)`. Formulas of
 one identifier in the earth slots must be equal. `:martins2026` obtains the impedance and the
-potential coefficients from the same circumferential currents. The remaining keywords are the options of the formulation:
+potential coefficients from the same circumferential currents.
+
+The earth-return formulas treat these domains and give these quantities:
+
+| Formula | Domains | Quantities |
+| --- | --- | --- |
+| `:martins2026` | air, earth, mixed | `Zg`, `Pg` |
+| `:ideal` | air, earth, mixed | `Pg`, zero for a pair in the earth or across the interface |
+| `:carson1926`, `:gary1976`, `:wise1934` | air | `Zg` |
+| `:wise1948` | air | `Pg` |
+| `:pollaczek1926` | earth, mixed | `Zg` |
+| `:saad1996`, `:wedepohl1973` | earth | `Zg` |
+| `:papadopoulos2010`, `:xue2018` | earth | `Zg`, `Pg` |
+| `:ametani2009`, `:lucca1994` | mixed | `Zg` |
+
+A computation refuses a formula placed in a domain that it does not treat when the system has
+a pair in that domain. So `earth_impedance = :carson1926` computes an overhead system, and a
+buried system refuses it. The remaining keywords are the options of the formulation:
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -75,6 +92,18 @@ end
 fem = @formulation FEM begin
     earth_properties = :alipio2014
 end
+nothing # hide
+```
+
+A layered earth takes a law in `earth_properties` and a model in `equivalent_earth`, which
+[Earth return](theory/earth.md) describes. Here the air lies over a layer 5 m thick and a
+semi-infinite layer:
+
+```@example computing
+earth = EarthModel((EarthLayer(Inf, 1.0, 1.0), EarthLayer(100.0, 10.0, 1.0, 5.0),
+    EarthLayer(1000.0, 10.0, 1.0)))
+layered = CoaxialFormulation(earth_properties = :alipio2014,
+    equivalent_earth = :martins2020)
 nothing # hide
 ```
 
@@ -167,4 +196,6 @@ systems. The analytical results of the package agree with the reference values o
 `Y` within 1e-9 of the largest diagonal entry at each frequency, with `Zin` and `Pin` within
 1e-12 and `Zg` and `Pg` within 1e-9. The finite-element results are compared with the
 analytical ones by means of the relative errors defined in [Finite element solver](fem.md#Accuracy),
-at an accuracy level of 1 %.
+at an accuracy level of 1 %. For each earth-return formula, the README of `test/references/`
+gives its frozen results on the systems that it treats and their deviation from those of
+`:martins2026`.

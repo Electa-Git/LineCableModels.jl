@@ -4,23 +4,34 @@
 CurrentModule = LineCableModels.Engine
 ```
 
-## The physical model
+## Physical model
 
 The air above the interface `y = 0` and the earth below it are homogeneous half-spaces, each
 with its resistivity ``\rho``, relative permittivity ``\varepsilon_r`` and relative
-permeability ``\mu_r``. Each cable is a source of circumferential currents on its exterior
-circle, which lies wholly in one medium. The formula closes the circumference currents of all
-cables completely through its current matrix ``\mathbf T``. The fields vary along the line as
-``e^{-\Gamma x}``, with a prescribed longitudinal wavenumber ``\Gamma``, zero by default.
+permeability ``\mu_r``. A layered earth enters as its equivalent earth, which
+[Properties of the air and the earth](@ref) describes. Each cable is a source of
+circumferential currents on its exterior circle, which lies wholly in one medium. A pair of
+cables lies in the air, in the earth or across the interface, the mixed domain.
 
-The formula gives two quantities per pair of cables, from their exterior surfaces: the
-earth-return impedance `Zg` and the earth-return potential coefficients `Pg`. They are the
+An earth-return formula gives the earth-return impedance `Zg`, the earth-return potential
+coefficients `Pg`, or both, per pair of cables and from their exterior surfaces. They are the
 matrices ``\mathbf Z_{\mathrm{env}}`` and ``\mathbf P_{\mathrm{env}}`` of the
 [matrix formulation](matrix.md), added to every pair of conductors of each pair of cables.
+Each formula treats the domains that [Line parameters](../computing.md) lists.
+
+The default formula, `:martins2026`, treats the three domains and gives both quantities. It
+closes the circumferential currents of all cables completely through its current matrix
+``\mathbf T``. The fields vary along the line as ``e^{-\Gamma x}``, with a prescribed
+longitudinal wavenumber ``\Gamma``, zero by default.
+
+The other formulas are classical expressions of the literature, each with the assumptions that
+its block below states. They take each cable as a line source at its center, with the current
+matrix ``\mathbf T = \mathbf I``. Of these, `:xue2018` alone reads the prescribed
+``\Gamma``.
 
 The fields of each medium are spectral integrals over the real line of the transverse
-wavenumber. The formula evaluates them on a complex path, which the constructor of
-[`SpectralIntegral`](@ref) chooses with the breakpoints of the quadrature, and
+wavenumber. A spectral formula evaluates them on a complex path. The constructor of
+[`SpectralIntegral`](@ref) chooses the path with the breakpoints of the quadrature, and
 [`integrate`](@ref) evaluates each integral by adaptive quadrature. The option `integral` of
 the formula selects the method and its controls,
 `integral = (method = :quad, rtol, atol, maxevals)`.
@@ -55,7 +66,7 @@ reference itself has an error floor of about 0.7 %, the first row. The calibrati
 buried conductors only. In air at Γ = 0, κ ≈ k₀, so a 20 mm radius reaches κr ≈ 0.13 at
 300 MHz, a regime outside the calibration.
 
-## The properties of the air and the earth
+## Properties of the air and the earth
 
 The law of the slot `earth_properties` gives the resistivity, the relative permittivity and the
 relative permeability of each earth layer at each frequency. The air keeps its declared values.
