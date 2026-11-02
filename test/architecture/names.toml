@@ -51,8 +51,8 @@ cache = "workspace, plan, buffers or the component's name"
 [global]
 nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "formulation",
     "options", "backend", "insulation", "system", "line_length", "terminals", "assemblies",
-    "layer", "layers", "model", "problem", "center", "label", "cad", "span", "holes",
-    "positions"]
+    "layer", "model", "problem", "center", "label", "cad", "span", "holes",
+    "positions", "dielectric", "ranges"]
 qualifiers = ["cable", "outer"]
 symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "mu_r_ins", "r"]
 prepositions = ["at"]
@@ -72,7 +72,7 @@ nouns = ["kind"]
 symbols = ["t0", "alpha", "rho_thermal", "theta_max", "tan_delta", "sigma_solar"]
 
 [modules.Earth]
-nouns = ["thickness"]
+nouns = ["thickness", "layers"]
 qualifiers = ["homogeneous"]
 
 [modules.DataModel]
@@ -81,8 +81,8 @@ nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "o
     "overlength", "pitch", "distance", "part", "region", "stack", "terminal",
     "repeat", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
     "regions", "id", "tree", "repeats", "lays", "compactions", "fills",
-    "designs", "connections", "blueprint", "conductor", "dielectric", "conductors",
-    "dielectrics", "ranges", "assembly", "core", "screen", "sheath", "bedding",
+    "designs", "connections", "blueprint", "conductor", "conductors",
+    "dielectrics", "assembly", "core", "screen", "sheath", "bedding",
     "jacket", "armor"]
 qualifiers = ["annular", "circular", "empty", "difference", "placed", "stranded",
     "layout"]

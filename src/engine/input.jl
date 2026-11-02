@@ -35,13 +35,13 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     """
     mu_r_ins::Vector{T}
     "Range of the dielectric layers in the interval of each conductor."
-    layers::Vector{UnitRange{Int}}
+    dielectric_ranges::Vector{UnitRange{Int}}
     "Inner radius of each dielectric layer \\[m\\]."
-    layer_r_in::Vector{T}
+    dielectric_r_in::Vector{T}
     "Outer radius of each dielectric layer \\[m\\]."
-    layer_r_ex::Vector{T}
+    dielectric_r_ex::Vector{T}
     "Material of each dielectric layer."
-    layer_material::L
+    dielectric_material::L
     "Range of the conductors of each concentric assembly."
     assemblies::Vector{UnitRange{Int}}
     "Horizontal coordinate of the center of each cable in the frame of the system \\[m\\]."
@@ -71,11 +71,13 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
         system = problem.system
         blueprints = [flatten(design) for design in system.designs]
         tubes = [tube for blueprint in blueprints for tube in blueprint.conductors]
-        dielectrics = [layer for blueprint in blueprints for layer in blueprint.dielectrics]
+        dielectrics = [dielectric for blueprint in blueprints
+                       for dielectric in blueprint.dielectrics]
         tube_starts = cumsum([0;
                               [length(blueprint.conductors) for blueprint in blueprints]])
-        layer_starts = cumsum([0;
-                               [length(blueprint.dielectrics) for blueprint in blueprints]])
+        dielectric_starts = cumsum([0;
+                                    [length(blueprint.dielectrics)
+                                     for blueprint in blueprints]])
         cable = [row.cable for row in system.terminals]
         connection = [row.connection for row in system.terminals]
         (; label, bundles, kept, eliminated, terminals) = reductions(system, options)
@@ -83,15 +85,16 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
         r_ex = [convert(T, tube.r_ex) for tube in tubes]
         material = [convert(Material{T}, tube.material) for tube in tubes]
         mu_r_ins = [convert(T, mu) for blueprint in blueprints for mu in blueprint.mu_r_ins]
-        layers = [span .+ layer_starts[k]
-                  for (k, blueprint) in enumerate(blueprints)
-                  for span in blueprint.dielectric_ranges]
-        layer_r_in = [convert(T, layer.r_in) for layer in dielectrics]
-        layer_r_ex = [convert(T, layer.r_ex) for layer in dielectrics]
-        r_ins_ex = [isempty(span) ? outer : layer_r_ex[last(span)]
-                    for (span, outer) in zip(layers, r_ex)]
-        materials = [convert(Material{T}, layer.material) for layer in dielectrics]
-        layer_material = collect(Union{map(typeof, materials)...}, materials)
+        dielectric_ranges = [span .+ dielectric_starts[k]
+                             for (k, blueprint) in enumerate(blueprints)
+                             for span in blueprint.dielectric_ranges]
+        dielectric_r_in = [convert(T, dielectric.r_in) for dielectric in dielectrics]
+        dielectric_r_ex = [convert(T, dielectric.r_ex) for dielectric in dielectrics]
+        r_ins_ex = [isempty(span) ? outer : dielectric_r_ex[last(span)]
+                    for (span, outer) in zip(dielectric_ranges, r_ex)]
+        materials = [convert(Material{T}, dielectric.material)
+                     for dielectric in dielectrics]
+        dielectric_material = collect(Union{map(typeof, materials)...}, materials)
         assemblies = [span .+ tube_starts[k]
                       for (k, blueprint) in enumerate(blueprints)
                       for span in blueprint.assembly_ranges]
@@ -103,9 +106,10 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
         depths = cumsum([stratum.thickness for stratum in Base.tail(problem.earth.layers)])
         earth_layer = [center > 0 ? 1 : 1 + searchsortedfirst(depths, -center)
                        for center in y]
-        return new{T, typeof(layer_material)}(
+        return new{T, typeof(dielectric_material)}(
             cable, connection, label, r_in, r_ex, material,
-            r_ins_ex, mu_r_ins, layers, layer_r_in, layer_r_ex, layer_material, assemblies,
+            r_ins_ex, mu_r_ins, dielectric_ranges, dielectric_r_in,
+            dielectric_r_ex, dielectric_material, assemblies,
             x, y, radius, earth_layer, bundles, kept,
             eliminated, terminals)
     end

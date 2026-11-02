@@ -81,7 +81,7 @@ function initialize_buffers(
         formulation::CoaxialFormulation, problem::LineParametersProblem,
         input::CoaxialInput{T}) where {T <: Real}
     n = length(input.cable)
-    l = length(input.layer_material)
+    l = length(input.dielectric_material)
     c = length(input.radius)
     m = length(input.kept)
     e = length(input.eliminated)
@@ -196,7 +196,7 @@ function solve!(
         Yk = view(Y,:,:,k)
         s = Complex{T}(im * (2 * π * f))
         for l in eachindex(kappa)
-            kappa[l] = admittivity(formulation, input.layer_material[l], f)
+            kappa[l] = admittivity(formulation, input.dielectric_material[l], f)
         end
         air = first(problem.earth.layers)
         described = map(layer -> formulation.earth_properties(layer, f),

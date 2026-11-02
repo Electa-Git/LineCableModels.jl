@@ -35,8 +35,8 @@ function potential!(shunt::Formula{:series}, Pin::AbstractMatrix{Complex{T}}, bu
         for position in count:-1:1
             i = conductors[position]
             own = zero(s)
-            for l in input.layers[i]
-                own += shunt(input.layer_r_in[l], input.layer_r_ex[l], kappa[l], s)
+            for l in input.dielectric_ranges[i]
+                own += shunt(input.dielectric_r_in[l], input.dielectric_r_ex[l], kappa[l], s)
             end
             running = position == count ? own : own + running
             for row in 1:position
