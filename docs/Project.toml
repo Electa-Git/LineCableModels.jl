@@ -14,6 +14,8 @@ getdp_jll = "748e3284-65fd-5b96-9e8f-f6d9cd1a6898"
 
 [sources]
 LineCableModels = {path = ".."}
+# Interim until getdp_jll is in General.
+getdp_jll = {url = "https://github.com/amaurigmartins/getdp_jll.jl"}
 
 [compat]
 CSV = "0.10"

@@ -85,7 +85,8 @@ jobs:
             Pkg.add("Gmsh")
             using Gmsh
             @assert Base.get_extension(LineCableModels, :LineCableModelsGmshExt) === nothing
-            Pkg.add("getdp_jll")
+            # Interim until getdp_jll is in General.
+            Pkg.add(url = "https://github.com/amaurigmartins/getdp_jll.jl")
             using Gmsh, getdp_jll
             @assert Base.get_extension(LineCableModels, :LineCableModelsGmshExt) !== nothing
           '
