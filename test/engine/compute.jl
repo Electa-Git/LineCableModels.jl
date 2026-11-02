@@ -141,6 +141,35 @@ end
         @test reinterpret(UInt64, result.Y) == reinterpret(UInt64, expected.Y)
     end
 
+    @testset "a layered earth under the equivalent earth of Xue, against its FEM row" begin
+        reference = Dict(REFERENCES)["two_bare_wires"]
+        earth = EarthModel((EarthLayer(Inf, 1.0, 1.0), EarthLayer(100.0, 10.0, 1.0, 5.0),
+            EarthLayer(500.0, 20.0, 1.0, 10.0), EarthLayer(50.0, 5.0, 1.0)))
+        problem = LineParametersProblem(reference.system, earth;
+            temperature = reference.temperature, frequencies = [1000.0])
+        result = compute(problem, CoaxialFormulation(equivalent_earth = :xue2021))
+        rows = Dict((source, quantity) => zeros(ComplexF64, 2, 2)
+        for source in ("analytical", "fem"), quantity in ("Z", "Y"))
+        path = joinpath(@__DIR__, "..", "references", "two_bare_wires", "xue2021.csv")
+        for line in eachline(path)
+            fields = split(line, ',')
+            haskey(rows, (fields[1], get(fields, 3, ""))) || continue
+            row = parse(Int, fields[4])
+            column = parse(Int, fields[5])
+            value = complex(parse(Float64, fields[6]), parse(Float64, fields[7]))
+            rows[(fields[1], fields[3])][row, column] = value
+        end
+        # The FEM deviations are the README's status of the file, at its printed precision.
+        for (quantity, computed, status) in
+            (("Z", result.Z, 0.00503), ("Y", result.Y, 0.00735))
+            analytical = rows[("analytical", quantity)]
+            scale = maximum(abs(analytical[i, i]) for i in 1:2)
+            @test maximum(abs, computed[:, :, 1] - analytical) <= 1e-9 * scale
+            @test round(maximum(abs, rows[("fem", quantity)] - analytical) / scale;
+                sigdigits = 3) == status
+        end
+    end
+
     @testset "the layer map and the media terms" begin
         mixed = Dict(REFERENCES)["mixed_bare_wires"]
         @test Engine.CoaxialInput(mixed, CoaxialFormulation().options).earth_layer == [1, 2]

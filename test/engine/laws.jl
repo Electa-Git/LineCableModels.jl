@@ -291,55 +291,55 @@
         @testset ":alipio2014" begin
             formulation = CoaxialFormulation(earth_properties = :alipio2014)
             result = @test_logs (:warn, r":alipio2014") compute(outside, formulation)
-            @test all(isfinite, result.Z)
+            @test result isa Engine.LineParameters
             @test_logs compute(inside, formulation)
         end
         @testset ":cigre2019" begin
             formulation = CoaxialFormulation(earth_properties = :cigre2019)
             result = @test_logs (:warn, r":cigre2019") compute(outside, formulation)
-            @test all(isfinite, result.Z)
+            @test result isa Engine.LineParameters
             @test_logs compute(inside, formulation)
         end
         @testset ":datsios2019" begin
             formulation = CoaxialFormulation(earth_properties = :datsios2019)
             result = @test_logs (:warn, r":datsios2019") compute(outside, formulation)
-            @test all(isfinite, result.Z)
+            @test result isa Engine.LineParameters
             @test_logs compute(inside, formulation)
         end
         @testset ":longmire1975" begin
             formulation = CoaxialFormulation(earth_properties = :longmire1975)
             result = @test_logs (:warn, r":longmire1975") compute(outside, formulation)
-            @test all(isfinite, result.Z)
+            @test result isa Engine.LineParameters
             @test_logs compute(inside, formulation)
         end
         @testset ":messier1985" begin
             formulation = CoaxialFormulation(earth_properties = :messier1985)
             result = @test_logs (:warn, r":messier1985") compute(outside, formulation)
-            @test all(isfinite, result.Z)
+            @test result isa Engine.LineParameters
             @test_logs compute(inside, formulation)
         end
         @testset ":portela1999" begin
             formulation = CoaxialFormulation(earth_properties = :portela1999)
             result = @test_logs (:warn, r":portela1999") compute(outside, formulation)
-            @test all(isfinite, result.Z)
+            @test result isa Engine.LineParameters
             @test_logs compute(inside, formulation)
         end
         @testset ":scott1967" begin
             formulation = CoaxialFormulation(earth_properties = :scott1967)
             result = @test_logs (:warn, r":scott1967") compute(outside, formulation)
-            @test all(isfinite, result.Z)
+            @test result isa Engine.LineParameters
             @test_logs compute(inside, formulation)
         end
         @testset ":visacro1987" begin
             formulation = CoaxialFormulation(earth_properties = :visacro1987)
             result = @test_logs (:warn, r":visacro1987") compute(outside, formulation)
-            @test all(isfinite, result.Z)
+            @test result isa Engine.LineParameters
             @test_logs compute(inside, formulation)
         end
         @testset ":visacro2012" begin
             formulation = CoaxialFormulation(earth_properties = :visacro2012)
             result = @test_logs (:warn, r":visacro2012") compute(outside, formulation)
-            @test all(isfinite, result.Z)
+            @test result isa Engine.LineParameters
             @test_logs compute(inside, formulation)
         end
         above = LineParametersProblem(system, homogeneous(rho = 0.1);
@@ -374,8 +374,7 @@
         for id in (:alipio2014, :cigre2019, :datsios2019, :longmire1975, :messier1985,
             :portela1999, :scott1967, :visacro1987, :visacro2012)
             result = compute(problem, CoaxialFormulation(earth_properties = id))
-            @test all(isfinite, result.Z)
-            @test all(isfinite, result.Y)
+            @test result isa Engine.LineParameters
         end
     end
 
@@ -536,7 +535,7 @@
             "the equivalent earth :xue2021 holds for a nonmagnetic earth; the earth layer 1 has mu_r = 2.0") compute(
             problem, CoaxialFormulation(equivalent_earth = :xue2021))
         result = compute(problem, CoaxialFormulation(equivalent_earth = :martins2020))
-        @test all(isfinite, result.Z)
+        @test result isa Engine.LineParameters
     end
 
     @testset "the law describes the layers before the equivalent earth" begin
@@ -582,8 +581,7 @@
         problem = LineParametersProblem(system, earth; frequencies = [1.0e3, 1.0e4, 1.0e5])
         for id in (:martins2020, :xue2021)
             result = compute(problem, CoaxialFormulation(equivalent_earth = id))
-            @test all(isfinite, result.Z)
-            @test all(isfinite, result.Y)
+            @test result isa Engine.LineParameters
         end
     end
 

@@ -43,7 +43,7 @@ arrangements of underground and overhead power cables, with uncertainty propagat
   formulation of the package, which combines the closed-form internal impedances of the
   tubular conductors with the earth-return integrals, or by the finite-element backend, which
   solves the field equations on a mesh of the actual cross-section of the cables with Gmsh
-  and GetDP. Both return the same result.
+  and GetDP. Both return a `LineParameters` record.
 - **Uncertainty quantification:** Linear propagation of the uncertainties of materials,
   dimensions, positions, earth properties and temperature to the line parameters, by means of
   the [Measurements.jl](https://github.com/JuliaPhysics/Measurements.jl) package.

@@ -107,6 +107,17 @@ The port's run gives these maxima against the analytical rows:
 | `overhead_bare_wires` | 0.610 % | 0.817 % |
 | `mixed_bare_wires` | 0.609 % | 0.617 % |
 
+The file `two_bare_wires/xue2021.csv` gives `analytical` and `fem` rows of `Z` and `Y` at 1 kHz
+for the wires of `two_bare_wires` on a layered earth. The upper layer is 100 Ω·m and 5 m thick
+with εr 10. Below it lie 10 m of 500 Ω·m with εr 20 and a half-space of 50 Ω·m with εr 5. Both
+rows use the equivalent earth `:xue2021`, of 62.05 Ω·m and relative permittivity −48 962 at that
+frequency.
+
+The FEM row deviates by e_Z 0.503 % and e_Y 0.735 %, and the pair by 0.568 % and 0.798 % on its
+homogeneous earth. So the field solve computes with the negative permittivity of the equivalent
+layer within the FEM accuracy level. Both computations ran once, at the commit that adds the
+file. The test suite repeats the analytical one alone.
+
 For `two_bare_wires`, `two_insulated_wires`, `overhead_bare_wires` and
 `mixed_bare_wires`, the meshes coincide with the source meshes.
 Their rows agree with the frozen `fem` rows within 1e-6 scaled.

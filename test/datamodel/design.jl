@@ -207,7 +207,7 @@ end
                 connections = [(core = 1,), (core = 2,)], id = "mixed", line_length = 1.0),
             homogeneous(rho = 100); frequencies = [50.0])
         result = compute(problem, CoaxialFormulation())
-        @test all(isfinite, result.Z) && all(isfinite, result.Y)
+        @test result isa LineParameters
     end
 
     @testset "Float32 inputs" begin

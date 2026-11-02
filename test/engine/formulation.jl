@@ -48,11 +48,8 @@ end
                 @test constructor(; slot => Family.Formula(Val(id))) == expected
                 if slot in (:earth_impedance, :earth_admittance)
                     record = constructor(; slot => (earth = id,))
-                    if id in (:martins2026, :wedepohl1973, :saad1996, :pollaczek1926,
-                        :papadopoulos2010, :xue2018, :ideal)
-                        @test getproperty(record, slot).earth ==
-                              getproperty(expected, slot).earth
-                    end
+                    @test getproperty(record, slot).earth ==
+                          getproperty(expected, slot).earth
                 end
             end
         end
