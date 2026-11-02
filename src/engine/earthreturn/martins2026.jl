@@ -86,7 +86,6 @@ the selected quadrature method.
 # Arguments
 
 - `formula`: earth-return formula `Formula{:martins2026}` with integration controls.
-- `LineParametersProblem`: problem whose computation needs the arrays.
 - `input`: numerical cable geometry.
 - `buffers`: computation arrays already allocated.
 
@@ -95,8 +94,8 @@ the selected quadrature method.
 - `buffers` extended with the `martins2026` and `integral` blocks. [`to_buffer!`](@ref) fills the
   `martins2026` arrays.
 """
-function initialize_buffers(formula::Formula{:martins2026}, ::LineParametersProblem,
-        input::CoaxialInput{T}, buffers) where {T}
+function initialize_buffers(formula::Formula{:martins2026}, input::CoaxialInput{T},
+        buffers) where {T}
     c = length(input.radius)
     block = (K̃ = Matrix{Complex{T}}(undef, c, c),
         P̃ = Matrix{Complex{T}}(undef, c, c),

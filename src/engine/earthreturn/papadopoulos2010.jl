@@ -12,8 +12,8 @@ function validate(formula::Formula{:papadopoulos2010}, t::Int, s::Int)
     return formula
 end
 
-function initialize_buffers(f::Formula{:papadopoulos2010}, ::LineParametersProblem,
-        input::CoaxialInput{T}, buffers) where {T}
+function initialize_buffers(f::Formula{:papadopoulos2010}, input::CoaxialInput{T},
+        buffers) where {T}
     return initialize_buffers(SpectralIntegral, f.options.integral.method, T, buffers)
 end
 

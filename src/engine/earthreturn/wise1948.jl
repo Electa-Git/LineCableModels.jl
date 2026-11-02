@@ -38,8 +38,8 @@ function validate(problem::LineParametersProblem, formula::Formula{:wise1948})
     return problem
 end
 
-function initialize_buffers(f::Formula{:wise1948}, ::LineParametersProblem,
-        input::CoaxialInput{T}, buffers) where {T}
+function initialize_buffers(f::Formula{:wise1948}, input::CoaxialInput{T},
+        buffers) where {T}
     return initialize_buffers(SpectralIntegral, f.options.integral.method, T, buffers)
 end
 

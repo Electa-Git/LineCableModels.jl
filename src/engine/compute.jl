@@ -102,7 +102,7 @@ function initialize_buffers(
         identity = Matrix{Complex{T}}(I, m, m))
     base.gamma .= formulation.options.Γ
     return foldl(
-        (buffers, formula) -> initialize_buffers(formula, problem, input, buffers),
+        (buffers, formula) -> initialize_buffers(formula, input, buffers),
         formulation.formulas; init = base)
 end
 
@@ -205,7 +205,7 @@ function solve!(
         to_buffer!(formulation, buffers, input, media, s, k)
         impedance!(formulation.internal_impedance,
             formulation.insulation_impedance, Zin, input, rho, s)
-        potential!(formulation.shunt, Pin, buffers, input, kappa, s)
+        potential!(formulation.shunt, Pin, input, kappa, s)
         if options.trace
             copyto!(view(trace.Zin,:,:,k), Zin)
             copyto!(view(trace.Pin,:,:,k), Pin)

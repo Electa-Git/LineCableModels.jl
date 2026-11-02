@@ -173,7 +173,7 @@ Private = false
 ```
 
 ```@docs
-potential!(shunt::Shunt.Formula{:series}, Pin::AbstractMatrix{Complex{T}}, buffers, input::CoaxialInput{T}, kappa::AbstractVector{Complex{T}}, s::Complex{T}) where {T <: Real}
+potential!(shunt::Shunt.Formula{:series}, Pin::AbstractMatrix{Complex{T}}, input::CoaxialInput{T}, kappa::AbstractVector{Complex{T}}, s::Complex{T}) where {T <: Real}
 ```
 
 ## Reductions
@@ -208,7 +208,7 @@ potential!
 to_buffer!(::AbstractFormulation, buffers, input, media, s, k)
 to_buffer!(::CoaxialFormulation, buffers, input::CoaxialInput, media, s, k)
 from_buffer
-initialize_buffers(::AbstractFormulation, problem, input, buffers)
+initialize_buffers(::AbstractFormulation, input, buffers)
 initialize_buffers(formulation::CoaxialFormulation, problem::LineParametersProblem, input::CoaxialInput{T}) where {T <: Real}
 admittivity
 admittivity(formulation::Union{CoaxialFormulation, FEM}, material::Material{T, :insulator}, f) where {T <: Real}

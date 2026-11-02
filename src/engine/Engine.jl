@@ -191,14 +191,13 @@ function from_buffer end
 """
 $(TYPEDSIGNATURES)
 
-Add the preallocated arrays that a formula needs to compute `problem` to `buffers` once,
-before the loop over frequencies. A formula without arrays of its own returns `buffers`
-unchanged, as this method does.
+Add the preallocated arrays that a formula needs to `buffers` once, before the loop over
+frequencies. A formula without arrays of its own returns `buffers` unchanged, as this method
+does.
 
 # Arguments
 
 - `formula`: formula whose arrays the computation needs.
-- `problem`: line-parameters problem.
 - `input`: numerical cable geometry and connections.
 - `buffers`: arrays already allocated.
 
@@ -206,7 +205,7 @@ unchanged, as this method does.
 
 - `buffers`.
 """
-initialize_buffers(::AbstractFormulation, problem, input, buffers) = buffers
+initialize_buffers(::AbstractFormulation, input, buffers) = buffers
 
 """
     Λ(formula, Val(:self), κ, r, h)

@@ -190,7 +190,7 @@ using SpecialFunctions: besseli, besselk
             0.1, 1.0e3, 1.0e7])
         @test Engine.validate(problem, formula) === problem
         input = Engine.CoaxialInput(problem, reductions)
-        buffers = Engine.initialize_buffers(formula, problem, input,
+        buffers = Engine.initialize_buffers(formula, input,
             (gamma = zeros(ComplexF64, 3), σ̃ = zeros(ComplexF64, 2), μ = zeros(2)))
         for (k, f) in enumerate(problem.frequencies)
             media = map(layer -> law(layer, f), problem.earth.layers)
@@ -236,7 +236,7 @@ using SpecialFunctions: besseli, besselk
             problem = LineParametersProblem(system, homogeneous(rho = 100, eps_r = 10);
                 frequencies = [50.0, 1e4, 1e6])
             input = Engine.CoaxialInput(problem, reductions)
-            buffers = [Engine.initialize_buffers(formula, problem, input,
+            buffers = [Engine.initialize_buffers(formula, input,
                            (gamma = fill(im * scale / r, length(problem.frequencies)),
                                σ̃ = zeros(ComplexF64, 2), μ = zeros(2)))
                        for scale in (299.0, 299.9, 300.1, 301.0)]
@@ -303,7 +303,7 @@ using SpecialFunctions: besseli, besselk
             line_length = 1.0)
         problem = LineParametersProblem(system, earth; frequencies)
         input = Engine.CoaxialInput(problem, reductions)
-        buffers = Engine.initialize_buffers(formula, problem, input,
+        buffers = Engine.initialize_buffers(formula, input,
             (gamma = gamma, σ̃ = zeros(ComplexF64, 2), μ = zeros(2)))
         c = length(placements)
         targets = Dict(matrix => zeros(ComplexF64, c, c, length(frequencies))
@@ -358,7 +358,7 @@ using SpecialFunctions: besseli, besselk
     # the preparation allocates only the pivot vector of its LU decomposition.
     contact = LineCableModels.Engine.EarthReturn.Formula(Val(:martins2026))
     input = LineCableModels.Engine.CoaxialInput(buried, reductions)
-    buffers = LineCableModels.initialize_buffers(contact, buried, input,
+    buffers = LineCableModels.initialize_buffers(contact, input,
         (gamma = zeros(ComplexF64, 3), σ̃ = zeros(ComplexF64, 2), μ = zeros(2)))
     media = map(layer -> law(layer, 1.0e3), buried.earth.layers)
     s = im * (2 * π * 1.0e3)

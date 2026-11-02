@@ -89,7 +89,7 @@ validate(problem::LineParametersProblem, formula::EarthReturn.Formula{:pollaczek
 validate(problem::LineParametersProblem, formula::EarthReturn.Formula{:wise1934})
 validate(problem::LineParametersProblem, formula::EarthReturn.Formula{:wise1948})
 validate(problem::LineParametersProblem, formula::EarthReturn.Formula{:xue2018})
-initialize_buffers(formula::EarthReturn.Formula{:martins2026}, ::LineParametersProblem, input::CoaxialInput{T}, buffers) where {T}
+initialize_buffers(formula::EarthReturn.Formula{:martins2026}, input::CoaxialInput{T}, buffers) where {T}
 to_buffer!(f::EarthReturn.Formula{:martins2026}, buffers, input::CoaxialInput, media, s, k)
 impedance!(formulation::CoaxialFormulation, Zg::AbstractMatrix, buffers, input::CoaxialInput, media, s, k)
 potential!(formulation::CoaxialFormulation, Pg::AbstractMatrix, buffers, input::CoaxialInput, media, s, k)

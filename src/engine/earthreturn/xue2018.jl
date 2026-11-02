@@ -41,8 +41,8 @@ function validate(problem::LineParametersProblem, formula::Formula{:xue2018})
     return problem
 end
 
-function initialize_buffers(f::Formula{:xue2018}, ::LineParametersProblem,
-        input::CoaxialInput{T}, buffers) where {T}
+function initialize_buffers(f::Formula{:xue2018}, input::CoaxialInput{T},
+        buffers) where {T}
     return initialize_buffers(SpectralIntegral, f.options.integral.method, T, buffers)
 end
 

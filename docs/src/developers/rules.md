@@ -426,7 +426,7 @@ A formula declares its own controls in `defaults` and checks them in `validate(o
 Where its direct and image term differs from the family's, it adds its own method of `Λ`. Terms
 that several entries read go to the block of the formula: `to_buffer!` writes them once per
 frequency, and `from_buffer(f, buffers)` reads them. The arrays of the block come from a method
-`initialize_buffers(formula, problem, input, buffers)`, which returns the buffers merged with
+`initialize_buffers(formula, input, buffers)`, which returns the buffers merged with
 the formula's own, keyed by its identifier. A family whose formulas own blocks has one
 `from_buffer` method.
 
