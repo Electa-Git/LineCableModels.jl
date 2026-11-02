@@ -57,7 +57,8 @@
         mktempdir() do folder
             cd(folder) do
                 path = extension.directory(problem)
-                @test dirname(path) == joinpath(folder, ".linecablemodels", "fem", case)
+                @test dirname(path) ==
+                      joinpath(realpath(folder), ".linecablemodels", "fem", case)
                 @test occursin(r"^\d{8}-\d{6}-[a-z0-9]{4}$", basename(path))
                 @test !ispath(path)
                 result = compute(
@@ -74,9 +75,14 @@
                 for (quantity, computed, status) in
                     (("Z", result.Z, expected.Z), ("Y", result.Y, expected.Y))
                     target = targets[("fem", quantity)]
-                    for k in eachindex(problem.frequencies)
-                        @test maximum(abs, computed[:, :, k] - target[:, :, k]) <=
-                              tolerance * maximum(abs(target[i, i, k]) for i in 1:n)
+                    @testset "$quantity k=$k f=$(problem.frequencies[k]) Hz" for k in
+                                                                                 eachindex(problem.frequencies)
+                        bound = tolerance * maximum(abs(target[i, i, k]) for i in 1:n)
+                        @test maximum(abs, real.(computed[:, :, k] - target[:, :, k])) <=
+                              bound
+                        @test maximum(abs, imag.(computed[:, :, k] - target[:, :, k])) <=
+                              bound
+                        @test maximum(abs, computed[:, :, k] - target[:, :, k]) <= bound
                     end
                     analytical = targets[("analytical", quantity)]
                     errors = [maximum(abs, computed[:, :, k] - analytical[:, :, k]) /
