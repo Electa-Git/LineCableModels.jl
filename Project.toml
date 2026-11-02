@@ -1,6 +1,6 @@
 name = "LineCableModels"
 uuid = "dffb7669-8cd4-4628-99dd-7694e356ba37"
-version = "0.2.0"
+version = "0.1.0"
 authors = ["Amauri Martins"]
 
 [deps]
