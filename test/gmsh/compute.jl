@@ -270,16 +270,34 @@
         problem = LineParametersProblem(system, homogeneous(rho = 100); frequencies = [50.0])
         mktempdir() do folder
             cd(folder) do
+                untransposed = compute(problem,
+                    FEM(; bundle = false, kron = false, transposition = false);
+                    keep_run_directory = true)
+                rerun = compute(problem,
+                    FEM(; bundle = false, kron = false, transposition = false);
+                    keep_run_directory = true)
                 transposed = compute(problem,
-                    FEM(; bundle = false, kron = false, transposition = true))
-                unreduced = compute(problem,
-                    FEM(; bundle = false, kron = false, transposition = false))
-                for (computed, original) in ((transposed.Z, unreduced.Z),
-                    (transposed.Y, unreduced.Y))
-                    @test all(norm(computed[:, :, k] -
-                                   sum(original[circshift(1:4, j), circshift(1:4, j), k]
-                              for j in 0:3) / 4) <= 1e-14 * norm(original[:, :, k])
-                    for k in eachindex(problem.frequencies))
+                    FEM(; bundle = false, kron = false, transposition = true);
+                    keep_run_directory = true)
+                runs = sort(readdir(dirname(extension.directory(problem)); join = true))
+                mesh_first = joinpath(runs[1], "mesh", "frequency-0001.msh")
+                mesh_second = joinpath(runs[2], "mesh", "frequency-0001.msh")
+                @test filesize(mesh_first) == filesize(mesh_second)
+                @test read(mesh_first) == read(mesh_second)
+                for (quantity, original, repeated, computed) in
+                    ((:Z, untransposed.Z, rerun.Z, transposed.Z),
+                    (:Y, untransposed.Y, rerun.Y, transposed.Y))
+                    @testset "$quantity solve reproducibility" begin
+                        ratio = norm(repeated - original) / norm(original)
+                        @test ratio <= 1e-14
+                    end
+                    @testset "$quantity transposition k=$k" for k in
+                                                                eachindex(problem.frequencies)
+                        ratio = norm(computed[:, :, k] -
+                                     sum(original[circshift(1:4, j), circshift(1:4, j), k]
+                        for j in 0:3) / 4) / norm(original[:, :, k])
+                        @test ratio <= 1e-14
+                    end
                 end
             end
         end
