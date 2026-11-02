@@ -28,13 +28,22 @@
             end
         end
     end
+    # The frozen rows were produced on x86_64 Linux. Gmsh's meshing decisions depend on
+    # floating point. The same build on the same platform regenerates the same mesh and
+    # reproduces the rows to 1e-6 of the diagonal. On other platforms, the same geometry is
+    # meshed slightly differently. Pull request 67 measured deviations up to 6e-4 of the
+    # diagonal in Z and Y at most frequencies on Apple silicon, Intel macOS and Windows. There
+    # the rows hold within the FEM acceptance metric, 1e-2, as the coaxial cases do everywhere
+    # because their rows' mesh is older than today's. The comparison with the analytical rows
+    # and the known status holds on every platform and is the physics check.
+    wire_pair_tolerance = Sys.islinux() && Sys.ARCH === :x86_64 ? 1e-6 : 1e-2
     facts = Dict(
-        "two_bare_wires" => (1e-6, (Z = 0.00568, Y = 0.00798)),
-        "two_insulated_wires" => (1e-6, (Z = 0.00407, Y = 0.000447)),
+        "two_bare_wires" => (wire_pair_tolerance, (Z = 0.00568, Y = 0.00798)),
+        "two_insulated_wires" => (wire_pair_tolerance, (Z = 0.00407, Y = 0.000447)),
         "coaxial_circular_strands" => (1e-2, (Z = 0.0492, Y = 0.105)),
         "coaxial_rectangular_strands" => (1e-2, (Z = 0.0522, Y = 0.104)),
-        "overhead_bare_wires" => (1e-6, (Z = 0.00610, Y = 0.00817)),
-        "mixed_bare_wires" => (1e-6, (Z = 0.00609, Y = 0.00617)))
+        "overhead_bare_wires" => (wire_pair_tolerance, (Z = 0.00610, Y = 0.00817)),
+        "mixed_bare_wires" => (wire_pair_tolerance, (Z = 0.00609, Y = 0.00617)))
     @testset "$case" for (case, reference) in REFERENCES
         tolerance, expected = facts[case]
         problem = LineParametersProblem(reference.system, reference.earth;
@@ -57,8 +66,7 @@
         mktempdir() do folder
             cd(folder) do
                 path = extension.directory(problem)
-                @test dirname(path) ==
-                      joinpath(realpath(folder), ".linecablemodels", "fem", case)
+                @test dirname(path) == joinpath(pwd(), ".linecablemodels", "fem", case)
                 @test occursin(r"^\d{8}-\d{6}-[a-z0-9]{4}$", basename(path))
                 @test !ispath(path)
                 result = compute(
