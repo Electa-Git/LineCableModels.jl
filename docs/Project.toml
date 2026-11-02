@@ -18,7 +18,7 @@ LineCableModels = {path = ".."}
 getdp_jll = {url = "https://github.com/amaurigmartins/getdp_jll.jl"}
 
 [compat]
-CSV = "0.10"
+CSV = "0.10, 1"
 CairoMakie = "0.15"
 Documenter = "1.19"
 DocumenterCitations = "1.5"
