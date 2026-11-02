@@ -24,6 +24,83 @@ end
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     Geometry, FieldModel = extension.Geometry, extension.FieldModel
     options = ComputationOptions(GmshBackend)
+    @testset "rectangle vertices split neighboring edges" begin
+        reference = last(first(REFERENCES))
+        model = FieldModel(reference, FEM())
+        gmsh.initialize()
+        try
+            gmsh.model.add("rectangles")
+            geometry = Geometry(model)
+            # Draw the smaller neighbor first to register its vertices on the edge.
+            neighbor = Contour(
+                Curve{Float64}[
+                Segment((2.0, 0.5), (3.0, 0.5)),
+                Segment((3.0, 0.5), (3.0, 1.5)),
+                Segment((3.0, 1.5), (2.0, 1.5)),
+                Segment((2.0, 1.5), (2.0, 0.5))],
+                Vector{Curve{Float64}}[])
+            rectangle = Contour(
+                Curve{Float64}[
+                Segment((0.0, 0.0), (2.0, 0.0)),
+                Segment((2.0, 0.0), (2.0, 2.0)),
+                Segment((2.0, 2.0), (0.0, 2.0)),
+                Segment((0.0, 2.0), (0.0, 0.0))],
+                Vector{Curve{Float64}}[])
+            neighbor = draw(geometry, neighbor.outer)
+            rectangle = draw(geometry, rectangle.outer)
+            @test length(rectangle.curves) == 6
+            @test length(intersect(abs.(rectangle.curves), abs.(neighbor.curves))) == 1
+            @test Set(minmax(geometry.positions[p], geometry.positions[q])
+            for (p, q) in keys(geometry.lines)
+            if geometry.positions[p][1] == geometry.positions[q][1] == 2.0) ==
+                  Set([((2.0, 0.0), (2.0, 0.5)),
+                ((2.0, 0.5), (2.0, 1.5)), ((2.0, 1.5), (2.0, 2.0))])
+        finally
+            gmsh.model.remove()
+            gmsh.finalize()
+        end
+    end
+
+    @testset "an annular fill around round and rectangular courses" begin
+        copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+        polymer = Material(:insulator, Inf)
+        design = build(CableDesign, "mixed_courses",
+            Terminal(:core, Region(:core_metal, Circle(0.01), copper)),
+            Terminal(:screen,
+                Enclosure(Region(:fill, Offset(0.004), polymer),
+                    Stack(
+                        Repeat(CircularPattern(6; r = Offset(0)),
+                            Region(:wires, Circle(0.001), copper)),
+                        Repeat(CircularPattern(3; r = Offset(0)),
+                            Region(:strands, Rectangle(0.004, 0.002), copper))))))
+        system = build(CableSystem, [design], [Placement(0.0, -1.0)];
+            connections = [(core = 1, screen = 2)], id = "mixed_courses", line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 100); frequencies = [50.0])
+        plan = extension.compartments(last(system.regions).shape)
+        @test (
+            plan.center, plan.inner_radius, plan.outer_radius, plan.shell_outer_radius) ==
+              ((0.0, -1.0), 0.01, 0.012, 0.014)
+        @test plan.angles ≈ collect(0:5) .* (π / 3)
+        @test length(plan.holes) == 6
+        @test length(plan.outer_spans) == 3
+        @test first.(plan.outer_spans) ≈ [2 / 13 + k * 2π / 3 for k in 0:2]
+        @test last.(plan.outer_spans) ≈ fill(2π / 3 - 4 / 13, 3)
+        @test extension.section(system.regions[8]) == (kind = 3, a = 0.004, b = 0.002)
+        @test extension.section(last(system.regions)) == (kind = 2, a = 0.014, b = 0.01)
+        sector = system.regions[8].shape
+        @test collect(extension.lowest(Contour(sector))) ≈
+              [0.014cos(2 / 13), -1.0 - 0.014sin(2 / 13)]
+        gmsh.initialize()
+        try
+            geometry = build(Geometry, FieldModel(problem, FEM()), options)
+            @test length.(geometry.surfaces) == [fill(1, 10); 9]
+            @test length(gmsh.model.getEntities(2)) == 19
+        finally
+            gmsh.model.remove()
+            gmsh.finalize()
+        end
+    end
+
     @testset "$case" for (case, reference) in REFERENCES
         problem = LineParametersProblem(reference.system, reference.earth;
             temperature = reference.temperature,
