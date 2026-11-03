@@ -10,7 +10,7 @@ abstract type AbstractCablePart end
 function resolve(::EmptyBoundary, part::AbstractCablePart)
     return resolve(
         (regions = PlacedRegion[], outer = EmptyBoundary(), terminals = NamedTuple[],
-            repeats = NamedTuple[], lays = NamedTuple[], fills = NamedTuple[]),
+            assemblies = NamedTuple[], repeats = NamedTuple[], lays = NamedTuple[], fills = NamedTuple[]),
         part)
 end
 
@@ -100,20 +100,22 @@ end
 # regions has no row.
 function resolve(described::NamedTuple, terminal::Terminal)
     inner = resolve(described, terminal.part)
-    conductive = [index
-                  for index in (length(described.regions) + 1):length(inner.regions)
-                  if inner.regions[index].source.material isa Material{<:Real, :conductor}]
-    named = [index
-             for row in inner.terminals if row.name == terminal.name && isempty(row.scope)
-             for index in row.regions]
-    others = [(name = row.name, scope = row.scope,
-                  regions = setdiff(row.regions, conductive))
-              for row in inner.terminals
-              if !(row.name == terminal.name && isempty(row.scope))]
-    rows = [others;
-            (name = terminal.name, scope = NamedTuple[],
-                regions = sort!(union(named, conductive)))]
-    terminals = sort!([row for row in rows if !isempty(row.regions)];
+    conductive = Int[index
+                     for index in (length(described.regions) + 1):length(inner.regions)
+                     if inner.regions[index].source.material isa
+                        Material{<:Real, :conductor}]
+    named = Int[index
+                for row in inner.terminals
+                if row.name == terminal.name && isempty(row.scope)
+                for index in row.regions]
+    others = NamedTuple[(name = row.name, scope = row.scope,
+                            regions = setdiff(row.regions, conductive))
+                        for row in inner.terminals
+                        if !(row.name == terminal.name && isempty(row.scope))]
+    rows = NamedTuple[others;
+                      (name = terminal.name, scope = Int[],
+                          regions = sort!(union(named, conductive)))]
+    terminals = sort!(NamedTuple[row for row in rows if !isempty(row.regions)];
         by = row -> first(row.regions))
     return merge(inner, (terminals = terminals,))
 end
@@ -125,8 +127,8 @@ Repeat a part at the placements of a pattern. The part is declared in its own fr
 pattern places each copy about the center of the enclosing part. A repeated region is a
 strand, and the pattern bends a rectangular strand into an annular sector of the same area
 on its course. Each copy is a scope: the terminals declared in the part are distinct
-terminals in every copy. The outline of the copies is the circle about the center that
-contains them.
+terminals in every copy. A copy of a part other than a region is a sub-cable of the design.
+The outline of the copies is the circle about the center that contains them.
 
 $(TYPEDFIELDS)
 """
@@ -170,46 +172,73 @@ function resolve(described::NamedTuple, repeat::Repeat{<:AbstractLayoutPattern, 
             outer = Circle(maximum(support, shapes)), repeats = [described.repeats; row]))
 end
 
-# The pattern places a composite part by its outline. Every copy repeats the rows of the part,
-# with its regions placed and its indices shifted. The terminals of a copy take the copy as
-# their outermost scope, and its lays take the placed axis. The row of the repeat precedes
-# those of its copies.
+# The pattern places a composite part by its outline. Every copy is a sub-cable and repeats
+# the rows of the part, with its regions placed and its indices shifted. The terminals of a
+# copy take the row of the copy as their outermost scope, and its lays take the placed axis.
+# The row of the repeat precedes those of its copies, and the row of a copy precedes those of
+# the sub-cables inside it.
 function resolve(described::NamedTuple, repeat::Repeat)
     member = resolve(EmptyBoundary(), repeat.part)
     course = placements(resolve(described.outer, repeat.pattern, member.outer), member.outer)
     index = length(described.repeats) + 1
+    m = length(member.assemblies)
+    base = length(described.assemblies)
     offsets = [(at = at,
-                   region = length(described.regions) + (k - 1) * length(member.regions),
-                   repeat = index + (k - 1) * length(member.repeats))
+                   region = length(described.regions) +
+                            (k - 1) * length(member.regions),
+                   repeat = index + (k - 1) * length(member.repeats),
+                   assembly = base + (k - 1) * (m + 1) + 1)
                for (k, at) in enumerate(course.placements)]
     regions = [PlacedRegion(placed.source,
                    validate(resolve(offset.at, placed.shape), repeat, described.outer))
                for offset in offsets for placed in member.regions]
-    terminals = [(name = row.name,
-                     scope = [(repeat = index, copy = k);
-                              [(repeat = entry.repeat + offset.repeat, copy = entry.copy)
-                               for entry in row.scope]],
-                     regions = row.regions .+ offset.region)
-                 for (k, offset) in enumerate(offsets) for row in member.terminals]
-    repeats = [(placements = course.placements,
-                   copies = [(offset.region + 1):(offset.region + length(member.regions))
-                             for offset in offsets]);
-               [(placements = [offset.at * at for at in row.placements],
-                    copies = [indices .+ offset.region for indices in row.copies])
-                for offset in offsets for row in member.repeats]]
-    lays = [(repeat = row.repeat + offset.repeat,
-                radii = row.radii, pitches = row.pitches,
-                overlengths = row.overlengths, axis = offset.at(row.axis))
-            for offset in offsets for row in member.lays]
-    fills = [(region = row.region + offset.region,
-                 contents = row.contents .+ offset.region)
-             for offset in offsets for row in member.fills]
+    rows = NamedTuple[]
+    for offset in offsets
+        push!(rows,
+            (at = offset.at,
+                regions = Int[index + offset.region
+                              for index in eachindex(member.regions)
+                              if all(row -> index ∉ row.regions, member.assemblies)],
+                members = Int[index + offset.assembly
+                              for index in eachindex(member.assemblies)
+                              if all(row -> index ∉ row.members, member.assemblies)]))
+        append!(rows,
+            NamedTuple[(at = offset.at * row.at,
+                           regions = row.regions .+ offset.region, members = row.members .+
+                                                                             offset.assembly)
+                       for row in member.assemblies])
+    end
+    terminals = NamedTuple[(name = row.name,
+                               scope = Int[offset.assembly; row.scope .+ offset.assembly],
+                               regions = row.regions .+ offset.region)
+                           for offset in offsets
+                           for row in member.terminals]
+    repeats = NamedTuple[(placements = course.placements,
+                             copies = UnitRange{Int}[(offset.region + 1):(offset.region + length(member.regions))
+                                                     for offset in offsets]);
+                         NamedTuple[(
+                                        placements = [offset.at * at
+                                                      for at in row.placements],
+                                        copies = UnitRange{Int}[indices .+ offset.region
+                                                                for indices in row.copies])
+                                    for offset in offsets for row in member.repeats]]
+    lays = NamedTuple[(
+                          regions = UnitRange{Int}[indices .+ offset.region
+                                                   for indices in row.regions],
+                          radii = row.radii, pitches = row.pitches,
+                          overlengths = row.overlengths, axis = offset.at(row.axis))
+                      for offset in offsets for row in member.lays]
+    fills = NamedTuple[(region = row.region + offset.region,
+                           contents = row.contents .+ offset.region)
+                       for offset in offsets for row in member.fills]
     return merge(described,
         (regions = [described.regions; regions],
             outer = Circle(maximum(placed -> support(placed.shape), regions)),
-            terminals = [described.terminals; terminals],
-            repeats = [described.repeats; repeats], lays = [described.lays; lays],
-            fills = [described.fills; fills]))
+            terminals = NamedTuple[described.terminals; terminals],
+            assemblies = NamedTuple[described.assemblies; rows],
+            repeats = NamedTuple[described.repeats; repeats], lays = NamedTuple[described.lays;
+                                                                                lays],
+            fills = NamedTuple[described.fills; fills]))
 end
 
 """
@@ -238,20 +267,21 @@ struct Lay{H <: Helix, R <: Repeat} <: AbstractCablePart
     end
 end
 
-# The row of the laid repeat is the first that the repeat adds.
+# The laid regions are the copies of the first row of repeats that the repeat adds.
 function resolve(described::NamedTuple, lay::Lay)
     inner = resolve(described, lay.part)
     index = length(described.repeats) + 1
     radii = map(inner.repeats[index].copies) do indices
         shapes = [inner.regions[region].shape for region in indices]
-        x, y = sum(shape -> area(shape) .* centroid(shape), shapes) ./ sum(area, shapes)
+        x = sum(shape -> area(shape) * first(centroid(shape)), shapes) / sum(area, shapes)
+        y = sum(shape -> area(shape) * last(centroid(shape)), shapes) / sum(area, shapes)
         return hypot(x, y)
     end
-    row = (repeat = index, radii = radii,
+    row = (regions = inner.repeats[index].copies, radii = radii,
         pitches = [lay.helix.dir * pitch(lay.helix, radius) for radius in radii],
         overlengths = [overlength(lay.helix, radius) for radius in radii],
         axis = (zero(eltype(radii)), zero(eltype(radii))))
-    return merge(inner, (lays = [inner.lays; row],))
+    return merge(inner, (lays = NamedTuple[inner.lays; row],))
 end
 
 """

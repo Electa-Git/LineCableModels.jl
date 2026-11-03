@@ -69,7 +69,9 @@ end
             @test [length(row.regions) for row in design.terminals] == [37, 1, 40]
             @test r_ex(design.outer) ≈ 32.5e-3
             @test [length(row.copies) for row in design.repeats] == [6, 12, 18, 40]
-            @test [row.repeat for row in design.lays] == [1, 2, 3, 4]
+            @test [row.regions for row in design.lays] ==
+                  [[index:index for index in indices]
+                   for indices in (2:7, 8:19, 20:37, 44:83)]
             @test all(radius -> radius ≈ 26.5e-3, design.lays[4].radii)
             @test all(pitch -> pitch ≈ 2 * 10 * 26.5e-3, design.lays[4].pitches)
             @test all(factor -> factor ≈ sqrt(1 + (π / 10)^2), design.lays[4].overlengths)
@@ -120,10 +122,16 @@ end
         pipe = Region(:pipe_fill, Circle(6.5e-3), polymer)
         separate = build(CableDesign, "three_cores", Enclosure(pipe, cores))
         @test [(row.name, row.scope) for row in separate.terminals] ==
-              [(name, [(repeat = 1, copy = k)]) for k in 1:3 for name in (:core, :screen)]
+              [(name, [k + 1]) for k in 1:3 for name in (:core, :screen)]
         @test [length(row.regions) for row in separate.terminals] == [7, 1, 7, 1, 7, 1]
         @test [length(row.copies) for row in separate.repeats] == [3, 6, 6, 6]
-        @test [row.repeat for row in separate.lays] == [2, 3, 4]
+        @test [row.regions for row in separate.lays] ==
+              [[index:index for index in (10k - 8):(10k - 3)] for k in 1:3]
+        @test [(row.regions, row.members) for row in separate.assemblies] ==
+              [([31], [2, 3, 4]); [(collect((10k - 9):(10k)), Int[]) for k in 1:3]]
+        @test all(isapprox(collect((row.at.x, row.at.y, row.at.φ)),
+                      [3.5e-3 * cos(φ), 3.5e-3 * sin(φ), φ]; atol = 1.0e-15)
+        for (row, φ) in zip(separate.assemblies[2:4], (k * (2π / 3) for k in 0:2)))
         @test all(row -> hypot(row.axis...) ≈ 3.5e-3, separate.lays)
         @test [length(row.contents) for row in separate.fills] == [7, 7, 7, 30]
         fill = separate.regions[last(separate.fills).region].shape
@@ -140,6 +148,43 @@ end
         bonded = build(CableDesign, "bonded", Terminal(:phase, Enclosure(pipe, cores)))
         @test [(row.name, length(row.regions)) for row in bonded.terminals] ==
               [(:phase, 24)]
+    end
+
+    @testset "a laid repeat of a composite part" begin
+        insulated = Stack(Terminal(:core, Region(:wire, Circle(1.0e-3), copper)),
+            Region(:wire_insulation, Offset(0.5e-3), polymer))
+        laid = Lay(Helix(LayRatio(12)), Repeat(CircularPattern(3; r = 6.0e-3), insulated))
+        cores = Enclosure(Region(:cores_fill, Circle(7.5e-3), air), laid)
+        design = build(CableDesign, "laid_cores", cores)
+        @test [placed.source.tag for placed in design.regions] ==
+              [repeat([:wire, :wire_insulation], 3); :cores_fill]
+        @test [(row.name, row.scope, row.regions) for row in design.terminals] ==
+              [(:core, [2], [1]), (:core, [3], [3]), (:core, [4], [5])]
+        @test [(row.regions, row.members) for row in design.assemblies] ==
+              [([7], [2, 3, 4]), ([1, 2], Int[]), ([3, 4], Int[]), ([5, 6], Int[])]
+        @test first(design.assemblies).at == Placement(0.0, 0.0)
+        @test all(isapprox(collect((row.at.x, row.at.y, row.at.φ)),
+                      [6.0e-3 * cos(φ), 6.0e-3 * sin(φ), φ]; atol = 1.0e-15)
+        for (row, φ) in zip(design.assemblies[2:4], (k * (2π / 3) for k in 0:2)))
+        @test [row.copies for row in design.repeats] == [[1:2, 3:4, 5:6]]
+        @test [row.regions for row in design.lays] == [[1:2, 3:4, 5:6]]
+        lay = only(design.lays)
+        @test all(radius -> radius ≈ 6.0e-3, lay.radii)
+        @test all(pitch -> pitch ≈ 2 * 12 * 6.0e-3, lay.pitches)
+        @test all(factor -> factor ≈ sqrt(1 + (π / 12)^2), lay.overlengths)
+        @test lay.axis == (0.0, 0.0)
+        @test [(row.region, row.contents) for row in design.fills] == [(7, collect(1:6))]
+        @test isempty(design.compactions)
+        rows = design.assemblies
+        @test_throws "must nest" CableDesign{Float64}(
+            design.id, design.tree, design.regions,
+            design.outer, design.terminals,
+            [rows; (at = rows[2].at, regions = Int[], members = Int[])], design.repeats,
+            design.lays, design.compactions, design.fills)
+        @test_throws "exactly one row" CableDesign{Float64}(design.id, design.tree,
+            design.regions, design.outer, design.terminals,
+            [(at = rows[1].at, regions = [6, 7], members = rows[1].members); rows[2:4]],
+            design.repeats, design.lays, design.compactions, design.fills)
     end
 
     @testset "a fill takes the outlines of its outermost contents" begin

@@ -136,12 +136,13 @@ connections of the system.
 ### Description
 
 `build(CableDesign, id, parts...)` resolves the tree into a `CableDesign`. The design stores
-the placed regions from the inside out, the outline, and tables of the terminals, the
-repeats, the lays and the fills. A table has a row only for a fact that exists. The design's
+the placed regions from the inside out, the outline, and the tables of terminals,
+sub-cables, repeats, lays and fills. A table has a row only for a fact that exists. The design's
 number type `T` is the promotion of the number types of its cross-sections and its
 materials. An uncertain material widens `T`. The design validates itself at construction.
 The regions cover the outline without gaps or overlaps. Every region of an enclosure lies
-inside its container. Every conductive region belongs to a terminal.
+inside its container. Every conductive region belongs to a terminal, and every region
+belongs to one sub-cable.
 
 ### Equivalence
 

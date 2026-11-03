@@ -161,7 +161,7 @@ function flatten(design::CableDesign)
     overlengths = ones(T, length(regions))
     turns = zeros(T, length(regions))
     for row in design.lays,
-        (member, indices) in enumerate(design.repeats[row.repeat].copies),
+        (member, indices) in enumerate(row.regions),
         index in indices
         overlengths[index] *= row.overlengths[member]
         turns[index] += inv(row.pitches[member])
