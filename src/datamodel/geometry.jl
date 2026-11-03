@@ -350,14 +350,14 @@ inside it, such as the fill between the wires of a course.
 
 $(TYPEDFIELDS)
 """
-struct DifferenceShape{
+struct PerforatedShape{
     T <: Real, O <: AbstractShape{T}, H <: AbstractVector{<:AbstractShape}} <:
        AbstractShape{T}
     "Outer cross-section."
     outer::O
     "Outlines removed from the outer one. They lie inside it, and each lies outside the others."
     holes::H
-    function DifferenceShape(outer::O,
+    function PerforatedShape(outer::O,
             holes::H) where {
             T <: Real, O <: AbstractShape{T}, H <: AbstractVector{<:AbstractShape}}
         return new{T, O, H}(outer, holes)
@@ -390,7 +390,7 @@ A_\\mathrm{sector} = \\frac{\\Delta\\phi}{2} \\left(r_o^2 - r_i^2\\right),
 
 where ``r`` is the radius of a circle, ``r_i`` and ``r_o`` are inner and outer radii, ``w``
 and ``h`` are the width and height of a rectangle \\[m\\], and ``\\Delta\\phi`` \\[rad\\] is
-the angular span of a sector. A [`DifferenceShape`](@ref) has the area of its outer
+the angular span of a sector. A [`PerforatedShape`](@ref) has the area of its outer
 cross-section less the areas of its holes.
 """
 function area end
@@ -399,7 +399,7 @@ area(circle::Circle) = π * circle.r^2
 area(annulus::Annulus) = π * (annulus.ro^2 - annulus.ri^2)
 area(rectangle::Rectangle) = rectangle.w * rectangle.h
 area(sector::AnnularSector) = sector.span * (sector.ro^2 - sector.ri^2) / 2
-function area(shape::DifferenceShape)
+function area(shape::PerforatedShape)
     return area(shape.outer) - sum(area, shape.holes; init = zero(eltype(shape)))
 end
 
@@ -416,7 +416,7 @@ d = \\frac{4 \\sin(\\Delta\\phi / 2) \\left(r_o^3 - r_i^3\\right)}
 
 from its center of curvature, where ``\\Delta\\phi`` is its angular span and ``r_i`` and ``r_o``
 are its inner and outer radii. A circle and an annulus have their centroid at their center. A
-[`DifferenceShape`](@ref) of area ``A`` has the centroid
+[`PerforatedShape`](@ref) of area ``A`` has the centroid
 
 ```math
 \\mathbf c = \\frac{A_o \\mathbf c_o - \\sum_h A_h \\mathbf c_h}{A},
@@ -435,7 +435,7 @@ function centroid(sector::AnnularSector)
     return sector.at((d, zero(d)))
 end
 
-function centroid(shape::DifferenceShape)
+function centroid(shape::PerforatedShape)
     x, y = area(shape.outer) .* centroid(shape.outer)
     for hole in shape.holes
         x, y = (x, y) .- area(hole) .* centroid(hole)
@@ -453,14 +453,14 @@ S = \\sqrt{x_c^2 + y_c^2} + r_o,
 ```
 
 where ``(x_c, y_c)`` is the center of `shape` and ``r_o`` its outer radius \\[m\\]. A
-[`DifferenceShape`](@ref) has the support of its outer cross-section.
+[`PerforatedShape`](@ref) has the support of its outer cross-section.
 """
 function support end
 
 support(circle::Circle) = hypot(circle.at.x, circle.at.y) + circle.r
 support(annulus::Annulus) = hypot(annulus.at.x, annulus.at.y) + annulus.ro
 support(sector::AnnularSector) = hypot(sector.at.x, sector.at.y) + sector.ro
-support(shape::DifferenceShape) = support(shape.outer)
+support(shape::PerforatedShape) = support(shape.outer)
 
 """
     distance(shape)
@@ -484,14 +484,14 @@ function distance(shape::Union{Annulus, AnnularSector})
     return max(zero(offset), offset - shape.ro, shape.ri - offset)
 end
 
-distance(shape::DifferenceShape) = distance(shape.outer)
+distance(shape::PerforatedShape) = distance(shape.outer)
 
 """
     boundary(shape)
 
 Return the outline of `shape`. A circle and an annular sector are their own outlines. The
 outline of an annulus is the circle of its outer radius. The outline of a
-[`DifferenceShape`](@ref) is the outline of its outer cross-section. The next part resolves
+[`PerforatedShape`](@ref) is the outline of its outer cross-section. The next part resolves
 against the outline, and an enclosure removes it from its fill.
 """
 function boundary end
@@ -499,7 +499,7 @@ function boundary end
 boundary(circle::Circle) = circle
 boundary(annulus::Annulus) = Circle(annulus.ro, annulus.at)
 boundary(sector::AnnularSector) = sector
-boundary(shape::DifferenceShape) = boundary(shape.outer)
+boundary(shape::PerforatedShape) = boundary(shape.outer)
 
 """
     r_in(shape)
@@ -545,8 +545,8 @@ end
 function resolve(at::Placement, sector::AnnularSector)
     return AnnularSector(sector.ri, sector.ro, sector.span, at * sector.at)
 end
-function resolve(at::Placement, shape::DifferenceShape)
-    return DifferenceShape(resolve(at, shape.outer), [resolve(at, hole)
+function resolve(at::Placement, shape::PerforatedShape)
+    return PerforatedShape(resolve(at, shape.outer), [resolve(at, hole)
                                                       for hole in shape.holes])
 end
 
@@ -564,6 +564,6 @@ Base.map(f, offset::Offset) = Offset(f(offset.t))
 function Base.map(f, sector::AnnularSector)
     return AnnularSector(f(sector.ri), f(sector.ro), f(sector.span), map(f, sector.at))
 end
-function Base.map(f, shape::DifferenceShape)
-    return DifferenceShape(map(f, shape.outer), [map(f, hole) for hole in shape.holes])
+function Base.map(f, shape::PerforatedShape)
+    return PerforatedShape(map(f, shape.outer), [map(f, hole) for hole in shape.holes])
 end

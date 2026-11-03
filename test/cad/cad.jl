@@ -99,9 +99,9 @@ end
         end
     end
 
-    @testset "difference contours and the three-core fill" begin
+    @testset "perforated contours and the three-core fill" begin
         at = Placement(0.0, 0.0)
-        shape = LineCableModels.DifferenceShape(Annulus(1.0e-3, 6.0e-3, at),
+        shape = LineCableModels.PerforatedShape(Annulus(1.0e-3, 6.0e-3, at),
             [Circle(0.5e-3, Placement(3.0e-3, 0.0))])
         contour = Contour(shape)
         @test contour.outer == Contour(shape.outer).outer

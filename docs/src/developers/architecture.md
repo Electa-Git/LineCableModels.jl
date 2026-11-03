@@ -111,7 +111,7 @@ A cross-section is one type with the methods of one unary interface: `area`, `ce
 `support`, `distance`, `boundary` and `resolve`. `r_in` and `r_ex` exist on circular
 cross-sections only. No method takes two cross-sections. The primitives are `Circle`,
 `Annulus`, `Rectangle` and `AnnularSector`. `Offset(t)` is an operator: a layer declared by
-its thickness, resolved on the outline of the part inside it. `DifferenceShape` is the
+its thickness, resolved on the outline of the part inside it. `PerforatedShape` is the
 cross-section of a fill, a container without the outlines of its contents. A new kind of
 cross-section is one type and its methods. The structure above it does not change.
 
@@ -165,14 +165,14 @@ cross it. `:martins2026` and the finite-element model refuse a cable that touche
 
 ### Surface syntax
 
-`@cable` and `@terminal` and the builders `core`, `insulation`, `screen`, `sheath`,
-`bedding`, `jacket`, `stranded` and `armor` lower to the nodes above. They do not add a
-capability.
+`@design` and `@terminal` and the builders `core`, `insulation`, `screen`, `sheath`,
+`bedding`, `jacket`, `stranded`, `wires` and `tape` lower to the nodes above, and `trefoil`
+and `flat` return the placements of the cables of a system. They do not add a capability.
 
 ```julia
 copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
 polyethylene = Material(:insulator, 1.0e14, 2.3)
-wire = @cable "insulated_wire" begin
+wire = @design "insulated_wire" begin
     @terminal :core begin
         core(copper; r = 4.0e-3)
     end

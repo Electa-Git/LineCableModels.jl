@@ -75,7 +75,7 @@ jacket.
 =#
 
 # Build the cable design and inspect its outer radius:
-design = @cable "cable_380kv_no_armour" begin
+design = @design "cable_380kv_no_armour" begin
     @terminal :core begin
         core(core_metal; r = strand_radius, tag = :core_center)
         courses...

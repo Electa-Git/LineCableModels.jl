@@ -74,7 +74,7 @@ using LineCableModels
 
 copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
 polyethylene = Material(:insulator, 1.0e14, 2.3)
-wire = @cable "insulated_wire" begin
+wire = @design "insulated_wire" begin
     @terminal :core begin
         core(copper; r = 4.0e-3) # [m]
     end

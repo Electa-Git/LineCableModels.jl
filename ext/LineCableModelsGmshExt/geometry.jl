@@ -356,7 +356,7 @@ Cut the contour of `shape` and the contacts of its course of wires. Dimensions a
 coordinates are in \\[m\\] and angles in \\[rad\\]. Contact points use the plan's
 radial placements exactly. Return `geometry`.
 """
-function cut!(geometry::Geometry, shape::DifferenceShape)
+function cut!(geometry::Geometry, shape::PerforatedShape)
     cut!(geometry, Contour(shape))
     plan = compartments(shape)
     isempty(plan.holes) && return geometry
@@ -447,7 +447,7 @@ $(TYPEDSIGNATURES)
 Return the course plan of `shape`, whose dimensions and coordinates are in \\[m\\]
 and angles in \\[rad\\]. A plan with no wires denotes a fill without a tangent course.
 """
-function compartments(shape::DifferenceShape)
+function compartments(shape::PerforatedShape)
     return compartments(shape, shape.outer)
 end
 
@@ -457,7 +457,7 @@ $(TYPEDSIGNATURES)
 Return a plan with no wires for a `shape` whose `outer` is not an annulus. Plan radii and
 coordinates are in \\[m\\], and angles are in \\[rad\\].
 """
-function compartments(::DifferenceShape, ::AbstractShape)
+function compartments(::PerforatedShape, ::AbstractShape)
     return (center = (0.0, 0.0), inner_radius = 0.0, outer_radius = 0.0,
         shell_outer_radius = 0.0, angles = Float64[], holes = Circle{Float64}[],
         outer_spans = NTuple{2, Float64}[])
@@ -471,8 +471,8 @@ with no wires. Record the center and inner, contact, and shell radii \\[m\\], th
 and their angles \\[rad\\], and the shell's free angular spans \\[rad\\]. Convert
 the cutouts of `shape` to `Float64` and calculate their free spans.
 """
-function compartments(shape::DifferenceShape, outer::Annulus)
-    plan = invoke(compartments, Tuple{DifferenceShape, AbstractShape}, shape, outer)
+function compartments(shape::PerforatedShape, outer::Annulus)
+    plan = invoke(compartments, Tuple{PerforatedShape, AbstractShape}, shape, outer)
     isempty(shape.holes) && return plan
     iszero(outer.ri) && return plan
     center = (Float64(outer.at.x), Float64(outer.at.y))
@@ -612,7 +612,7 @@ Build the compartments of `shape` when its wires are tangent to its inner circle
 by the shell's free sectors. Otherwise build its contour's faces. Dimensions and coordinates
 are in \\[m\\] and angles in \\[rad\\]. Return tags of plane surfaces.
 """
-function faces!(geometry::Geometry, shape::DifferenceShape)
+function faces!(geometry::Geometry, shape::PerforatedShape)
     plan = compartments(shape)
     isempty(plan.holes) && return faces!(geometry, Contour(shape))
     surfaces = Int[]
@@ -1101,7 +1101,7 @@ $(TYPEDSIGNATURES)
 Return the native section record of `shape`'s outer shape. Coordinates and the returned
 lengths `a` and `b` are in \\[m\\], and angles are in \\[rad\\].
 """
-function section(shape::DifferenceShape)
+function section(shape::PerforatedShape)
     return section(shape.outer)
 end
 

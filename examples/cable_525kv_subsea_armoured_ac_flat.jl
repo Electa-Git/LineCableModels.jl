@@ -53,7 +53,7 @@ The cable has three terminals, namely the core, the lead sheath and the armor.
 =#
 
 # Build the cable design and inspect its outer radius:
-design = @cable "cable_525kv_subsea_armoured" begin
+design = @design "cable_525kv_subsea_armoured" begin
     @terminal :core begin
         core(copper; r = 0.06 / 2, tag = :core_conductor) # core_diameter / 2 [m]
     end
@@ -67,7 +67,7 @@ design = @cable "cable_525kv_subsea_armoured" begin
     jacket(pe; t = 3.3e-3, tag = :sheath_inner_pe) # inner_pe_thickness [m]
     bedding(pp; t = 1.0e-3, tag = :sheath_bedding) # bedding_thickness [m]
     @terminal :armor begin
-        armor(steel; shape = Circle(6.0e-3 / 2), n = 68, # armor_wire_diameter / 2 [m]
+        wires(steel; shape = Circle(6.0e-3 / 2), n = 68, # armor_wire_diameter / 2 [m]
             lay = LayRatio(10.019920548139554), tag = :armor_wires) # armor_lay_ratio
     end
     jacket(pp; t = 6.6e-3, tag = :armor_jacket) # jacket_thickness [m]

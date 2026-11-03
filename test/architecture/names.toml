@@ -47,6 +47,10 @@ work = "workspace, plan, buffers or the component's name"
 scratch = "workspace, plan, buffers or the component's name"
 storage = "workspace, plan, buffers or the component's name"
 cache = "workspace, plan, buffers or the component's name"
+armor = "wires, with the tag :armor"
+difference = "perforated"
+hflat = "flat"
+vflat = "flat"
 
 [global]
 nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "formulation",
@@ -83,9 +87,9 @@ nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "o
     "regions", "id", "tree", "repeats", "lays", "compactions", "fills",
     "designs", "connections", "blueprint", "conductor", "conductors",
     "dielectrics", "assembly", "core", "screen", "sheath", "bedding",
-    "jacket", "armor"]
-qualifiers = ["annular", "circular", "empty", "difference", "placed", "stranded",
-    "layout"]
+    "jacket", "tape", "wires", "spacing", "trefoil"]
+qualifiers = ["annular", "circular", "empty", "perforated", "placed", "stranded",
+    "layout", "flat", "linear"]
 symbols = ["φ", "ri", "ro", "w", "h", "t", "n", "φ0", "gap_frac", "q", "dir"]
 
 [modules.DataModel.verbs]
@@ -160,6 +164,7 @@ material = "the Material of a class with the properties given as keywords"
 EarthLayer = "the static properties and thickness of one earth or air layer"
 EarthModel = "an ordered stack of earth layers, semi-infinite air first, the last layer semi-infinite"
 homogeneous = "the earth model of air above one semi-infinite earth layer"
+"@layers" = "the earth model built from the layers of a block, from the top down, semi-infinite air first"
 
 [register.DataModel.public]
 Placement = "a planar translation and rotation relative to a parent frame"
@@ -177,13 +182,14 @@ LayRatio = "the lay length of a helix over the mean diameter of its course"
 area = "the cross-sectional area of a shape, or the signed area of a closed polyline, positive counterclockwise"
 centroid = "the centroid of a shape in the cable cross-section"
 support = "the radius of a circle about the origin that contains a shape"
-boundary = "the outline of a shape: a circle or a sector itself, an annulus's outer circle, a difference's outer's; the next part resolves against it and an enclosure removes it from its fill"
+boundary = "the outline of a shape: a circle or a sector itself, an annulus's outer circle, a perforated shape's outer's; the next part resolves against it and an enclosure removes it from its fill"
 r_in = "the inner radius of a circular shape"
 r_ex = "the outer radius of a circular shape"
 placements = "the placements and the shared cross-section of the members a pattern lays"
 overlength = "the length of a helical path over the length of the cable"
 pitch = "the lay length of a helix at a radius"
-DifferenceShape = "a cross-section without the cross-sections inside it, such as the fill between wires"
+PerforatedShape = "a cross-section perforated by the cross-sections inside it, such as the fill between wires"
+LinearPattern = "n members placed on a line at a pitch, centered on the center of the enclosing part"
 distance = "the radius of a circle about the origin that a shape does not enter"
 AbstractCablePart = "the supertype of the declared parts of a cable"
 Region = "a part of one material in one cross-section"
@@ -199,7 +205,7 @@ CableBlueprint = "a cable described for coaxial formulations: equivalent tubes, 
 BlueprintConductor = "one terminal of a cable as an equivalent tube and its material"
 BlueprintDielectric = "one dielectric layer of the interval of an equivalent tube"
 flatten = "the blueprint of a cable design"
-"@cable" = "the cable design built from the parts of a block, from the inside out"
+"@design" = "the cable design built from the parts of a block, from the inside out"
 "@terminal" = "the terminal of a name around the parts of a block"
 core = "a solid round conductor at the center of a cable"
 insulation = "an insulation layer of a thickness around the part inside it"
@@ -208,7 +214,10 @@ sheath = "a sheath layer of a thickness around the part inside it"
 bedding = "a bedding layer of a thickness around the part inside it"
 jacket = "a jacket layer of a thickness around the part inside it"
 stranded = "a stranded conductor: courses of round wires or rectangular strands around a center wire, inside an outline that a fill completes"
-armor = "a course of round armor wires laid on the part inside it, in a fill as thick as the wires"
+wires = "a course of round wires laid on the part inside it, in a fill as thick as the wires; its tag names its role"
+tape = "a tape wound on the part inside it: a rectangle that a circular pattern of one member bends into a sector of its area"
+trefoil = "the placements of three cables on the vertices of an equilateral triangle at a spacing"
+flat = "the placements of cables on a line at a spacing"
 
 [register.DataModel.private]
 EmptyBoundary = "the outline at the center of a cable, before its first part"
@@ -372,7 +381,7 @@ anchor = "the measurement anchor of terminal t: the first probe point inside its
 curves = "the boundary curves of plane surfaces, sorted"
 turn = "the turn of an arc about its circle's center: its fraction of a revolution and its length"
 scan = "scan the frequencies of a problem with GetDP: at most workers processes, one per frequency, from the meshes of the run directory, each process's job files read when it exits, results/Z.tsv and results/P.tsv written after the last, the primitive Z in Ω/m and P in Ω·m of every frequency returned by terminal"
-section = "the native section of a shape or region: its kind, 1 a Circle, 2 an Annulus, 3 a Rectangle, 0 an AnnularSector, a DifferenceShape its outer's, with the two lengths the native size law reads, (r, 0), (ro, ri), (w, h), a sector's bent height and width; of a placed region, its declared primitive's, or its resolved shape's when the primitive is an Offset"
+section = "the native section of a shape or region: its kind, 1 a Circle, 2 an Annulus, 3 a Rectangle, 0 an AnnularSector, a PerforatedShape its outer's, with the two lengths the native size law reads, (r, 0), (ro, ri), (w, h), a sector's bent height and width; of a placed region, its declared primitive's, or its resolved shape's when the primitive is an Offset"
 
 # LineCableModelsMeasurementsExt defines no name: its methods extend Engine's nominal and SpecialFunctions' Bessel functions.
 [register.LineCableModelsMeasurementsExt]

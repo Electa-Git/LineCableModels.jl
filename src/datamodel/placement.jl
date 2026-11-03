@@ -164,6 +164,8 @@ r_i = \\max\\left(0, R - \\frac{h}{2}\\right), \\qquad r_o = r_i + h, \\qquad
 
 Radii, widths and heights are in \\[m\\], and angles in \\[rad\\].
 
+A [`LinearPattern`](@ref) places a circle unchanged at each of its points.
+
 # Errors
 
 - Throws `DomainError` when the members do not fit on the pattern with its clearance.
@@ -191,6 +193,88 @@ function placements(pattern::CircularPattern{T, T}, rectangle::Rectangle) where 
                for k in 0:(pattern.n - 1)]
     return (placements = members,
         shape = AnnularSector(inner, outer, span, Placement(zero(span), zero(span))))
+end
+
+"""
+$(TYPEDEF)
+
+Place `n` members on a line in the direction `φ`, centered on the center of the part that
+contains them. The distance between the centers of neighbors is `pitch`. Member
+``k = 0, \\ldots, n - 1`` lies at
+
+```math
+\\mathbf p_k = \\left(k - \\frac{n - 1}{2}\\right) p \\, (\\cos\\phi, \\sin\\phi),
+```
+
+where ``p`` is the pitch \\[m\\] and ``\\phi`` the direction \\[rad\\]. The members keep the
+rotation of the part that contains them.
+
+$(TYPEDFIELDS)
+"""
+struct LinearPattern{T <: Real} <: AbstractLayoutPattern
+    "Number of members \\[dimensionless\\]."
+    n::Int
+    "Distance between the centers of neighbors \\[m\\]."
+    pitch::T
+    "Direction of the line, from the first member to the last \\[rad\\]."
+    φ::T
+    function LinearPattern{T}(n::Int, pitch::T, φ::T) where {T <: Real}
+        return validate(new{T}(n, pitch, φ))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct a linear pattern of `n` members at the distance `pitch` \\[m\\] between the centers
+of neighbors, in the direction `φ` \\[rad\\]. Its number type is the promotion of the types of
+`pitch` and `φ`.
+
+# Errors
+
+- Throws `DomainError` when `n` is not positive, `pitch` is not positive and finite, or `φ` is
+  not finite.
+"""
+function LinearPattern(n::Integer, pitch::Real, φ::Real = 0)
+    values = map(float, promote(pitch, φ))
+    return LinearPattern{eltype(values)}(Int(n), values...)
+end
+
+function validate(pattern::LinearPattern)
+    pattern.n > 0 || throw(DomainError(pattern.n, "LinearPattern.n must be positive"))
+    isfinite(pattern.pitch) && pattern.pitch > zero(pattern.pitch) || throw(DomainError(
+        pattern.pitch, "LinearPattern.pitch must be positive and finite"))
+    isfinite(pattern.φ) || throw(DomainError(pattern.φ, "LinearPattern.φ must be finite"))
+    return pattern
+end
+
+# Round members on a line keep their centers a diameter apart.
+function validate(pattern::LinearPattern, circle::Circle)
+    pattern.n == 1 && return pattern
+    required = 2circle.r
+    tolerance = sqrt(eps(float(required))) * max(one(required), required)
+    pattern.pitch + tolerance >= required || throw(DomainError(pattern.pitch,
+        "$(pattern.n) members of radius $(circle.r) m do not fit on a line at the pitch " *
+        "$(pattern.pitch) m"))
+    return pattern
+end
+
+# A linear pattern keeps its pitch and direction in any context.
+function resolve(::Union{EmptyBoundary, AbstractShape}, pattern::LinearPattern,
+        ::AbstractShape)
+    return pattern
+end
+
+function placements(pattern::LinearPattern, circle::Circle)
+    validate(pattern, circle)
+    offsets = [(k - (pattern.n - 1) / 2) * pattern.pitch for k in 0:(pattern.n - 1)]
+    members = [Placement(offset * cos(pattern.φ), offset * sin(pattern.φ))
+               for offset in offsets]
+    return (placements = members, shape = circle)
+end
+
+function Base.map(f, pattern::LinearPattern)
+    return LinearPattern(pattern.n, f(pattern.pitch), f(pattern.φ))
 end
 
 """

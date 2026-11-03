@@ -7,12 +7,12 @@
     air = material(kind = :insulator, rho = Inf)
 
     @testset "the wires of the references" begin
-        bare = @cable "bare_wire" begin
+        bare = @design "bare_wire" begin
             @terminal :core begin
                 core(copper; r = 0.0425)
             end
         end
-        insulated = @cable "insulated_wire" begin
+        insulated = @design "insulated_wire" begin
             @terminal :core begin
                 core(copper; r = 0.0425)
             end
@@ -28,7 +28,7 @@
 
     @testset "the coaxial cables of the references" begin
         for strand in (Circle(1.5e-3), Rectangle(3.0e-3, 3.0e-3))
-            design = @cable "coaxial" begin
+            design = @design "coaxial" begin
                 @terminal :core begin
                     stranded(copper; center = Circle(1.5e-3), shape = strand,
                         n = (6, 12, 18), lay = LayRatio(12), boundary = Circle(10.5e-3),
@@ -42,8 +42,8 @@
                 end
                 bedding(polymer; t = 3.0e-3)
                 @terminal :armour begin
-                    armor(steel; shape = Circle(2.0e-3), n = 40, lay = LayRatio(10),
-                        fill = air)
+                    wires(steel; shape = Circle(2.0e-3), n = 40, lay = LayRatio(10),
+                        fill = air, tag = :armor)
                 end
                 jacket(polymer; t = 4.0e-3)
             end
@@ -103,9 +103,46 @@
         end
     end
 
+    @testset "a tape, a course of wires and the formations of cables" begin
+        @test tape(copper; w = 10.0e-3, t = 0.1e-3, lay = LayRatio(10)) ==
+              Lay(Helix(LayRatio(10)),
+            Repeat(CircularPattern(1; r = Offset(0)),
+                Region(:tape, Rectangle(10.0e-3, 0.1e-3), copper)))
+        @test wires(copper; shape = Circle(1.0e-3), n = 12, lay = LayRatio(8)) ==
+              Enclosure(Region(:wires_fill, Offset(2.0e-3), Material(:insulator, Inf)),
+            Lay(Helix(LayRatio(8)),
+                Repeat(CircularPattern(12; r = Offset(0)),
+                    Region(:wires, Circle(1.0e-3), copper))))
+        wire = @design "insulated_wire" begin
+            @terminal :core begin
+                core(copper; r = 0.0425)
+            end
+            insulation(polymer; t = 1.0e-3)
+        end
+        R = r_ex(wire.outer)
+        formation = trefoil(wire; spacing = 2R, at = Placement(0.0, -1.0))
+        touching = [Placement(0.0, -1.0 + 2R / sqrt(3)), Placement(-R, -1.0 - R / sqrt(3)),
+            Placement(R, -1.0 - R / sqrt(3))]
+        @test isapprox([c for p in formation for c in (p.x, p.y, p.φ)],
+            [c for p in touching for c in (p.x, p.y, p.φ)]; rtol = 1.0e-15)
+        @test_throws DomainError trefoil(wire; spacing = 2R - 1.0e-6)
+        @test isapprox(
+            [c
+             for p in flat(wire; n = 3, spacing = 0.1, at = Placement(0.0, -1.0))
+             for c in (p.x, p.y, p.φ)],
+            [-0.1, -1.0, 0.0, 0.0, -1.0, 0.0, 0.1, -1.0, 0.0]; rtol = 1.0e-15)
+        @test isapprox(
+            [c
+             for p in
+                 flat(wire; n = 3, spacing = 0.1, φ = π / 2, at = Placement(0.0, -1.0))
+             for c in (p.x, p.y, p.φ)],
+            [0.0, -1.1, 0.0, 0.0, -1.0, 0.0, 0.0, -0.9, 0.0]; rtol = 1.0e-15)
+        @test_throws DomainError flat(wire; n = 3, spacing = 2R - 1.0e-6)
+    end
+
     @testset "Float32 inputs and the default fill" begin
         wire = material(kind = :conductor, rho = 1.7241f-8)
-        design = @cable "float32" begin
+        design = @design "float32" begin
             @terminal :core begin
                 stranded(wire; center = Circle(1.5f-3), shape = Circle(1.5f-3), n = (6,),
                     lay = LayRatio(12.0f0), boundary = Circle(4.5f-3))

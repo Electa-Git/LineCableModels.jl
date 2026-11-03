@@ -107,6 +107,13 @@ end
             Enclosure(Region(:pair_fill, Circle(3.0e-3), air), Terminal(:pair, pair)))
         @test [centroid(placed.shape) for placed in design.regions[1:2]] ==
               [(-2.0e-3, 0.0), (2.0e-3, 0.0)]
+        linear = build(CableDesign, "linear_pair",
+            Enclosure(Region(:pair_fill, Circle(3.0e-3), air),
+                Terminal(:pair,
+                    Repeat(LinearPattern(2, 4.0e-3),
+                        Region(:pair_wires, Circle(1.0e-3), copper)))))
+        @test [centroid(placed.shape) for placed in linear.regions[1:2]] ==
+              [(-2.0e-3, 0.0), (2.0e-3, 0.0)]
     end
 
     @testset "each copy of a repeat is a scope of its own terminals" begin

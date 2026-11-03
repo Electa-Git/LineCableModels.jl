@@ -9,7 +9,7 @@ module CAD
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using ..DataModel: Placement, AbstractShape, Circle, Annulus, AnnularSector,
-                   DifferenceShape, PlacedRegion, CableDesign, CableSystem
+                   PerforatedShape, PlacedRegion, CableDesign, CableSystem
 import ..Commons: validate
 
 public Segment, Arc, Curve, Contour, draw
@@ -256,7 +256,7 @@ in \\[rad\\]. Keep the contour of `shape.outer` and append `Contour(hole).outer`
 member of `shape.holes` to its holes. All paths run counterclockwise about the regions they
 bound.
 """
-function Contour(shape::DifferenceShape)
+function Contour(shape::PerforatedShape)
     contour = Contour(shape.outer)
     holes = copy(contour.holes)
     append!(holes, [Contour(hole).outer for hole in shape.holes])

@@ -1,5 +1,5 @@
 """
-    @cable id begin
+    @design id begin
         parts...
     end
 
@@ -20,7 +20,7 @@ Build the cable `id` from the parts of the block, from the inside out, as
 ```jldoctest
 copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
 polyethylene = Material(:insulator, 1.0e14, 2.3)
-wire = @cable "insulated_wire" begin
+wire = @design "insulated_wire" begin
     @terminal :core begin
         core(copper; r = 4.0e-3) # [m]
     end
@@ -30,7 +30,7 @@ end
 # output
 ```
 """
-macro cable(id, block)
+macro design(id, block)
     parts = [esc(part) for part in block.args if !(part isa LineNumberNode)]
     return :($build($CableDesign, $(esc(id)), $(parts...)))
 end
@@ -165,9 +165,10 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Declare a course of round armor wires of `material` laid on the part inside it. The wires
-lie at no offset from the outline of that part. A fill completes the layer that they occupy,
-as thick as their diameter. Its region takes the name `<tag>_fill`.
+Declare a course of round wires of `material` laid on the part inside it. The wires lie at
+no offset from the outline of that part. A fill completes the layer that they occupy, as
+thick as their diameter. Its region takes the name `<tag>_fill`. The tag gives the role of
+the course, such as `:screen` or `:armor`.
 
 # Keywords
 
@@ -176,7 +177,7 @@ as thick as their diameter. Its region takes the name `<tag>_fill`.
 - `lay`: [`LayRatio`](@ref) of the course.
 - `fill`: material of the fill. Default: an insulator with infinite resistivity and unit
   relative permittivity and permeability.
-- `tag`: name of the regions of the wires. Default: `:armor`.
+- `tag`: name of the regions of the wires. Default: `:wires`.
 
 # Returns
 
@@ -186,9 +187,98 @@ as thick as their diameter. Its region takes the name `<tag>_fill`.
 
 - Throws `DomainError` when the wires do not fit on their course.
 """
-function armor(material::Material; shape::Circle, n::Integer, lay,
-        fill = Material(:insulator, Inf), tag = :armor)
-    wires = Lay(Helix(lay),
+function wires(material::Material; shape::Circle, n::Integer, lay,
+        fill = Material(:insulator, Inf), tag = :wires)
+    course = Lay(Helix(lay),
         Repeat(CircularPattern(n; r = Offset(0)), Region(tag, shape, material)))
-    return Enclosure(Region(Symbol(tag, "_fill"), Offset(2shape.r), fill), wires)
+    return Enclosure(Region(Symbol(tag, "_fill"), Offset(2shape.r), fill), course)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare a tape of `material` wound on the part inside it. Its cross-section is a rectangle of
+width `w` and thickness `t`. A circular pattern of one member bends it into an annular sector
+of the same area on the outline of that part.
+
+# Keywords
+
+- `w`: width of the tape \\[m\\].
+- `t`: thickness of the tape \\[m\\].
+- `lay`: [`LayRatio`](@ref) of the tape.
+- `tag`: name of the region of the tape. Default: `:tape`.
+
+# Returns
+
+- The [`Lay`](@ref) of a [`Repeat`](@ref) of one rectangular strand.
+
+# Errors
+
+- Throws `DomainError` when the tape does not fit on its course.
+"""
+function tape(material::Material; w, t, lay, tag = :tape)
+    return Lay(Helix(lay),
+        Repeat(CircularPattern(1; r = Offset(0)), Region(tag, Rectangle(w, t), material)))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the placements of three cables of `design` in a trefoil formation about `at`. The
+centers lie on the vertices of an equilateral triangle of side `spacing`, at ``90°``,
+``210°`` and ``330°`` on the circle of radius ``s / \\sqrt{3}``, where ``s`` is `spacing`
+\\[m\\]. Each cable keeps the rotation of `at`.
+
+# Keywords
+
+- `spacing`: distance between the centers of neighbors \\[m\\]. The cables touch when it equals
+  the outer diameter of `design`.
+- `at`: [`Placement`](@ref) of the center of the formation. Default: the origin.
+
+# Returns
+
+- A vector of [`Placement`](@ref)s, one per cable, for [`build`](@ref)`(CableSystem, …)`.
+
+# Errors
+
+- Throws `DomainError` when `spacing` is less than the outer diameter of `design`.
+"""
+function trefoil(design::CableDesign; spacing::Real, at::Placement = Placement(0, 0))
+    radius = support(design.outer)
+    tolerance = sqrt(eps(float(radius))) * max(one(radius), radius)
+    spacing + tolerance >= 2radius || throw(DomainError(spacing,
+        "a trefoil of the cable $(design.id) takes a spacing of at least its outer " *
+        "diameter, $(2radius) m"))
+    course = placements(CircularPattern(3; r = spacing / sqrt(3), φ0 = π / 2),
+        Circle(radius))
+    return [at * Placement(member.x, member.y) for member in course.placements]
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the placements of `n` cables of `design` in a flat formation about `at`: the centers on
+a line in the direction `φ`, `spacing` apart, as [`LinearPattern`](@ref) places them. The
+direction `0` is horizontal and `π / 2` vertical. Each cable keeps the rotation of `at`.
+
+# Keywords
+
+- `n`: number of cables.
+- `spacing`: distance between the centers of neighbors \\[m\\]. The cables touch when it equals
+  the outer diameter of `design`.
+- `φ`: direction of the line \\[rad\\]. Default: `0`.
+- `at`: [`Placement`](@ref) of the center of the formation. Default: the origin.
+
+# Returns
+
+- A vector of [`Placement`](@ref)s, one per cable, for [`build`](@ref)`(CableSystem, …)`.
+
+# Errors
+
+- Throws `DomainError` when `spacing` is less than the outer diameter of `design`.
+"""
+function flat(design::CableDesign; n::Integer, spacing::Real, φ::Real = 0,
+        at::Placement = Placement(0, 0))
+    course = placements(LinearPattern(n, spacing, φ), Circle(support(design.outer)))
+    return [at * member for member in course.placements]
 end

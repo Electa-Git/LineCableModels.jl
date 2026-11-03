@@ -19,15 +19,16 @@ include("cad/CAD.jl")
 using .Commons: build, resolve, validate, compute, defaults, select, AbstractFormulation,
                 AbstractBackend, FormulationOptions, ComputationOptions
 using .Materials: Material, material
-using .Earth: EarthLayer, EarthModel, homogeneous
+using .Earth: EarthLayer, EarthModel, homogeneous, @layers
 using .DataModel: Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle,
-                  Offset, AnnularSector, AbstractLayoutPattern, CircularPattern, Helix,
+                  Offset, AnnularSector, AbstractLayoutPattern, CircularPattern,
+                  LinearPattern, Helix,
                   LayRatio, area, centroid, support, distance, boundary, r_in, r_ex,
-                  placements, overlength, pitch, DifferenceShape, AbstractCablePart, Region,
+                  placements, overlength, pitch, PerforatedShape, AbstractCablePart, Region,
                   Stack, Terminal, Repeat, Lay, Enclosure, PlacedRegion, CableDesign,
                   CableSystem, CableBlueprint, BlueprintConductor, BlueprintDielectric,
-                  flatten, @cable, @terminal, core, insulation, screen, sheath, bedding,
-                  jacket, stranded, armor
+                  flatten, @design, @terminal, core, insulation, screen, sheath, bedding,
+                  jacket, stranded, wires, tape, trefoil, flat
 using .Engine: ε₀, μ₀, AbstractInternalImpedance,
                AbstractInsulationImpedance, AbstractInsulationAdmittance,
                AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt,
@@ -38,16 +39,17 @@ using .Engine: ε₀, μ₀, AbstractInternalImpedance,
                SpectralIntegral, integrate, nominal, Λ, reductions,
                @formulation, @air, @earth, @mixed
 
-export Material, material, EarthLayer, EarthModel, homogeneous
+export Material, material, EarthLayer, EarthModel, homogeneous, @layers
 export Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
-export AbstractLayoutPattern, CircularPattern, Helix, LayRatio
+export AbstractLayoutPattern, CircularPattern, LinearPattern, Helix, LayRatio
 export area, centroid, support, distance, boundary, r_in, r_ex, placements, overlength,
        pitch
 export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Enclosure, CableDesign,
        CableSystem, build
-export @cable, @terminal, core, insulation, screen, sheath, bedding, jacket, stranded, armor
+export @design, @terminal, core, insulation, screen, sheath, bedding, jacket, stranded,
+       wires, tape, trefoil, flat
 public Commons, Materials, Earth, DataModel, validate, resolve, AnnularSector,
-       DifferenceShape
+       PerforatedShape
 public PlacedRegion, CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
 export compute, LineParametersProblem, CoaxialFormulation, FEM, LineParameters
 export @formulation, @air, @earth, @mixed

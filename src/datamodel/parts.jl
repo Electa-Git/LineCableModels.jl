@@ -343,7 +343,7 @@ function resolve(described::NamedTuple, enclosure::Enclosure)
                      outline.r +
                      sqrt(eps(float(outline.r))) * max(one(outline.r), outline.r)
     for (j, outline) in pairs(outlines) if j != i && outline isa Circle)]
-    placed = PlacedRegion(enclosure.fill, DifferenceShape(container, holes))
+    placed = PlacedRegion(enclosure.fill, PerforatedShape(container, holes))
     row = (region = length(inner.regions) + 1, contents = collect(contents))
     return merge(inner,
         (regions = [inner.regions; placed], outer = boundary(container),

@@ -8,7 +8,7 @@ with a solid aluminum conductor of 1000 mm² and an XLPE insulation 8.3 mm thick
 This example covers:
 
 1. Defining the materials of the cable.
-2. Building the cable design with the [`@cable`](@ref) and [`@terminal`](@ref) blocks.
+2. Building the cable design with the [`@design`](@ref) and [`@terminal`](@ref) blocks.
 3. Examining the equivalent coaxial representation of the design.
 4. Defining the cable system and the line parameters problem.
 5. Computing the line parameters and extracting R, L and C at the power frequency.
@@ -34,7 +34,7 @@ xlpe = Material(:insulator, 1.97e14, 2.5) # [Ω·m]
 #=
 ## Cable design
 
-The [`@cable`](@ref) block lists the parts of the cable from the inside out. The
+The [`@design`](@ref) block lists the parts of the cable from the inside out. The
 [`@terminal`](@ref) block assigns the conductive regions declared inside it to one terminal,
 in this case the core. The [`core`](@ref) builder declares a solid circular conductor by its
 radius, and the [`insulation`](@ref) builder declares a layer by its thickness, placed over
@@ -45,7 +45,7 @@ the outline of the part beneath it.
 core_radius = sqrt(1000.0e-6 / π) # [m]
 
 # Build the cable design and inspect its outer radius:
-design = @cable "solid_1000mm2" begin
+design = @design "solid_1000mm2" begin
     @terminal :core begin
         core(aluminum; r = core_radius, tag = :core_metal)
     end

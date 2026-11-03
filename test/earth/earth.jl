@@ -20,6 +20,15 @@
         @test_throws "finite thickness" EarthModel((air, bottom, bottom))
         @test_throws "EarthLayer.thickness must be positive" EarthLayer(100, 10, 1, 0.0)
     end
+    @testset "the layers of a block build an earth model" begin
+        model = @layers begin
+            EarthLayer(Inf, 1.0, 1.0)
+            EarthLayer(100.0, 10.0, 1.0, 5.0)
+            EarthLayer(1000.0, 10.0, 1.0)
+        end
+        @test model == EarthModel((EarthLayer(Inf, 1.0, 1.0),
+            EarthLayer(100.0, 10.0, 1.0, 5.0), EarthLayer(1000.0, 10.0, 1.0)))
+    end
     @testset "finite relative permittivity of an equivalent earth" begin
         @test EarthLayer(52.4, -300334.5, 1.0).eps_r == -300334.5
         @test_throws DomainError EarthLayer(100.0, Inf, 1.0)

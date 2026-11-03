@@ -48,7 +48,7 @@ The cross-section of a region is declared by a primitive, a subtype of
 
 The resolution also produces cross-sections that are not declared by any region, namely the
 [`AnnularSector`](@ref), which is the bent rectangular strand of the same area, and the
-[`DifferenceShape`](@ref), which is a cross-section with holes, such as the filler between
+[`PerforatedShape`](@ref), which is a cross-section with holes, such as the filler between
 the wires of a layer. A [`Placement`](@ref) is a translation and a rotation relative to a
 parent frame.
 
@@ -73,9 +73,12 @@ All parts are subtypes of [`AbstractCablePart`](@ref):
 - [`Enclosure`](@ref): filler of one material around other parts, occupying the container
   without the outlines of its outermost contents.
 
+A [`LinearPattern`](@ref) places `n` copies on a line at a pitch, centered on the center of
+the part that contains them.
+
 ## Builders
 
-The macro [`@cable`](@ref) builds a design from the parts listed in its block, from the
+The macro [`@design`](@ref) builds a design from the parts listed in its block, from the
 inside out, and the macro [`@terminal`](@ref) assigns the conductive regions of its block to
 one terminal. The builders below return the parts of the usual cable layers:
 
@@ -84,16 +87,18 @@ one terminal. The builders below return the parts of the usual cable layers:
   [`jacket`](@ref): layer of thickness `t` over the outline of the part beneath it.
 - [`stranded`](@ref): central wire and layers of round wires or rectangular strands on
   helices, with the filler of the conductor.
-- [`armor`](@ref): one layer of round wires on a helix, placed directly over the outline
+- [`wires`](@ref): one layer of round wires on a helix, placed directly over the outline
   beneath them and completed by the filler of the layer.
+- [`tape`](@ref): a tape on a helix over the outline beneath it, bent into an annular sector
+  of its area.
 
-Build the insulated wire of the [`@cable`](@ref) example and inspect its outer radius:
+Build the insulated wire of the [`@design`](@ref) example and inspect its outer radius:
 
 ```@example data-model
 using LineCableModels
 copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
 polyethylene = Material(:insulator, 1.0e14, 2.3)
-wire = @cable "insulated_wire" begin
+wire = @design "insulated_wire" begin
     @terminal :core begin
         core(copper; r = 4.0e-3) # [m]
     end
@@ -134,13 +139,20 @@ assign a conductor index to each terminal of its design:
 - Terminals with the same index are bonded and form one conductor, called a bundle.
 - The index `0` grounds the terminal, which is then eliminated by the Kron reduction.
 
+The functions [`trefoil`](@ref) and [`flat`](@ref) return the placements of identical cables
+in a formation. A trefoil places three cables on the vertices of an equilateral triangle. A
+flat formation places `n` cables on a line in the direction `φ`. The keyword `spacing` is the
+distance between the centers of neighbors, and cables touch when it equals their outer
+diameter.
+
 ## Earth model
 
 An [`EarthModel`](@ref) consists of a semi-infinite air layer above the earth, each
 represented by an [`EarthLayer`](@ref) with its resistivity, relative permittivity and
 relative permeability. The last earth layer is semi-infinite, and each layer above it has a
 finite thickness. The function [`homogeneous`](@ref) builds the model of an air layer, with relative permittivity
-and permeability equal to 1, above a homogeneous earth.
+and permeability equal to 1, above a homogeneous earth. The macro [`@layers`](@ref) builds a
+model from the layers of its block, from the top down.
 
 ## Interface between air and earth
 

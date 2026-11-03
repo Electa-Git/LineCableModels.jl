@@ -8,7 +8,7 @@ module Earth
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..Commons: validate
 
-export EarthLayer, EarthModel, homogeneous
+export EarthLayer, EarthModel, homogeneous, @layers
 
 """
 $(TYPEDEF)
@@ -117,6 +117,39 @@ Base.eltype(::EarthModel{T}) where {T} = T
 
 function Base.convert(::Type{EarthModel{T}}, model::EarthModel) where {T <: Real}
     return EarthModel(map(layer -> convert(EarthLayer{T}, layer), model.layers))
+end
+
+"""
+    @layers begin
+        layers...
+    end
+
+Build an [`EarthModel`](@ref) from the layers of a block, from the top down: semi-infinite air
+first, the last layer semi-infinite.
+
+# Arguments
+
+- `layers`: [`EarthLayer`](@ref)s, each on its own line of the block.
+
+# Returns
+
+- An [`EarthModel`](@ref).
+
+# Examples
+
+```jldoctest
+earth = @layers begin
+    EarthLayer(Inf, 1.0, 1.0)
+    EarthLayer(100.0, 10.0, 1.0, 5.0)
+    EarthLayer(1000.0, 10.0, 1.0)
+end
+@assert length(earth.layers) == 3
+# output
+```
+"""
+macro layers(block)
+    layers = [esc(layer) for layer in block.args if !(layer isa LineNumberNode)]
+    return :($EarthModel(($(layers...),)))
 end
 
 function validate(model::EarthModel)

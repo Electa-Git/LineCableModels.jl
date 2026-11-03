@@ -17,7 +17,7 @@ using LineCableModels.Materials: Material
 using LineCableModels.Earth: EarthLayer
 import LineCableModels.DataModel: area
 using LineCableModels.DataModel: AbstractShape, AbstractPrimitive, Circle, Annulus,
-                                 Rectangle, Offset, AnnularSector, DifferenceShape,
+                                 Rectangle, Offset, AnnularSector, PerforatedShape,
                                  PlacedRegion, Placement, support, r_in, r_ex
 import LineCableModels.CAD: draw
 using LineCableModels.CAD: Segment, Arc, Curve, Contour

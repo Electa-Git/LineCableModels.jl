@@ -63,14 +63,14 @@ rings[end] # [m]
 #=
 ## Cable design with armor
 
-The [`armor`](@ref) builder lays `n` round wires in one layer over the outline of the part
+The [`wires`](@ref) builder lays `n` round wires in one layer over the outline of the part
 beneath it, in this case the bedding, with the lay ratio `lay`. The space between the wires
 is completed with an insulating filler. The thickness of the bedding is chosen so that the
 68 wires fit side by side in their layer.
 =#
 
 # Build the cable design and inspect its outer radius:
-design = @cable "cable_320kv_armoured" begin
+design = @design "cable_320kv_armoured" begin
     @terminal :core begin
         core(core_metal; r = strand_radius, tag = :core_center)
         courses...
@@ -85,7 +85,7 @@ design = @cable "cable_320kv_armoured" begin
     jacket(pe; t = 3.0e-3, tag = :sheath_inner_pe) # inner_pe_thickness [m]
     bedding(pp; t = 0.009376520171274612, tag = :sheath_bedding) # bedding_thickness [m]
     @terminal :armor begin
-        armor(steel; shape = Circle(5.82e-3 / 2), n = 68, # armor_wire_diameter / 2 [m]
+        wires(steel; shape = Circle(5.82e-3 / 2), n = 68, # armor_wire_diameter / 2 [m]
             lay = LayRatio(15.0), tag = :armor_wires) # armor_lay_ratio
     end
     jacket(pp; t = 10.0e-3, tag = :armor_jacket) # jacket_thickness [m]
