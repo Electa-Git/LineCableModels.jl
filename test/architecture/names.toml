@@ -51,8 +51,8 @@ cache = "workspace, plan, buffers or the component's name"
 [global]
 nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "formulation",
     "options", "backend", "insulation", "system", "line_length", "terminals", "assemblies",
-    "layer", "layers", "model", "problem", "center", "label", "cad", "span", "holes",
-    "points", "positions"]
+    "layer", "model", "problem", "center", "label", "cad", "span", "holes",
+    "positions", "dielectric", "ranges"]
 qualifiers = ["cable", "outer"]
 symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "mu_r_ins", "r"]
 prepositions = ["at"]
@@ -72,7 +72,7 @@ nouns = ["kind"]
 symbols = ["t0", "alpha", "rho_thermal", "theta_max", "tan_delta", "sigma_solar"]
 
 [modules.Earth]
-nouns = ["thickness"]
+nouns = ["thickness", "layers"]
 qualifiers = ["homogeneous"]
 
 [modules.DataModel]
@@ -81,8 +81,8 @@ nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "o
     "overlength", "pitch", "distance", "part", "region", "stack", "terminal",
     "repeat", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
     "regions", "id", "tree", "repeats", "lays", "compactions", "fills",
-    "designs", "connections", "blueprint", "conductor", "dielectric", "conductors",
-    "dielectrics", "ranges", "assembly", "core", "screen", "sheath", "bedding",
+    "designs", "connections", "blueprint", "conductor", "conductors",
+    "dielectrics", "assembly", "core", "screen", "sheath", "bedding",
     "jacket", "armor"]
 qualifiers = ["annular", "circular", "empty", "difference", "placed", "stranded",
     "layout"]
@@ -93,15 +93,16 @@ flatten = "reduce a cable design to the equivalent tubes and dielectric layers o
 
 [modules.Engine]
 nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resistivity",
-    "properties", "admittance", "semicon", "temperature", "permittivity", "permeability",
+    "properties", "admittance", "semicon", "temperature",
     "line_parameters", "gmsh", "fem", "earth_return", "shunt", "buffers", "trace",
     "frequencies", "input", "connection", "radius", "bundles",
-    "transposition", "integral", "integrand", "ray", "reductions"]
-qualifiers = ["vacuum", "coaxial", "internal", "kept", "eliminated", "spectral", "nominal", "lcm"]
-symbols = ["z", "r_ins_ex"]
+    "transposition", "integral", "integrand", "reductions", "air"]
+qualifiers = ["coaxial", "equivalent", "internal", "kept", "eliminated", "spectral", "nominal", "lcm", "mixed"]
+symbols = ["Z", "Y", "r_ins_ex", "Λ", "ζ", "ε₀", "μ₀"]
 
 [modules.Engine.verbs]
-prepare = "fill a formula's per-frequency state that its quantity methods read"
+to_buffer = "move a formula's per-frequency terms into its block of the buffers, or the formulation's into the base buffers"
+from_buffer = "the block of the buffers that holds a formula's terms, keyed by its identifier"
 initialize = "build the arrays of a computation once, before its loop"
 bundle = "merge each other conductor of a bundle into the first conductor of its index, in the rows and columns of a matrix"
 eliminate = "remove the eliminated rows and columns of a matrix by the Kron elimination, the Schur complement of the kept ones"
@@ -120,7 +121,7 @@ draw = "draw a system, a design, a placed region, a shape, a contour, a path or 
 
 [modules.LineCableModelsGmshExt]
 nouns = ["overrides", "interval", "field", "tags", "strand", "air", "scale",
-    "geometry", "key", "point", "buckets", "lines", "arcs", "ends", "curves", "breaks",
+    "geometry", "key", "point", "points", "buckets", "lines", "arcs", "ends", "curves", "breaks",
     "contacts", "loops", "surfaces", "patches", "outlines", "pockets", "anchors", "faces",
     "compartments", "direction", "inside", "anchor", "dimension", "turn", "section", "directory"]
 qualifiers = ["low", "high", "closed", "lowest"]
@@ -157,7 +158,7 @@ material = "the Material of a class with the properties given as keywords"
 
 [register.Earth.public]
 EarthLayer = "the static properties and thickness of one earth or air layer"
-EarthModel = "an ordered stack of earth layers, semi-infinite air first"
+EarthModel = "an ordered stack of earth layers, semi-infinite air first, the last layer semi-infinite"
 homogeneous = "the earth model of air above one semi-infinite earth layer"
 
 [register.DataModel.public]
@@ -213,8 +214,8 @@ armor = "a course of round armor wires laid on the part inside it, in a fill as 
 EmptyBoundary = "the outline at the center of a cable, before its first part"
 
 [register.Engine.public]
-vacuum_permittivity = "ε₀, the permittivity of vacuum [F/m]"
-vacuum_permeability = "μ₀ = 4π·1e-7, the permeability of vacuum [H/m]"
+"ε₀" = "the permittivity of vacuum [F/m]"
+"μ₀" = "the permeability of vacuum, 4π·1e-7 [H/m]"
 LCMBackend = "this package's own implementation of a formulation, in process"
 GmshBackend = "the backend that runs the finite-element computation, defined by the Gmsh extension"
 backend = "the default backend of a formulation type; a backend passed first to compute chooses another"
@@ -225,28 +226,29 @@ AbstractSemiconAdmittance = "the supertype of the admittivity laws of semiconduc
 AbstractEarthReturn = "the supertype of the formulas of the earth-return impedance and potential coefficients"
 AbstractShunt = "the supertype of the formulas that form the potential coefficients inside a cable"
 AbstractResistivity = "the supertype of the temperature laws of a conductor's resistivity"
-AbstractEarthProperties = "the supertype of the frequency laws of the earth's properties"
+AbstractEarthProperties = "the supertype of the laws of the earth's properties and of the models of the equivalent earth"
 LineParametersProblem = "the cables of a line, the earth, the operating temperature and the frequencies of a scan"
 CoaxialFormulation = "the methodology of concentric tubes: the formula of each step, Γ and the reductions"
-FEM = "the laws and options of the finite-element computation of line parameters"
+"@formulation" = "the formulation of a block of slot and option lines, lowered to the constructor"
+"@air" = "the selection of the air domain of an earth slot, merged with the tags after it"
+"@earth" = "the selection of the earth domain of an earth slot, merged with the tags after it"
+"@mixed" = "the selection of the mixed domain of an earth slot, merged with the tags after it"
+FEM = "the laws, the equivalent earth and the options of the finite-element computation of line parameters"
 LineParameters = "the series impedance and shunt admittance per unit length of a line at each frequency, with the labels of its rows and the formulation"
-admittivity = "the admittivity of a dielectric layer at a frequency [S/m]"
-resistivity = "the resistivity of a conductor's material at a temperature [Ω·m]"
-properties = "the resistivity, relative permittivity and relative permeability of an earth layer at a frequency"
-impedance = "a series impedance per unit length, or a named tuple of them, that a formula gives [Ω/m]"
-"impedance!" = "series impedances per unit length written into a matrix [Ω/m]"
-"potential!" = "potential coefficients per unit length written into a matrix [m/F]"
-"prepare!" = "fill a formula's per-frequency state that its quantity methods read"
+admittivity = "the admittivity of a dielectric layer at a frequency, by the law of its class in the formulation"
+"impedance!" = "series impedances per unit length written into a matrix [Ω/m]: the assembly of the cable-internal terms, and the earth step's recipe on the formulation"
+"potential!" = "potential coefficients per unit length written into a matrix [m/F]: the shunt step's chain, and the earth step's recipe on the formulation"
+"to_buffer!" = "move a formula's per-frequency terms into its block of the buffers, or the formulation's into the base buffers, at one frequency"
+from_buffer = "the block of the buffers that holds a formula's terms, keyed by its identifier"
 initialize_buffers = "build the preallocated arrays of a computation once, before its loop"
 CoaxialInput = "the numerical input of a computation in the coaxial model: each cable's equivalent tubular conductors and dielectric layers, the cables' centers and radii, and the reduction plan for the formulation's bundle and kron"
 "bundle!" = "merge each other conductor of a bundle into the first conductor of its index, in the rows and columns of a matrix"
 "eliminate!" = "the Kron elimination: the Schur complement of the kept rows and columns of a matrix, written into a matrix the caller gives"
 "transposition!" = "the ideal transposition: the mean of a matrix over the cyclic permutations of its rows and columns"
-SpectralIntegral = "the integral of a function over [0, ∞), its complete integrand the field, that integrate evaluates by the method its tag selects"
+SpectralIntegral = "the integral of a kernel in λ over [0, ∞) along the path ζ its constructor chooses, which integrate evaluates by the method its tag selects"
 integrate = "evaluate an integral by the method that its tag selects, with the controls of its section"
 nominal = "the nominal value of a quantity: the identity on a real number and componentwise on a complex number; the Measurements extension gives a measurement's nominal value"
-"ray!" = "the ray of a spectral integral on [0, ∞) below its singularities, with the points where the quadrature subdivides it written into the engine's integral block"
-formulas = "the distinct formulas of a formulation's slots, the two earth slots once when they are one formula"
+"Λ" = "the circumferential mean of the direct and image fields of a source on a receiver in one medium, the family tool of the earth return; a formula overrides it"
 reductions = "the conductor indices that the bundle and Kron reductions of a system merge, keep and remove under the formulation's options, with the labels of its conductors and of the kept rows"
 
 "solve!" = "a backend's loop over the problem's frequencies that fills Z and Y and, when traced, its stage matrices"
@@ -257,6 +259,7 @@ FORMULAS = "the identifiers of the family's formulas, which the unknown-identifi
 
 [register."Engine.InternalImpedance".formulas]
 schelkunoff1934 = "the inner, outer and transfer surface impedances of a tubular conductor (Schelkunoff 1934; commit 989af96c, internalimpedance/formulas/schelkunoff1934.jl)"
+wedepohl1973 = "the surface impedances of a thin tube and of a solid conductor by Wedepohl and Wilcox's closed forms in coth and csch (Wedepohl and Wilcox 1973)"
 
 [register."Engine.InsulationImpedance".public]
 Formula = "an insulation-impedance formula, its identifier the type parameter"
@@ -271,6 +274,7 @@ FORMULAS = "the identifiers of the family's formulas, which the unknown-identifi
 
 [register."Engine.InsulationAdmittance".formulas]
 lossless = "κ = jωε₀εᵣ, conduction and polarization loss left out (commit 989af96c, insulationadmittance/formulas/lossless.jl)"
+lossy = "κ = 1/ρ + ω ε₀ ε_r tan δ + j ω ε₀ ε_r: conduction, polarization loss and displacement current of a dielectric"
 
 [register."Engine.SemiconAdmittance".public]
 Formula = "a semicon-admittance formula, its identifier the type parameter"
@@ -278,16 +282,29 @@ FORMULAS = "the identifiers of the family's formulas, which the unknown-identifi
 
 [register."Engine.SemiconAdmittance".formulas]
 lossless = "κ = jωε₀εᵣ, conduction and polarization loss left out (commit 989af96c, semiconadmittance/formulas/lossless.jl)"
+lossy = "κ = 1/ρ + ω ε₀ ε_r tan δ + j ω ε₀ ε_r: conduction, polarization loss and displacement current of a dielectric"
 
 [register."Engine.EarthReturn".public]
 Formula = "an earth-return formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
 
 [register."Engine.EarthReturn".private]
-i0m1 = "I₀(z) − 1 without the cancellation of the difference; Unified's, two call sites with different arguments, the per-cable state and J₀(rλ) − 1 in the air-voltage integrand"
+i0m1 = "I₀(z) − 1 without the cancellation of the difference; three call sites: the family's Λ, the per-cable I₀ − 1, the interface kernel"
 
 [register."Engine.EarthReturn".formulas]
-unified = "the circumferentially averaged earth return of air, earth and mixed systems with the complete current closure and a prescribed Γ (commit 989af96c, earthimpedance/formulas/unified.jl, unified/kernels.jl, unified/current.jl)"
+martins2026 = "the circumferentially averaged earth return of air, earth and mixed systems with the complete current closure and a prescribed Γ, in the form of the paper (MartinsBritto2026); commit 989af96c for the implementation it continues"
+ideal = "the images of a perfectly conducting earth: the potential coefficients ln(2h/r) and ln(D′/D) over 2π ε₁ of overhead pairs, zero for a buried or mixed pair"
+gary1976 = "the impedance of overhead conductors from an image plane at a complex depth (Gary 1976; commit 9676ae6c, earthimpedance/formulas/gary1976.jl)"
+wedepohl1973 = "the impedance of buried conductors by the low-order expansion of Wedepohl and Wilcox (1973; commit 9676ae6c, earthimpedance/formulas/wedepohl1973.jl)"
+saad1996 = "the impedance of buried conductors by the closed form of Saad, Gaba and Giroux (1996; commit 9676ae6c, earthimpedance/formulas/saad1996.jl)"
+lucca1994 = "the mutual impedance between an overhead and a buried conductor from an image at a complex depth and one correction term (Lucca 1994; commit 9676ae6c, earthimpedance/formulas/lucca1994.jl)"
+ametani2009 = "the mutual impedance between an overhead and a buried conductor from a complex-depth logarithm with an exponential decay in the depth (Ametani, Yoneda, Baba and Nagaoka 2009, eq. 27)"
+carson1926 = "the impedance of overhead conductors by the correction integral of a homogeneous earth (Carson 1926; commit 88f5de54, earthimpedance/homogeneous.jl)"
+pollaczek1926 = "the impedance of buried and mixed pairs by the Green functions of a filament in a homogeneous earth (Pollaczek 1926; commit 88f5de54, earthimpedance/homogeneous.jl)"
+papadopoulos2010 = "the impedance and potential coefficients of buried conductors under the longitudinal constant of the earth (Papadopoulos, Tsiamitros and Papagiannis 2010; commit 88f5de54, earthimpedance/homogeneous.jl and earthadmittance/homogeneous.jl)"
+wise1934 = "the impedance of overhead conductors by the correction integral of a homogeneous earth with its displacement current (Wise 1934, Proc. IRE 22(4), p. 526)"
+wise1948 = "the potential coefficients of overhead conductors by the correction integral of a homogeneous earth (Wise 1948, Bell Syst. Tech. J. 27(2), eqs. 7, 8)"
+xue2018 = "the complete field of Xue, Ametani, Mahseredjian and Kocar for buried pairs, with the prescribed Γ in place of the modal k_v and the voltage referred to infinite depth; at Γ = 0 the paper's quasi-TEM reduction (TPWRD 33(6), 2018)"
 
 [register."Engine.Shunt".public]
 Formula = "a shunt formula, its identifier the type parameter"
@@ -308,7 +325,19 @@ Formula = "an earth-properties formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
 
 [register."Engine.EarthProperties".formulas]
+bottommost = "the equivalent earth of a layered model is its deepest layer; the identity at two layers (commit 9676ae6c, earth/equivalenthomogeneous/formulas/bottommost.jl)"
 constant = "the layer's static ρ, εᵣ, μᵣ at every frequency (commit 989af96c, earth/frequencydependent/formulas/constant.jl)"
+alipio2014 = "ρ(f) and ε_r(f) of a soil layer by Alipio and Visacro (2014, commit 9676ae6c, earth/frequencydependent/formulas/alipio2014.jl)"
+cigre2019 = "ρ(f) and ε_r(f) of a soil layer by CIGRE WG C4.33 (2019, commit 9676ae6c, earth/frequencydependent/formulas/cigre2019.jl)"
+datsios2019 = "ρ(f) and ε_r(f) of a soil layer by Datsios and Mikropoulos (2019, commit 9676ae6c, earth/frequencydependent/formulas/datsios2019.jl)"
+longmire1975 = "ρ(f) and ε_r(f) of a soil layer by Longmire and Smith (1975, commit 9676ae6c, earth/frequencydependent/formulas/longmire1975.jl)"
+messier1985 = "ρ(f) and ε_r(f) of a soil layer by Messier (1985, commit 9676ae6c, earth/frequencydependent/formulas/messier1985.jl)"
+portela1999 = "ρ(f) and ε_r(f) of a soil layer by Portela (1999, commit 9676ae6c, earth/frequencydependent/formulas/portela1999.jl)"
+scott1967 = "ρ(f) and ε_r(f) of a soil layer by Scott, Carroll and Cunningham (1967, commit 9676ae6c, earth/frequencydependent/formulas/scott1967.jl)"
+visacro1987 = "ρ(f) and ε_r(f) of a soil layer by Visacro and Portela (1987, commit 9676ae6c, earth/frequencydependent/formulas/visacro1987.jl)"
+visacro2012 = "ρ(f) and ε_r(f) of a soil layer by Visacro and Alipio (2012, commit 9676ae6c, earth/frequencydependent/formulas/visacro2012.jl)"
+martins2020 = "the equivalent conductivity of the described layers by Martins-Britto, Lopes and Rondineau (2020, commit 49c5bb69, earthprops/ehem/formulas/martinsbritto2020.jl)"
+xue2021 = "the equivalent propagation constant of the described layers by Xue and coauthors (2021, commit 49c5bb69, earthprops/ehem/formulas/xue2021.jl)"
 
 [register.CAD.public]
 Segment = "a straight curve between two points of the cross-section plane"

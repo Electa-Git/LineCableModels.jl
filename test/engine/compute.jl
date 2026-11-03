@@ -1,6 +1,21 @@
 using LinearAlgebra: I, lu!, norm
 using JET
 
+# An earth-return identifier that the test declares for the mixed pairs, so that one slot holds
+# three distinct formulas.
+function LineCableModels.defaults(::Type{LineCableModels.Engine.EarthReturn.Formula{:crossing}})
+    (;)
+end
+function LineCableModels.validate(
+        formula::LineCableModels.Engine.EarthReturn.Formula{:crossing},
+        ::typeof(LineCableModels.Engine.potential!))
+    return formula
+end
+function (::LineCableModels.Engine.EarthReturn.Formula{:crossing})(
+        ::Val{:P}, ::Val{:mutual}, i, j, buffers, input, media, s, k)
+    return complex(1.0e10)
+end
+
 @testset "Engine coaxial computation" begin
     Engine = LineCableModels.Engine
     copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
@@ -113,4 +128,138 @@ using JET
     @test eltype(result32.Z) == eltype(result32.Y) == ComplexF64
     @test_throws ArgumentError("LCMBackend does not implement FEM") compute(
         Engine.LCMBackend(), problem, FEM())
+
+    @testset "a layered earth under the bottommost model" begin
+        reference = Dict(REFERENCES)["two_bare_wires"]
+        air, bottom = reference.earth.layers
+        layered = LineParametersProblem(reference.system,
+            EarthModel((air, EarthLayer(100.0, 1.0, 1.0, 5.0), bottom));
+            temperature = reference.temperature, frequencies = reference.frequencies)
+        result = compute(layered, CoaxialFormulation())
+        expected = compute(reference, CoaxialFormulation())
+        @test reinterpret(UInt64, result.Z) == reinterpret(UInt64, expected.Z)
+        @test reinterpret(UInt64, result.Y) == reinterpret(UInt64, expected.Y)
+    end
+
+    @testset "a layered earth under the equivalent earth of Xue, against its FEM row" begin
+        reference = Dict(REFERENCES)["two_bare_wires"]
+        earth = EarthModel((EarthLayer(Inf, 1.0, 1.0), EarthLayer(100.0, 10.0, 1.0, 5.0),
+            EarthLayer(500.0, 20.0, 1.0, 10.0), EarthLayer(50.0, 5.0, 1.0)))
+        problem = LineParametersProblem(reference.system, earth;
+            temperature = reference.temperature, frequencies = [1000.0])
+        result = compute(problem, CoaxialFormulation(equivalent_earth = :xue2021))
+        rows = Dict((source, quantity) => zeros(ComplexF64, 2, 2)
+        for source in ("analytical", "fem"), quantity in ("Z", "Y"))
+        path = joinpath(@__DIR__, "..", "references", "two_bare_wires", "xue2021.csv")
+        for line in eachline(path)
+            fields = split(line, ',')
+            haskey(rows, (fields[1], get(fields, 3, ""))) || continue
+            row = parse(Int, fields[4])
+            column = parse(Int, fields[5])
+            value = complex(parse(Float64, fields[6]), parse(Float64, fields[7]))
+            rows[(fields[1], fields[3])][row, column] = value
+        end
+        # The FEM deviations are the README's status of the file, at its printed precision.
+        for (quantity, computed, status) in
+            (("Z", result.Z, 0.00503), ("Y", result.Y, 0.00735))
+            analytical = rows[("analytical", quantity)]
+            scale = maximum(abs(analytical[i, i]) for i in 1:2)
+            @test maximum(abs, computed[:, :, 1] - analytical) <= 1e-9 * scale
+            @test round(maximum(abs, rows[("fem", quantity)] - analytical) / scale;
+                sigdigits = 3) == status
+        end
+    end
+
+    @testset "the layer map and the media terms" begin
+        mixed = Dict(REFERENCES)["mixed_bare_wires"]
+        @test Engine.CoaxialInput(mixed, CoaxialFormulation().options).earth_layer == [1, 2]
+        reference = Dict(REFERENCES)["two_bare_wires"]
+        air, bottom = reference.earth.layers
+        design = first(reference.system.designs)
+        system = build(CableSystem, [design, design],
+            [Placement(0.0, -1.0), Placement(1.0, -6.0)];
+            connections = [(core = 1,), (core = 2,)], id = "two_bare_wires", line_length = 1.0)
+        problem = LineParametersProblem(system,
+            EarthModel((air, EarthLayer(100.0, 1.0, 1.0, 5.0), bottom));
+            frequencies = [50.0, 1.0e4])
+        formulation = CoaxialFormulation()
+        @test Engine.CoaxialInput(problem, formulation.options).earth_layer == [2, 3]
+        result = compute(problem, formulation)
+        expected = compute(
+            LineParametersProblem(system, EarthModel((air, bottom));
+                frequencies = [50.0, 1.0e4]),
+            formulation)
+        @test isequal(result.Z, expected.Z)
+        @test isequal(result.Y, expected.Y)
+        problem = LineParametersProblem(
+            reference.system, homogeneous(rho = 0.1, mu_r = 2.0);
+            frequencies = [50.0])
+        input = Engine.CoaxialInput(problem, formulation.options)
+        buffers = Engine.initialize_buffers(formulation, problem, input)
+        media = problem.earth.layers
+        s = im * (2π * 50.0)
+        Engine.to_buffer!(CoaxialFormulation(), buffers, input, media, s, 1)
+        ε₀ = 8.8541878128e-12
+        μ₀ = 4π * 1e-7
+        @test isapprox(buffers.σ̃, [s * ε₀, 1 / 0.1 + s * ε₀]; rtol = 1.0e-15) &&
+              isapprox(buffers.μ, [μ₀, 2μ₀]; rtol = 1.0e-15)
+    end
+
+    @testset "the three arms of a slot" begin
+        mixed = Dict(REFERENCES)["mixed_bare_wires"]
+        arms = CoaxialFormulation(;
+            earth_admittance = (air = :ideal, earth = :martins2026, mixed = :crossing))
+        @test length(unique(map(typeof, Tuple(arms.earth_admittance)))) == 3
+        input = Engine.CoaxialInput(mixed, arms.options)
+        buffers = Engine.initialize_buffers(arms, mixed, input)
+        media = mixed.earth.layers
+        s = complex(0.0, 2π * first(mixed.frequencies))
+        Engine.to_buffer!(arms, buffers, input, media, s, 1)
+        map(formula -> Engine.to_buffer!(formula, buffers, input, media, s, 1), arms.formulas)
+        Pg = zeros(ComplexF64, 2, 2)
+        Engine.potential!(arms, Pg, buffers, input, media, s, 1)
+        @test Pg[1, 1] ==
+              arms.earth_admittance.air(Val(:P), Val(:self), 1, buffers, input, media, s, 1)
+        @test Pg[2, 2] == Engine.from_buffer(arms.earth_admittance.earth, buffers).Pg[2, 2]
+        @test Pg[1, 2] == Pg[2, 1] == complex(1.0e10)
+        JET.@test_opt target_modules=(LineCableModels,) Engine.potential!(
+            arms, Pg, buffers, input, media, s, 1)
+
+        @test_throws "treats no pair of a receiver in the air and a source in the earth" compute(
+            mixed, arms)
+        closed = CoaxialFormulation(earth_impedance = (air = :gary1976, earth = :saad1996))
+        places = CoaxialFormulation(earth_impedance = (
+            air = :gary1976, earth = :saad1996, mixed = :lucca1994))
+        @test compute(mixed, closed) isa Engine.LineParameters
+        bytes = Int[]
+        for formulation in (CoaxialFormulation(), closed, places)
+            input = Engine.CoaxialInput(mixed, formulation.options)
+            buffers = Engine.initialize_buffers(formulation, mixed, input)
+            m = length(input.kept)
+            nf = length(mixed.frequencies)
+            Z = Array{ComplexF64, 3}(undef, m, m, nf)
+            Y = similar(Z)
+            trace = (Zin = Array{ComplexF64, 3}(undef, 0, 0, 0),
+                Pin = Array{ComplexF64, 3}(undef, 0, 0, 0),
+                Zg = Array{ComplexF64, 3}(undef, 0, 0, 0),
+                Pg = Array{ComplexF64, 3}(undef, 0, 0, 0))
+            options = LineCableModels.ComputationOptions(Engine.LCMBackend; trace = false)
+            Engine.solve!(Z, Y, trace, mixed, input, formulation, buffers, options)
+            push!(bytes,
+                only(map(
+                    (z,
+                        y,
+                        t,
+                        p,
+                        i,
+                        f,
+                        b,
+                        o) -> @allocated(LineCableModels.Engine.solve!(
+                        z, y, t, p, i, f, b, o)),
+                    (Z,), (Y,), (trace,), (mixed,), (input,), (formulation,), (buffers,),
+                    (options,))))
+        end
+        @test bytes[1] == bytes[2]
+        @test bytes[1] == bytes[3]
+    end
 end

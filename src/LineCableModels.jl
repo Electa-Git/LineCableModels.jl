@@ -28,14 +28,15 @@ using .DataModel: Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, 
                   CableSystem, CableBlueprint, BlueprintConductor, BlueprintDielectric,
                   flatten, @cable, @terminal, core, insulation, screen, sheath, bedding,
                   jacket, stranded, armor
-using .Engine: vacuum_permittivity, vacuum_permeability, AbstractInternalImpedance,
+using .Engine: ε₀, μ₀, AbstractInternalImpedance,
                AbstractInsulationImpedance, AbstractInsulationAdmittance,
                AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt,
-               AbstractResistivity, AbstractEarthProperties, admittivity, resistivity,
-               properties, impedance, impedance!, potential!, prepare!, initialize_buffers,
+               AbstractResistivity, AbstractEarthProperties, admittivity,
+               impedance!, potential!, to_buffer!, from_buffer, initialize_buffers,
                LineParametersProblem, CoaxialFormulation, FEM, LCMBackend,
                GmshBackend, backend, LineParameters, bundle!, eliminate!, transposition!,
-               SpectralIntegral, integrate, nominal, ray!, formulas, reductions
+               SpectralIntegral, integrate, nominal, Λ, reductions,
+               @formulation, @air, @earth, @mixed
 
 export Material, material, EarthLayer, EarthModel, homogeneous
 export Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
@@ -49,15 +50,16 @@ public Commons, Materials, Earth, DataModel, validate, resolve, AnnularSector,
        DifferenceShape
 public PlacedRegion, CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
 export compute, LineParametersProblem, CoaxialFormulation, FEM, LineParameters
+export @formulation, @air, @earth, @mixed
 public Engine, CAD, defaults, select, AbstractFormulation, AbstractBackend,
        FormulationOptions,
        ComputationOptions
-public vacuum_permittivity, vacuum_permeability, LCMBackend, GmshBackend, backend
+public ε₀, μ₀, LCMBackend, GmshBackend, backend
 public AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulationAdmittance,
        AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt, AbstractResistivity,
        AbstractEarthProperties
-public admittivity, resistivity, properties, impedance, impedance!, potential!, prepare!,
+public admittivity, impedance!, potential!, to_buffer!, from_buffer,
        initialize_buffers, bundle!, eliminate!, transposition!, SpectralIntegral, integrate,
-       nominal, ray!, formulas, reductions
+       nominal, Λ, reductions
 
 end

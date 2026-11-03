@@ -6,5 +6,5 @@
   resistivity at the operating temperature.
 - [Dielectrics](dielectrics.md) gives the magnetic series term of a dielectric interval and the
   admittivity of insulators and semicons.
-- [Earth return](earth.md) gives the earth-return impedance and potential coefficients of cables in
-  two half-spaces, and the properties of the air and the earth.
+- [Earth return](earth.md) gives the earth-return formulas of cables in two half-spaces, the
+  soil laws and the equivalent earth of a layered model.

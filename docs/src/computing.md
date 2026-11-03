@@ -21,24 +21,51 @@ together with `Float64`, so that the number type `T` of the problem is at least 
 
 The [`CoaxialFormulation`](@ref) selects one formula for each physical contribution. Each
 slot takes a formula of its family, and the corresponding keyword accepts `:id`,
-`:id => (key = value, ...)` with the options of the formula, or a formula object. The
-default formulas are summarized below.
+`:id => (key = value, ...)` with the options of the formula, a formula object, or `:default`,
+which selects the default formula of the slot. The table below gives the default formula of
+each slot and the other formulas that the slot admits.
 
-| Keyword | Family | Default | Contribution |
-| --- | --- | --- | --- |
-| `internal_impedance` | `InternalImpedance` | `:schelkunoff1934` | surface impedances of the conductors |
-| `insulation_impedance` | `InsulationImpedance` | `:ametani1980` | magnetic series term of a dielectric interval |
-| `insulation_admittance` | `InsulationAdmittance` | `:lossless` | admittivity of insulator layers |
-| `semicon_admittance` | `SemiconAdmittance` | `:lossless` | admittivity of semicon layers |
-| `earth_impedance` | `EarthReturn` | `:unified` | earth-return impedance |
-| `earth_admittance` | `EarthReturn` | `:unified` | earth-return potential coefficients |
-| `shunt` | `Shunt` | `:series` | potential coefficients inside the cables |
-| `resistivity` | `Resistivity` | `:linear` | resistivity of the conductors at the temperature |
-| `earth_properties` | `EarthProperties` | `:constant` | properties of the air and the earth |
+| Keyword | Family | Default | Also admits | Contribution |
+| --- | --- | --- | --- | --- |
+| `internal_impedance` | `InternalImpedance` | `:schelkunoff1934` | `:wedepohl1973` | surface impedances of the conductors |
+| `insulation_impedance` | `InsulationImpedance` | `:ametani1980` | | magnetic series term of a dielectric interval |
+| `insulation_admittance` | `InsulationAdmittance` | `:lossless` | `:lossy` | admittivity of insulator layers |
+| `semicon_admittance` | `SemiconAdmittance` | `:lossless` | `:lossy` | admittivity of semicon layers |
+| `earth_impedance` | `EarthReturn` | `:martins2026` | `:gary1976`, `:wedepohl1973`, `:saad1996`, `:lucca1994`, `:ametani2009`, `:carson1926`, `:pollaczek1926`, `:papadopoulos2010`, `:wise1934`, `:xue2018` | earth-return impedance |
+| `earth_admittance` | `EarthReturn` | `:martins2026` | `:ideal`, `:papadopoulos2010`, `:wise1948`, `:xue2018` | earth-return potential coefficients |
+| `shunt` | `Shunt` | `:series` | | potential coefficients inside the cables |
+| `resistivity` | `Resistivity` | `:linear` | | resistivity of the conductors at the temperature |
+| `earth_properties` | `EarthProperties` | `:constant` | `:alipio2014`, `:cigre2019`, `:datsios2019`, `:longmire1975`, `:messier1985`, `:portela1999`, `:scott1967`, `:visacro1987`, `:visacro2012` | properties of each earth layer |
+| `equivalent_earth` | `EarthProperties` | `:bottommost` | `:martins2020`, `:xue2021` | equivalent earth of the layers below the air |
 
-When both earth slots take the same identifier, their formulas must be equal, since the
-unified formula obtains the impedance and the potential coefficients from the same
-circumferential currents. The remaining keywords are the options of the formulation:
+An earth slot records one formula per domain of a pair of cables:
+
+- `air`: both cables lie above the interface.
+- `earth`: both cables lie below the interface.
+- `mixed`: one cable lies above the interface and the other below it.
+
+One selection fills the three domains. With `earth_impedance = (air = :martins2026,)`, each
+domain not given takes the default of the slot. A formula that treats one domain goes in that
+place, as `earth_impedance = (air = :gary1976, earth = :saad1996, mixed = :lucca1994)`. Formulas of
+one identifier in the earth slots must be equal. `:martins2026` obtains the impedance and the
+potential coefficients from the same circumferential currents.
+
+The earth-return formulas treat these domains and give these quantities:
+
+| Formula | Domains | Quantities |
+| --- | --- | --- |
+| `:martins2026` | air, earth, mixed | `Zg`, `Pg` |
+| `:ideal` | air, earth, mixed | `Pg`, zero for a pair in the earth or across the interface |
+| `:carson1926`, `:gary1976`, `:wise1934` | air | `Zg` |
+| `:wise1948` | air | `Pg` |
+| `:pollaczek1926` | earth, mixed | `Zg` |
+| `:saad1996`, `:wedepohl1973` | earth | `Zg` |
+| `:papadopoulos2010`, `:xue2018` | earth | `Zg`, `Pg` |
+| `:ametani2009`, `:lucca1994` | mixed | `Zg` |
+
+A computation refuses a formula placed in a domain that it does not treat when the system has
+a pair in that domain. So `earth_impedance = :carson1926` computes an overhead system, and a
+buried system refuses it. The remaining keywords are the options of the formulation:
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -46,6 +73,39 @@ circumferential currents. The remaining keywords are the options of the formulat
 | `bundle` | `true` | merge the conductors that share a positive connection index |
 | `kron` | `true` | remove the conductors of connection index zero by [`eliminate!`](@ref) |
 | `transposition` | `false` | apply the ideal cyclic transposition |
+
+A nonzero `Γ` needs a formula that reads it in each place of both earth slots, and the
+constructor refuses any other.
+
+The macro [`@formulation`](@ref) writes a formulation as a block, one keyword per line, and the
+tags [`@air`](@ref), [`@earth`](@ref) and [`@mixed`](@ref) write a selection per domain. The macro
+lowers to the constructor and does not add a capability. The refusals above apply to it. With a
+type first, it builds that formulation:
+
+```@example computing
+using LineCableModels
+formulation = @formulation begin
+    earth_impedance = @air :gary1976 @earth :saad1996 @mixed :lucca1994
+    earth_admittance = :ideal
+    transposition = true
+end
+fem = @formulation FEM begin
+    earth_properties = :alipio2014
+end
+nothing # hide
+```
+
+A layered earth takes a law in `earth_properties` and a model in `equivalent_earth`, which
+[Earth return](theory/earth.md) describes. Here the air lies over a layer 5 m thick and a
+semi-infinite layer:
+
+```@example computing
+earth = EarthModel((EarthLayer(Inf, 1.0, 1.0), EarthLayer(100.0, 10.0, 1.0, 5.0),
+    EarthLayer(1000.0, 10.0, 1.0)))
+layered = CoaxialFormulation(earth_properties = :alipio2014,
+    equivalent_earth = :martins2020)
+nothing # hide
+```
 
 The formulas are described in the theory pages [Matrix formulation](theory/matrix.md),
 [Conductors](theory/conductors.md), [Dielectrics](theory/dielectrics.md) and
@@ -113,7 +173,6 @@ of its default, and the record is checked by [`validate`](@ref). The defaults of
 formulation are:
 
 ```@example computing
-using LineCableModels
 LineCableModels.defaults(CoaxialFormulation)
 ```
 
@@ -137,4 +196,6 @@ systems. The analytical results of the package agree with the reference values o
 `Y` within 1e-9 of the largest diagonal entry at each frequency, with `Zin` and `Pin` within
 1e-12 and `Zg` and `Pg` within 1e-9. The finite-element results are compared with the
 analytical ones by means of the relative errors defined in [Finite element solver](fem.md#Accuracy),
-at an accuracy level of 1 %.
+at an accuracy level of 1 %. For each earth-return formula, the README of `test/references/`
+gives its frozen results on the systems that it treats and their deviation from those of
+`:martins2026`.

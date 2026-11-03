@@ -1,41 +1,14 @@
 defaults(::Type{Formula{:schelkunoff1934}}) = (;)
 
-"""
-$(TYPEDSIGNATURES)
-
-Return the inner, outer, and transfer surface impedances of a tubular conductor by the
-formula `Formula{:schelkunoff1934}`, whose equations are in the section "Formulas" of
-[`InternalImpedance`](@ref).
-
-# Arguments
-
-- `Formula{:schelkunoff1934}`: cylindrical surface-impedance formula.
-- `r_in`: inner radius \\[m\\].
-- `r_ex`: outer radius, in \\[m\\].
-- `rho`: resistivity \\[Ω·m\\].
-- `mu_r`: relative permeability \\[dimensionless\\].
-- `s`: complex frequency, `j 2π f`, in \\[1/s\\].
-
-# Returns
-
-- `inner`: impedance of the inner surface \\[Ω/m\\].
-- `outer`: impedance of the outer surface, in \\[Ω/m\\].
-- `transfer`: transfer impedance between the two surfaces \\[Ω/m\\].
-
-# Errors
-
-- Throws `DomainError` unless the radii are finite with `0 ≤ r_in < r_ex`, `rho` and `mu_r`
-  are positive and finite, and `s` is finite and nonzero.
-"""
-function impedance(::Formula{:schelkunoff1934}, r_in::T, r_ex::T, rho::T, mu_r::T,
-        s::Complex{T}) where {T <: Real}
+function (::Formula{:schelkunoff1934})(
+        r_in::T, r_ex::T, ρ::T, μ_r::T, s::Complex{T}) where {T <: Real}
     isfinite(r_in) && isfinite(r_ex) && zero(T) <= r_in < r_ex ||
         throw(DomainError((r_in, r_ex), "conductor radii must satisfy 0 ≤ r_in < r_ex [m]"))
-    isfinite(rho) && rho > zero(T) && isfinite(mu_r) && mu_r > zero(T) ||
-        throw(DomainError((rho, mu_r), "conductor resistivity and permeability must be positive and finite"))
+    isfinite(ρ) && ρ > zero(T) && isfinite(μ_r) && μ_r > zero(T) ||
+        throw(DomainError((ρ, μ_r), "conductor resistivity and permeability must be positive and finite"))
     isfinite(s) && !iszero(s) || throw(DomainError(s, "jω must be finite and nonzero"))
-    mu = vacuum_permeability * mu_r
-    sigma = inv(rho)
+    mu = μ₀ * μ_r
+    sigma = inv(ρ)
     m = sqrt(s * mu * sigma)
     w_ex = m * r_ex
     if iszero(r_in)

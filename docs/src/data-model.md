@@ -138,7 +138,8 @@ assign a conductor index to each terminal of its design:
 
 An [`EarthModel`](@ref) consists of a semi-infinite air layer above the earth, each
 represented by an [`EarthLayer`](@ref) with its resistivity, relative permittivity and
-relative permeability. The earth is represented by one semi-infinite layer. The function [`homogeneous`](@ref) builds the model of an air layer, with relative permittivity
+relative permeability. The last earth layer is semi-infinite, and each layer above it has a
+finite thickness. The function [`homogeneous`](@ref) builds the model of an air layer, with relative permittivity
 and permeability equal to 1, above a homogeneous earth.
 
 ## Interface between air and earth
@@ -146,5 +147,5 @@ and permeability equal to 1, above a homogeneous earth.
 The earth surface corresponds to the line `y = 0` in the frame of the system. Cables above
 this line are located in air, and cables below it in the earth. A cable may touch
 the interface but cannot cross it, and [`LineParametersProblem`](@ref) throws an
-`ArgumentError` for a cable that crosses it. The unified earth-return formula and the
+`ArgumentError` for a cable that crosses it. The earth-return formula `:martins2026` and the
 finite-element model also reject a cable that touches the interface.

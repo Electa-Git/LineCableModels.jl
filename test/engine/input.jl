@@ -78,10 +78,10 @@
             for (row, targets) in zip(values, expected)
             for (value, target) in zip(row, targets))
             @test input.r_ins_ex ≈ [20.5e-3, 24.5e-3, 32.5e-3]
-            @test input.layers == [1:3, 4:4, 5:5]
-            @test input.layer_material == [semicon, polymer, semicon, polymer, polymer]
-            @test input.layer_r_in ≈ [10.5e-3, 11.5e-3, 19.5e-3, 21.5e-3, 28.5e-3]
-            @test input.layer_r_ex ≈ [11.5e-3, 19.5e-3, 20.5e-3, 24.5e-3, 32.5e-3]
+            @test input.dielectric_ranges == [1:3, 4:4, 5:5]
+            @test input.dielectric_material == [semicon, polymer, semicon, polymer, polymer]
+            @test input.dielectric_r_in ≈ [10.5e-3, 11.5e-3, 19.5e-3, 21.5e-3, 28.5e-3]
+            @test input.dielectric_r_ex ≈ [11.5e-3, 19.5e-3, 20.5e-3, 24.5e-3, 32.5e-3]
             @test input.x == [0.0] && input.y == [-1.0]
             @test input.radius == [support(design.outer)] && input.assemblies == [1:3]
             @test input.connection == [1, 2, 3]
@@ -125,7 +125,7 @@
         plan = LineCableModels.reductions(problem.system, options)
         @test plan.kept == [1, 4]
         @test plan.terminals == ["cable:1:core", "cable:2:core"]
-        @test input.layers == [1:1, 2:2, 3:2, 3:3, 4:4, 5:4]
+        @test input.dielectric_ranges == [1:1, 2:2, 3:2, 3:3, 4:4, 5:4]
         @test input.assemblies == [1:3, 4:6]
     end
 
@@ -142,7 +142,7 @@
         input = CoaxialInput(problem, options)
         @test input isa CoaxialInput{Float64}
         @test input.material isa Vector{Material{Float64, :conductor}}
-        @test only(input.layer_material) isa Material{Float64, :insulator}
-        @test only(input.layer_material).eps_r == 2.3f0 && input.r_ex == [0.0425f0]
+        @test only(input.dielectric_material) isa Material{Float64, :insulator}
+        @test only(input.dielectric_material).eps_r == 2.3f0 && input.r_ex == [0.0425f0]
     end
 end

@@ -16,7 +16,34 @@ constitutive relation of its displacement current:
 
 where ``f`` is the frequency \\[Hz\\], ``\\kappa`` is the admittivity \\[S/m\\] and
 ``\\varepsilon_r`` is the relative permittivity `eps_r` of the material \\[dimensionless\\].
-The constant ``\\varepsilon_0`` is [`vacuum_permittivity`](@ref).
+The constant ``\\varepsilon_0`` is [`ε₀`](@ref).
+
+### Callable
+
+`formula(material, f)` returns ``\\kappa`` \\[S/m\\] of a semicon layer.
+
+- `material`: material of the layer.
+- `f`: frequency \\[Hz\\].
+
+## `Formula{:lossy}`
+
+Admittivity of a dielectric with conduction, polarization loss and displacement current:
+
+```math
+\\kappa = \\frac{1}{\\rho} + 2 \\pi f \\varepsilon_0 \\varepsilon_r \\tan\\delta
+    + \\mathrm{j} 2 \\pi f \\varepsilon_0 \\varepsilon_r,
+```
+
+where ``\\rho`` is the resistivity `rho` of the material \\[Ω·m\\] and ``\\tan\\delta`` is its
+loss tangent `tan_delta` \\[dimensionless\\]. The other symbols are as in
+`Formula{:lossless}`.
+
+### Callable
+
+`formula(material, f)` returns ``\\kappa`` \\[S/m\\] of a semicon layer.
+
+- `material`: material of the layer.
+- `f`: frequency \\[Hz\\].
 """
 module SemiconAdmittance
 
@@ -24,14 +51,13 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults
 using ...Commons: FormulationOptions
 using ..Engine: AbstractSemiconAdmittance
-import ..Engine: admittivity
-using ..Engine: vacuum_permittivity
+using ..Engine: ε₀
 using ...Materials: Material
 
 export Formula, FORMULAS
 
 "Identifiers of the semicon-admittance formulas."
-const FORMULAS = (:lossless,)
+const FORMULAS = (:lossless, :lossy)
 
 """
 $(TYPEDEF)
@@ -80,5 +106,6 @@ function defaults(::Type{Formula{ID}}) where {ID}
 end
 
 include("lossless.jl")
+include("lossy.jl")
 
 end

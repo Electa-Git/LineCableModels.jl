@@ -15,22 +15,23 @@ import ..Commons: compute, defaults, select, validate
 using ..Commons: AbstractFormulation, AbstractBackend, FormulationOptions,
                  ComputationOptions
 using ..Materials: Material
-using ..Earth: EarthModel
+using ..Earth: EarthLayer, EarthModel
 using ..DataModel: Placement, CableSystem, support, flatten
 using LinearAlgebra: I, checksquare, ldiv!, lu!, mul!
 using QuadGK: alloc_segbuf, quadgk
 
-export vacuum_permittivity, vacuum_permeability
+export ε₀, μ₀
 export AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulationAdmittance,
        AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt, AbstractResistivity,
        AbstractEarthProperties
-export admittivity, resistivity, properties, impedance, impedance!, potential!, prepare!,
+export admittivity, impedance!, potential!, to_buffer!, from_buffer,
        initialize_buffers
 export LineParametersProblem, CoaxialFormulation, FEM, LCMBackend, GmshBackend,
        backend, LineParameters
-export bundle!, eliminate!, transposition!, formulas, reductions
-export SpectralIntegral, integrate, nominal, ray!
-public CoaxialInput, solve!
+export @formulation, @air, @earth, @mixed
+export bundle!, eliminate!, transposition!, reductions
+export SpectralIntegral, integrate, nominal
+public CoaxialInput, solve!, Λ
 public InternalImpedance, InsulationImpedance, InsulationAdmittance, SemiconAdmittance,
        EarthReturn, Shunt, Resistivity, EarthProperties
 
@@ -80,18 +81,20 @@ abstract type AbstractResistivity <: AbstractFormulation end
 """
 $(TYPEDEF)
 
-Represent the common supertype of frequency laws for earth properties.
+Represent the common supertype of the laws of earth properties and of the models of the
+equivalent earth.
 """
 abstract type AbstractEarthProperties <: AbstractFormulation end
 
 """
-    admittivity(formula, material, f)
+    admittivity(formulation, material, f)
 
-Return the admittivity of a dielectric layer at a frequency.
+Return the admittivity of a dielectric layer at a frequency, by the law of its class in the
+formulation.
 
 # Arguments
 
-- `formula`: admittivity law.
+- `formulation`: formulation that holds the admittivity laws.
 - `material`: material of the dielectric layer.
 - `f`: frequency \\[Hz\\].
 
@@ -102,69 +105,17 @@ Return the admittivity of a dielectric layer at a frequency.
 function admittivity end
 
 """
-    resistivity(formula, material, temperature)
-
-Return the conductor resistivity at a temperature.
-
-# Arguments
-
-- `formula`: resistivity law.
-- `material`: material of the conductor.
-- `temperature`: temperature of the conductor \\[°C\\].
-
-# Returns
-
-- Resistivity \\[Ω·m\\].
-"""
-function resistivity end
-
-"""
-    properties(formula, layer, f)
-
-Return the material properties of an earth or air layer at a frequency.
-
-# Arguments
-
-- `formula`: earth-properties law.
-- `layer`: earth or air layer.
-- `f`: frequency \\[Hz\\].
-
-# Returns
-
-- `rho`: resistivity \\[Ω·m\\].
-- `eps_r`: relative permittivity \\[dimensionless\\].
-- `mu_r`: relative permeability \\[dimensionless\\].
-"""
-function properties end
-
-"""
-    impedance(formula, …)
-
-Return the series-impedance terms of a formula.
-
-# Arguments
-
-- `formula`: series-impedance formula.
-- `…`: physical inputs of the selected method.
-
-# Returns
-
-- An impedance \\[Ω/m\\] or a named tuple of impedance terms in the same unit.
-"""
-function impedance end
-
-"""
     impedance!(formula, Z, …)
 
 Write the series-impedance matrix of a formula. A method that combines formulas takes
-them all before `Z`. An earth-return method takes
-`buffers, input, media, s, k` after `Z`.
+them all before `Z`. The method on a formulation is the
+recipe of the earth step, and it takes `buffers, input, media, s, k` after `Z`.
 
 # Arguments
 
 - `formula`: series-impedance formula.
 - `Z`: destination for the matrix in \\[Ω/m\\].
-- `buffers`: preallocated computation arrays for an earth-return method.
+- `buffers`: preallocated computation arrays for the earth step.
 - `input`: numerical cable geometry and connections.
 - `media`: air and earth properties at the frequency.
 - `s`: complex frequency, `j 2π f`, \\[1/s\\].
@@ -180,14 +131,14 @@ function impedance! end
 """
     potential!(formula, P, …)
 
-Write the potential-coefficient matrix of a formula. An earth-return method takes
-`buffers, input, media, s, k` after `P`.
+Write the potential-coefficient matrix of a formula. The method on a formulation is the
+recipe of the earth step, and it takes `buffers, input, media, s, k` after `P`.
 
 # Arguments
 
 - `formula`: potential-coefficient formula.
 - `P`: destination for the matrix in \\[m/F\\].
-- `buffers`: preallocated computation arrays for an earth-return method.
+- `buffers`: preallocated computation arrays for the earth step.
 - `input`: numerical cable geometry and connections.
 - `media`: air and earth properties at the frequency.
 - `s`: complex frequency, `j 2π f`, \\[1/s\\].
@@ -203,16 +154,15 @@ function potential! end
 """
 $(TYPEDSIGNATURES)
 
-Fill the shared state of a formula in `buffers` at the frequency of index `k`. Its quantity
-methods read this state. A formula without such state returns `buffers` unchanged, as this
-method does.
+Move the per-frequency terms of a formula into its block of `buffers`, at the frequency of index
+`k`. A formula without such terms returns `buffers` unchanged, as this method does.
 
 # Arguments
 
-- `formula`: formula whose state needs preparation.
+- `formula`: formula whose terms the recipes read.
 - `buffers`: preallocated computation arrays.
 - `input`: numerical cable geometry and connections.
-- `media`: air and earth properties at the frequency.
+- `media`: the air and the equivalent earth at the frequency.
 - `s`: complex frequency, `j 2π f`, \\[1/s\\].
 - `k`: frequency index.
 
@@ -220,19 +170,34 @@ method does.
 
 - `buffers`.
 """
-prepare!(::AbstractFormulation, buffers, input, media, s, k) = buffers
+to_buffer!(::AbstractFormulation, buffers, input, media, s, k) = buffers
+
+"""
+    from_buffer(formula, buffers)
+
+Return the block of `buffers` that holds the terms of `formula`, keyed by its identifier.
+
+# Arguments
+
+- `formula`: formula whose block the method reads.
+- `buffers`: preallocated computation arrays.
+
+# Returns
+
+- The block of the formula, a named tuple of arrays.
+"""
+function from_buffer end
 
 """
 $(TYPEDSIGNATURES)
 
-Add the preallocated arrays that a formula needs to compute `problem` to `buffers` once,
-before the loop over frequencies. A formula without arrays of its own returns `buffers`
-unchanged, as this method does.
+Add the preallocated arrays that a formula needs to `buffers` once, before the loop over
+frequencies. A formula without arrays of its own returns `buffers` unchanged, as this method
+does.
 
 # Arguments
 
 - `formula`: formula whose arrays the computation needs.
-- `problem`: line-parameters problem.
 - `input`: numerical cable geometry and connections.
 - `buffers`: arrays already allocated.
 
@@ -240,7 +205,39 @@ unchanged, as this method does.
 
 - `buffers`.
 """
-initialize_buffers(::AbstractFormulation, problem, input, buffers) = buffers
+initialize_buffers(::AbstractFormulation, input, buffers) = buffers
+
+"""
+    Λ(formula, Val(:self), κ, r, h)
+    Λ(formula, Val(:mutual), κ, r, D, D′)
+
+Return the circumferential mean of the direct and image fields of a source on a receiver in
+one medium:
+
+```math
+\\Lambda_{ii} = K_0(\\kappa r) - I_0(\\kappa r) K_0(2 \\kappa h), \\qquad
+\\Lambda_{ij} = I_0(\\kappa r) \\left[K_0(\\kappa D) - K_0(\\kappa D')\\right].
+```
+
+# Arguments
+
+- `formula`: earth-return formula.
+- `κ`: transverse propagation parameter of the medium \\[1/m\\].
+- `r`: exterior radius of the receiver \\[m\\].
+- `h`: distance from the receiver to the interface \\[m\\].
+- `D`: distance from the center of the receiver to the source \\[m\\].
+- `D′`: distance from the center of the receiver to the image of the source \\[m\\].
+
+# Returns
+
+- The mean \\[dimensionless\\].
+
+# Notes
+
+The earth-return family defines the method that each of its formulas gets. A formula with
+another direct and image term defines its own method.
+"""
+function Λ end
 
 """
 $(TYPEDSIGNATURES)

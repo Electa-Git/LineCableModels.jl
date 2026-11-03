@@ -20,7 +20,7 @@ Permeability is ``\\mu`` \\[H/m\\], and vacuum permeability is ``\\mu_0`` \\[H/m
 The factor ``\\mu_r`` is relative permeability \\[dimensionless\\].
 
 Earth uses the formulation's properties from `model.earth` at each frequency. Air uses the
-declared properties of the first earth layer, written once. Both use resistivity ``\\rho``
+declared properties of the first layer of the earth model, written once. Both use resistivity ``\\rho``
 \\[Ω·m\\] with ``\\sigma = 1/\\rho``, and relative permittivity ``\\varepsilon_r``
 \\[dimensionless\\] with ``\\varepsilon = \\varepsilon_0\\varepsilon_r``, where
 ``\\varepsilon_0`` is vacuum permittivity \\[F/m\\]. Coordinates and lengths are in \\[m\\],
@@ -118,7 +118,7 @@ function Base.write(path::AbstractString, model::FieldModel,
         conductive = [material.conductor for material in model.materials]
         losses = [any(value -> !iszero(real(value)), material.admittivity)
                   for material in model.materials]
-        permeabilities = [vacuum_permeability * material.mu_r
+        permeabilities = [μ₀ * material.mu_r
                           for material in model.materials]
         for (name, entries) in (("MaterialRegionTags", tags),
             ("MaterialIsConductor", conductive), ("MaterialHasLoss", losses),
@@ -135,16 +135,16 @@ function Base.write(path::AbstractString, model::FieldModel,
             end
         end
         earth_sigma = [inv(state.rho) for state in model.earth]
-        earth_epsilon = [vacuum_permittivity * state.eps_r for state in model.earth]
-        earth_mu = [vacuum_permeability * state.mu_r for state in model.earth]
+        earth_epsilon = [ε₀ * state.eps_r for state in model.earth]
+        earth_mu = [μ₀ * state.mu_r for state in model.earth]
         for (name, entries) in (("EarthSigma", earth_sigma),
             ("EarthEpsilon", earth_epsilon), ("EarthMu", earth_mu))
             numbers = [@sprintf("%.17g", Float64(number)) for number in entries]
             println(io, name, "() = {", join(numbers, ", "), "};")
         end
         for (name, number) in (("AirSigma", inv(air.rho)),
-            ("AirEpsilon", vacuum_permittivity * air.eps_r),
-            ("AirMu", vacuum_permeability * air.mu_r),
+            ("AirEpsilon", ε₀ * air.eps_r),
+            ("AirMu", μ₀ * air.mu_r),
             ("Xcenter", model.center), ("Ycenter", 0), ("Zcenter", 0))
             println(io, name, " = ", @sprintf("%.17g", Float64(number)), ";")
         end

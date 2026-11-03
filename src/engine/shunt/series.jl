@@ -1,5 +1,10 @@
 defaults(::Type{Formula{:series}}) = (;)
 
+function (::Formula{:series})(
+        r_in::T, r_ex::T, κ::Complex{T}, s::Complex{T}) where {T <: Real}
+    return iszero(r_in) || r_in == r_ex ? zero(s) : s / (2π * κ / log(r_ex / r_in))
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -9,7 +14,7 @@ the formula `Formula{:series}`, whose equations are in the section "Formulas" of
 
 # Arguments
 
-- `Formula{:series}`: annular dielectric series-chain formula.
+- `shunt`: annular dielectric series-chain formula.
 - `Pin`: destination matrix of potential coefficients \\[m/F\\].
 - `input`: numerical input of the cables.
 - `kappa`: admittivity of each dielectric layer \\[S/m\\].
@@ -19,7 +24,7 @@ the formula `Formula{:series}`, whose equations are in the section "Formulas" of
 
 - `Pin`, its entries in \\[m/F\\].
 """
-function potential!(::Formula{:series}, Pin::AbstractMatrix{Complex{T}},
+function potential!(shunt::Formula{:series}, Pin::AbstractMatrix{Complex{T}},
         input::CoaxialInput{T}, kappa::AbstractVector{Complex{T}},
         s::Complex{T}) where {T <: Real}
     fill!(Pin, zero(Complex{T}))
@@ -29,11 +34,8 @@ function potential!(::Formula{:series}, Pin::AbstractMatrix{Complex{T}},
         for position in count:-1:1
             i = conductors[position]
             own = zero(s)
-            for l in input.layers[i]
-                r_in = input.layer_r_in[l]
-                r_ex = input.layer_r_ex[l]
-                own += iszero(r_in) || r_in == r_ex ? zero(s) :
-                       s / (2π * kappa[l] / log(r_ex / r_in))
+            for l in input.dielectric_ranges[i]
+                own += shunt(input.dielectric_r_in[l], input.dielectric_r_ex[l], kappa[l], s)
             end
             running = position == count ? own : own + running
             for row in 1:position

@@ -74,8 +74,9 @@ and for nothing else.
 
 A physical element takes a physical noun: `Circle`, `Annulus`, `CircularPattern`,
 `Helix`. An operator on an element takes the name of its action: `Offset`, `Repeat`, `Lay`,
-`Enclosure`. A selector symbol stands for a definite act, law or source: `:unified`,
-`:schelkunoff1934`. No selector is `:auto`, `:default` or a vague quality.
+`Enclosure`. A selector symbol stands for a definite act, law or source: `:martins2026`,
+`:schelkunoff1934`. No selector is `:auto` or a vague quality. `:default` selects no formula: it
+routes to the slot's default formula at construction.
 
 ### Equality is equality of the computation
 
@@ -87,7 +88,8 @@ computed it, so that a result never claims a computation that did not take place
 ### Selection happens once, evaluation reads types
 
 Each choice is made at construction. A Symbol becomes a type by its lift, a keyword fills a
-typed record, and a formula fills a typed slot. The computation that follows reads types and never
+typed record, and a formula fills a typed slot. `:default` resolves to the slot's default
+formula, which then fills the slot. The computation that follows reads types and never
 decides. What a reader sees inside a loop is physics and arithmetic.
 
 ### Reference results are frozen with their origin, and deviations are explained
@@ -112,9 +114,12 @@ scope it was given and grows into nothing.
 
 ### The notation of the physics is the vocabulary
 
-The symbols of the equations are terms of the lexicon: `rho`, `eps_r`, `mu_r`, `r_in`,
-`r_ex`, `Γ`, `s`. The code writes the equation with the symbols the docstring defines, once,
-inline, so that the physics is read where it is computed.
+A formula's expression uses the symbols its docstring and its source define, in its locals,
+positional arguments, buffer keys and tags: `κ`, `σ̃`, `Λ`, `K̃`, `Γ`, `s`. The code writes the
+equation once, inline, so that the physics is read where it is computed. A symbol used as the
+name of a function, a field or a keyword is a term of the lexicon. Its case counts: `Γ` and `γ`
+are two terms. The names a user types are plain text, such as the slots of a formulation and
+the fields `rho`, `eps_r` and `mu_r` of the data model.
 
 ## Rules
 
@@ -186,7 +191,7 @@ type or a type parameter and dispatched after that.
 
 ```julia
 Material(:conductor, rho, eps_r, mu_r, T0, alpha)   # lifts :conductor to Material{T, :conductor}
-select(EarthReturn.Formula, :unified)                # lifts :unified to Formula{:unified}
+select(CoaxialFormulation, Val(:shunt), :series)    # lifts :series to Shunt.Formula{:series}
 ```
 
 Reason: a Symbol comparison inside a computation is a hidden switch that dispatch cannot
@@ -251,10 +256,11 @@ Neither `Nothing` nor a function is stored in a record.
 
 A `Val` has no behavior of its own. It appears in a lift, in a function the register marks
 as a lift, such as `Formula(::Val{ID}; kw...)` or `Material(::Val{K}, ...)`. It appears as a
-literal tag after a formula object, such as `integrate(integral, Val(:quad), ...)`. It
-appears as a type parameter set at construction. A method whose first positional argument is
-a `Val` is a constructor or a registered lift. A `Val(x)` whose `x` is not a literal appears
-only in a constructor, a lift or an options constructor.
+literal tag after a formula object, such as `f(Val(:J), λ, ...)` or
+`f(Val(:Z), Val(:self), i, ...)`. It appears as a type parameter set at construction. A
+method whose first positional argument is a `Val` is a constructor or a registered lift. A
+`Val(x)` whose `x` is not a literal appears only in a constructor, a lift or an options
+constructor.
 
 Reason: a `Val` with a literal is free. A `Val` with a runtime value is a dispatch at run
 time, harmless once per computation and harmful per frequency. With these homes, every lift
@@ -360,44 +366,85 @@ Three parts. The example is an earth-return formula that gives the impedance alo
 
 ```julia
 # in src/engine/earthreturn/EarthReturn.jl
-const FORMULAS = (:unified, :carson1926)
+const FORMULAS = (:martins2026, :ideal, :saad1996)
 
-# in src/engine/earthreturn/carson1926.jl
-defaults(::Type{Formula{:carson1926}}) = (;)
+# in src/engine/earthreturn/saad1996.jl
+defaults(::Type{Formula{:saad1996}}) = (;)
+validate(formula::Formula{:saad1996}, ::typeof(impedance!)) = formula
 
-function impedance!(formula::Formula{:carson1926}, Zg::AbstractMatrix, buffers, input,
-        media, s, k)
-    # the closed form, written here, from the per-frequency arguments
-    return Zg
+function (f::Formula{:saad1996})(::Val{:Z}, ::Val{:self}, i, buffers, input, media, s, k)
+    # the entry of Zg for conductor i, written here from the per-frequency arguments
+end
+
+function (f::Formula{:saad1996})(::Val{:Z}, ::Val{:mutual}, i, j, buffers, input, media, s, k)
+    # the entry of Zg for the target i and the source j
 end
 ```
 
 The registry line in `names.toml` gives the identifier with a one-line reference, under
-`[register."Engine.EarthReturn".formulas]`. Without potential coefficients, this formula is
-refused by the formulation in the `earth_admittance` slot, by dispatch. A formula with its
-own controls declares them in `defaults` and checks them in `validate(options)`. A formula
-with shared state between its quantities defines `prepare!` and reads its state in
-`impedance!` and `potential!`. A formula that needs arrays adds
-`initialize_buffers(formula, problem, input, buffers)` and returns the buffers merged with
-its own, keyed by its identifier. Its equations go to the "Formulas" section of the family
-module's docstring, as the [conventions](conventions.md) say.
+`[register."Engine.EarthReturn".formulas]`.
+
+The physics of a formula is its callable. Each mathematical expression is a method of the
+formula's own type, selected by a literal tag when the formula has more than one. An entry
+takes the quantity and then the position, `f(Val(:Z), Val(:self), i, ...)`. A kernel takes
+its name and the spectral variable, `f(Val(:J), λ, ...)`, and enters a `SpectralIntegral`. A
+component of one expression is a field of the record it returns, such
+as `(; inner, outer, transfer)`.
+
+The formulation assembles the matrices. Its methods of `impedance!` and `potential!` fill
+`Zg` and `Pg` pair by pair. Each entry comes from the formula that the slot records for the
+domain of the pair, `air`, `earth` or `mixed`. A formula declares each quantity it gives with
+`validate(formula, impedance!)` or `validate(formula, potential!)`. The fallback of the family
+refuses it in the other slot at construction.
+
+A formula of the earth return declares the pairs it treats by one method
+`validate(formula, t::Int, s::Int)`. Its condition reads the layers of the target and the source,
+1 for the air and `k` for the `(k - 1)`-th earth layer. The fallback of the family gives the
+refusal, and `validate(input, formulation)` walks the pairs of a problem before its computation.
+A variant takes no layer in its call form. It reads `input.earth_layer[i]` as a value.
+
+A formula reads these terms and derives everything else itself:
+
+| Term | Where a formula reads it | When the engine computes it |
+| --- | --- | --- |
+| `s` | the argument | the loop |
+| geometry and layer map | `input`, with `x`, `y`, `radius`, `earth_layer`, the tubes and the dielectric layers | once, in `CoaxialInput` |
+| `ρ_i` at the operating temperature, by the resistivity law | `buffers.rho[i]` | once, before the loop |
+| `κ_l`, the admittivity of dielectric layer `l`, by its law | `buffers.kappa[l]` | per frequency, in `solve!` |
+| `Γ_k` | `buffers.gamma[k]` | once, from the options |
+| media as the law describes them and the model reduces them | `media[t]`, with `rho`, `eps_r`, `mu_r`, `thickness` | per frequency, in `solve!` |
+| `σ̃_t = 1/ρ_t + s ε₀ ε_r,t` and `μ_t = μ₀ μ_r,t` | `buffers.σ̃[t]`, `buffers.μ[t]` | per frequency, by `to_buffer!` of the formulation |
+
+A formula declares its own controls in `defaults` and checks them in `validate(options)`.
+Where its direct and image term differs from the family's, it adds its own method of `Λ`. Terms
+that several entries read go to the block of the formula: `to_buffer!` writes them once per
+frequency, and `from_buffer(f, buffers)` reads them. The arrays of the block come from a method
+`initialize_buffers(formula, input, buffers)`, which returns the buffers merged with
+the formula's own, keyed by its identifier. A family whose formulas own blocks has one
+`from_buffer` method.
+
+The equations, the symbols and the call form of each callable go to the "Formulas" section of
+the family module's docstring, as the [conventions](conventions.md) say. A callable has no
+docstring of its own.
 
 ### Add a slot to the formulation
 
-A new slot is a field with a default in `CoaxialFormulation`, typed by its family, and a
-keyword with its default identifier in the keyword constructor. The family is a child module
-of `Engine` with `Formula`, `FORMULAS` and the lift. The function the family's methods
-extend is declared in `Engine`, with its docstring, and the loop calls it at the step where
-its quantity enters.
+A new slot is a field of `CoaxialFormulation` typed by its family, a keyword of the
+constructor with the value `:default`, and a `Val{:default}` method of `select`. That method
+gives the default formula of the slot. The family is a child module of `Engine` with `Formula`,
+`FORMULAS` and the lift. The loop calls the slot's formula at the step where its quantity
+enters, and the field `formulas` holds it once.
 
 ### Add a backend
 
-A backend is a singleton of `AbstractBackend` in `Engine`. It adds four things.
+A backend is a singleton of `AbstractBackend` in `Engine`. It adds three things.
 
 - `defaults(::Type{B})`, its computation options.
 - `compute(::B, problem, formulation; kw...)`, which builds the options once.
 - `compute(::B, problem, formulation, options::ComputationOptions{B})`, which computes.
-- `validate(formulation, ::B)` per formulation it implements, with a throwing fallback.
+
+A backend that has something to refuse adds `validate(formulation, ::B)`. Otherwise the refusal
+is the fallback of `compute`.
 
 A backend implemented in an extension defines its methods there and leaves its singleton in
 `Engine`, as `GmshBackend` does. A formulation's default backend is one `backend` method.

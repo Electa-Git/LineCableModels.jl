@@ -1,7 +1,7 @@
 # Reference results
 
 Per-unit-length line parameters of the six cable systems of this release, computed with the
-Unified earth formulation and with FEM. The tests compare the package against them.
+earth-return formula `:martins2026` and with FEM. The tests compare the package against them.
 
 The case scripts in `test/manual/cases/` computed them, each at the commit of this repository
 that the table gives. Commit `2bff171d` adds
@@ -18,8 +18,8 @@ FEM values within 1e-8. Run each script from the repository root as
 | `two_insulated_wires` | the same wires with 1 mm of insulation (εr 2.3) | `a7640beb` | `20261016-162539` |
 | `coaxial_circular_strands` | one coaxial cable with a core of circular strands, buried 1 m deep in earth of 100 Ω·m (εr 10) | `989af96c` | `20261025-000358` |
 | `coaxial_rectangular_strands` | the same cable with a core of rectangular strands | `2bff171d` | `20261023-215619` |
-| `overhead_bare_wires` | two bare copper wires of radius 42.5 mm, 1 m apart, 1 m above earth of 0.1 Ω·m (εr 1) | `9621e504` | `20261028-235359` |
-| `mixed_bare_wires` | the same wires at (0, 1) m and (1, −1) m, one overhead and one buried | `9621e504` | `20261028-235548` |
+| `overhead_bare_wires` | two bare copper wires of radius 42.5 mm, 1 m apart, 1 m above earth of 0.1 Ω·m (εr 1) | `e41bba13` | `20261031-100133` |
+| `mixed_bare_wires` | the same wires at (0, 1) m and (1, −1) m, one overhead and one buried | `e41bba13` | `20261031-100324` |
 
 The coaxial cable, from the center out:
 
@@ -42,7 +42,7 @@ conductors in row and column order, and the units. Each row is one entry of one 
 evenly spaced on a logarithmic scale. The FEM rows hold 11 of them, one per 0.8 decade.
 
 Each case folder also holds `physical.geo`, the geometry file of the FEM run of its
-script. At commit `989af96c`, all four scripts ran unchanged with
+script. At commit `989af96c`, the four original scripts ran unchanged with
 gmsh_jll 4.15.2. Their FEM rows match `matrices.csv` within 5.4e-9 of the largest
 diagonal entry. Each `physical.geo` is byte-identical to the retained file of its case's run of
 2026-10-25. The geometry tests compare against these files.
@@ -67,7 +67,7 @@ and `Y`, at the same 101 frequencies:
 Copies of the four original case scripts computed them at `989af96c`. Copies of the overhead
 and mixed scripts computed them at `9621e504`. The runs appear below. Each copy keeps the
 script's system and formulation, leaves out FEM, computes with `options = (trace = true,)`
-and writes the four matrices of `details(result).data.trace`. The comment lines give the
+and writes the four matrices of `result.trace`. The comment lines give the
 conductors and the cables in row and column order, and the units. Each row is one entry of
 one matrix: `source` (`analytical`), `frequency_hz`, `matrix`, `row`, `column`, `real`,
 `imaginary`.
@@ -106,6 +106,17 @@ The port's run gives these maxima against the analytical rows:
 | `coaxial_rectangular_strands` | 5.22 % | 10.4 % |
 | `overhead_bare_wires` | 0.610 % | 0.817 % |
 | `mixed_bare_wires` | 0.609 % | 0.617 % |
+
+The file `two_bare_wires/xue2021.csv` gives `analytical` and `fem` rows of `Z` and `Y` at 1 kHz
+for the wires of `two_bare_wires` on a layered earth. The upper layer is 100 Ω·m and 5 m thick
+with εr 10. Below it lie 10 m of 500 Ω·m with εr 20 and a half-space of 50 Ω·m with εr 5. Both
+rows use the equivalent earth `:xue2021`, of 62.05 Ω·m and relative permittivity −48 962 at that
+frequency.
+
+The FEM row deviates by e_Z 0.503 % and e_Y 0.735 %, and the pair by 0.568 % and 0.798 % on its
+homogeneous earth. So the field solve computes with the negative permittivity of the equivalent
+layer within the FEM accuracy level. Both computations ran once, at the commit that adds the
+file. The test suite repeats the analytical one alone.
 
 For `two_bare_wires`, `two_insulated_wires`, `overhead_bare_wires` and
 `mixed_bare_wires`, the meshes coincide with the source meshes.
@@ -165,3 +176,189 @@ The source gives the following results against the analytical rows:
     against the tube.
   - With the armor as a tube and a straight core, e_Z is at most 0.42 % and e_Y at most
     0.094 % for the rectangular strands, and 0.63 % and 0.13 % for the circular strands.
+
+## Internal approximation
+
+The formula `:wedepohl1973` approximates the surface impedances of `:schelkunoff1934` by the closed
+forms of its paper. The copper sheath of the coaxial cases has inner radius 20.5 mm and outer radius
+21.5 mm. Its relative deviation over the 101 frequencies of the analytical rows is:
+
+| Surface | Maximum | At | RMS |
+| --- | --- | --- | --- |
+| `inner` | 1.55e-4 | 11 kHz | 5.95e-5 |
+| `outer` | 1.49e-4 | 11 kHz | 5.68e-5 |
+| `transfer` | 2.75e-4 | 10 MHz | 1.39e-4 |
+
+The derivation of the paper takes the curvature of the sheath as constant across its wall.
+
+The formula enters `Z` alone, and `Y` of each reference is unchanged to the bit. With
+`internal_impedance = :wedepohl1973`, the largest scaled deviation of `Z` from the reference is:
+
+| Case | Scaled difference in Z | At |
+| --- | --- | --- |
+| `two_bare_wires` | 1.43e-3 | 14 Hz |
+| `two_insulated_wires` | 1.43e-3 | 14 Hz |
+| `coaxial_circular_strands` | 1.10e-3 | 275 Hz |
+| `coaxial_rectangular_strands` | 1.04e-3 | 229 Hz |
+| `overhead_bare_wires` | 1.42e-3 | 14 Hz |
+| `mixed_bare_wires` | 1.42e-3 | 14 Hz |
+
+Each maximum lies near `|m r| = 3.5`, in the solid conductor. The paper gives that value for the largest
+error of the reactive part of its form for a solid conductor.
+
+## Earth-return formulas
+
+Each earth-return formula of this section has one file in each case folder whose pairs it treats,
+named after the formula. The file gives the matrix `Zg` of the formula, and `Pg` where the formula
+gives it, in the form of `stages.csv`, at the same 101 frequencies. The reference problem of
+`problems.jl` computed it with `trace = true`, at the commit that adds the file.
+
+| Files | Formulation |
+| --- | --- |
+| `gary1976.csv` of `overhead_bare_wires` | `earth_impedance = :gary1976` |
+| `wedepohl1973.csv` of `two_bare_wires`, `two_insulated_wires` and the two coaxial cases | `earth_impedance = :wedepohl1973` |
+| `saad1996.csv` of those four cases | `earth_impedance = :saad1996` |
+| `carson1926.csv` of `overhead_bare_wires` | `earth_impedance = :carson1926` |
+| `wise1934.csv` of `overhead_bare_wires` | `earth_impedance = :wise1934` |
+| `wise1948.csv` of `overhead_bare_wires` | `earth_admittance = :wise1948` |
+| `pollaczek1926.csv` of `two_bare_wires`, `two_insulated_wires` and the two coaxial cases | `earth_impedance = :pollaczek1926` |
+| `pollaczek1926.csv` of `mixed_bare_wires` | `earth_impedance = (air = :carson1926, earth = :pollaczek1926, mixed = :pollaczek1926)` |
+| `papadopoulos2010.csv` of `two_bare_wires`, `two_insulated_wires` and the two coaxial cases | `earth_impedance = :papadopoulos2010, earth_admittance = :papadopoulos2010` |
+| `xue2018.csv` of `two_bare_wires`, `two_insulated_wires` and the two coaxial cases | `earth_impedance = :xue2018, earth_admittance = :xue2018` |
+| `xue2018-gamma.csv` of `two_insulated_wires` | those two slots, with the `Γ_k` of `stages-gamma.csv` |
+| `lucca1994.csv` of `mixed_bare_wires` | `earth_impedance = (air = :gary1976, earth = :saad1996, mixed = :lucca1994)` |
+| `ametani2009.csv` of `mixed_bare_wires` | `earth_impedance = (air = :gary1976, earth = :saad1996, mixed = :ametani2009)` |
+
+These formulas give `Zg` alone, so each `Pg` and `Y` is that of the reference. The table gives the
+deviation e_Z of `Z`. Its maximum and RMS over the 101 frequencies compare with the `analytical`
+rows of `matrices.csv`. The last column compares with the `fem` rows over the 11 FEM frequencies:
+
+| Formula | Case | Maximum | RMS | Maximum against FEM |
+| --- | --- | --- | --- | --- |
+| `:gary1976` | `overhead_bare_wires` | 0.0285 | 0.00748 | 0.0257 |
+| `:wedepohl1973` | `two_bare_wires` | 62.2 | 12 | 62.3 |
+| `:wedepohl1973` | `two_insulated_wires` | 61.5 | 11.9 | 61.5 |
+| `:wedepohl1973` | `coaxial_circular_strands` | 0.105 | 0.0202 | 0.108 |
+| `:wedepohl1973` | `coaxial_rectangular_strands` | 0.105 | 0.0203 | 0.109 |
+| `:saad1996` | `two_bare_wires` | 0.568 | 0.126 | 0.567 |
+| `:saad1996` | `two_insulated_wires` | 0.565 | 0.126 | 0.564 |
+| `:saad1996` | `coaxial_circular_strands` | 0.058 | 0.0113 | 0.102 |
+| `:saad1996` | `coaxial_rectangular_strands` | 0.0581 | 0.0113 | 0.105 |
+| `:carson1926` | `overhead_bare_wires` | 0.0285 | 0.00422 | 0.0257 |
+| `:wise1934` | `overhead_bare_wires` | 0.0285 | 0.00422 | 0.0257 |
+| `:pollaczek1926` | `two_bare_wires` | 0.568 | 0.126 | 0.567 |
+| `:pollaczek1926` | `two_insulated_wires` | 0.565 | 0.126 | 0.564 |
+| `:pollaczek1926` | `coaxial_circular_strands` | 0.0599 | 0.011 | 0.101 |
+| `:pollaczek1926` | `coaxial_rectangular_strands` | 0.06 | 0.011 | 0.104 |
+
+Each deviation follows from the approximation of the formula:
+
+- `:gary1976` replaces the interface integral by an image at a complex depth.
+- `:wedepohl1973` keeps the low orders of an expansion in `m`, within `|m D| < 0.25` and
+  `|m r| < 0.25` by its source.
+- `:saad1996` approximates the interface integral in closed form, and it takes each cable as a
+  filament of the exterior radius.
+- `:carson1926` leaves out the displacement currents of the air and the earth. Its deviation grows
+  with frequency.
+- `:wise1934` is the integral of `:carson1926` at `eps_r = 1`, so the two share their cause.
+- `:pollaczek1926` takes each cable as a filament and leaves out both displacement currents.
+
+The implementation at commit `88f5de54` stops the integral at `λ = 1` 1/m and keeps the displacement
+current of the air in its root. It differs from `:carson1926` by 0.0105 of the largest diagonal entry
+of `Zg` at 13.2 kHz, where the stop of the integral acts. At 10 MHz, where the air acts, it differs by
+0.0281.
+
+A mixed formula gives the entries of a pair across the interface, so the air and earth places give
+the other entries of `Zg`. The table gives e_Z of `mixed_bare_wires` for each mixed formula, under
+two selections of those places. With `:martins2026` in them, e_Z is the deviation of the mixed
+entries alone:
+
+| Mixed place | Air and earth places | Maximum | RMS | Maximum against FEM |
+| --- | --- | --- | --- | --- |
+| `:lucca1994` | `:gary1976`, `:saad1996` | 0.0921 | 0.0502 | 0.0924 |
+| `:lucca1994` | `:martins2026` | 0.0907 | 0.0427 | 0.0879 |
+| `:ametani2009` | `:gary1976`, `:saad1996` | 0.0921 | 0.0305 | 0.0924 |
+| `:ametani2009` | `:martins2026` | 0.0258 | 0.0122 | 0.0239 |
+| `:pollaczek1926` | `:carson1926`, `:pollaczek1926` | 0.0921 | 0.0277 | 0.0924 |
+| `:pollaczek1926` | `:martins2026` | 0.000341 | 0.000139 | 0.00613 |
+
+At 631 kHz the mixed entry of `Zg` is `-4.61e-4 + 6.80e-4j` Ω/m under `:martins2026`,
+`5.98e-2 + 6.35e-2j` under `:lucca1994` and `-3.03e-4 + 5.10e-4j` under `:ametani2009`. `:lucca1994`
+and `:ametani2009` differ by at most 0.101 of the largest diagonal entry of `Zg`, at 13.2 kHz.
+
+Each deviation of a mixed formula follows from its approximation:
+
+- `:lucca1994` takes an image at a complex depth and one correction term. Its logarithm does not
+  decay with depth.
+- `:ametani2009` multiplies that logarithm by the decay `exp(-h_g / p)` over the depth `h_g`.
+
+`:pollaczek1926` in the mixed place is the integral that the two others approximate. Against it,
+`:lucca1994` differs by at most 0.0911 of the largest diagonal entry of `Zg`, at 22.9 kHz. `:ametani2009`
+differs by at most 0.0258, at 2.51 kHz. At commit `88f5de54` the buried integral stops at `λ = 1` 1/m. On
+`two_bare_wires` it differs from `:pollaczek1926` by at most 0.0125 of the largest diagonal entry of `Zg`,
+at 9.12 kHz.
+
+`:papadopoulos2010` gives `Zg` and `Pg`, so `Z` and `Y` both follow from it. The table gives e_Z and e_Y.
+Their maximum and RMS over the 101 frequencies compare with the `analytical` rows of `matrices.csv`. The
+last two columns compare with the `fem` rows over the 11 FEM frequencies:
+
+| Case | e_Z maximum | e_Z RMS | e_Y maximum | e_Y RMS | e_Z against FEM | e_Y against FEM |
+| --- | --- | --- | --- | --- | --- | --- |
+| `two_bare_wires` | 0.568 | 0.126 | 1.95 | 0.374 | 0.567 | 0.788 |
+| `two_insulated_wires` | 0.565 | 0.126 | 0.00202 | 0.000336 | 0.564 | 0.00214 |
+| `coaxial_circular_strands` | 0.0778 | 0.0162 | 0.0668 | 0.0249 | 0.118 | 0.117 |
+| `coaxial_rectangular_strands` | 0.0779 | 0.0162 | 0.0668 | 0.0249 | 0.121 | 0.118 |
+
+`e_Z` follows from the filament and from the longitudinal constant. `e_Y` follows from the term `G` of
+equation (6c) of the source. On `two_bare_wires`, that term of a diagonal entry is 8 to 9 times the rest
+of the entry below 1 kHz. On `coaxial_circular_strands` it is 2.4 times the rest at 0.1 Hz. The source
+writes the direct and image term as a spectral integral. Its cosine converges only conditionally at
+equal depths, so the formula takes that term in closed form.
+
+The logarithm in `G` stops at `|κ₂ σ̃₁/σ̃₂|` or at `k₀ √(ε_r - 1)`, the larger of the two, so `Pg` is
+sensitive to `eps_r` near 1 at low frequency. At 0.1 Hz on `two_bare_wires` a diagonal entry moves by
+11 % from `eps_r = 1` to `1 + 1e-9`, and by 39 % to `eps_r = 2`.
+
+At commit `88f5de54` the integral of `Zg` stops at `λ = 1` 1/m, and the direct and image term has
+`√(s μ₂ σ̃₂)` in place of `√(s μ₂ σ₂)`. The table gives the deviation of its `Zg` and `Pg` from those of
+`:papadopoulos2010`, as a fraction of the largest diagonal entry of the matrix:
+
+| Case | `Zg` maximum | At | `Pg` maximum | At |
+| --- | --- | --- | --- | --- |
+| `two_bare_wires` | 0.0125 | 9.12 kHz | 4.33e-5 | 10 MHz |
+| `two_insulated_wires` | 0.0125 | 9.12 kHz | 4.41e-5 | 10 MHz |
+| `coaxial_circular_strands` | 0.0539 | 10 MHz | 0.0589 | 10 MHz |
+| `coaxial_rectangular_strands` | 0.0539 | 10 MHz | 0.0589 | 10 MHz |
+
+`:wise1948` gives `Pg` alone, so `Z` is that of the reference. The table gives the deviation e_Y of `Y`.
+Its maximum and RMS over the 101 frequencies compare with the `analytical` rows of `matrices.csv`. The
+last column compares with the `fem` rows over the 11 FEM frequencies:
+
+| Case | Maximum | RMS | Maximum against FEM |
+| --- | --- | --- | --- |
+| `overhead_bare_wires` | 0.0202 | 0.00297 | 0.0174 |
+
+`:wise1948` is another quantity than `:martins2026`. It is a scalar potential coefficient under a
+longitudinal constant fixed at that of the air. `:martins2026` gives the mean of the integrated vertical
+field referred to the interface at `Γ = 0`.
+
+Each corrects the ideal images. Over 100 Ω·m with `eps_r = 10`, the ratio of the correction of
+`:martins2026` to that of `:wise1948` is -0.0235 - 0.00190j at 0.1 Hz. At 10 MHz it is -0.297 - 0.839j. At low
+frequency they have opposite signs, and that of `:wise1948` is the larger.
+
+`:xue2018` gives `Zg` and `Pg`. The table compares them with `stages.csv`, and on its last row with
+`stages-gamma.csv`, as a fraction of the largest diagonal entry of the matrix at each frequency. It gives
+the maximum and RMS over the 101 frequencies:
+
+| Case | `Zg` maximum | `Zg` RMS | `Pg` maximum | `Pg` RMS |
+| --- | --- | --- | --- | --- |
+| `two_bare_wires` | 0.568 | 0.126 | 0.568 | 0.126 |
+| `two_insulated_wires` | 0.582 | 0.129 | 0.582 | 0.129 |
+| `coaxial_circular_strands` | 0.00201 | 0.000364 | 0.00198 | 0.000361 |
+| `coaxial_rectangular_strands` | 0.00201 | 0.000364 | 0.00198 | 0.000361 |
+| `two_insulated_wires`, `Γ_k` | 0.582 | 0.129 | 0.582 | 0.129 |
+
+The deviation follows from the finite radius. `:xue2018` takes each cable as a filament, and
+`:martins2026` closes the current on its circumference. At low frequency the deviation falls with the
+square of the radius times the square of the filament's logarithm, in `Zg` and in `Pg`. So `Pg` refers
+to the same infinite depth as `:martins2026`.

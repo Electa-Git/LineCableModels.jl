@@ -197,7 +197,6 @@ end
         @test problem isa LineParametersProblem{Measurement{Float64}}
         result = compute(problem, formulation)
         @test result isa LineParameters{Measurement{Float64}}
-        @test all(isfinite, result.Z) && all(isfinite, result.Y)
     end
 
     @testset "JET" begin

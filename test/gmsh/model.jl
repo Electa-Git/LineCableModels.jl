@@ -1,4 +1,4 @@
-using LineCableModels.Engine: admittivity, resistivity, reductions
+using LineCableModels.Engine: admittivity, reductions
 
 @testset "Gmsh field model" begin
     FieldModel = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).FieldModel
@@ -23,8 +23,7 @@ using LineCableModels.Engine: admittivity, resistivity, reductions
         model = FieldModel(problem, formulation)
         earth = problem.earth.layers[2]
         @test length(model.earth) == length(problem.frequencies)
-        @test all(state == (rho = earth.rho, eps_r = earth.eps_r, mu_r = earth.mu_r)
-        for state in model.earth)
+        @test all(state == earth for state in model.earth)
         @test length(model.material) == length(problem.system.regions) == regions
         @test model.label == reductions(problem.system, FEM().options).label
         @test length(model.label) == length(problem.system.terminals)
@@ -39,8 +38,7 @@ using LineCableModels.Engine: admittivity, resistivity, reductions
             if material isa Material{<:Real, :conductor}
                 @test real.(group.admittivity) ==
                       fill(
-                    inv(resistivity(formulation.resistivity, material,
-                        problem.temperature)),
+                    inv(formulation.resistivity(material, problem.temperature)),
                     length(problem.frequencies))
             else
                 expected = [admittivity(CoaxialFormulation(), material, f)
@@ -80,4 +78,64 @@ using LineCableModels.Engine: admittivity, resistivity, reductions
     problem = LineParametersProblem(system, reference.earth;
         frequencies = reference.frequencies[1:10:end])
     @test_throws DomainError FieldModel(problem, formulation)
+    @testset "a layered earth reaches the model as its equivalent earth" begin
+        air, bottom = reference.earth.layers
+        layered = LineParametersProblem(reference.system,
+            EarthModel((air, EarthLayer(100.0, 1.0, 1.0, 5.0), bottom));
+            frequencies = reference.frequencies[1:10:end])
+        @test all(layer -> layer === bottom, FieldModel(layered, formulation).earth)
+    end
+    @testset "a lossy insulation reaches the model with the value of its law" begin
+        polymer = Material(:insulator, 1.0e14, 2.3; tan_delta = 1.0e-3)
+        metal = Region(:core_metal, Circle(0.0425), Material(:conductor, 1.7241e-8))
+        design = build(CableDesign, "insulated_wire", Terminal(:core, metal),
+            Region(:core_insulation, Offset(1.0e-3), polymer))
+        system = build(CableSystem, [design, design],
+            [Placement(0.0, -1.0), Placement(1.0, -1.0)];
+            connections = [(core = 1,), (core = 2,)], id = "two_insulated_wires",
+            line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 0.1);
+            frequencies = reference.frequencies[1:10:end])
+        lossy = FEM(insulation_admittance = :lossy)
+        model = FieldModel(problem, lossy)
+        r = findfirst(region -> region.source.tag == :core_insulation, problem.system.regions)
+        @test model.materials[model.material[r]].admittivity ==
+              [lossy.insulation_admittance(polymer, f) for f in problem.frequencies]
+    end
+    @testset "a magnetic earth is refused before a mesh" begin
+        polymer = Material(:insulator, 1.0e14, 2.3; tan_delta = 1.0e-3)
+        metal = Region(:core_metal, Circle(0.0425), Material(:conductor, 1.7241e-8))
+        design = build(CableDesign, "insulated_wire", Terminal(:core, metal),
+            Region(:core_insulation, Offset(1.0e-3), polymer))
+        system = build(CableSystem, [design, design],
+            [Placement(0.0, -1.0), Placement(1.0, -1.0)];
+            connections = [(core = 1,), (core = 2,)], id = "two_insulated_wires",
+            line_length = 1.0)
+        earth = EarthModel((EarthLayer(Inf, 1.0, 1.0), EarthLayer(100.0, 10.0, 2.0, 5.0),
+            EarthLayer(50.0, 5.0, 1.0)))
+        problem = LineParametersProblem(system, earth; frequencies = [1.0, 1.0e3])
+        formulation = FEM(earth_properties = :alipio2014, equivalent_earth = :xue2021)
+        @test_logs (:warn, r":alipio2014") (@test_throws r":xue2021" compute(problem, formulation))
+    end
+    @testset "the laws of the earth reach the model" begin
+        polymer = Material(:insulator, 1.0e14, 2.3; tan_delta = 1.0e-3)
+        metal = Region(:core_metal, Circle(0.0425), Material(:conductor, 1.7241e-8))
+        design = build(CableDesign, "insulated_wire", Terminal(:core, metal),
+            Region(:core_insulation, Offset(1.0e-3), polymer))
+        system = build(CableSystem, [design, design],
+            [Placement(0.0, -1.0), Placement(1.0, -1.0)];
+            connections = [(core = 1,), (core = 2,)], id = "two_insulated_wires",
+            line_length = 1.0)
+        layers = (EarthLayer(100.0, 10.0, 1.0, 5.0), EarthLayer(500.0, 20.0, 1.0, 10.0),
+            EarthLayer(50.0, 5.0, 1.0))
+        problem = LineParametersProblem(
+            system, EarthModel((EarthLayer(Inf, 1.0, 1.0), layers...));
+            frequencies = [1.0e3, 1.0e6])
+        formulation = FEM(earth_properties = :alipio2014, equivalent_earth = :xue2021)
+        model = FieldModel(problem, formulation)
+        @test model.earth == [formulation.equivalent_earth(
+                   map(layer -> formulation.earth_properties(layer, f), layers), f)
+               for f in problem.frequencies]
+        @test first(model.earth).eps_r < 0
+    end
 end

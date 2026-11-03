@@ -328,6 +328,7 @@ end
               Dict{String, Int}(
             "Laws | choose | Val(x)" => 1,
             "Laws | gone | stale lift" => 1,
+            "Laws | Knob | Val first" => 1,
             "Laws | law | Val first" => 1,
             "Laws | pick | Val(x)" => 1,
             "Uses | pick | Val(x)" => 1)
@@ -344,6 +345,7 @@ end
         @test Base.invokelatest(
             Guards.formula_registry, planted_methods, planted, planted_names) ==
               Dict{String, Int}(
+            "Laws | default | router" => 1,
             "Laws | ghost | FORMULAS" => 1,
             "Laws | ghost | defaults" => 1,
             "Laws | ghost | physics" => 1,
@@ -378,6 +380,7 @@ end
             "shape | type | Earth | AbstractDisk | form" => 1,
             "shape | type | Earth | BuildPlan | form" => 1,
             "subject | function | Earth | ring_poses | ring" => 1,
+            "terms | field | Engine | γ | unknown" => 1,
             "terms | function | Earth | abc | ambiguous" => 1,
             "terms | function | Earth | frobnicate | unknown" => 1,
             "terms | function | Earth | get_radius | rejected get -> the name of the quantity" => 1,

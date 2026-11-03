@@ -9,7 +9,10 @@ A coaxial formulation reads each terminal of a cable as a tubular conductor of i
 ``r_\mathrm{in} = 0``. The internal impedance of the tube is the electromagnetic response
 inside the metal, given by three surface terms per unit length
 [Schelkunoff1934](@cite): the inner surface impedance, the outer surface impedance and the
-transfer impedance through the wall. The loop recursion of the
+transfer impedance through the wall. The default formula, `:schelkunoff1934`, computes them
+from the Bessel functions of the field in the metal. The formula `:wedepohl1973` takes the
+closed forms of Wedepohl and Wilcox for a thin tube and for a solid conductor
+[Wedepohl1973](@cite). The loop recursion of the
 [matrix formulation](matrix.md) adds the outer surface impedance of a conductor and the inner
 surface impedance of the next conductor outward to the loop impedance of the conductor. The
 loop impedance less the transfer impedance adds to the entries between the conductor and each
@@ -32,10 +35,6 @@ Public = true
 Private = false
 ```
 
-```@docs
-impedance(::InternalImpedance.Formula{:schelkunoff1934}, r_in::T, r_ex::T, rho::T, mu_r::T, s::Complex{T}) where {T <: Real}
-```
-
 ## Resistivity
 
 ```@autodocs
@@ -43,10 +42,6 @@ Modules = [Resistivity]
 Order = [:module, :constant, :type, :function]
 Public = true
 Private = false
-```
-
-```@docs
-resistivity(::Resistivity.Formula{:linear}, material::Material{T}, temperature::T) where {T <: Real}
 ```
 
 [Back to Contents](contents.md)

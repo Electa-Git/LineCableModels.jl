@@ -54,8 +54,8 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
     air::Vector{Bool}
     "Longitudinal wavenumber Γ at each frequency \\[1/m\\]."
     gamma::Vector{Complex{T}}
-    "Properties of the earth at each frequency."
-    earth::Vector{@NamedTuple{rho::T, eps_r::T, mu_r::T}}
+    "Equivalent earth at each frequency."
+    earth::Vector{EarthLayer{T}}
     "Mean horizontal placement of the cables \\[m\\]."
     center::T
     "Smallest radius of the cable outlines, used to size CAD points \\[m\\]."
@@ -76,7 +76,7 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
     ``\\varepsilon_0`` is vacuum permittivity \\[F/m\\], and ``\\varepsilon_r`` is
     relative permittivity \\[dimensionless\\]. Dielectric regions use the formulation's
     admittivity law for their class.
-    Evaluate the formulation's earth law at every frequency.
+    Evaluate the formulation's earth law and equivalent earth at every frequency.
 
     # Arguments
 
@@ -103,8 +103,8 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
         conductor = fill(false, length(sources))
         for r in findall(source -> source isa Material{T, :conductor}, sources)
             source = sources[r]
-            ρ = resistivity(formulation.resistivity, source, problem.temperature)
-            κ[r] = Complex{T}[complex(inv(ρ), 2π * f * vacuum_permittivity * source.eps_r)
+            ρ = formulation.resistivity(source, problem.temperature)
+            κ[r] = Complex{T}[complex(inv(ρ), 2π * f * ε₀ * source.eps_r)
                               for f in problem.frequencies]
             conductor[r] = true
         end
@@ -157,8 +157,10 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
                for (design, at) in zip(problem.system.designs, problem.system.placements)]
         gamma = Vector{Complex{T}}(undef, length(problem.frequencies))
         gamma .= formulation.options.Γ
-        earth = [properties(formulation.earth_properties, problem.earth.layers[2], f)
-                 for f in problem.frequencies]
+        earth = [formulation.equivalent_earth(
+                     map(layer -> formulation.earth_properties(layer, f),
+                         Base.tail(problem.earth.layers)),
+                     f) for f in problem.frequencies]
         center = convert(T, sum(at.x for at in problem.system.placements) /
                             length(problem.system.placements))
         scale = convert(T, minimum(design -> support(design.outer), problem.system.designs))

@@ -3,7 +3,7 @@ message: "If you use LineCableModels.jl, please cite this software."
 title: "LineCableModels.jl"
 type: software
 version: 0.1.0
-date-released: 2026-10-29
+date-released: 2026-11-02
 authors:
   - family-names: Martins
     given-names: Amauri

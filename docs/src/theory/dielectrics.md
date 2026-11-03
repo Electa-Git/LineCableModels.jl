@@ -15,7 +15,8 @@ potential coefficients inside the cable by the series chain of the layers, which
 [matrix formulation](matrix.md) page gives. An insulator takes the law of
 `insulation_admittance` and a semicon the law of `semicon_admittance`, by the class of its
 material.
-The one law of this release, `:lossless`, leaves out conduction and polarization loss in both.
+The law `:lossless`, the default of both slots, leaves out conduction and polarization loss.
+The law `:lossy` adds them from the fields `rho` and `tan_delta` of the material.
 
 ## Insulation impedance
 
@@ -24,10 +25,6 @@ Modules = [InsulationImpedance]
 Order = [:module, :constant, :type, :function]
 Public = true
 Private = false
-```
-
-```@docs
-impedance(::InsulationImpedance.Formula{:ametani1980}, r_in::T, r_ex::T, mu_r::T, s::Complex{T}) where {T <: Real}
 ```
 
 ## Insulation admittance
@@ -39,10 +36,6 @@ Public = true
 Private = false
 ```
 
-```@docs
-admittivity(::InsulationAdmittance.Formula{:lossless}, material::Material{T}, f::T) where {T <: Real}
-```
-
 ## Semicon admittance
 
 ```@autodocs
@@ -50,10 +43,6 @@ Modules = [SemiconAdmittance]
 Order = [:module, :constant, :type, :function]
 Public = true
 Private = false
-```
-
-```@docs
-admittivity(::SemiconAdmittance.Formula{:lossless}, material::Material{T}, f::T) where {T <: Real}
 ```
 
 [Back to Contents](contents.md)

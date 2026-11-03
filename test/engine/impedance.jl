@@ -3,7 +3,6 @@
 # and the dielectric layers of the coaxial references.
 @testset "Engine impedances" begin
     Engine = LineCableModels.Engine
-    impedance = Engine.impedance
     schelkunoff = Engine.InternalImpedance.Formula(Val(:schelkunoff1934))
     ametani = Engine.InsulationImpedance.Formula(Val(:ametani1980))
     # The radii in m, the resistivity in Ω·m and the relative permeability of each tube, and the
@@ -59,7 +58,7 @@
 
     @testset "the surfaces of the tubes, and of the solid core" begin
         for (part, f, inner, outer, transfer) in surfaces
-            surface = impedance(schelkunoff, tubes[part]..., im * (2π * f))
+            surface = schelkunoff(tubes[part]..., im * (2π * f))
             @test isapprox(surface.inner, inner; rtol = 1.0e-13)
             @test isapprox(surface.outer, outer; rtol = 1.0e-13)
             @test isapprox(surface.transfer, transfer; rtol = 1.0e-13)
@@ -68,27 +67,106 @@
 
     @testset "the magnetic term across the layers" begin
         for (part, f, term) in terms
-            @test isapprox(impedance(ametani, layers[part]..., im * (2π * f)), term;
+            @test isapprox(ametani(layers[part]..., im * (2π * f)), term;
                 rtol = 1.0e-13)
         end
-        @test iszero(impedance(ametani, 10.5e-3, 10.5e-3, 1.0, im * (2π * 50.0)))
+        @test iszero(ametani(10.5e-3, 10.5e-3, 1.0, im * (2π * 50.0)))
     end
 
     @testset "a tube has ordered radii, a conductive material and a frequency" begin
         s = im * (2π * 50.0)
-        @test_throws DomainError impedance(schelkunoff, 2.0e-3, 1.0e-3, 1.7241e-8, 1.0, s)
-        @test_throws DomainError impedance(schelkunoff, 0.0, 1.0e-3, 0.0, 1.0, s)
-        @test_throws DomainError impedance(schelkunoff, 0.0, 1.0e-3, 1.7241e-8, -1.0, s)
-        @test_throws DomainError impedance(schelkunoff, 0.0, 1.0e-3, 1.7241e-8, 1.0, 0.0im)
+        @test_throws DomainError schelkunoff(2.0e-3, 1.0e-3, 1.7241e-8, 1.0, s)
+        @test_throws DomainError schelkunoff(0.0, 1.0e-3, 0.0, 1.0, s)
+        @test_throws DomainError schelkunoff(0.0, 1.0e-3, 1.7241e-8, -1.0, s)
+        @test_throws DomainError schelkunoff(0.0, 1.0e-3, 1.7241e-8, 1.0, 0.0im)
     end
 
     @testset "the impedances are inferred" begin
         s = im * (2π * 50.0)
-        @test @inferred(impedance(schelkunoff, tubes["sheath"]..., s)).outer isa ComplexF64
-        @test @inferred(impedance(ametani, layers["insulation"]..., s)) isa ComplexF64
+        @test @inferred(schelkunoff(tubes["sheath"]..., s)).outer isa ComplexF64
+        @test @inferred(ametani(layers["insulation"]..., s)) isa ComplexF64
         s32 = ComplexF32(s)
-        @test real(@inferred(impedance(
-            schelkunoff, 0.0f0, 1.0f-3, 1.7241f-8, 1.0f0, s32)).outer) > 0
-        @test iszero(@inferred(impedance(ametani, 1.0f-3, 1.0f-3, 1.0f0, s32)))
+        @test real(@inferred(schelkunoff(
+            0.0f0, 1.0f-3, 1.7241f-8, 1.0f0, s32)).outer) > 0
+        @test iszero(@inferred(ametani(1.0f-3, 1.0f-3, 1.0f0, s32)))
     end
+end
+
+@testset "Wedepohl and Wilcox internal approximation" begin
+    wedepohl = LineCableModels.Engine.InternalImpedance.Formula(Val(:wedepohl1973))
+    ρ, μ_r = 1.7241e-8, 1.0
+    for (r2, r3) in ((20.0e-3, 21.0e-3), (10.0e-3, 21.0e-3))
+        Δ = r3 - r2
+        for f in (50.0, 1.0e4, 1.0e6)
+            s = im * 2π * f
+            m = sqrt(s * 4π * 1e-7 * μ_r / ρ)
+            x = m * Δ
+            inner = (ρ * m / (2π * r2)) * (cosh(x) / sinh(x)) -
+                    ρ / (2π * r2 * (r2 + r3))
+            transfer = (ρ * m / (π * (r2 + r3))) * (1 / sinh(x))
+            outer = (ρ * m / (2π * r3)) * (cosh(x) / sinh(x)) +
+                    ρ / (2π * r3 * (r2 + r3))
+            surface = wedepohl(r2, r3, ρ, μ_r, s)
+            @test isapprox(surface.inner, inner; rtol = 1.0e-12)
+            @test isapprox(surface.outer, outer; rtol = 1.0e-12)
+            @test isapprox(surface.transfer, transfer; rtol = 1.0e-12)
+        end
+        resistance = ρ / (π * Δ * (r2 + r3))
+        surface = wedepohl(r2, r3, ρ, μ_r, im * 2π * 1.0e-6)
+        @test isapprox(surface.inner, resistance; rtol = 1.0e-6)
+        @test isapprox(surface.outer, resistance; rtol = 1.0e-6)
+        @test isapprox(surface.transfer, resistance; rtol = 1.0e-6)
+    end
+    r_ex = 10.5e-3
+    for f in (50.0, 1.0e4, 1.0e6)
+        s = im * 2π * f
+        m = sqrt(s * 4π * 1e-7 * μ_r / ρ)
+        x = 0.777 * m * r_ex
+        outer = (ρ * m / (2π * r_ex)) * (cosh(x) / sinh(x)) +
+                0.356 * ρ / (π * r_ex^2)
+        surface = wedepohl(0.0, r_ex, ρ, μ_r, s)
+        @test isapprox(surface.outer, outer; rtol = 1.0e-12)
+        @test iszero(surface.inner)
+        @test iszero(surface.transfer)
+    end
+
+    copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+    polymer = Material(:insulator, 1.0e14, 2.3)
+    thick = build(CableDesign, "thick_tube",
+        Terminal(:core, Region(:core_metal, Circle(9.0e-3), copper)),
+        Region(:core_insulation, Offset(1.0e-3), polymer),
+        Terminal(:sheath, Region(:sheath_copper, Annulus(10.0e-3, 21.0e-3), copper)))
+    system = build(CableSystem, [thick], [Placement(0.0, -1.0)];
+        connections = [(core = 1, sheath = 2)], id = "thick_tube", line_length = 1.0)
+    problem = LineParametersProblem(system, homogeneous(rho = 100);
+        frequencies = [50.0, 1.0e4, 1.0e6])
+    formulation = CoaxialFormulation(internal_impedance = :wedepohl1973)
+    result = @test_logs (:warn, r"1/8") compute(problem, formulation)
+    @test result isa LineParameters
+
+    thin = build(CableDesign, "thin_tube",
+        Terminal(:core, Region(:core_metal, Circle(19.0e-3), copper)),
+        Region(:core_insulation, Offset(1.0e-3), polymer),
+        Terminal(:sheath, Region(:sheath_copper, Annulus(20.0e-3, 21.0e-3), copper)))
+    system = build(CableSystem, [thin], [Placement(0.0, -1.0)];
+        connections = [(core = 1, sheath = 2)], id = "thin_tube", line_length = 1.0)
+    problem = LineParametersProblem(system, homogeneous(rho = 100);
+        frequencies = [50.0, 1.0e4, 1.0e6])
+    @test_logs compute(problem, formulation)
+
+    solid = build(CableDesign, "solid_conductor",
+        Terminal(:core, Region(:core_metal, Circle(10.5e-3), copper)))
+    system = build(CableSystem, [solid], [Placement(0.0, -1.0)];
+        connections = [(core = 1,)], id = "solid_conductor", line_length = 1.0)
+    problem = LineParametersProblem(system, homogeneous(rho = 100);
+        frequencies = [50.0, 1.0e4, 1.0e6])
+    result = @test_logs compute(problem, formulation)
+    @test result isa LineParameters
+
+    @test @inferred(wedepohl(20.0e-3, 21.0e-3, ρ, μ_r, im * 2π * 50.0)) isa NamedTuple
+    @test @inferred(wedepohl(20.0f-3, 21.0f-3, 1.7241f-8, 1.0f0,
+        ComplexF32(im * 2π * 50.0))) isa NamedTuple
+    @test @inferred(wedepohl(0.0, 10.5e-3, ρ, μ_r, im * 2π * 50.0)) isa NamedTuple
+    @test @inferred(wedepohl(0.0f0, 10.5f-3, 1.7241f-8, 1.0f0,
+        ComplexF32(im * 2π * 50.0))) isa NamedTuple
 end

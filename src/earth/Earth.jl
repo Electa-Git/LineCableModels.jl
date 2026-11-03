@@ -20,7 +20,7 @@ $(TYPEDFIELDS)
 struct EarthLayer{T <: Real}
     "Electrical resistivity \\[Ω·m\\]."
     rho::T
-    "Relative permittivity \\[dimensionless\\]."
+    "Relative permittivity, negative where an equivalent earth parametrizes an inductive stack \\[dimensionless\\]."
     eps_r::T
     "Relative permeability \\[dimensionless\\]."
     mu_r::T
@@ -39,8 +39,8 @@ of [`EarthLayer`](@ref).
 
 # Errors
 
-- Throws `DomainError` when a property is not positive, or when `eps_r` or `mu_r` is not
-  finite.
+- Throws `DomainError` when `rho`, `mu_r` or `thickness` is not positive, or when `eps_r` or
+  `mu_r` is not finite.
 """
 function EarthLayer(rho::Real, eps_r::Real, mu_r::Real, thickness::Real)
     values = map(float, promote(rho, eps_r, mu_r, thickness))
@@ -72,8 +72,8 @@ function validate(layer::EarthLayer)
     isnan(layer.rho) && throw(DomainError(layer.rho, "EarthLayer.rho must not be NaN"))
     layer.rho > zero(layer.rho) ||
         throw(DomainError(layer.rho, "EarthLayer.rho must be positive"))
-    isfinite(layer.eps_r) && layer.eps_r > zero(layer.eps_r) ||
-        throw(DomainError(layer.eps_r, "EarthLayer.eps_r must be positive and finite"))
+    isfinite(layer.eps_r) ||
+        throw(DomainError(layer.eps_r, "EarthLayer.eps_r must be finite"))
     isfinite(layer.mu_r) && layer.mu_r > zero(layer.mu_r) ||
         throw(DomainError(layer.mu_r, "EarthLayer.mu_r must be positive and finite"))
     layer.thickness > zero(layer.thickness) ||
@@ -84,8 +84,8 @@ end
 """
 $(TYPEDEF)
 
-Store an earth description: semi-infinite air above the earth layers. This release admits one
-semi-infinite earth layer.
+Store an earth description: semi-infinite air above the earth layers, the last of them
+semi-infinite.
 
 $(TYPEDFIELDS)
 """
@@ -104,8 +104,8 @@ Construct an earth model from its layers, semi-infinite air first.
 
 # Errors
 
-- Throws `ArgumentError` unless the layers are semi-infinite air and one semi-infinite earth
-  layer.
+- Throws `ArgumentError` unless the first layer is semi-infinite air, the last is semi-infinite
+  and each layer between has a finite thickness.
 """
 function EarthModel(layers::Tuple{EarthLayer{T}, Vararg{EarthLayer{T}}}) where {T <: Real}
     return EarthModel{T, length(layers)}(layers)
@@ -120,14 +120,17 @@ function Base.convert(::Type{EarthModel{T}}, model::EarthModel) where {T <: Real
 end
 
 function validate(model::EarthModel)
-    length(model.layers) == 2 || throw(ArgumentError(
-        "EarthModel.layers must be air and one earth layer; received " *
-        "$(length(model.layers)) layers"))
-    air, earth = model.layers
+    layers = model.layers
+    length(layers) >= 2 || throw(ArgumentError(
+        "EarthModel.layers must be air and at least one earth layer; received " *
+        "$(length(layers)) layers"))
+    air = first(layers)
     isinf(air.rho) && isinf(air.thickness) ||
         throw(ArgumentError("EarthModel.layers[1] must be semi-infinite air"))
-    isinf(earth.thickness) ||
-        throw(ArgumentError("EarthModel.layers[2] must be semi-infinite"))
+    isinf(last(layers).thickness) ||
+        throw(ArgumentError("EarthModel.layers[$(length(layers))] must be semi-infinite"))
+    all(layer -> isfinite(layer.thickness), layers[2:(end - 1)]) || throw(ArgumentError(
+        "EarthModel.layers between the air and the last layer must have a finite thickness"))
     return model
 end
 

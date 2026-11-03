@@ -46,9 +46,9 @@ function impedance!(internal::InternalImpedance.Formula,
         inside = zero(s)
         for position in length(conductors):-1:1
             i = conductors[position]
-            surfaces = impedance(internal, input.r_in[i], input.r_ex[i], rho[i],
+            surfaces = internal(input.r_in[i], input.r_ex[i], rho[i],
                 input.material[i].mu_r, s)
-            term = impedance(insulation, input.r_ex[i], input.r_ins_ex[i],
+            term = insulation(input.r_ex[i], input.r_ins_ex[i],
                 input.mu_r_ins[i], s)
             loop = surfaces.outer + inside + term
             for row in 1:(position - 1), column in 1:(position - 1)
@@ -64,4 +64,89 @@ function impedance!(internal::InternalImpedance.Formula,
         end
     end
     return Zin
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Write into `Zg` the earth-return impedances of the cables, pair by pair, from the formula of
+each pair's domain in the slot `earth_impedance`. The recipe alone writes the matrix.
+
+# Arguments
+
+- `formulation`: coaxial formulation with its earth-return formulas.
+- `Zg`: destination matrix of cable impedances \\[Ω/m\\].
+- `buffers`: preallocated computation arrays.
+- `input`: numerical cable geometry and connections.
+- `media`: the air and the equivalent earth at the frequency.
+- `s`: complex frequency, `j 2π f`, in \\[1/s\\].
+- `k`: frequency index.
+
+# Returns
+
+- `Zg`, its entries in \\[Ω/m\\].
+"""
+function impedance!(formulation::CoaxialFormulation, Zg::AbstractMatrix, buffers,
+        input::CoaxialInput, media, s, k)
+    (; air, earth, mixed) = formulation.earth_impedance
+    for i in eachindex(input.radius)
+        Zg[i, i] = (input.earth_layer[i] == 1 ? air : earth)(
+            Val(:Z), Val(:self), i, buffers, input, media, s, k)
+    end
+    for j in eachindex(input.radius), i in eachindex(input.radius)
+
+        i == j && continue
+        above_i, above_j = input.earth_layer[i] == 1, input.earth_layer[j] == 1
+        Zg[i, j] = if above_i && above_j
+            air(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)
+        elseif !above_i && !above_j
+            earth(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)
+        else
+            mixed(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)
+        end
+    end
+    return Zg
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Write into `Pg` the earth-return potential coefficients of the cables, pair by pair, from
+the formula of each pair's domain in the slot `earth_admittance`. The recipe alone writes
+the matrix.
+
+# Arguments
+
+- `formulation`: coaxial formulation with its earth-return formulas.
+- `Pg`: destination matrix of cable potential coefficients \\[m/F\\].
+- `buffers`: preallocated computation arrays.
+- `input`: numerical cable geometry and connections.
+- `media`: the air and the equivalent earth at the frequency.
+- `s`: complex frequency, `j 2π f`, in \\[1/s\\].
+- `k`: frequency index.
+
+# Returns
+
+- `Pg`, its entries in \\[m/F\\].
+"""
+function potential!(formulation::CoaxialFormulation, Pg::AbstractMatrix, buffers,
+        input::CoaxialInput, media, s, k)
+    (; air, earth, mixed) = formulation.earth_admittance
+    for i in eachindex(input.radius)
+        Pg[i, i] = (input.earth_layer[i] == 1 ? air : earth)(
+            Val(:P), Val(:self), i, buffers, input, media, s, k)
+    end
+    for j in eachindex(input.radius), i in eachindex(input.radius)
+
+        i == j && continue
+        above_i, above_j = input.earth_layer[i] == 1, input.earth_layer[j] == 1
+        Pg[i, j] = if above_i && above_j
+            air(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)
+        elseif !above_i && !above_j
+            earth(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)
+        else
+            mixed(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)
+        end
+    end
+    return Pg
 end

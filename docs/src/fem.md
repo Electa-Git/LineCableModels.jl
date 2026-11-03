@@ -48,7 +48,8 @@ keywords are:
 | `insulation_admittance` | `:lossless` | admittivity law for insulator layers |
 | `semicon_admittance` | `:lossless` | admittivity law for semicon layers |
 | `resistivity` | `:linear` | conductor resistivity law |
-| `earth_properties` | `:constant` | air and earth properties law |
+| `earth_properties` | `:constant` | frequency law of each earth layer |
+| `equivalent_earth` | `:bottommost` | model of the equivalent earth of the layers below the air |
 | `Γ` | `0` | longitudinal wavenumber in 1/m, one value or one per frequency |
 | `bundle` | `true` | merge the conductors that share a positive connection index |
 | `kron` | `true` | remove the conductors of connection index zero |
@@ -134,9 +135,9 @@ Z_{ij} = K_{ij} + \Gamma^2 P_{ij}, \qquad
 where ``w_i`` and ``V_i`` are the axial drive and the floating potential of terminal ``i`` in
 column ``j``, ``P`` is in Ω·m, ``K`` and ``Z`` in Ω/m, and ``Y`` in S/m. The potential
 coefficients of the coaxial computation correspond to ``\mathrm{j}\omega P``. The
-starting points of the lines reproduce the voltage references of the unified earth-return
-formula: the interface for a conductor in the air, and infinite depth for a conductor in the
-earth. Each line is shifted horizontally by ``\min(10^{-5}, 0.01 d_i)`` m from the anchor of
+starting points of the lines reproduce the voltage references of `:martins2026`. The reference
+is the interface for a conductor in the air and infinite depth for a conductor in the earth.
+Each line is shifted horizontally by ``\min(10^{-5}, 0.01 d_i)`` m from the anchor of
 the terminal, where ``d_i`` is the smallest metal dimension of the terminal, and the metal
 interiors add nothing to the integral. The matrices are then reduced by bundling, Kron
 elimination and ideal transposition, as in the coaxial computation.
@@ -193,10 +194,15 @@ T = -\frac{\ln R}{2},
 ```
 
 where ``\nu_m = 0`` for ``b_m \leq 0``, ``\beta_m = 1`` for ``b_m \geq 0``, and ``R`` is
-`pml_reflection`. When the air field is quasi-static over 100 half-widths,
-``100 |q_{0,a}| D \leq 0.1``, and the rate of a layer is below ``T / (100 D)``, the layer
-takes ``\eta_d = 0`` and the rate ``\max(T / (100 D), a_m / C_m, 0.1 b_{0,m})``, which limits
-the added real stretch to 100 half-widths. With ``X_d = L_d(1 + A_d/4 -
+`pml_reflection`.
+
+A limit applies when every conductor lies below the interface. If the air
+field is quasi-static over 100 half-widths, ``100 |q_{0,a}| D \leq 0.1``, and the rate of a
+layer is below ``T / (100 D)``, the layer takes ``\eta_d = 0`` and the rate
+``\max(T / (100 D), a_m / C_m, 0.1 b_{0,m})``, which limits the added real stretch to 100
+half-widths. A conductor that extends above the interface disables this limit. Its voltage
+integrates the air field, and the field that a buried source transmits into air extends to
+distances of order ``1/|q_{0,a}|``. With ``X_d = L_d(1 + A_d/4 -
 \mathrm{j}\eta_d A_d/4)``, the net exponent
 ``\operatorname{Re}[q_m(D + X_d)]`` must be positive in every medium of each layer, except
 at the exact cutoff ``q_m = 0``. Otherwise, GetDP stops with an error.
