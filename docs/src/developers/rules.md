@@ -450,11 +450,12 @@ A backend implemented in an extension defines its methods there and leaves its s
 
 ### Add a cross-section
 
-A cross-section is one type under `AbstractPrimitive` with the methods of the unary
-interface. The methods are `area`, `centroid`, `support`, `distance` and `boundary`,
-`resolve` against an outline and in a frame, and `r_in` and `r_ex` when the cross-section is
-circular. The `CAD` module adds its `Contour`. The Gmsh extension adds its native section.
-Nothing in the parts, the design or the engine changes.
+A cross-section is one type under `AbstractPrimitive` with its fields and its `Contour`.
+It has a `resolve` method against an outline and one in a frame. Its `area`, `centroid`,
+`support`, `distance` and `perimeter` follow from the contour, unless a direct formula of
+the type replaces them. `boundary` returns the cross-section itself, and `r_in` and `r_ex`
+exist when it is circular. The Gmsh extension meshes the contour and adds its native
+section. Nothing in the parts, the design or the engine changes.
 
 ### Add a part or a builder
 

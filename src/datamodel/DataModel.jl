@@ -15,11 +15,13 @@ import ..Commons: build, resolve, validate
 using ..Materials: Material
 
 export Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
-export AnnularSector
+export Sector
 export AbstractLayoutPattern, CircularPattern, LinearPattern, Helix, LayRatio
-export area, centroid, support, distance, boundary, r_in, r_ex, placements, overlength,
+export area, perimeter, centroid, support, distance, boundary, r_in, r_ex, placements,
+       overlength,
        pitch
-export PerforatedShape
+export PerforatedShape, ArcPolygon
+public Segment, Arc, Curve, Contour
 export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Enclosure
 export PlacedRegion, CableDesign, CableSystem
 export CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
@@ -27,6 +29,7 @@ export @design, @terminal, core, insulation, screen, sheath, bedding, jacket, st
        wires, tape, trefoil, flat
 
 include("geometry.jl")
+include("contour.jl")
 include("placement.jl")
 include("parts.jl")
 include("design.jl")

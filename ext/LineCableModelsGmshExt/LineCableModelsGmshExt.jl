@@ -17,10 +17,10 @@ using LineCableModels.Materials: Material
 using LineCableModels.Earth: EarthLayer
 import LineCableModels.DataModel: area
 using LineCableModels.DataModel: AbstractShape, AbstractPrimitive, Circle, Annulus,
-                                 Rectangle, Offset, AnnularSector, PerforatedShape,
+                                 Rectangle, Offset, Sector, PerforatedShape,
                                  PlacedRegion, Placement, support, r_in, r_ex
 import LineCableModels.CAD: draw
-using LineCableModels.CAD: Segment, Arc, Curve, Contour
+using LineCableModels.DataModel: Segment, Arc, Curve, Contour
 import LineCableModels.Engine: solve!
 using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem, LineParameters,
                               bundle!, eliminate!, transposition!, admittivity,

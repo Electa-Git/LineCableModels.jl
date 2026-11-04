@@ -477,7 +477,9 @@ function compartments(shape::PerforatedShape, outer::Annulus)
     iszero(outer.ri) && return plan
     center = (Float64(outer.at.x), Float64(outer.at.y))
     wires = [hole for hole in shape.holes if hole isa Circle]
-    cutouts = [hole for hole in shape.holes if hole isa AnnularSector]
+    cutouts = [hole
+               for hole in shape.holes
+               if hole isa Sector && iszero(hole.apex) && iszero(hole.fillet)]
     length(wires) + length(cutouts) == length(shape.holes) || return plan
     isempty(wires) && return plan
     entries = Tuple{Float64, Circle{Float64}}[]
@@ -509,7 +511,8 @@ function compartments(shape::PerforatedShape, outer::Annulus)
         computed_radius
     end
     isapprox(contact_radius, computed_radius; rtol = 0, atol = tolerance) || return plan
-    sectors = [AnnularSector(Float64(sector.ri), Float64(sector.ro), Float64(sector.span),
+    sectors = [Sector(
+                   Float64(sector.ri), Float64(sector.ro), Float64(sector.span), 0.0, 0.0,
                    convert(Placement{Float64}, sector.at)) for sector in cutouts]
     for sector in sectors
         isapprox(sector.at.x, center[1]; rtol = 0, atol = tolerance) || return plan
@@ -637,7 +640,7 @@ function faces!(geometry::Geometry, shape::PerforatedShape)
         append!(surfaces, members)
     end
     for (a, span) in plan.outer_spans
-        sector = AnnularSector(plan.outer_radius, plan.shell_outer_radius, span,
+        sector = Sector(plan.outer_radius, plan.shell_outer_radius, span, 0.0, 0.0,
             Placement(cx, cy, a + span / 2))
         append!(surfaces, faces!(geometry, Contour(sector)))
     end
@@ -970,7 +973,7 @@ Return the shorter bounding-box side \\[m\\] of the first plane surface in `surf
 as the smallest metal dimension of `shape` in `geometry`. The sector's center and radii
 are in \\[m\\] and its angle and span in \\[rad\\].
 """
-function dimension(::Geometry, shape::AnnularSector, surfaces::AbstractVector{<:Integer})
+function dimension(::Geometry, shape::Sector, surfaces::AbstractVector{<:Integer})
     bounds = gmsh.model.getBoundingBox(2, first(surfaces))
     return min(bounds[4] - bounds[1], bounds[5] - bounds[2])
 end
@@ -1090,7 +1093,7 @@ a = r_o - r_i, \\qquad b = \\varphi (r_o + r_i) / 2,
 where ``r_o`` and ``r_i`` are the outer and inner radii \\[m\\], ``\\varphi`` is the
 angular span \\[rad\\], and ``a`` and ``b`` are lengths \\[m\\].
 """
-function section(shape::AnnularSector)
+function section(shape::Sector)
     return (kind = 0, a = shape.ro - shape.ri,
         b = shape.span * (shape.ro + shape.ri) / 2)
 end

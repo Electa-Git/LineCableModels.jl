@@ -156,7 +156,7 @@ places member ``k = 0, \\ldots, n - 1`` at the angle ``\\phi_k = \\phi_0 + k \\d
 A circle is placed unchanged, centered at ``(R \\cos\\phi_k, R \\sin\\phi_k)``, with the
 step ``\\delta = \\Delta\\phi / n`` for a full turn, ``\\delta = \\Delta\\phi / (n - 1)`` for a
 partial span, and ``\\delta = 0`` for one member. A rectangle of width ``w`` and height ``h``
-becomes an [`AnnularSector`](@ref) of the same area about the center of the part, rotated by
+becomes a [`Sector`](@ref) of the same area about the center of the part, rotated by
 ``\\phi_k``, with ``\\delta = \\Delta\\phi / n`` and
 
 ```math
@@ -194,7 +194,8 @@ function placements(pattern::CircularPattern{T, T}, rectangle::Rectangle) where 
     members = [Placement(zero(span), zero(span), pattern.φ0 + k * step)
                for k in 0:(pattern.n - 1)]
     return (placements = members,
-        shape = AnnularSector(inner, outer, span, Placement(zero(span), zero(span))))
+        shape = Sector(
+            inner, outer, span, zero(span), zero(span), Placement(zero(span), zero(span))))
 end
 
 """

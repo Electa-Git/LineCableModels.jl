@@ -21,10 +21,12 @@ using .Commons: build, resolve, validate, compute, defaults, select, AbstractFor
 using .Materials: Material, material
 using .Earth: EarthLayer, EarthModel, homogeneous, @layers
 using .DataModel: Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle,
-                  Offset, AnnularSector, AbstractLayoutPattern, CircularPattern,
+                  Offset, Sector, AbstractLayoutPattern, CircularPattern,
                   LinearPattern, Helix,
-                  LayRatio, area, centroid, support, distance, boundary, r_in, r_ex,
-                  placements, overlength, pitch, PerforatedShape, AbstractCablePart, Region,
+                  LayRatio, area, perimeter, centroid, support, distance, boundary, r_in,
+                  r_ex,
+                  placements, overlength, pitch, PerforatedShape, ArcPolygon,
+                  AbstractCablePart, Region,
                   Stack, Terminal, Repeat, Lay, Enclosure, PlacedRegion, CableDesign,
                   CableSystem, CableBlueprint, BlueprintConductor, BlueprintDielectric,
                   flatten, @design, @terminal, core, insulation, screen, sheath, bedding,
@@ -42,14 +44,15 @@ using .Engine: ε₀, μ₀, AbstractInternalImpedance,
 export Material, material, EarthLayer, EarthModel, homogeneous, @layers
 export Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
 export AbstractLayoutPattern, CircularPattern, LinearPattern, Helix, LayRatio
-export area, centroid, support, distance, boundary, r_in, r_ex, placements, overlength,
+export area, perimeter, centroid, support, distance, boundary, r_in, r_ex, placements,
+       overlength,
        pitch
 export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Enclosure, CableDesign,
        CableSystem, build
 export @design, @terminal, core, insulation, screen, sheath, bedding, jacket, stranded,
        wires, tape, trefoil, flat
-public Commons, Materials, Earth, DataModel, validate, resolve, AnnularSector,
-       PerforatedShape
+public Commons, Materials, Earth, DataModel, validate, resolve, Sector,
+       PerforatedShape, ArcPolygon
 public PlacedRegion, CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
 export compute, LineParametersProblem, CoaxialFormulation, FEM, LineParameters
 export @formulation, @air, @earth, @mixed

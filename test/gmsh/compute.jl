@@ -28,6 +28,23 @@
             end
         end
     end
+    @testset "a rounded wedge meshes" begin
+        copper = Material(:conductor, 1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
+        S3 = LineCableModels.Sector(0, 10.0e-3, 2π / 3,
+            1.0e-3 / sin(π / 3), 1.5e-3, Placement(0, 0))
+        design = build(CableDesign, "rounded-wedge", Terminal(:core, Region(:core, S3, copper)))
+        system = build(CableSystem, [design], [Placement(0.0, 10.0)];
+            connections = [(core = 1,)], id = "rounded-wedge", line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+            frequencies = [50.0])
+        mktempdir() do folder
+            cd(folder) do
+                result = compute(problem, FEM())
+                @test result isa LineParameters{Float64}
+                @test size(result.Z) == (1, 1, 1)
+            end
+        end
+    end
     # The frozen rows were produced on x86_64 Linux. Gmsh's meshing decisions depend on
     # floating point. The same build on the same platform regenerates the same mesh and
     # reproduces the rows to 1e-6 of the diagonal. On other platforms, the same geometry is

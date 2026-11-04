@@ -40,17 +40,25 @@ The cross-section of a region is declared by a primitive, a subtype of
 
 - [`Circle`](@ref): circular cross-section, such as a solid conductor or a round wire.
 - [`Annulus`](@ref): annular cross-section, such as a tubular conductor.
-- [`Rectangle`](@ref): rectangular strand, before it is bent onto its layer by a circular
-  pattern. Its width lies along the layer and its height across it.
+- [`Rectangle`](@ref): rectangular container, or rectangular strand that a circular pattern
+  bends onto its layer. The width of a strand lies along the layer and its height across it.
+- [`Sector`](@ref): sector-shaped cross-section, such as a sector-shaped conductor or a
+  segment of a Milliken conductor.
 - [`Offset`](@ref): layer of thickness `t` around the outline of the part beneath it. An
   offset represents an insulation, a semicon screen, a sheath or a jacket, and is resolved
   against that outline when the design is built.
 
 The resolution also produces cross-sections that are not declared by any region, namely the
-[`AnnularSector`](@ref), which is the bent rectangular strand of the same area, and the
+[`Sector`](@ref) of a bent rectangular strand, which keeps the area of the strand, and the
 [`PerforatedShape`](@ref), which is a cross-section with holes, such as the filler between
 the wires of a layer. A [`Placement`](@ref) is a translation and a rotation relative to a
 parent frame.
+
+The exact outline of a cross-section is its [`Contour`](@ref DataModel.Contour): closed
+paths of segments and arcs, each counterclockwise. An [`ArcPolygon`](@ref) is the region
+inside one such path. The outline gives the area, the centroid and the [`perimeter`](@ref)
+of an arc polygon. It does the same for a sector with fillets, or with sides that meet off
+its center.
 
 ## Cable parts
 

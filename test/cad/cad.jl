@@ -1,4 +1,5 @@
-using LineCableModels.CAD: Segment, Arc, Curve, Contour, draw
+using LineCableModels.DataModel: Segment, Arc, Curve, Contour
+using LineCableModels.CAD: draw
 
 struct RecordingTarget
     curves::Vector{Union{Segment, Arc}}
@@ -54,8 +55,8 @@ end
 
     @testset "sector paths and rotated corners" begin
         for φ in (0.0, 0.6)
-            sector = LineCableModels.AnnularSector(
-                1.0e-3, 3.0e-3, 1.2, Placement(2.0e-3, -4.0e-3, φ))
+            sector = LineCableModels.Sector(
+                1.0e-3, 3.0e-3, 1.2, 0, 0, Placement(2.0e-3, -4.0e-3, φ))
             contour = Contour(sector)
             @test length(contour.outer) == 4
             @test isempty(contour.holes)
@@ -77,7 +78,7 @@ end
                     contour.outer[mod1(k + 1, 4)](0); atol = 1e-15))
             end
         end
-        sector = LineCableModels.AnnularSector(0.0, 3.0e-3, 1.2, Placement(0.0, 0.0))
+        sector = LineCableModels.Sector(0.0, 3.0e-3, 1.2, 0, 0, Placement(0.0, 0.0))
         contour = Contour(sector)
         @test length(contour.outer) == 3
         @test isempty(contour.holes)
@@ -91,7 +92,7 @@ end
         end
         for ri in (0.0, 1.0e-3)
             at = Placement(2.0e-3, -4.0e-3, 0.6)
-            full = Contour(LineCableModels.AnnularSector(ri, 3.0e-3, 2π, at))
+            full = Contour(LineCableModels.Sector(ri, 3.0e-3, 2π, 0, 0, at))
             expected = iszero(ri) ? Contour(Circle(3.0e-3, at)) :
                        Contour(Annulus(ri, 3.0e-3, at))
             @test full.outer == expected.outer
@@ -156,7 +157,7 @@ end
             @test all(isapprox.(segment(t), point; atol = 1e-15))
         end
         @test Curve{Float64} === Union{Segment{Float64}, Arc{Float64}}
-        sector = LineCableModels.AnnularSector(1.0e-3, 3.0e-3, 1.2, at)
+        sector = LineCableModels.Sector(1.0e-3, 3.0e-3, 1.2, 0, 0, at)
         @test eltype(Contour(sector).outer) === Curve{Float64}
         @test Segment((0, 1.0), (2.0, 3)).b == (2.0, 3.0)
         @test Arc(Placement(0.0, 0.0), 1, 0.5).span == 0.5
@@ -165,9 +166,9 @@ end
     @testset "signed contour areas" begin
         for shape in (Circle(3.0e-3, Placement(1.0e-3, -2.0e-3, 0.4)),
             Annulus(1.0e-3, 3.0e-3, Placement(1.0e-3, -2.0e-3)),
-            LineCableModels.AnnularSector(1.0e-3, 3.0e-3, 1.2, Placement(0.0, 0.0)),
-            LineCableModels.AnnularSector(0.0, 3.0e-3, 1.2, Placement(0.0, 0.0)),
-            LineCableModels.AnnularSector(1.0e-3, 3.0e-3, 1.2,
+            LineCableModels.Sector(1.0e-3, 3.0e-3, 1.2, 0, 0, Placement(0.0, 0.0)),
+            LineCableModels.Sector(0.0, 3.0e-3, 1.2, 0, 0, Placement(0.0, 0.0)),
+            LineCableModels.Sector(1.0e-3, 3.0e-3, 1.2, 0, 0,
                 Placement(2.0e-3, -4.0e-3, 0.6)))
             contour = Contour(shape)
             signed = Float64[]

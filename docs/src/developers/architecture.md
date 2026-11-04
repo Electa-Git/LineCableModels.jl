@@ -50,9 +50,9 @@ The package is six modules in one load order, and two extensions.
 | `Commons` | the grammar: `validate`, `resolve`, `build`, `compute`, `defaults`, `select`, the abstract types `AbstractFormulation` and `AbstractBackend`, the option records |
 | `Materials` | `Material{T, K}`, the properties of a material with its class `K` as a type parameter |
 | `Earth` | `EarthLayer`, `EarthModel`, `homogeneous`: the air and the earth as a stack of layers |
-| `DataModel` | the cross-sections, the placement, the declared parts, the cable design, the cable system, the blueprint and the builders of the surface syntax |
+| `DataModel` | the cross-sections, their outlines, the placement, the declared parts, the cable design, the cable system, the blueprint and the builders of the surface syntax |
 | `Engine` | the problem, the formulations, the backends, the formula families, the numerical input, the buffers, the loop, the reductions, the spectral tools and the result |
-| `CAD` | the curves and contours of the cross-sections and the verb `draw` |
+| `CAD` | the verb `draw`, which draws the outlines of a system or a design on a target |
 | `LineCableModelsGmshExt` | the finite-element backend, with its model, geometry, meshes, GetDP scan and result |
 | `LineCableModelsMeasurementsExt` | the propagation of input uncertainty: methods only |
 
@@ -108,9 +108,10 @@ formula that cannot treat an input throws when it is called.
 ### Cross-sections
 
 A cross-section is one type with the methods of one unary interface: `area`, `centroid`,
-`support`, `distance`, `boundary` and `resolve`. `r_in` and `r_ex` exist on circular
-cross-sections only. No method takes two cross-sections. The primitives are `Circle`,
-`Annulus`, `Rectangle` and `AnnularSector`. `Offset(t)` is an operator: a layer declared by
+`support`, `distance`, `perimeter`, `boundary`, `resolve` and its exact outline, `Contour`.
+`r_in` and `r_ex` exist on circular cross-sections only. No method takes two cross-sections.
+The primitives are `Circle`, `Annulus`, `Rectangle` and `Sector`. `ArcPolygon` is the region
+inside a closed path of segments and arcs. `Offset(t)` is an operator: a layer declared by
 its thickness, resolved on the outline of the part inside it. `PerforatedShape` is the
 cross-section of a fill, a container without the outlines of its contents. A new kind of
 cross-section is one type and its methods. The structure above it does not change.
@@ -365,7 +366,7 @@ unsupported: SpecialFunctions has no Bessel methods for it, and the honest error
 
 `using Gmsh` loads `LineCableModelsGmshExt`. The extension reads the engine's problem, the
 laws of `FEM` and the reduction plan of `reductions`. From the data model it reads the
-placed regions and their cross-sections, and from `CAD` the curves. It defines
+placed regions, their cross-sections and the curves of their outlines. It defines
 `defaults(::Type{GmshBackend})` and the `compute` methods of `GmshBackend`.
 
 Its files follow the computation. `options.jl` validates the record and defines

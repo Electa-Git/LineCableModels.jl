@@ -214,8 +214,9 @@ end
 """
 $(TYPEDEF)
 
-Represent a rectangular strand before a circular pattern bends it onto its course: its width
-lies along the course and its height across it.
+Represent a rectangular cross-section: a container, or a strand before a circular pattern
+bends it onto its course. The width of a strand lies along the course and its height
+across it.
 
 $(TYPEDFIELDS)
 """
@@ -295,9 +296,10 @@ end
 """
 $(TYPEDEF)
 
-Represent an annular sector: the region between the inner radius ``r_i`` and the outer
+Represent a sector: the region between the inner radius ``r_i`` and the outer
 radius ``r_o`` over the angular span ``\\Delta\\phi``, symmetric about the x-axis of its
-placement. A circular pattern bends a rectangular strand of width ``w`` and height ``h``
+placement. The sides meet at `apex` and each convex corner has radius `fillet`
+\\[m\\]. A circular pattern bends a rectangular strand of width ``w`` and height ``h``
 into an annular sector of the same area:
 
 ```math
@@ -306,44 +308,67 @@ into an annular sector of the same area:
 
 $(TYPEDFIELDS)
 """
-struct AnnularSector{T <: Real} <: AbstractShape{T}
-    "Inner radius \\[m\\]."
+struct Sector{T <: Real} <: AbstractPrimitive{T}
+    "Inner radius \\[m\\], zero when the sides meet."
     ri::T
     "Outer radius \\[m\\]."
     ro::T
     "Angular span \\[rad\\]."
     span::T
+    "Distance \\[m\\] from the center to the meeting point of the sides, zero if radial."
+    apex::T
+    "Radius \\[m\\] of the arc that rounds each convex corner, zero for sharp corners."
+    fillet::T
     "Placement of the center of curvature. Its x-axis is the symmetry axis of the sector."
     at::Placement{T}
-    function AnnularSector{T}(ri::T, ro::T, span::T, at::Placement{T}) where {T <: Real}
-        return validate(new{T}(ri, ro, span, at))
+    function Sector{T}(ri::T, ro::T, span::T, apex::T, fillet::T,
+            at::Placement{T}) where {T <: Real}
+        return validate(new{T}(ri, ro, span, apex, fillet, at))
     end
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Construct an annular sector from its fields, in the type that they promote to with
-`Float64`.
+Construct a sector from its radii, apex distance and fillet radius \\[m\\], angular
+span \\[rad\\] and placement, in the type that they promote to with `Float64`.
 
 # Errors
 
-- Throws `DomainError` when a radius is negative or not finite, when `ro` does not exceed
-  `ri`, or when `span` is outside (0, 2π\\].
+- Throws `DomainError` for the first field outside the bounds of a sector, or for a
+  fillet that does not fit.
 """
-function AnnularSector(ri::Real, ro::Real, span::Real, at::Placement)
-    T = promote_type(Float64, typeof(ri), typeof(ro), typeof(span), eltype(at))
-    return AnnularSector{T}(convert(T, ri), convert(T, ro), convert(T, span),
-        convert(Placement{T}, at))
+function Sector(ri::Real, ro::Real, span::Real, apex::Real, fillet::Real, at::Placement)
+    T = promote_type(Float64, typeof(ri), typeof(ro), typeof(span), typeof(apex),
+        typeof(fillet), eltype(at))
+    return Sector{T}(convert(T, ri), convert(T, ro), convert(T, span), convert(T, apex),
+        convert(T, fillet), convert(Placement{T}, at))
 end
 
-function validate(sector::AnnularSector)
+function validate(sector::Sector)
     isfinite(sector.ri) && sector.ri >= zero(sector.ri) ||
-        throw(DomainError(sector.ri, "AnnularSector.ri must be nonnegative and finite"))
+        throw(DomainError(sector.ri, "Sector.ri must be nonnegative and finite"))
     isfinite(sector.ro) && sector.ro > sector.ri ||
-        throw(DomainError(sector.ro, "AnnularSector.ro must be finite and exceed AnnularSector.ri"))
+        throw(DomainError(sector.ro, "Sector.ro must be finite and exceed Sector.ri"))
     zero(sector.span) < sector.span <= 2π ||
-        throw(DomainError(sector.span, "AnnularSector.span must lie in (0, 2π]"))
+        throw(DomainError(sector.span, "Sector.span must lie in (0, 2π]"))
+    isfinite(sector.apex) && sector.apex >= zero(sector.apex) &&
+    (sector.span >= π || sector.apex < sector.ro * cos(sector.span / 2)) ||
+        throw(DomainError(sector.apex,
+            "Sector.apex must be nonnegative and finite, and below ro cos(span / 2) when span < π"))
+    isfinite(sector.fillet) && sector.fillet >= zero(sector.fillet) ||
+        throw(DomainError(sector.fillet, "Sector.fillet must be nonnegative and finite"))
+    if sector.fillet > zero(sector.fillet)
+        sector.apex * sin(sector.span / 2) + 2sector.fillet < sector.ro ||
+            throw(DomainError(sector.fillet,
+                "Sector.fillet must satisfy apex sin(span / 2) + 2 fillet < ro"))
+        if iszero(sector.ri)
+            sector.fillet * (csc(sector.span / 2) - 1) + sector.apex <
+            sector.ro - 2sector.fillet ||
+                throw(DomainError(sector.fillet,
+                    "Sector.fillet must satisfy fillet (csc(span / 2) - 1) + apex < ro - 2 fillet"))
+        end
+    end
     return sector
 end
 
@@ -396,14 +421,23 @@ A_\\mathrm{sector} = \\frac{\\Delta\\phi}{2} \\left(r_o^2 - r_i^2\\right),
 where ``r`` is the radius of a circle, ``r_i`` and ``r_o`` are inner and outer radii, ``w``
 and ``h`` are the width and height of a rectangle \\[m\\], and ``\\Delta\\phi`` \\[rad\\] is
 the angular span of a sector. A [`PerforatedShape`](@ref) has the area of its outer
-cross-section less the areas of its holes.
+cross-section less the areas of its holes. A sector with displaced sides or fillets, and
+an arc polygon, take the area of their contour by Green's theorem,
+``A = \\frac12 \\oint (x\\,dy-y\\,dx)``. A segment from ``P`` to ``Q`` adds
+``(P \\times Q)/2``. An arc of radius ``ρ`` about ``c`` from ``θ_1`` to ``θ_2`` adds
+``ρ^2(θ_2-θ_1)/2 + c\\times(Q-P)/2``. Each hole subtracts its own area.
 """
 function area end
 
 area(circle::Circle) = π * circle.r^2
 area(annulus::Annulus) = π * (annulus.ro^2 - annulus.ri^2)
 area(rectangle::Rectangle) = rectangle.w * rectangle.h
-area(sector::AnnularSector) = sector.span * (sector.ro^2 - sector.ri^2) / 2
+function area(sector::Sector)
+    if iszero(sector.apex) && iszero(sector.fillet)
+        return sector.span * (sector.ro^2 - sector.ri^2) / 2
+    end
+    return area(Contour(sector))
+end
 function area(shape::PerforatedShape)
     return area(shape.outer) - sum(area, shape.holes; init = zero(eltype(shape)))
 end
@@ -428,13 +462,22 @@ are its inner and outer radii. A circle and an annulus have their centroid at th
 ```
 
 where ``A_o`` and ``\\mathbf c_o`` are the area and centroid of its outer cross-section, and
-``A_h`` and ``\\mathbf c_h`` those of each hole.
+``A_h`` and ``\\mathbf c_h`` those of each hole. A rectangle's centroid is its center.
+A rounded sector, arc polygon or contour uses ``\\mathbf c = \\mathbf M/A``.
+A segment contributes ``(P+Q)(P\\times Q)/6`` to ``\\mathbf M``. An arc adds that
+chord moment and the circular segment's moment:
+``c ρ^2(Δ-\\sin Δ)/2 + ρ^3(\\sin θ_2-\\sin θ_1,\\cos θ_1-\\cos θ_2)/3
+-ρ^2\\sin Δ(P+Q-2c)/6``, where ``Δ=θ_2-θ_1``.
+Each hole subtracts its own moment.
 """
 function centroid end
 
 centroid(shape::Union{Circle, Annulus}) = (shape.at.x, shape.at.y)
 
-function centroid(sector::AnnularSector)
+function centroid(sector::Sector)
+    if !(iszero(sector.apex) && iszero(sector.fillet))
+        return centroid(Contour(sector))
+    end
     d = 4sin(sector.span / 2) * (sector.ro^3 - sector.ri^3) /
         (3sector.span * (sector.ro^2 - sector.ri^2))
     return sector.at((d, zero(d)))
@@ -458,13 +501,24 @@ S = \\sqrt{x_c^2 + y_c^2} + r_o,
 ```
 
 where ``(x_c, y_c)`` is the center of `shape` and ``r_o`` its outer radius \\[m\\]. A
-[`PerforatedShape`](@ref) has the support of its outer cross-section.
+[`PerforatedShape`](@ref) has the support of its outer cross-section. A rectangle has
+``S=\\operatorname{hypot}(x_c,y_c)+\\operatorname{hypot}(w,h)/2``, and a contour or an
+arc polygon the farthest point of its outer curves.
+
+`support(shape, φ)` returns the support function ``\\max(x\\cos φ+y\\sin φ)`` \\[m\\]
+of `shape` in the direction `φ` \\[rad\\]. For a circle or an annulus, it is the
+projection of the center plus the outer radius. A rectangle takes its farthest corner. A
+sector or an arc polygon takes the farthest point of its outer curves. On an arc, it is
+the point at the radius from the center along `φ` when `φ` falls within the arc, else an
+end.
+Holes leave the support unchanged, so for an annulus or a sector it is the support of the
+convex hull.
 """
 function support end
 
 support(circle::Circle) = hypot(circle.at.x, circle.at.y) + circle.r
 support(annulus::Annulus) = hypot(annulus.at.x, annulus.at.y) + annulus.ro
-support(sector::AnnularSector) = hypot(sector.at.x, sector.at.y) + sector.ro
+support(sector::Sector) = hypot(sector.at.x, sector.at.y) + sector.ro
 support(shape::PerforatedShape) = support(shape.outer)
 
 """
@@ -478,13 +532,21 @@ Return the radius of a circle about the origin that `shape` does not enter \\[m\
 
 where ``d`` is the distance from the origin to the center of `shape`, and ``r_i`` and
 ``r_o`` are its inner and outer radii. The inner radius of a circle is zero, and the center of
-an annular sector is its center of curvature.
+a sector is its center of curvature. For a sector, ``r_i`` is the nearest point of its
+inner side: `ri` for an inner arc, `apex` for a sharp tip and
+``apex+fillet/\\sin(span/2)-fillet`` for a rounded tip.
+
+A rectangle, an arc polygon or a contour takes the nearest point of its curves. It is zero
+when the origin lies inside the outer path and outside every hole. On a segment
+``P+t(Q-P)``, the nearest point has
+``t=\\operatorname{clamp}(-P\\cdot(Q-P)/|Q-P|^2,0,1)``. On an arc, it lies toward the
+origin when that direction falls within the arc, else at an end.
 """
 function distance end
 
 distance(circle::Circle) = max(zero(circle.r), hypot(circle.at.x, circle.at.y) - circle.r)
 
-function distance(shape::Union{Annulus, AnnularSector})
+function distance(shape::Annulus)
     offset = hypot(shape.at.x, shape.at.y)
     return max(zero(offset), offset - shape.ro, shape.ri - offset)
 end
@@ -494,7 +556,7 @@ distance(shape::PerforatedShape) = distance(shape.outer)
 """
     boundary(shape)
 
-Return the outline of `shape`. A circle and an annular sector are their own outlines. The
+Return the outline of `shape`. A circle, rectangle, sector and arc polygon are their own outlines. The
 outline of an annulus is the circle of its outer radius. The outline of a
 [`PerforatedShape`](@ref) is the outline of its outer cross-section. The next part resolves
 against the outline, and an enclosure removes it from its fill.
@@ -503,7 +565,7 @@ function boundary end
 
 boundary(circle::Circle) = circle
 boundary(annulus::Annulus) = Circle(annulus.ro, annulus.at)
-boundary(sector::AnnularSector) = sector
+boundary(sector::Sector) = sector
 boundary(shape::PerforatedShape) = boundary(shape.outer)
 
 """
@@ -515,7 +577,7 @@ function r_in end
 
 r_in(circle::Circle) = zero(circle.r)
 r_in(annulus::Annulus) = annulus.ri
-r_in(sector::AnnularSector) = sector.ri
+r_in(sector::Sector) = sector.ri
 
 """
     r_ex(shape)
@@ -526,7 +588,7 @@ function r_ex end
 
 r_ex(circle::Circle) = circle.r
 r_ex(annulus::Annulus) = annulus.ro
-r_ex(sector::AnnularSector) = sector.ro
+r_ex(sector::Sector) = sector.ro
 
 # The first part of a cable keeps its declared cross-section.
 resolve(::EmptyBoundary, primitive::AbstractPrimitive) = primitive
@@ -547,8 +609,9 @@ resolve(at::Placement, circle::Circle) = Circle(circle.r, at * circle.at)
 function resolve(at::Placement, annulus::Annulus)
     return Annulus(annulus.ri, annulus.ro, at * annulus.at)
 end
-function resolve(at::Placement, sector::AnnularSector)
-    return AnnularSector(sector.ri, sector.ro, sector.span, at * sector.at)
+function resolve(at::Placement, sector::Sector)
+    return Sector(
+        sector.ri, sector.ro, sector.span, sector.apex, sector.fillet, at * sector.at)
 end
 function resolve(at::Placement, shape::PerforatedShape)
     return PerforatedShape(resolve(at, shape.outer), [resolve(at, hole)
@@ -566,9 +629,98 @@ function Base.map(f, rectangle::Rectangle)
     return Rectangle{T}(convert(T, w), convert(T, h), convert(Placement{T}, at))
 end
 Base.map(f, offset::Offset) = Offset(f(offset.t))
-function Base.map(f, sector::AnnularSector)
-    return AnnularSector(f(sector.ri), f(sector.ro), f(sector.span), map(f, sector.at))
+function Base.map(f, sector::Sector)
+    return Sector(f(sector.ri), f(sector.ro), f(sector.span), f(sector.apex),
+        f(sector.fillet), map(f, sector.at))
 end
 function Base.map(f, shape::PerforatedShape)
     return PerforatedShape(map(f, shape.outer), [map(f, hole) for hole in shape.holes])
+end
+
+centroid(rectangle::Rectangle) = (rectangle.at.x, rectangle.at.y)
+function support(rectangle::Rectangle)
+    hypot(rectangle.at.x, rectangle.at.y) + hypot(rectangle.w, rectangle.h) / 2
+end
+boundary(rectangle::Rectangle) = rectangle
+distance(rectangle::Rectangle) = distance(Contour(rectangle))
+
+function distance(sector::Sector)
+    offset = hypot(sector.at.x, sector.at.y)
+    if iszero(sector.apex) && iszero(sector.fillet)
+        return max(zero(offset), offset - sector.ro, sector.ri - offset)
+    end
+    inner = if sector.ri > zero(sector.ri)
+        sector.ri
+    else
+        sector.apex + sector.fillet / sin(sector.span / 2) - sector.fillet
+    end
+    return max(zero(offset), offset - sector.ro, inner - offset)
+end
+
+support(circle::Circle, φ::Real) = circle.at.x * cos(φ) + circle.at.y * sin(φ) + circle.r
+function support(annulus::Annulus, φ::Real)
+    annulus.at.x * cos(φ) + annulus.at.y * sin(φ) + annulus.ro
+end
+support(sector::Sector, φ::Real) = support(Contour(sector), φ)
+support(rectangle::Rectangle, φ::Real) = support(Contour(rectangle), φ)
+support(shape::PerforatedShape, φ::Real) = support(shape.outer, φ)
+
+"""
+    perimeter(shape)
+
+Return the length of every outer and hole curve of `shape` \\[m\\]:
+
+``P_\\mathrm{circle}=2πr``, ``P_\\mathrm{annulus}=2π(r_i+r_o)`` and
+``P_\\mathrm{rectangle}=2(w+h)``, where the radii, width and height are in \\[m\\].
+A sector, arc polygon, perforated shape or contour sums its curves:
+a segment contributes ``|Q-P|`` and an arc contributes ``ρ|θ_2-θ_1|``.
+"""
+function perimeter end
+
+perimeter(circle::Circle) = 2π * circle.r
+perimeter(annulus::Annulus) = 2π * (annulus.ri + annulus.ro)
+perimeter(rectangle::Rectangle) = 2 * (rectangle.w + rectangle.h)
+perimeter(sector::Sector) = perimeter(Contour(sector))
+perimeter(shape::PerforatedShape) = perimeter(Contour(shape))
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the rectangle placed by `at`, its placement
+``\\mathrm{at}\\,\\mathrm{at}_\\mathrm{rectangle}``, in the type that its numbers promote
+to with `Float64`. Dimensions and translations are in \\[m\\], rotations in \\[rad\\].
+"""
+function resolve(at::Placement, rectangle::Rectangle)
+    placed = at * rectangle.at
+    T = promote_type(Float64, eltype(rectangle), eltype(placed))
+    return Rectangle{T}(convert(T, rectangle.w), convert(T, rectangle.h),
+        convert(Placement{T}, placed))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Resolve the outward offset `t` \\[m\\] of a sector by
+``(r_i,r_o,a,f)\\mapsto(\\max(r_i-t,0),r_o+t,a-t/\\sin(α),f+t)``,
+where ``α=span/2`` and all four lengths are in \\[m\\].
+Keep its angular span and placement.
+"""
+function resolve(inner::Sector, offset::Offset)
+    validate(offset, inner)
+    return Sector(max(inner.ri - offset.t, zero(inner.ri)), inner.ro + offset.t,
+        inner.span, inner.apex - offset.t / sin(inner.span / 2),
+        inner.fillet + offset.t, inner.at)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Check that ``t\\leq apex\\sin(span/2)``, the largest offset thickness that fits
+\\[m\\], and return `offset`. Throw `DomainError` above that limit.
+"""
+function validate(offset::Offset, sector::Sector)
+    limit = sector.apex * sin(sector.span / 2)
+    offset.t <= limit || throw(DomainError(offset.t,
+        "Offset.t must not exceed $limit m, apex sin(span / 2), the thickness that fits"))
+    return offset
 end
