@@ -176,21 +176,6 @@
             end
         end
     end
-    @testset "Float32 inputs" begin
-        thin = build(CableDesign, "float32",
-            Terminal(:core,
-                Region(:core_metal, Circle(1.5f-3),
-                    material(kind = :conductor, rho = 1.7241f-8))))
-        system = build(CableSystem, [thin], [Placement(0.0f0, -1.0f0)];
-            connections = [(core = 1,)], id = "float32", line_length = 1.0f0)
-        problem = LineParametersProblem(system, homogeneous(rho = 100); frequencies = [50.0])
-        mktempdir() do folder
-            cd(folder) do
-                result = compute(problem, FEM())
-                @test result isa LineParameters{Float64}
-            end
-        end
-    end
     @testset "Measurement inputs" begin
         reference = last(first(REFERENCES))
         copper = Material(:conductor, 1.7241e-8, 1, 0.999994, 20, 0.00393)

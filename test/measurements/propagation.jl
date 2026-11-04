@@ -184,21 +184,6 @@ end
         for k in axes(one_source.Z, 3) for part in (real, imag))
     end
 
-    @testset "Float32" begin
-        wire = build(CableDesign, "float32",
-            Terminal(:core,
-                Region(:core_metal, Circle(measurement(1.5f-3, 1.0f-5)),
-                    material(kind = :conductor, rho = 1.7241f-8))))
-        @test wire isa CableDesign{Measurement{Float32}}
-        system = build(CableSystem, [wire], [Placement(0.0f0, -1.0f0)];
-            connections = [(core = 1,)], id = "float32", line_length = 1.0f0)
-        problem = LineParametersProblem(system, homogeneous(rho = 100);
-            frequencies = [50.0])
-        @test problem isa LineParametersProblem{Measurement{Float64}}
-        result = compute(problem, formulation)
-        @test result isa LineParameters{Measurement{Float64}}
-    end
-
     @testset "JET" begin
         Engine = LineCableModels.Engine
         sources = (;

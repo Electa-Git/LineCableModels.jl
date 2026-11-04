@@ -78,12 +78,10 @@
         @test overlength(helix, 3.0e-3) ≈ sqrt(1 + (π / 12)^2)
         @test overlength(helix, 0.0) == 1
         @test pitch(helix, 3.0e-3) ≈ 72.0e-3
+        @test pitch(helix, 0.0) === Inf
     end
 
-    @testset "Float32 and mixed inputs" begin
-        @test LineCableModels.resolve(Circle(1.5f-3), Offset(1.0f-3)) isa Annulus{Float32}
-        @test Annulus(1, 2.0f0) isa Annulus{Float32}
-        @test placements(CircularPattern(6; r = 3.0f-3), Circle(1.5f-3)).shape isa
-              Circle{Float32}
+    @testset "mixed inputs" begin
+        @test Annulus(1, 2.0) isa Annulus{Float64}
     end
 end

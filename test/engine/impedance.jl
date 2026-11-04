@@ -85,10 +85,6 @@
         s = im * (2π * 50.0)
         @test @inferred(schelkunoff(tubes["sheath"]..., s)).outer isa ComplexF64
         @test @inferred(ametani(layers["insulation"]..., s)) isa ComplexF64
-        s32 = ComplexF32(s)
-        @test real(@inferred(schelkunoff(
-            0.0f0, 1.0f-3, 1.7241f-8, 1.0f0, s32)).outer) > 0
-        @test iszero(@inferred(ametani(1.0f-3, 1.0f-3, 1.0f0, s32)))
     end
 end
 
@@ -164,9 +160,5 @@ end
     @test result isa LineParameters
 
     @test @inferred(wedepohl(20.0e-3, 21.0e-3, ρ, μ_r, im * 2π * 50.0)) isa NamedTuple
-    @test @inferred(wedepohl(20.0f-3, 21.0f-3, 1.7241f-8, 1.0f0,
-        ComplexF32(im * 2π * 50.0))) isa NamedTuple
     @test @inferred(wedepohl(0.0, 10.5e-3, ρ, μ_r, im * 2π * 50.0)) isa NamedTuple
-    @test @inferred(wedepohl(0.0f0, 10.5f-3, 1.7241f-8, 1.0f0,
-        ComplexF32(im * 2π * 50.0))) isa NamedTuple
 end

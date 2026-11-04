@@ -128,21 +128,4 @@
         @test input.dielectric_ranges == [1:1, 2:2, 3:2, 3:3, 4:4, 5:4]
         @test input.assemblies == [1:3, 4:6]
     end
-
-    @testset "a Float32 design arrives in Float64" begin
-        copper32 = Material(:conductor, 1.7241f-8, 1, 1, 20, 0.00393f0)
-        polymer32 = Material(:insulator, 1.0f14, 2.3f0)
-        wire = build(CableDesign, "insulated_wire",
-            Terminal(:core, Region(:core_metal, Circle(0.0425f0), copper32)),
-            Region(:core_insulation, Offset(1.0f-3), polymer32))
-        system = build(CableSystem, [wire], [Placement(0.0f0, -1.0f0)];
-            connections = [(core = 1,)], id = "float32", line_length = 1.0f0)
-        problem = LineParametersProblem(system, homogeneous(rho = 100.0f0);
-            temperature = 20.0f0, frequencies = Float32[50])
-        input = CoaxialInput(problem, options)
-        @test input isa CoaxialInput{Float64}
-        @test input.material isa Vector{Material{Float64, :conductor}}
-        @test only(input.dielectric_material) isa Material{Float64, :insulator}
-        @test only(input.dielectric_material).eps_r == 2.3f0 && input.r_ex == [0.0425f0]
-    end
 end

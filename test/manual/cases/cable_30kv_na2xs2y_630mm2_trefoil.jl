@@ -45,8 +45,9 @@ design = @design "na2xs2y_1x630_35_18_30kv" begin
                 Lay(Helix(LayRatio(15.0)),
                     Repeat(CircularPattern(60; r = Offset(0)),
                         Region(:sheath_wires, Circle(r_screen), copper))),
-                tape(copper; w = 15.0e-3, t = 0.1e-3, lay = LayRatio(15.0),
-                    tag = :sheath_copper_tape)))
+                Lay(Helix(LayRatio(15.0)),
+                    Repeat(CircularPattern(1; r = Offset(0)),
+                        Region(:sheath_copper_tape, Rectangle(15.0e-3, 0.1e-3), copper)))))
     end
     jacket(pe; t = 2.7e-3)
 end

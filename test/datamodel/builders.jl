@@ -47,7 +47,8 @@
                 end
                 jacket(polymer; t = 4.0e-3)
             end
-            # The node tree of the reference, with the radii of its courses and its sheath.
+            # The node tree of the reference, with the radii of its courses and its sheath,
+            # and its center wire a strand at the radius 0.
             courses = [Lay(Helix(LayRatio(12)),
                            Repeat(CircularPattern(n; r = 3.0e-3k),
                                Region(Symbol(:core_strands_, k), strand, copper)))
@@ -58,7 +59,10 @@
             reference = build(CableDesign, "coaxial",
                 Terminal(:core,
                     Enclosure(Region(:core_fill, Circle(10.5e-3), air),
-                        Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
+                        Stack(
+                            Repeat(CircularPattern(1; r = 0),
+                                Region(:core_centre, Circle(1.5e-3), copper)),
+                            courses...))),
                 Region(:core_semicon_inner, Offset(1.0e-3), semicon),
                 Region(:core_insulation, Offset(8.0e-3), polymer),
                 Region(:core_semicon_outer, Offset(1.0e-3), semicon),
@@ -105,9 +109,10 @@
 
     @testset "a tape, a course of wires and the formations of cables" begin
         @test tape(copper; w = 10.0e-3, t = 0.1e-3, lay = LayRatio(10)) ==
-              Lay(Helix(LayRatio(10)),
-            Repeat(CircularPattern(1; r = Offset(0)),
-                Region(:tape, Rectangle(10.0e-3, 0.1e-3), copper)))
+              Enclosure(Region(:tape_fill, Offset(0.1e-3), Material(:insulator, Inf)),
+            Lay(Helix(LayRatio(10)),
+                Repeat(CircularPattern(1; r = Offset(0)),
+                    Region(:tape, Rectangle(10.0e-3, 0.1e-3), copper))))
         @test wires(copper; shape = Circle(1.0e-3), n = 12, lay = LayRatio(8)) ==
               Enclosure(Region(:wires_fill, Offset(2.0e-3), Material(:insulator, Inf)),
             Lay(Helix(LayRatio(8)),
@@ -140,16 +145,30 @@
         @test_throws DomainError flat(wire; n = 3, spacing = 2R - 1.0e-6)
     end
 
-    @testset "Float32 inputs and the default fill" begin
-        wire = material(kind = :conductor, rho = 1.7241f-8)
-        design = @design "float32" begin
+    @testset "a tape alone and the courses of a stranded core" begin
+        taped = @design "taped_wire" begin
             @terminal :core begin
-                stranded(wire; center = Circle(1.5f-3), shape = Circle(1.5f-3), n = (6,),
-                    lay = LayRatio(12.0f0), boundary = Circle(4.5f-3))
+                core(copper; r = 1.0e-3)
+            end
+            insulation(polymer; t = 1.0e-3)
+            @terminal :screen begin
+                tape(copper; w = 2.0e-3, t = 0.1e-3, lay = LayRatio(10))
             end
         end
-        fill = last(design.regions).source
-        @test fill.tag == :stranded_fill && fill.material.rho == Inf
-        @test r_ex(design.outer) ≈ 4.5f-3
+        @test [taped.regions[row.region].source.tag for row in taped.fills] == [:tape_fill]
+        tube = last(flatten(taped).conductors)
+        @test [tube.r_in, tube.r_ex] ≈ [2.0e-3, 2.1e-3]
+        conductor = stranded(copper; center = Circle(1.5e-3), shape = Circle(1.5e-3),
+            n = (6, 12), lay = (LayRatio(10), LayRatio(12)), boundary = Circle(7.5e-3),
+            φ0 = (0, π / 12))
+        @test (conductor.fill, conductor.contents.items) ==
+              (Region(:stranded_fill, Circle(7.5e-3), Material(:insulator, Inf)),
+            [Repeat(CircularPattern(1; r = 0), Region(:stranded, Circle(1.5e-3), copper)),
+                Lay(Helix(LayRatio(10)),
+                    Repeat(CircularPattern(6; r = Offset(0)),
+                        Region(:stranded, Circle(1.5e-3), copper))),
+                Lay(Helix(LayRatio(12)),
+                    Repeat(CircularPattern(12; r = Offset(0), φ0 = π / 12),
+                        Region(:stranded, Circle(1.5e-3), copper)))])
     end
 end

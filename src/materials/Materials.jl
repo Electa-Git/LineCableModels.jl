@@ -52,7 +52,7 @@ Construct a material of class `K`, given as `Val(K)` so that the compiler knows 
 
 # Returns
 
-- A `Material{T, K}`, where `T` is the floating type that the properties promote to.
+- A `Material{T, K}`, where `T` is the type that the properties promote to with `Float64`.
 
 # Errors
 
@@ -62,10 +62,10 @@ Construct a material of class `K`, given as `Val(K)` so that the compiler knows 
 """
 function Material(::Val{K}, rho::Real, eps_r::Real, mu_r::Real, T0::Real, alpha::Real,
         rho_thermal::Real, theta_max::Real, tan_delta::Real, sigma_solar::Real) where {K}
-    values = map(float,
-        promote(
-            rho, eps_r, mu_r, T0, alpha, rho_thermal, theta_max, tan_delta, sigma_solar))
-    return Material{eltype(values), K}(values...)
+    values = promote(
+        rho, eps_r, mu_r, T0, alpha, rho_thermal, theta_max, tan_delta, sigma_solar)
+    T = promote_type(Float64, eltype(values))
+    return Material{T, K}(convert.(T, values)...)
 end
 
 """
@@ -76,7 +76,8 @@ Construct a material of class `kind`. The arguments and keywords are the fields 
 
 # Returns
 
-- A `Material{T, kind}`, where `T` is the floating type that the properties promote to.
+- A `Material{T, kind}`, where `T` is the type that the properties promote to with
+  `Float64`.
 
 # Errors
 
@@ -99,7 +100,8 @@ names and defaults of the positional constructor.
 
 # Returns
 
-- A `Material{T, kind}`, where `T` is the floating type that the properties promote to.
+- A `Material{T, kind}`, where `T` is the type that the properties promote to with
+  `Float64`.
 """
 function material(;
         kind::Symbol, rho::Real, eps_r::Real = 1, mu_r::Real = 1, T0::Real = 20,

@@ -47,8 +47,9 @@ design = @design "18kV_1000mm2" begin
                 Lay(Helix(LayRatio(10.0)),
                     Repeat(CircularPattern(49; r = Offset(0)),
                         Region(:sheath_wires, Circle(0.47e-3), copper))),
-                tape(copper; w = 10.0e-3, t = 0.1e-3, lay = LayRatio(10.0),
-                    tag = :sheath_copper_tape)))
+                Lay(Helix(LayRatio(10.0)),
+                    Repeat(CircularPattern(1; r = Offset(0)),
+                        Region(:sheath_copper_tape, Rectangle(10.0e-3, 0.1e-3), copper)))))
     end
     screen(polyacrylate; t = 0.94e-3, tag = :sheath_water_blocking)
     @terminal :jacket begin

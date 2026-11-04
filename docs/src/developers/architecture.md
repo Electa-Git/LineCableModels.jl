@@ -355,10 +355,9 @@ computation did not keep them. A result without a trace stores an empty record, 
 
 ### Numbers
 
-The problem promotes every number with `Float64`, so a `Float32` input computes in `Float64`
-and never crashes. A `Measurement` input keeps its type through the data model and the
-engine. `BigFloat` is unsupported: SpecialFunctions has no Bessel methods for it, and the
-honest error is the `MethodError` at the first call.
+A `Measurement` input keeps its type through the data model and the engine. `BigFloat` is
+unsupported: SpecialFunctions has no Bessel methods for it, and the honest error is the
+`MethodError` at the first call.
 
 ## Extensions
 

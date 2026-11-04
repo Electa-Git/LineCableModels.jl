@@ -110,22 +110,6 @@ end
             (options,))) == nf * pivots
     end
 
-    copper32 = Material(:conductor, 1.7241f-8, 1.0f0, 1.0f0, 20.0f0, 0.00393f0)
-    polymer32 = Material(:insulator, 1.0f14, 2.3f0)
-    design32 = build(CableDesign, "coaxial",
-        Terminal(:core, Region(:core_metal, Circle(10.0f-3), copper32)),
-        Region(:core_insulation, Offset(10.0f-3), polymer32),
-        Terminal(:sheath, Region(:sheath_copper, Annulus(20.0f-3, 21.0f-3), copper32)),
-        Region(:sheath_jacket, Offset(3.0f-3), polymer32))
-    system32 = build(CableSystem, [design32, design32],
-        [Placement(0.0f0, -1.0f0), Placement(1.0f0, -1.0f0)];
-        connections = [(core = 1, sheath = 0), (core = 1, sheath = 2)],
-        id = "two_cables", line_length = 1.0f0)
-    result32 = compute(
-        LineParametersProblem(system32, homogeneous(rho = 100.0f0);
-            frequencies = Float32[50, 1e4, 1e6]),
-        formulation)
-    @test eltype(result32.Z) == eltype(result32.Y) == ComplexF64
     @test_throws ArgumentError("LCMBackend does not implement FEM") compute(
         Engine.LCMBackend(), problem, FEM())
 

@@ -233,20 +233,20 @@ end
 
     @testset "mixed inputs" begin
         design = build(CableDesign, "mixed",
-            Terminal(:core, Region(:core_metal, Circle(0.0425f0), copper)),
+            Terminal(:core, Region(:core_metal, Circle(0.0425), copper)),
             Region(:core_insulation, Offset(1.0e-3), polymer))
         @test eltype(design) === Float64
         @test all(placed -> eltype(placed.shape) === Float64, design.regions)
         uncertain = build(CableDesign, "mixed_uncertain",
             Terminal(:core,
-                Region(:core_metal, Circle(measurement(0.0425f0, 1.0f-4)), copper)),
+                Region(:core_metal, Circle(measurement(0.0425, 1.0e-4)), copper)),
             Region(:core_insulation, Offset(1.0e-3), polymer))
         @test eltype(uncertain) === Measurement{Float64}
         filled = build(CableDesign, "filled",
-            Enclosure(Region(:core_fill, Circle(5.0f-3), polymer),
+            Enclosure(Region(:core_fill, Circle(5.0e-3), polymer),
                 Terminal(:core,
-                    Region(:core_metal, Circle(1.5f-3),
-                        material(kind = :conductor, rho = 1.7241f-8)))))
+                    Region(:core_metal, Circle(1.5e-3),
+                        material(kind = :conductor, rho = 1.7241e-8)))))
         fill = filled.regions[only(filled.fills).region].shape
         mapped = map(identity, fill)
         @test eltype(only(fill.holes)) === Float64
@@ -260,25 +260,5 @@ end
             homogeneous(rho = 100); frequencies = [50.0])
         result = compute(problem, CoaxialFormulation())
         @test result isa LineParameters
-    end
-
-    @testset "Float32 inputs" begin
-        wire = build(CableDesign, "float32",
-            Terminal(:core,
-                Region(:core_metal, Circle(1.5f-3),
-                    material(kind = :conductor, rho = 1.7241f-8))))
-        @test eltype(wire) === Float32
-        @test r_ex(wire.outer) ≈ 1.5f-3
-        filled = build(CableDesign, "float32_fill",
-            Enclosure(
-                Region(:core_fill, Circle(5.0f-3),
-                    material(kind = :insulator, rho = 1.0f14, eps_r = 2.3f0)),
-                Terminal(:core,
-                    Region(:core_metal, Circle(1.5f-3),
-                        material(kind = :conductor, rho = 1.7241f-8)))))
-        fill = filled.regions[only(filled.fills).region].shape
-        @test length(fill.holes) == 1
-        @test eltype(filled) === Float32
-        @test eltype(only(fill.holes)) === Float32
     end
 end

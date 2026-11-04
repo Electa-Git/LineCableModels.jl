@@ -77,6 +77,10 @@ end
         @test Guards.file_hygiene(files, directory) == Dict{String, Int}()
     end
 
+    @testset "narrow floating types" begin
+        @test Guards.narrow_floats(directory) == Dict{String, Int}()
+    end
+
     @testset "Commons admission" begin
         @test Guards.commons_admission(methods, tree, homes) == Dict{String, Int}()
     end

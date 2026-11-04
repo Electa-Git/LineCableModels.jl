@@ -20,16 +20,17 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Construct a placement after floating and promoting its coordinates. The arguments are the
-fields of [`Placement`](@ref), and the rotation is zero unless given.
+Construct a placement in the type that its coordinates promote to with `Float64`. The
+arguments are the fields of [`Placement`](@ref), and the rotation is zero unless given.
 
 # Errors
 
 - Throws `DomainError` when a coordinate or the rotation is not finite.
 """
 function Placement(x::Real, y::Real, φ::Real = 0)
-    values = map(float, promote(x, y, φ))
-    return Placement{eltype(values)}(values...)
+    values = promote(x, y, φ)
+    T = promote_type(Float64, eltype(values))
+    return Placement{T}(convert.(T, values)...)
 end
 
 function validate(placement::Placement)
@@ -133,15 +134,15 @@ Circle(r::Real) = Circle(r, Placement(zero(r), zero(r)))
 """
 $(TYPEDSIGNATURES)
 
-Construct a circle of radius `r` \\[m\\] at the placement `at`, in the floating type that both
-promote to.
+Construct a circle of radius `r` \\[m\\] at the placement `at`, in the type that both
+promote to with `Float64`.
 
 # Errors
 
 - Throws `DomainError` when `r` is not positive and finite.
 """
 function Circle(r::Real, at::Placement)
-    T = float(promote_type(typeof(r), eltype(at)))
+    T = promote_type(Float64, typeof(r), eltype(at))
     return Circle{T}(convert(T, r), convert(Placement{T}, at))
 end
 
@@ -181,7 +182,7 @@ Annulus(ri::Real, ro::Real) = Annulus(ri, ro, Placement(zero(ri), zero(ro)))
 $(TYPEDSIGNATURES)
 
 Construct an annulus between the radii `ri` and `ro` \\[m\\] at the placement `at`, in the
-floating type that they promote to.
+type that they promote to with `Float64`.
 
 # Errors
 
@@ -189,7 +190,7 @@ floating type that they promote to.
   not exceed `ri`.
 """
 function Annulus(ri::Real, ro::Real, at::Placement)
-    T = float(promote_type(typeof(ri), typeof(ro), eltype(at)))
+    T = promote_type(Float64, typeof(ri), typeof(ro), eltype(at))
     return Annulus{T}(convert(T, ri), convert(T, ro), convert(Placement{T}, at))
 end
 
@@ -233,15 +234,15 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Construct a rectangle of width `w` and height `h` \\[m\\] centered at the origin, in the floating
-type that they promote to.
+Construct a rectangle of width `w` and height `h` \\[m\\] centered at the origin, in the
+type that they promote to with `Float64`.
 
 # Errors
 
 - Throws `DomainError` when `w` or `h` is not positive and finite.
 """
 function Rectangle(w::Real, h::Real)
-    T = float(promote_type(typeof(w), typeof(h)))
+    T = promote_type(Float64, typeof(w), typeof(h))
     return Rectangle{T}(convert(T, w), convert(T, h), Placement(zero(T), zero(T)))
 end
 
@@ -280,7 +281,10 @@ Declare the distance `t` \\[m\\] outward from the outline of the part inside.
 
 - Throws `DomainError` when `t` is negative or not finite.
 """
-Offset(t::Real) = Offset{typeof(float(t))}(float(t))
+function Offset(t::Real)
+    T = promote_type(Float64, typeof(t))
+    return Offset{T}(convert(T, t))
+end
 
 function validate(offset::Offset)
     isfinite(offset.t) && offset.t >= zero(offset.t) ||
@@ -319,7 +323,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Construct an annular sector from its fields, in the floating type that they promote to.
+Construct an annular sector from its fields, in the type that they promote to with
+`Float64`.
 
 # Errors
 
@@ -327,7 +332,7 @@ Construct an annular sector from its fields, in the floating type that they prom
   `ri`, or when `span` is outside (0, 2π\\].
 """
 function AnnularSector(ri::Real, ro::Real, span::Real, at::Placement)
-    T = float(promote_type(typeof(ri), typeof(ro), typeof(span), eltype(at)))
+    T = promote_type(Float64, typeof(ri), typeof(ro), typeof(span), eltype(at))
     return AnnularSector{T}(convert(T, ri), convert(T, ro), convert(T, span),
         convert(Placement{T}, at))
 end
@@ -557,7 +562,7 @@ end
 function Base.map(f, rectangle::Rectangle)
     w, h = f(rectangle.w), f(rectangle.h)
     at = map(f, rectangle.at)
-    T = float(promote_type(typeof(w), typeof(h), eltype(at)))
+    T = promote_type(Float64, typeof(w), typeof(h), eltype(at))
     return Rectangle{T}(convert(T, w), convert(T, h), convert(Placement{T}, at))
 end
 Base.map(f, offset::Offset) = Offset(f(offset.t))

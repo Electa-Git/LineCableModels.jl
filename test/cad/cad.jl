@@ -155,15 +155,11 @@ end
             (0.25, (2.0e-3, 1.0e-3)), (1, (5.0e-3, -2.0e-3)))
             @test all(isapprox.(segment(t), point; atol = 1e-15))
         end
-        @test Contour(Circle(1.0f-3)) isa Contour{Float32}
         @test Curve{Float64} === Union{Segment{Float64}, Arc{Float64}}
         sector = LineCableModels.AnnularSector(1.0e-3, 3.0e-3, 1.2, at)
         @test eltype(Contour(sector).outer) === Curve{Float64}
-        @test Contour(Circle(1.0f-3)).outer isa Vector{Curve{Float32}}
-        @test all(hole -> hole isa Vector{Curve{Float32}},
-            Contour(Annulus(0.5f-3, 1.0f-3)).holes)
-        @test Segment((0, 1.0f0), (2.0, 3)).b == (2.0, 3.0)
-        @test Arc(Placement(0.0f0, 0.0f0), 1, 0.5).span == 0.5
+        @test Segment((0, 1.0), (2.0, 3)).b == (2.0, 3.0)
+        @test Arc(Placement(0.0, 0.0), 1, 0.5).span == 0.5
     end
 
     @testset "signed contour areas" begin

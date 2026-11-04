@@ -301,9 +301,9 @@ belongs to the tests and to the user's comparisons with finite-element results.
 
 ### Numbers
 
-Parametric types where they matter, type stability, and no over-constrained `<:Real`. A
-`Float32` or mixed-type input must not crash. Precision retention is not a goal: the problem
-computes in `Float64`.
+Parametric types where they matter, type stability, and no over-constrained `<:Real`. Every
+constructor promotes its numbers with `Float64`. A parametric layer passes its number types
+through that promotion.
 
 ### A native name or none
 
@@ -343,8 +343,7 @@ subject keeps one name per concept.
 Every test calls feature code and checks a feature result. A test asserts only what the code
 under test can produce. It leaves out what a constructor or `validate` already blocks, and
 defensive branches for unrealistic failures stay out of it. Never loosen a tolerance, delete
-or weaken an assertion, skip a test or loosen a guard. A `Float32` input is tested to build
-and to compute with inferred types, never for precision. Coverage is reached by tests that
+or weaken an assertion, skip a test or loosen a guard. Coverage is reached by tests that
 check feature results, not by tests written to touch lines.
 
 ### Documentation

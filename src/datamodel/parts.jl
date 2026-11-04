@@ -253,7 +253,8 @@ r = \\left| \\frac{\\sum_i A_i \\mathbf c_i}{\\sum_i A_i} \\right|,
 
 where ``A_i`` \\[m²\\] and ``\\mathbf c_i`` \\[m\\] are the area and centroid of each region of the
 copy. The helix has the [`pitch`](@ref) and [`overlength`](@ref) at that radius, the pitch
-signed by the direction of the helix.
+signed by the direction of the helix. A copy at the radius 0 lies straight, with an infinite
+pitch and an overlength of 1.
 
 $(TYPEDFIELDS)
 """

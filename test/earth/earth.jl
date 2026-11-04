@@ -5,7 +5,6 @@
         air, soil = earth.layers
         @test (air.rho, air.eps_r, air.mu_r, air.thickness) == (Inf, 1.0, 1.0, Inf)
         @test (soil.rho, soil.eps_r, soil.mu_r, soil.thickness) == (100.0, 10.0, 1.0, Inf)
-        @test homogeneous(rho = 100.0f0) isa EarthModel{Float32, 2}
     end
 
     @testset "a layered earth is a stack from the air to a semi-infinite layer" begin

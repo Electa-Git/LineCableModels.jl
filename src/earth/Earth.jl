@@ -34,8 +34,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Construct one layer after floating and promoting its properties. The arguments are the fields
-of [`EarthLayer`](@ref).
+Construct one layer in the type that its properties promote to with `Float64`. The arguments
+are the fields of [`EarthLayer`](@ref).
 
 # Errors
 
@@ -43,20 +43,21 @@ of [`EarthLayer`](@ref).
   `mu_r` is not finite.
 """
 function EarthLayer(rho::Real, eps_r::Real, mu_r::Real, thickness::Real)
-    values = map(float, promote(rho, eps_r, mu_r, thickness))
-    return EarthLayer{eltype(values)}(values...)
+    values = promote(rho, eps_r, mu_r, thickness)
+    T = promote_type(Float64, eltype(values))
+    return EarthLayer{T}(convert.(T, values)...)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Construct one semi-infinite layer: its thickness is infinite in the floating type that its
-properties promote to.
+Construct one semi-infinite layer: its thickness is infinite in the type that its properties
+promote to with `Float64`.
 """
 function EarthLayer(rho::Real, eps_r::Real, mu_r::Real)
-    values = map(float, promote(rho, eps_r, mu_r))
-    T = eltype(values)
-    return EarthLayer{T}(values..., T(Inf))
+    values = promote(rho, eps_r, mu_r)
+    T = promote_type(Float64, eltype(values))
+    return EarthLayer{T}(convert.(T, values)..., T(Inf))
 end
 
 function Base.map(f, layer::EarthLayer)
@@ -181,7 +182,8 @@ Build the [`EarthModel`](@ref) of semi-infinite air, of relative permittivity an
 
 # Returns
 
-- An `EarthModel{T, 2}`, where `T` is the floating type that the earth's properties promote to.
+- An `EarthModel{T, 2}`, where `T` is the type that the earth's properties promote to with
+  `Float64`.
 """
 function homogeneous(; rho::Real, eps_r::Real = 1, mu_r::Real = 1)
     earth = EarthLayer(rho, eps_r, mu_r)

@@ -63,15 +63,17 @@ function CircularPattern(n::Integer; r::Union{Real, Offset}, φ0::Real = 0, span
     return CircularPattern(n, r, φ0, span, gap_frac)
 end
 
-# The radius, the angles and the clearance take one floating type.
+# The radius, the angles and the clearance take one type, promoted with Float64.
 function CircularPattern(n::Integer, r::Real, φ0::Real, span::Real, gap_frac::Real)
-    values = map(float, promote(r, φ0, span, gap_frac))
-    return CircularPattern{eltype(values)}(Int(n), values...)
+    values = promote(r, φ0, span, gap_frac)
+    T = promote_type(Float64, eltype(values))
+    return CircularPattern{T}(Int(n), convert.(T, values)...)
 end
 
 function CircularPattern(n::Integer, r::Offset, φ0::Real, span::Real, gap_frac::Real)
-    t, values... = map(float, promote(r.t, φ0, span, gap_frac))
-    return CircularPattern{typeof(t)}(Int(n), Offset(t), values...)
+    t, values... = promote(r.t, φ0, span, gap_frac)
+    T = promote_type(Float64, typeof(t))
+    return CircularPattern{T}(Int(n), Offset(convert(T, t)), convert.(T, values)...)
 end
 
 function validate(pattern::CircularPattern)
@@ -228,7 +230,7 @@ $(TYPEDSIGNATURES)
 
 Construct a linear pattern of `n` members at the distance `pitch` \\[m\\] between the centers
 of neighbors, in the direction `φ` \\[rad\\]. Its number type is the promotion of the types of
-`pitch` and `φ`.
+`pitch`, `φ` and `Float64`.
 
 # Errors
 
@@ -236,8 +238,9 @@ of neighbors, in the direction `φ` \\[rad\\]. Its number type is the promotion 
   not finite.
 """
 function LinearPattern(n::Integer, pitch::Real, φ::Real = 0)
-    values = map(float, promote(pitch, φ))
-    return LinearPattern{eltype(values)}(Int(n), values...)
+    values = promote(pitch, φ)
+    T = promote_type(Float64, eltype(values))
+    return LinearPattern{T}(Int(n), convert.(T, values)...)
 end
 
 function validate(pattern::LinearPattern)
@@ -301,7 +304,10 @@ Construct the lay ratio `q` \\[dimensionless\\].
 
 - Throws `DomainError` when `q` is not positive and finite.
 """
-LayRatio(q::Real) = LayRatio{typeof(float(q))}(float(q))
+function LayRatio(q::Real)
+    T = promote_type(Float64, typeof(q))
+    return LayRatio{T}(convert(T, q))
+end
 
 function validate(lay::LayRatio)
     isfinite(lay.q) && lay.q > zero(lay.q) ||
@@ -340,7 +346,8 @@ handedness is `1` and the helix starts at angle zero.
   finite.
 """
 function Helix(lay::LayRatio; dir::Integer = 1, φ0::Real = 0)
-    return Helix{typeof(lay), typeof(float(φ0))}(lay, Int(dir), float(φ0))
+    T = promote_type(Float64, typeof(φ0))
+    return Helix{typeof(lay), T}(lay, Int(dir), convert(T, φ0))
 end
 
 function validate(helix::Helix)
@@ -375,9 +382,13 @@ Return the lay length of `helix` at the lay radius `radius` \\[m\\]:
 p = 2 q r,
 ```
 
-where ``q`` is the lay ratio \\[dimensionless\\] and ``r`` the radius \\[m\\].
+where ``q`` is the lay ratio \\[dimensionless\\] and ``r`` the radius \\[m\\]. A path at
+zero radius lies straight along the axis, with an infinite lay length.
 """
-pitch(helix::Helix{<:LayRatio}, radius::Real) = 2helix.lay.q * radius
+function pitch(helix::Helix{<:LayRatio}, radius::Real)
+    p = 2helix.lay.q * radius
+    return iszero(radius) ? oftype(p, Inf) : p
+end
 
 function Base.map(f, pattern::CircularPattern{T, T}) where {T}
     return CircularPattern(pattern.n; r = f(pattern.r), φ0 = f(pattern.φ0),
@@ -389,3 +400,6 @@ function Base.map(f, pattern::CircularPattern{T, Offset{T}}) where {T}
 end
 Base.map(f, lay::LayRatio) = LayRatio(f(lay.q))
 Base.map(f, helix::Helix) = Helix(map(f, helix.lay); dir = helix.dir, φ0 = f(helix.φ0))
+
+# A lay ratio broadcasts as one value, as a number does.
+Base.broadcastable(lay::LayRatio) = Ref(lay)

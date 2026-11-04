@@ -50,10 +50,6 @@
             @test @inferred(law(material, f)) ≈
                   complex(1 / material.rho + ω * ε * material.tan_delta, ω * ε) rtol = 1.0e-15
         end
-        polymer32 = Material(:insulator, 1.0f14, 2.3f0; tan_delta = 1.0f-3)
-        semicon32 = Material(:semicon, 1000.0f0, 1000.0f0; tan_delta = 0.05f0)
-        @test real(@inferred(insulating(polymer32, 50.0f0))) > 0
-        @test real(@inferred(semiconducting(semicon32, 50.0f0))) > 0
     end
 
     @testset "the lossy admittivity without loss is the lossless one" begin
@@ -378,15 +374,6 @@
         end
     end
 
-    @testset "soil laws with Float32" begin
-        layer = EarthLayer(100.0f0, 10.0f0, 1.0f0)
-        for id in (:alipio2014, :cigre2019, :datsios2019, :longmire1975, :messier1985,
-            :portela1999, :scott1967, :visacro1987, :visacro2012)
-            law = Engine.EarthProperties.Formula(Val(id))
-            @test @inferred(law(layer, 1000.0f0)) isa EarthLayer{Float32}
-        end
-    end
-
     @testset "the bottommost equivalent preserves the matrices" begin
         design = build(CableDesign, "bare_wire",
             Terminal(:core, Region(:core_metal, Circle(0.0425), copper)))
@@ -471,7 +458,9 @@
     end
 
     @testset "the equivalent earths against independent tanh recursions" begin
-        for T in (Float32, Float64), N in 1:6, frequency in (T(1), T(50), T(1e6))
+        T = Float64
+        for N in 1:6, frequency in (T(1), T(50), T(1e6))
+
             mu0 = T(4) * T(π) / T(10)^7
             eps0 = T(88541878128) / T(10)^22
             rho = T[100, 500, 20, 200, 30, 1000][1:N]
@@ -582,15 +571,6 @@
         for id in (:martins2020, :xue2021)
             result = compute(problem, CoaxialFormulation(equivalent_earth = id))
             @test result isa Engine.LineParameters
-        end
-    end
-
-    @testset "the equivalent earths with Float32" begin
-        layers = (EarthLayer(100.0f0, 10.0f0, 1.0f0, 5.0f0),
-            EarthLayer(500.0f0, 20.0f0, 1.0f0, 10.0f0), EarthLayer(50.0f0, 5.0f0, 1.0f0))
-        for id in (:martins2020, :xue2021)
-            formula = Engine.EarthProperties.Formula(Val(id))
-            @test @inferred(formula(layers, 1000.0f0)) isa EarthLayer{Float32}
         end
     end
 end

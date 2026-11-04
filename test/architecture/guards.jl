@@ -917,6 +917,27 @@ function absences(files, directory)
     return found
 end
 
+const NARROW_FLOATS = r"\b(Float32|Float16|ComplexF32|ComplexF16)\b|\b[0-9][0-9_]*(\.[0-9_]*)?f[+-]?[0-9]+\b"
+
+# Floating types narrower than `Float64`. Per file and match, the tokens `Float32`,
+# `Float16`, `ComplexF32` and `ComplexF16` and the numbers with an `f` exponent, such as
+# `1.0f-3`, in the `.jl` and `.md` files under `src`, `ext`, `test` and `docs/src`, the
+# guards and their probes under `test/architecture` excepted.
+function narrow_floats(directory)
+    found = Dict{String, Int}()
+    excepted = joinpath(directory, "test", "architecture")
+    for base in ("src", "ext", "test", joinpath("docs", "src"))
+        for file in repository_files(joinpath(directory, base))
+            (endswith(file, ".jl") || endswith(file, ".md")) && !inside(file, excepted) ||
+                continue
+            for token in eachmatch(NARROW_FLOATS, read(file, String))
+                count!(found, string(relative(file, directory), " | ", token.match))
+            end
+        end
+    end
+    return found
+end
+
 const UNHYGIENIC = (:tempdir, :mktempdir, :tempname, :homedir)
 
 # File hygiene. Per file and name, the references to `tempdir`, `mktempdir`, `tempname`

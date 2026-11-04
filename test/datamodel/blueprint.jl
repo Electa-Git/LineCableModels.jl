@@ -27,6 +27,21 @@
         @test tube.material.rho ≈ copper.rho && tube.material.mu_r ≈ 1
     end
 
+    @testset "a lay over a strand at the radius 0 keeps it straight" begin
+        strand = Repeat(CircularPattern(1; r = 0),
+            Region(:core_metal, Circle(0.0425), copper))
+        laid = build(CableDesign, "laid_wire",
+            Terminal(:core, Lay(Helix(LayRatio(12)), strand)),
+            Region(:core_insulation, Offset(1.0e-3), polymer))
+        straight = build(CableDesign, "straight_wire", Terminal(:core, strand),
+            Region(:core_insulation, Offset(1.0e-3), polymer))
+        @test only(laid.lays).pitches == [Inf]
+        blueprint, expected = flatten(laid), flatten(straight)
+        @test only(blueprint.conductors).material.rho ==
+              only(expected.conductors).material.rho
+        @test blueprint.mu_r_ins == expected.mu_r_ins == [1.0]
+    end
+
     @testset "the coaxial cables of the references" begin
         for (strand, core) in (
             (Circle(1.5e-3),
@@ -111,14 +126,5 @@
             Terminal(:core,
                 Stack(Region(:core_wire, Circle(1.0e-3), copper),
                     Region(:core_tube, Offset(1.0e-3), warm)))))
-    end
-
-    @testset "Float32 inputs" begin
-        wire = flatten(build(CableDesign, "float32",
-            Terminal(:core,
-                Region(:core_metal, Circle(1.5f-3),
-                    material(kind = :conductor, rho = 1.7241f-8)))))
-        @test only(wire.conductors).r_ex === 1.5f-3
-        @test wire.mu_r_ins == Float32[1]
     end
 end

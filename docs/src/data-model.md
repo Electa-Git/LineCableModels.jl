@@ -69,7 +69,8 @@ All parts are subtypes of [`AbstractCablePart`](@ref):
 - [`Lay`](@ref): copies of a repeat laid along the cable on a [`Helix`](@ref), whose
   [`LayRatio`](@ref) is the ratio of the lay length to the mean diameter of the layer. The
   functions [`pitch`](@ref) and [`overlength`](@ref) return the lay length and the length of
-  the helix per unit length of cable, respectively.
+  the helix per unit length of cable, respectively. A copy at the radius 0 lies straight
+  along the axis, and its lay length is infinite.
 - [`Enclosure`](@ref): filler of one material around other parts, occupying the container
   without the outlines of its outermost contents.
 
@@ -92,6 +93,9 @@ one terminal. The builders below return the parts of the usual cable layers:
 - [`tape`](@ref): a tape on a helix over the outline beneath it, bent into an annular sector
   of its area.
 
+Each layer of [`stranded`](@ref) takes its own lay ratio and the angle of its first member,
+or one value for all layers. A filler completes the layer of a [`tape`](@ref).
+
 Build the insulated wire of the [`@design`](@ref) example and inspect its outer radius:
 
 ```@example data-model
@@ -113,8 +117,8 @@ The call `build(CableDesign, id, parts...)` resolves the parts into a [`CableDes
 The design stores the declared tree, the placed regions from the inside out and the tables of
 terminals, sub-cables, repeats, lays, compactions and fills. Each placed region is a
 [`PlacedRegion`](@ref) containing its declaration and its resolved cross-section. The
-resolved values are stored in the floating-point type `T` of the design, to which the numbers
-of the cross-sections and the materials are promoted.
+resolved values are stored in the floating-point type `T` of the design. The numbers of the
+cross-sections and the materials promote to `T` together with `Float64`.
 
 ## Equivalent coaxial representation
 
