@@ -177,6 +177,64 @@ The source gives the following results against the analytical rows:
   - With the armor as a tube and a straight core, e_Z is at most 0.42 % and e_Y at most
     0.094 % for the rectangular strands, and 0.63 % and 0.13 % for the circular strands.
 
+## Cable systems of the case scripts
+
+The scripts in `test/manual/cases/` declare five more cable systems. Each writes `<case>/matrices.csv` in the columns
+above. Four of them hold `analytical` rows of `CoaxialFormulation(bundle = false, kron = false, transposition = false)`
+at the 101 frequencies and `fem` rows of `FEM` with the same options at 11 of them. Each conductor of a cable is a
+terminal of its own.
+
+The fifth, `cable_30kv_630mm2_trefoil`, computes the cables of the example `examples/cable_30kv_630mm2_trefoil.jl` at
+the 50 multiples of 50 Hz up to 2500 Hz. Both formulations remove its grounded screens by Kron reduction and transpose its phases.
+Every system lies in earth of 100 Ω·m (εr 10). Each script ran once, with gmsh_jll 4.15.2, at the commit that adds its
+file. The run is the folder of its results under `.linecablemodels/cases/<case>/`. Run each script from the repository
+root as `julia --project=docs test/manual/cases/<case>.jl`.
+
+| Case | System | Run |
+|---|---|---|
+| `cable_30kv_630mm2_trefoil` | three 18/30 kV cables with a solid aluminum core of 630 mm² and a copper screen 0.3 mm thick, in trefoil with the cables in contact, the lower two at 1 m depth | `20261104-004949` |
+| `cable_30kv_na2xs2y_630mm2_trefoil` | three 18/30 kV cables with a stranded aluminum core of 630 mm² and a screen of 60 copper wires under a copper tape, in trefoil with the cables in contact, about 1 m deep | `20261104-005450` |
+| `cable_132kv_630mm2_flathor` | three 132 kV cables with a stranded copper core of 630 mm², a screen of 19 copper wires under a copper tape and an aluminum tape under the jacket, 0.5 m apart in a row at 1 m depth | `20261104-010142` |
+| `cable_18kv_1000mm2_trefoil` | three 18 kV cables with a stranded aluminum core of 1000 mm², a screen of 49 copper wires under a copper tape and an aluminum tape under the jacket, in trefoil with 1.1 diameters between centers, about 1 m deep | `20261104-011055` |
+| `cable_380kv_2000mm2_flatver` | three 380 kV cables with a stranded copper core of 2000 mm², a screen of 14 copper wires under a copper tape and an aluminum tape under the jacket, 0.5 m apart in a column from 1 m to 2 m depth | `20261104-012742` |
+
+Each stranded core has a central wire and courses of 6, 12, 18 and 24 wires. The courses of 12 and 24 wires start half
+a pitch from the others.
+
+FEM against the analytical rows gives these maxima of e_Z and e_Y over the FEM frequencies, with the frequency and the
+entry of each maximum and the RMS over the frequencies:
+
+| Case | e_Z | At | RMS | e_Y | At | RMS |
+|---|---|---|---|---|---|---|
+| `cable_30kv_630mm2_trefoil` | 5.21 % | 350 Hz, (1,1) | 3.34 % | 0.0209 % | all, (1,1) | 0.0209 % |
+| `cable_30kv_na2xs2y_630mm2_trefoil` | 10.5 % | 10 MHz, (1,1) | 5.86 % | 16.7 % | 10 MHz, (4,4) | 15.9 % |
+| `cable_132kv_630mm2_flathor` | 5.48 % | 10 MHz, (4,4) | 3.76 % | 91.4 % | 10 MHz, (5,5) | 90.6 % |
+| `cable_18kv_1000mm2_trefoil` | 9.48 % | 10 MHz, (1,1) | 5.53 % | 86.9 % | 10 MHz, (5,5) | 86.0 % |
+| `cable_380kv_2000mm2_flatver` | 5.60 % | 10 MHz, (4,4) | 3.74 % | 94.9 % | 10 MHz, (8,9) | 94.0 % |
+
+The coaxial formulation takes a screen of wires with its copper tape as one tube. The tube shields the field between
+the wires. The capacitance of the wires surrounded by the tape stays out of the analytical `Y`, while the FEM
+keeps it. Below 10 kHz, this limitation of the coaxial formulation gives e_Y of 15.5 % in
+`cable_30kv_na2xs2y_630mm2_trefoil`. In the three cases with an aluminum tape over the screen, it gives 90.4 %, 85.9 %
+and 93.8 %.
+
+The analytical rows correct the impedance of the helical core and screen wires for their lays, and the two-dimensional
+FEM model has no lay. With every lay straight in the analytical rows (lay ratio 10⁶), the maximum e_Z of the two flat
+formations is 1.81 % and 2.35 %. It lies in core entries between 25 Hz and 6.3 kHz. The maximum e_Z of the two
+trefoils is 7.51 % for `cable_18kv_1000mm2_trefoil` and 9.00 % for `cable_30kv_na2xs2y_630mm2_trefoil`, at 10 MHz. A FEM run of
+`cable_132kv_630mm2_flathor` with straight lays gives its `fem` rows again within 1.3e-8 of the largest diagonal entry,
+at 0.1 Hz and 10 MHz.
+
+Both trefoils keep their e_Z at 10 MHz from the proximity of the cables. The coaxial formulation distributes the
+current of each conductor uniformly around its axis, and the FEM resolves the currents that the neighbors induce. With
+the cables five diameters apart and straight lays, e_Z is at most 1.08 % in both, at 6.3 kHz.
+
+For `cable_30kv_630mm2_trefoil`, the script also compares the positive-sequence parameters `z1 = zs - zm` and
+`y1 = ys - ym`. FEM against the analytical rows, the resistance `R1` deviates by +5.57 % at 50 Hz, -12.7 % at 650 Hz and
+-5.63 % at 2500 Hz. The reactance `X1` deviates by -7.93 % at 250 Hz to +1.42 % at 1950 Hz, and the susceptance `B1` by
+-0.0209 % at every frequency. These deviations come from the proximity of the touching cables. With the cables five
+diameters apart, e_Z is at most 0.155 %, and `R1` and `X1` lie within 0.24 % and 0.28 % of the analytical values.
+
 ## Internal approximation
 
 The formula `:wedepohl1973` approximates the surface impedances of `:schelkunoff1934` by the closed

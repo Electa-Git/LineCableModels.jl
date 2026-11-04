@@ -8,7 +8,7 @@ temperature and the frequencies of interest, and by a formulation, which selects
 
 ## Documentation outline
 
-- [Examples](examples.md): construction of four cable systems and computation of their line
+- [Examples](examples.md): construction of five cable systems and computation of their line
   parameters.
 - [Cable data model](data-model.md): materials, shapes, cable parts, designs and systems.
 - [Line parameters](computing.md): problems, formulations, computations and results.

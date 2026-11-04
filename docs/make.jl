@@ -11,7 +11,8 @@ project = TOML.parsefile(joinpath(@__DIR__, "..", "Project.toml"))
 
 # The examples, in the order of the contents, rendered from their scripts at every build.
 example_files = ["solid_1000mm2_single.jl", "cable_380kv_no_armour_ac_flat.jl",
-    "cable_320kv_armoured_dc_bipole.jl", "cable_525kv_subsea_armoured_ac_flat.jl"]
+    "cable_320kv_armoured_dc_bipole.jl", "cable_525kv_subsea_armoured_ac_flat.jl",
+    "cable_30kv_630mm2_trefoil.jl"]
 rm(joinpath(@__DIR__, "src", "examples"); recursive = true, force = true)
 for file in example_files
     Literate.markdown(joinpath(@__DIR__, "..", "examples", file),
