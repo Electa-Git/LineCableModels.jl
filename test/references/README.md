@@ -225,6 +225,10 @@ trefoils is 7.51 % for `cable_18kv_1000mm2_trefoil` and 9.00 % for `cable_30kv_n
 `cable_132kv_630mm2_flathor` with straight lays gives its `fem` rows again within 1.3e-8 of the largest diagonal entry,
 at 0.1 Hz and 10 MHz.
 
+In an analytical run of `cable_132kv_630mm2_flathor` with straight lays, the 61 core wires become one solid copper core
+of their area, inside the same fill. Its e_Z exceeds the stranded core's at every FEM frequency from 0.63 Hz to
+39.8 kHz, at most 2.19 % at 158 Hz.
+
 Both trefoils keep their e_Z at 10 MHz from the proximity of the cables. The coaxial formulation distributes the
 current of each conductor uniformly around its axis, and the FEM resolves the currents that the neighbors induce. With
 the cables five diameters apart and straight lays, e_Z is at most 1.08 % in both, at 6.3 kHz.
