@@ -250,15 +250,19 @@ A circular arc of radius ``R`` takes at least ``\max(n_c, 2\pi R/h)`` segments p
 with ``h`` the target of its region and
 ``n_c = 12 \cdot 2^{\max(0, \lceil \log_2(\sqrt{2\pi^2/(3\tau)}/12) \rceil)}``, which bounds
 the relative error of the area of a circle by ``\tau``, the override
-`ConductorGeometryTolerance`. Each region has the target ``h`` equal to ``m_h`` times
+`ConductorGeometryTolerance`. A straight side of length ``L`` of a conductor takes
+``\lceil L/h \rceil`` intervals. Each region has the target ``h`` equal to ``m_h`` times
 ``r/5`` for a solid circle of radius ``r``, ``r`` for a round strand, ``(r_o - r_i)/2`` for an
 annulus, ``\min(w, h_\square)/5`` for a rectangle of width ``w`` and height ``h_\square``,
-and ``\min(w, h_\square)/2`` for a rectangular strand. A thin passive annulus is meshed as a
+and ``\min(w, h_\square)/2`` for a rectangular strand. A sector of radii ``r_i`` and ``r_o``
+and angle ``\varphi`` takes the target of the rectangle of width ``r_o - r_i`` and height
+``\varphi (r_o + r_i)/2``. A thin passive annulus is meshed as a
 strip of ``\max(2, \lceil 2/m_h \rceil)`` radial intervals, with the target of the region at
 least ``2\pi r_o/n_c``.
 
-In a circular or annular conductor of width ``w``, the radius of a circle or the thickness of
-an annulus, the skin depth ``\delta`` and the phase rate ``\beta`` follow from
+In a conductor, the width ``w`` is the radius of a circle, the thickness of an annulus or
+the smaller side of a rectangle, straight or bent. The skin depth ``\delta`` and the phase
+rate ``\beta`` follow from
 ``\sqrt{\mathrm{j}\omega\mu\widehat\sigma} = 1/\delta + \mathrm{j}\beta``. A graded layer of
 elements along the contour of the conductor, of depth ``e`` and ``N`` intervals growing by
 the ratio ``g``, starts at the first size ``h_1``:
@@ -272,8 +276,10 @@ h_1^\ast = \min\left(\frac{m_h\delta}{n_\delta}, \frac{m_h w}{n_t}\right),
 
 where ``n_s``, ``n_\delta``, ``g`` and, for an annulus, ``n_t`` are the overrides
 `ConductorSkinDepths`, `ConductorSkinDepthElements`, `ConductorMeshGrowth` and
-`ConductorThicknessElements`, ``n_t = 5`` for a circle, and ``f`` is 0.5 for a circle and
-0.45 for an annulus. The bent rectangular strands keep the target of their region. The interior of the conductor has the target
+`ConductorThicknessElements`. For a circle and a rectangle, ``n_t = 5``, and ``f`` is 0.5
+for a circle and 0.45 for an annulus. Only a circle or an annulus whose width ``w`` exceeds
+``\delta`` takes the graded layer. Another conducting outline takes the node counts of its
+curves and the interior target alone. The interior of the conductor has the target
 ``\min(h, m_h w / n_t)``, further limited to ``2\pi m_h / (12\beta)`` when
 ``w / \delta \leq n_s``.
 

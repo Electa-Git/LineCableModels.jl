@@ -28,20 +28,38 @@
             end
         end
     end
-    @testset "a rounded wedge meshes" begin
+    # Each conductor takes the conductor mesh controls on its arcs and its straight sides.
+    # At 0.1 Hz, the real part of Z is the direct-current resistance plus ωμ₀/8, the earth
+    # return resistance. At 50 Hz, the skin depth of copper, 9.35 mm, is less than the width
+    # of each conductor. The graded layer of the controls then applies.
+    @testset "a $id meshes as a conductor" for (id, shape, straight, target) in (
+        ("rounded-wedge",
+            LineCableModels.Sector(0, 10.0e-3, 2π / 3,
+                1.0e-3 / sin(π / 3), 1.5e-3, Placement(0, 0)), 2, 10.0e-3 / 5),
+        ("straight-bar", Rectangle(30.0e-3, 12.0e-3), 4, 12.0e-3 / 5))
         copper = Material(:conductor, 1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
-        S3 = LineCableModels.Sector(0, 10.0e-3, 2π / 3,
-            1.0e-3 / sin(π / 3), 1.5e-3, Placement(0, 0))
-        design = build(CableDesign, "rounded-wedge", Terminal(:core, Region(:core, S3, copper)))
+        design = build(CableDesign, id, Terminal(:core, Region(:core, shape, copper)))
         system = build(CableSystem, [design], [Placement(0.0, 10.0)];
-            connections = [(core = 1,)], id = "rounded-wedge", line_length = 1.0)
+            connections = [(core = 1,)], id = id, line_length = 1.0)
         problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
-            frequencies = [50.0])
+            frequencies = [0.1, 50.0])
         mktempdir() do folder
             cd(folder) do
-                result = compute(problem, FEM())
+                result = compute(problem, FEM(); keep_run_directory = true)
                 @test result isa LineParameters{Float64}
-                @test size(result.Z) == (1, 1, 1)
+                @test size(result.Z) == (1, 1, 2)
+                retained = only(readdir(
+                    joinpath(folder, ".linecablemodels", "fem", id); join = true))
+                lines = readlines(joinpath(retained, "input", "physical.geo"))
+                @test "FEMConductor~{0} = 1;" in lines
+                line = only(filter(startswith("FEMConductorArcFractions~{0}()"), lines))
+                fractions = parse.(Float64, split(match(r"= \{([^}]*)\};$", line)[1], ','))
+                @test count(iszero, fractions) == straight
+                metadata = readlines(joinpath(retained, "logs", "mesh-0001-metadata.txt"))
+                line = only(filter(startswith("region_mesh_sizes_m "), metadata))
+                @test isapprox(parse(Float64, last(split(line))), target; rtol = 1e-12)
+                resistance = 1.7241e-8 / area(shape) + 2π * 0.1 * LineCableModels.μ₀ / 8
+                @test abs(real(result.Z[1, 1, 1]) / resistance - 1) <= 2e-3
             end
         end
     end

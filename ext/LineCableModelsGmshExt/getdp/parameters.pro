@@ -272,24 +272,25 @@ FEMCircleSegments = 12*2^Max[0,Ceil[Log[Sqrt[2*Pi^2/(3*ConductorGeometryToleranc
 FEMAnnularLayers = 0; MeshFine = 1e300;
 For region In {0:NumPhysicalRegions-1}
   FEMAnnularLayers += RegionAnnularPassive~{region};
-  FEMRegionTarget = 1e300;
+  FEMRegionTarget = 1e300; FEMRegionWidth = 1e300;
   // Several source sections may form one coalesced material region. Native
-  // sizing retains the smallest source target without altering its topology.
+  // sizing retains the smallest source target and width without altering its topology.
   For member In {0:#RegionDimensionKinds~{region}()-1}
     FEMKind = RegionDimensionKinds~{region}(member);
     FEMD1 = RegionDimension1~{region}(member); FEMD2 = RegionDimension2~{region}(member);
     FEMRepeated = RegionRepeated~{region}(member);
-    If(FEMKind == 1) FEMSize = FEMD1/(FEMRepeated ? 1 : 5);
+    If(FEMKind == 1)
+      FEMSize = FEMD1/(FEMRepeated ? 1 : 5); FEMRegionWidth = Min[FEMRegionWidth,FEMD1];
     ElseIf(FEMKind == 2)
-      FEMSize = (FEMD1-FEMD2)/2;
+      FEMSize = (FEMD1-FEMD2)/2; FEMRegionWidth = Min[FEMRegionWidth,FEMD1-FEMD2];
       If(ThinLayerStrips && RegionAnnularPassive~{region}) FEMSize = Max[FEMSize,2*Pi*FEMD1/FEMCircleSegments]; EndIf
-    ElseIf(FEMKind == 3) FEMSize = Min[FEMD1,FEMD2]/(FEMRepeated ? 2 : 5);
-    ElseIf(FEMKind == 4) FEMSize = Min[FEMD1,FEMD2]/(FEMRepeated ? 1 : 5);
-    Else FEMSize = FEMD1/FEMD2;
+    ElseIf(FEMKind == 3)
+      FEMSize = Min[FEMD1,FEMD2]/(FEMRepeated ? 2 : 5); FEMRegionWidth = Min[FEMRegionWidth,Min[FEMD1,FEMD2]];
     EndIf
     FEMRegionTarget = Min[FEMRegionTarget,FEMSize];
   EndFor
   RegionSize~{region} = MeshSizeFactor*FEMRegionTarget;
+  RegionWidth~{region} = FEMRegionWidth;
   MeshFine = Min[MeshFine,RegionSize~{region}];
 EndFor
 MeshInterface = MeshBulk;

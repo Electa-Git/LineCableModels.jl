@@ -170,36 +170,24 @@ For region In {0:NumPhysicalRegions-1}
     Else FEMDecay = Sqrt(FEMOmega*FEMMu*(FEMH-FEMB)/2); EndIf
     FEMPhase = Sqrt(FEMOmega*FEMMu*(FEMH+FEMB)/2);
     FEMDelta = 1e300; If(FEMDecay > 0) FEMDelta = 1/FEMDecay; EndIf
-    FEMWidth = FEMConductorWidth~{region};
+    FEMWidth = RegionWidth~{region};
     FEMContourSize = RegionSize~{region};
     FEMDivisions = FEMConductorKind~{region} == 2 ? ConductorThicknessElements : 5;
-    FEMFraction = FEMConductorKind~{region} == 1 ? .5 : (FEMConductorKind~{region} == 2 ? .45 : .9);
+    FEMFraction = FEMConductorKind~{region} == 1 ? .5 : .45;
     FEMCap = MeshSizeFactor*FEMWidth/FEMDivisions; FEMBulk = Min(RegionSize~{region},FEMCap);
     If(FEMDecay*FEMWidth <= ConductorSkinDepths && FEMPhase > 0) FEMBulk = Min(FEMBulk,MeshSizeFactor*2*Pi/(12*FEMPhase)); EndIf
     FEMExtent = Min(ConductorSkinDepths*FEMDelta,FEMFraction*FEMWidth);
     FEMFirst = Min(MeshSizeFactor*FEMDelta/ConductorSkinDepthElements,FEMCap);
-    If(FEMConductorSector~{region})
-      FEMBulk = Min(FEMBulk,MeshSizeFactor*FEMWidth/30); FEMSegments = 2*FEMCircleSegments; FEMDepth = FEMSectorDepth~{region};
-      If(ConductorMeshGrowth == 1) FEMLayers = Ceil(FEMDepth/FEMFirst);
-      Else FEMLayers = Ceil(Log(1+(ConductorMeshGrowth-1)*FEMDepth/FEMFirst)/Log(ConductorMeshGrowth)); EndIf
-      For arc In {0:#FEMSectorOuter~{region}()-1}
-        FEMAngular = FEMSectorTurns~{region}(arc)*FEMSegments/(2*Pi);
-        FEMTangential = FEMSectorLengths~{region}(arc)/((FEMWidth/5)*96/FEMSegments);
-        Transfinite Curve {FEMSectorOuter~{region}(arc),FEMSectorInner~{region}(arc)} = Max(2,Max(Ceil(FEMAngular),Ceil(FEMTangential)))+1;
-      EndFor
-      For spoke In {0:#FEMSectorSpokes~{region}()-1}
-        FEMCurve = FEMSectorSpokes~{region}(spoke);
-        FEMRatio = FEMCurve > 0 ? ConductorMeshGrowth : 1/ConductorMeshGrowth;
-        Transfinite Curve {Abs(FEMCurve)} = FEMLayers+1 Using Progression FEMRatio;
-      EndFor
+    If(ConductorMeshGrowth == 1)
+      FEMLayers = Ceil(FEMExtent/FEMFirst); FEMFirst = FEMExtent/FEMLayers;
     Else
-      If(ConductorMeshGrowth == 1)
-        FEMLayers = Ceil(FEMExtent/FEMFirst); FEMFirst = FEMExtent/FEMLayers;
-      Else
-        FEMLayers = Ceil(Log(1+(ConductorMeshGrowth-1)*FEMExtent/FEMFirst)/Log(ConductorMeshGrowth));
-        FEMFirst = FEMExtent*(ConductorMeshGrowth-1)/(ConductorMeshGrowth^FEMLayers-1);
-      EndIf
-      For arc In {0:#FEMRegionCurves~{region}()-1}
+      FEMLayers = Ceil(Log(1+(ConductorMeshGrowth-1)*FEMExtent/FEMFirst)/Log(ConductorMeshGrowth));
+      FEMFirst = FEMExtent*(ConductorMeshGrowth-1)/(ConductorMeshGrowth^FEMLayers-1);
+    EndIf
+    For arc In {0:#FEMRegionCurves~{region}()-1}
+      FEMLocal = Ceil(FEMConductorArcLengths~{region}(arc)/RegionSize~{region})+1;
+      FEMCurve = FEMRegionCurves~{region}(arc);
+      If(FEMConductorArcFractions~{region}(arc) > 0)
         // Allow 64 Float64 ulps when rounding angular interval counts.
         FEMLayerSegments = 0;
         If(!ThinLayerStrips)
@@ -215,26 +203,24 @@ For region In {0:NumPhysicalRegions-1}
           FEMAngularEpsilon = 2^(Floor(Log(FEMAngularIntervals)/Log(2))-52);
         EndIf
         FEMAngular = Ceil(FEMAngularIntervals-64*FEMAngularEpsilon)+1;
-        FEMLocal = Ceil(FEMConductorArcLengths~{region}(arc)/RegionSize~{region})+1;
         FEMArcNodes = Max(2,Max(FEMAngular,FEMLocal));
-        FEMCurve = FEMRegionCurves~{region}(arc);
-        FEMCurveNodes~{FEMCurve} = FEMArcNodes;
         FEMRadius = FEMConductorArcLengths~{region}(arc)/(2*Pi*FEMConductorArcFractions~{region}(arc));
         FEMCurveSegments~{FEMCurve} = Max(FEMCircleSegments,2*Pi*FEMRadius/RegionSize~{region});
-        Transfinite Curve {FEMCurve} = FEMArcNodes;
-        FEMContourSize = Min(FEMContourSize,FEMConductorArcLengths~{region}(arc)/(FEMArcNodes-1));
-      EndFor
-      FEMLayer = FEMNextField; FEMNextField += 1; Field[FEMLayer] = BoundaryLayer;
-      Field[FEMLayer].CurvesList = {FEMRegionCurves~{region}()};
-      Field[FEMLayer].Size = FEMFirst; Field[FEMLayer].Ratio = ConductorMeshGrowth;
-      Field[FEMLayer].Thickness = FEMExtent*(1+1e-8); Field[FEMLayer].Quads = 0;
-      If(!#FEMAllSurfaces()) FEMAllSurfaces() = Surface{:}; EndIf
-      FEMExcluded() = {FEMAllSurfaces()};
-      If(FEMDelta < FEMWidth)
-        FEMExcluded() -= {FEMRegionSurfaces~{region}()};
-        Field[FEMLayer].ExcludedSurfacesList = {FEMExcluded()}; BoundaryLayer Field = FEMLayer;
-      Else Field[FEMLayer].ExcludedSurfacesList = {FEMExcluded()}; EndIf
-    EndIf
+      Else FEMArcNodes = FEMLocal; EndIf
+      FEMCurveNodes~{FEMCurve} = FEMArcNodes;
+      Transfinite Curve {FEMCurve} = FEMArcNodes;
+      FEMContourSize = Min(FEMContourSize,FEMConductorArcLengths~{region}(arc)/(FEMArcNodes-1));
+    EndFor
+    FEMLayer = FEMNextField; FEMNextField += 1; Field[FEMLayer] = BoundaryLayer;
+    Field[FEMLayer].CurvesList = {FEMRegionCurves~{region}()};
+    Field[FEMLayer].Size = FEMFirst; Field[FEMLayer].Ratio = ConductorMeshGrowth;
+    Field[FEMLayer].Thickness = FEMExtent*(1+1e-8); Field[FEMLayer].Quads = 0;
+    If(!#FEMAllSurfaces()) FEMAllSurfaces() = Surface{:}; EndIf
+    FEMExcluded() = {FEMAllSurfaces()};
+    If(FEMDelta < FEMWidth && FEMConductorKind~{region} < 3)
+      FEMExcluded() -= {FEMRegionSurfaces~{region}()};
+      Field[FEMLayer].ExcludedSurfacesList = {FEMExcluded()}; BoundaryLayer Field = FEMLayer;
+    Else Field[FEMLayer].ExcludedSurfacesList = {FEMExcluded()}; EndIf
     FEMConstant = FEMNextField; FEMNextField += 1; Field[FEMConstant] = MathEval; Field[FEMConstant].F = Sprintf("%.17g",FEMBulk);
     FEMField = FEMNextField; FEMNextField += 1; Field[FEMField] = Restrict; Field[FEMField].InField = FEMConstant;
     Field[FEMField].SurfacesList = {FEMConductorBulkSurfaces~{region}()}; FEMBackground() += {FEMField};
@@ -294,15 +280,13 @@ If(ThinLayerStrips) Call FEMLayerBoundaryTargets; EndIf
 For region In {0:NumPhysicalRegions-1}
   If(FEMConductor~{region})
     FEMContourSize = RegionSize~{region};
-    If(!FEMConductorSector~{region})
-      For arc In {0:#FEMRegionCurves~{region}()-1}
-        FEMCurve = FEMRegionCurves~{region}(arc);
-        If(ThinLayerStrips && Exists(FEMAnnularCurve~{FEMCurve}))
-          FEMRadius = FEMConductorArcLengths~{region}(arc)/(2*Pi*FEMConductorArcFractions~{region}(arc));
-          FEMContourSize = Min(FEMContourSize,2*Pi*FEMRadius/FEMCurveSegments~{FEMCurve});
-        Else FEMContourSize = Min(FEMContourSize,FEMConductorArcLengths~{region}(arc)/(FEMCurveNodes~{FEMCurve}-1)); EndIf
-      EndFor
-    EndIf
+    For arc In {0:#FEMRegionCurves~{region}()-1}
+      FEMCurve = FEMRegionCurves~{region}(arc);
+      If(ThinLayerStrips && Exists(FEMAnnularCurve~{FEMCurve}))
+        FEMRadius = FEMConductorArcLengths~{region}(arc)/(2*Pi*FEMConductorArcFractions~{region}(arc));
+        FEMContourSize = Min(FEMContourSize,2*Pi*FEMRadius/FEMCurveSegments~{FEMCurve});
+      Else FEMContourSize = Min(FEMContourSize,FEMConductorArcLengths~{region}(arc)/(FEMCurveNodes~{FEMCurve}-1)); EndIf
+    EndFor
     // Reuse the native transfinite contour spacing and exterior growth law.
     // Boundary-size Extend fields are unavailable while floating 1D curves
     // are meshed, so this target is declared from the same arc counts above.

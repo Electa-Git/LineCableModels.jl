@@ -18,7 +18,7 @@ using LineCableModels.Earth: EarthLayer
 import LineCableModels.DataModel: area
 using LineCableModels.DataModel: AbstractShape, AbstractPrimitive, Circle, Annulus,
                                  Rectangle, Offset, Sector, PerforatedShape,
-                                 PlacedRegion, Placement, support, r_in, r_ex
+                                 PlacedRegion, Placement, support
 import LineCableModels.CAD: draw
 using LineCableModels.DataModel: Segment, Arc, Curve, Contour
 import LineCableModels.Engine: solve!

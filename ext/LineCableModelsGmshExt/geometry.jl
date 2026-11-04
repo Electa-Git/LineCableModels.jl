@@ -969,6 +969,17 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Return the smaller side `min(w, h)` of `shape` \\[m\\] as its smallest metal dimension in
+`geometry`. The rectangle's center, width and height are in \\[m\\] and its rotation in
+\\[rad\\], and `surfaces` holds its plane surface tags.
+"""
+function dimension(::Geometry, shape::Rectangle, surfaces::AbstractVector{<:Integer})
+    return min(shape.w, shape.h)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Return the shorter bounding-box side \\[m\\] of the first plane surface in `surfaces`
 as the smallest metal dimension of `shape` in `geometry`. The sector's center and radii
 are in \\[m\\] and its angle and span in \\[rad\\].
@@ -1038,14 +1049,23 @@ end
 $(TYPEDSIGNATURES)
 
 Return the fraction of a revolution \\[dimensionless\\] and length \\[m\\] of the
-stored circular curve tagged `arc` in `geometry`. Read its radius \\[m\\] and signed
-span \\[rad\\] from the CAD curve: the fraction is `abs(span) / (2π)` and the length
-is `abs(span) * r`.
+straight curve `segment` stored in the geometry. The fraction is zero, and the length is
+the distance between its endpoints \\[m\\].
 """
-function turn(geometry::Geometry, arc::Integer)
-    curve = geometry.curves[abs(arc)]
-    span = abs(curve.span)
-    return (fraction = span / (2π), length = span * curve.r)
+function turn(segment::Segment{T}) where {T}
+    return (fraction = zero(T), length = hypot((segment.b .- segment.a)...))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the fraction of a revolution \\[dimensionless\\] and length \\[m\\] of the
+circular curve `arc` stored in the geometry. Its radius is in \\[m\\] and its signed span
+in \\[rad\\]. The fraction is `abs(span) / (2π)` and the length is `abs(span) * r`.
+"""
+function turn(arc::Arc)
+    span = abs(arc.span)
+    return (fraction = span / (2π), length = span * arc.r)
 end
 
 """
@@ -1082,9 +1102,9 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the native section record of `shape`, an annular sector with center and radii in
-\\[m\\] and angular span and rotation in \\[rad\\]. The record holds `kind = 0` and
-its bent rectangle's height and width:
+Return the native section record of `shape`, a sector with center and radii in \\[m\\]
+and angular span and rotation in \\[rad\\]. The record is the rectangle's, `kind = 3`,
+with the sides of the rectangle that the sector bends:
 
 ```math
 a = r_o - r_i, \\qquad b = \\varphi (r_o + r_i) / 2,
@@ -1094,7 +1114,7 @@ where ``r_o`` and ``r_i`` are the outer and inner radii \\[m\\], ``\\varphi`` is
 angular span \\[rad\\], and ``a`` and ``b`` are lengths \\[m\\].
 """
 function section(shape::Sector)
-    return (kind = 0, a = shape.ro - shape.ri,
+    return (kind = 3, a = shape.ro - shape.ri,
         b = shape.span * (shape.ro + shape.ri) / 2)
 end
 
@@ -1179,7 +1199,7 @@ function Base.write(path::AbstractString, geometry::Geometry)
         points = unique(last.(gmsh.model.getBoundary([(1, edge)], false, false, false)))
         cables = [k - 1 for (k, tags) in enumerate(cable_curves) if edge in tags]
         return (radius = radius, thickness = thickness, points = points,
-            cables = cables, fraction = turn(geometry, edge).fraction)
+            cables = cables, fraction = turn(geometry.curves[abs(edge)]).fraction)
     end
     raw = path * "_unrolled"
     gmsh.write(raw)
@@ -1270,17 +1290,12 @@ function Base.write(path::AbstractString, geometry::Geometry)
             shape = system.regions[i].shape
             material = model.material[i]
             conductor = model.materials[material].conductor
-            isconductor = section(shape).kind > 0 && conductor
             println(io, "FEMPassive~{", i - 1, "} = ", Int(!conductor), ";")
-            println(io, "FEMConductor~{", i - 1, "} = ", Int(isconductor), ";")
-            isconductor || continue
+            println(io, "FEMConductor~{", i - 1, "} = ", Int(conductor), ";")
+            conductor || continue
             println(io, "FEMConductorMaterial~{", i - 1, "} = ", material, ";")
-            width = r_ex(shape) - r_in(shape)
-            println(io, "FEMConductorWidth~{", i - 1, "} = ",
-                @sprintf("%.17g", Float64(width)), ";")
             println(io, "FEMConductorKind~{", i - 1, "} = ", section(shape).kind, ";")
-            println(io, "FEMConductorSector~{", i - 1, "} = 0;")
-            arcs = [turn(geometry, edge) for edge in edges]
+            arcs = [turn(geometry.curves[abs(edge)]) for edge in edges]
             center = key(shape.at.x, shape.at.y)
             thicknesses = map(edges) do edge
                 thickness = Inf

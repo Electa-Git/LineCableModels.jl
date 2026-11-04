@@ -21,6 +21,11 @@ FEM values within 1e-8. Run each script from the repository root as
 | `overhead_bare_wires` | two bare copper wires of radius 42.5 mm, 1 m apart, 1 m above earth of 0.1 Ω·m (εr 1) | `e41bba13` | `20261031-100133` |
 | `mixed_bare_wires` | the same wires at (0, 1) m and (1, −1) m, one overhead and one buried | `e41bba13` | `20261031-100324` |
 
+The `fem` rows of `coaxial_rectangular_strands` come from the run `20261104-195453`, at the
+commit that meshes each of its rectangular strands as a conductor. That run computes the case as
+`test/references/problems.jl` declares it, with the options of the FEM test of the suite. The
+`analytical` rows are those of `2bff171d`.
+
 The coaxial cable, from the center out:
 
 - The core of `coaxial_circular_strands` is 37 copper wires of 3 mm: a straight center wire and
@@ -44,8 +49,10 @@ evenly spaced on a logarithmic scale. The FEM rows hold 11 of them, one per 0.8 
 Each case folder also holds `physical.geo`, the geometry file of the FEM run of its
 script. At commit `989af96c`, the four original scripts ran unchanged with
 gmsh_jll 4.15.2. Their FEM rows match `matrices.csv` within 5.4e-9 of the largest
-diagonal entry. Each `physical.geo` is byte-identical to the retained file of its case's run of
-2026-10-25. The geometry tests compare against these files.
+diagonal entry. Each `physical.geo` is the retained file of its case's run of 2026-10-25, without
+the lines `FEMConductorWidth` and `FEMConductorSector`, which the extension no longer writes. The
+file of `coaxial_rectangular_strands` is the retained file of its run `20261104-195453`. The
+geometry tests compare against these files.
 
 Running a script again gives analytical values identical to the bit and FEM values within about
 1e-8 of the largest diagonal entry. FEM meshes depend on incidental state such as the length of
@@ -123,7 +130,7 @@ For `two_bare_wires`, `two_insulated_wires`, `overhead_bare_wires` and
 Their rows agree with the frozen `fem` rows within 1e-6 scaled.
 The frozen wire-pair rows use a tolerance of 1e-6 of the largest diagonal entry on the reference
 platform, x86_64 Linux, and 1e-2, the FEM acceptance metric, on other platforms.
-For the coaxial cases, the maxima against the frozen `fem` rows are:
+For the coaxial cases, the maxima against the `fem` rows frozen on 2026-10-25 are:
 
 | Case | Scaled difference in Z | Scaled difference in Y |
 |---|---|---|
@@ -238,6 +245,34 @@ For `cable_30kv_630mm2_trefoil`, the script also compares the positive-sequence 
 -5.63 % at 2500 Hz. The reactance `X1` deviates by -7.93 % at 250 Hz to +1.42 % at 1950 Hz, and the susceptance `B1` by
 -0.0209 % at every frequency. These deviations come from the proximity of the touching cables. With the cables five
 diameters apart, e_Z is at most 0.155 %, and `R1` and `X1` lie within 0.24 % and 0.28 % of the analytical values.
+
+## A sector core against its equivalent tube
+
+One copper sector core is alone in its cable, 10 m above earth of 100 Ω·m (εr 10):
+`Sector(0, 10.0e-3, 2π / 3, 1.0e-3 / sin(π / 3), 1.5e-3, Placement(0, 0))`. Its sides meet
+1.15 mm from its center, and fillets of 1.5 mm round its three corners. Its area is 83.59 mm² and
+its perimeter 35.51 mm.
+
+Ametani's equivalent tube has the same area and perimeter. Its inner radius is 2.311 mm and its
+outer radius 5.652 mm, with an insulator in its hole. The table compares the FEM of the core with
+the coaxial formulation of the tube. The FEM of the tube against its coaxial formulation is the
+control.
+
+| Frequency | Core: e_Z | Core: e_Y | Control: e_Z | Control: e_Y |
+|---|---|---|---|---|
+| 0.1 Hz | 0.0625 % | 0.389 % | 0.0715 % | 0.765 % |
+| 1 Hz | 0.0620 % | 0.387 % | 0.0876 % | 0.712 % |
+| 10 Hz | 0.112 % | 0.387 % | 0.373 % | 0.701 % |
+| 100 Hz | 0.243 % | 0.396 % | 0.596 % | 0.746 % |
+| 1 kHz | 0.347 % | 0.386 % | 0.590 % | 0.736 % |
+| 10 kHz | 0.355 % | 0.371 % | 0.580 % | 0.706 % |
+| 100 kHz | 0.317 % | 0.210 % | 0.554 % | 0.653 % |
+| 1 MHz | 0.492 % | 0.479 % | 0.846 % | 0.940 % |
+
+The core and the tube agree within the FEM accuracy level at every frequency. The mesh of the core
+has the node counts of its curves and the interior target of a conductor, without the graded
+layer. At 0.1 Hz, the resistance of the core is 0.0624 % above `ρ/A` plus the earth return
+resistance `ωμ₀/8`. Each computation ran once, at the commit that adds this section.
 
 ## Internal approximation
 
