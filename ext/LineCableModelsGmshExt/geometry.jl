@@ -1354,3 +1354,85 @@ function Base.write(path::AbstractString, geometry::Geometry)
     rm(raw)
     return
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Draw the elliptic curve ``at(a cos θ,b sin θ)`` in \\[m\\] with Gmsh ellipse arcs.
+Split its parametric span \\[rad\\] into intervals at most ``π/2``. Reuse an elliptic
+arc with the same ellipse, endpoints and midpoint from `curves` and `ends`. Return
+its stored tag with the requested orientation.
+"""
+function draw(geometry::Geometry, arc::EllipticArc)
+    tags = Int[]
+    n = ceil(Int, abs(arc.span) / (π / 2))
+    center = point!(geometry, (arc.at.x, arc.at.y))
+    major = point!(geometry, arc.at(arc.a >= arc.b ? (arc.a, 0) : (0, arc.b)))
+    for k in 0:(n - 1)
+        curve = EllipticArc(arc.at, arc.a, arc.b, arc.φ0 + k * arc.span / n, arc.span / n)
+        p, q = point!(geometry, curve(0)), point!(geometry, curve(1))
+        stored = [tag
+                  for (tag, candidate) in geometry.curves
+                  if candidate isa EllipticArc &&
+                     key(candidate.at.x, candidate.at.y,
+                         candidate.at.φ, candidate.a, candidate.b) ==
+                     key(curve.at.x, curve.at.y, curve.at.φ, curve.a, curve.b) &&
+                     minmax(geometry.ends[tag]...) == minmax(p, q) &&
+                     key(geometry, candidate(1 / 2)) == key(geometry, curve(1 / 2))]
+        if isempty(stored)
+            start_tag, stop_tag = curve.span > 0 ? (p, q) : (q, p)
+            tag = gmsh.model.geo.addEllipseArc(start_tag, center, major, stop_tag)
+            geometry.ends[tag] = (start_tag, stop_tag)
+            geometry.curves[tag] = EllipticArc(curve.at, curve.a, curve.b,
+                curve.span > 0 ? curve.φ0 : curve.φ0 + curve.span, abs(curve.span))
+            push!(tags, curve.span > 0 ? tag : -tag)
+        else
+            tag = only(stored)
+            push!(tags, geometry.ends[tag] == (p, q) ? tag : -tag)
+        end
+    end
+    return tags
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `geometry` unchanged for an elliptic arc.
+"""
+function cut!(geometry::Geometry, ::EllipticArc)
+    return geometry
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the ellipse's native section record, ``kind=1``, ``a=min(shape.a,shape.b)``
+\\[m\\] and ``b=0`` \\[m\\].
+"""
+function section(shape::Ellipse)
+    return (kind = 1, a = min(shape.a, shape.b), b = zero(shape.a))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the polygon's native section record, ``kind=3``, with bounding-box sides
+``a=support(shape,0)+support(shape,π)`` and
+``b=support(shape,π/2)+support(shape,3π/2)`` \\[m\\].
+"""
+function section(shape::Polygon)
+    return (kind = 3, a = support(shape, 0) + support(shape, π),
+        b = support(shape, π / 2) + support(shape, 3π / 2))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the arc polygon's native section record, ``kind=3``, with bounding-box sides
+``a=support(shape,0)+support(shape,π)`` and
+``b=support(shape,π/2)+support(shape,3π/2)`` \\[m\\].
+"""
+function section(shape::ArcPolygon)
+    return (kind = 3, a = support(shape, 0) + support(shape, π),
+        b = support(shape, π / 2) + support(shape, 3π / 2))
+end

@@ -110,8 +110,9 @@ formula that cannot treat an input throws when it is called.
 A cross-section is one type with the methods of one unary interface: `area`, `centroid`,
 `support`, `distance`, `perimeter`, `boundary`, `resolve` and its exact outline, `Contour`.
 `r_in` and `r_ex` exist on circular cross-sections only. No method takes two cross-sections.
-The primitives are `Circle`, `Annulus`, `Rectangle` and `Sector`. `ArcPolygon` is the region
-inside a closed path of segments and arcs. `Offset(t)` is an operator: a layer declared by
+The primitives are `Circle`, `Annulus`, `Rectangle`, `Sector`, `Ellipse` and `Polygon`.
+`ArcPolygon` is the region inside a closed path of segments and of circular or elliptic
+arcs. `Offset(t)` is an operator: a layer declared by
 its thickness, resolved on the outline of the part inside it. `PerforatedShape` is the
 cross-section of a fill, a container without the outlines of its contents. A new kind of
 cross-section is one type and its methods. The structure above it does not change.

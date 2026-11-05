@@ -294,9 +294,8 @@ container without the outlines of the outermost regions of its contents, those t
 no other content's outline. The design refuses an empty hollow inside such an outline as a
 gap.
 
-The outline of the enclosure is the outline of its container. The container is a circle or an
-annulus, and the regions inside it lie between its inner and outer radii. `resolve` throws
-`ArgumentError` for any other container.
+The container is a primitive or a resolved cross-section. Its outline is the outline of the
+enclosure, and `⊆` tests whether each content lies within it.
 
 $(TYPEDFIELDS)
 """
@@ -310,29 +309,21 @@ struct Enclosure{F <: Region, C <: AbstractCablePart} <: AbstractCablePart
     end
 end
 
-# A circle or an annulus contains the regions between its inner and outer radii.
-validate(container::Union{Circle, Annulus}, ::Enclosure) = container
-
-function validate(container::AbstractShape, enclosure::Enclosure)
-    throw(ArgumentError(
-        "the container of :$(enclosure.fill.tag) is a $(nameof(typeof(container))); " *
-        "an enclosure takes a circle or an annulus as its container"))
-end
-
-# A region inside an enclosure lies inside its container.
+# A region inside an enclosure lies within its container.
 function validate(shape::AbstractShape, enclosure::Enclosure, container::AbstractShape)
-    radius = support(container)
-    tolerance = sqrt(eps(float(radius))) * max(one(radius), radius)
-    inside = support(shape) <= radius + tolerance &&
-             distance(shape) + tolerance >= distance(container)
-    inside || throw(DomainError(support(shape),
-        "a region inside :$(enclosure.fill.tag) must lie between " *
-        "$(distance(container)) m and $radius m from its center"))
+    shape ⊆ container || throw(DomainError(support(shape),
+        "a region inside :$(enclosure.fill.tag) must lie within its container"))
     return shape
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Resolve the fill as its container minus the contents' outlines.
+The holes are the outlines of the contents that lie within no other content's outline, by `⊆`.
+"""
 function resolve(described::NamedTuple, enclosure::Enclosure)
-    container = validate(resolve(described.outer, enclosure.fill.primitive), enclosure)
+    container = resolve(described.outer, enclosure.fill.primitive)
     inner = resolve(described, enclosure.contents)
     contents = (length(described.regions) + 1):length(inner.regions)
     shapes = [validate(inner.regions[index].shape, enclosure, container)
@@ -340,10 +331,7 @@ function resolve(described::NamedTuple, enclosure::Enclosure)
     outlines = map(boundary, shapes)
     holes = [outlines[i]
              for i in eachindex(shapes)
-             if !any(support(resolve(Placement(-outline.at.x, -outline.at.y), shapes[i])) <=
-                     outline.r +
-                     sqrt(eps(float(outline.r))) * max(one(outline.r), outline.r)
-    for (j, outline) in pairs(outlines) if j != i && outline isa Circle)]
+             if !any(shapes[i] ⊆ outlines[j] for j in eachindex(shapes) if j != i)]
     placed = PlacedRegion(enclosure.fill, PerforatedShape(container, holes))
     row = (region = length(inner.regions) + 1, contents = collect(contents))
     return merge(inner,

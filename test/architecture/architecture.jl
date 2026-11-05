@@ -81,6 +81,10 @@ end
         @test Guards.narrow_floats(directory) == Dict{String, Int}()
     end
 
+    @testset "offset reads" begin
+        @test Guards.offset_reads(directory) == Dict{String, Int}()
+    end
+
     @testset "Commons admission" begin
         @test Guards.commons_admission(methods, tree, homes) == Dict{String, Int}()
     end

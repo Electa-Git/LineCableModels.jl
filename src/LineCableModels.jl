@@ -16,12 +16,13 @@ include("datamodel/DataModel.jl")
 include("engine/Engine.jl")
 include("cad/CAD.jl")
 
-using .Commons: build, resolve, validate, compute, defaults, select, AbstractFormulation,
+using .Commons: build, resolve, validate, compute, defaults, select, nominal,
+                AbstractFormulation,
                 AbstractBackend, FormulationOptions, ComputationOptions
 using .Materials: Material, material
 using .Earth: EarthLayer, EarthModel, homogeneous, @layers
 using .DataModel: Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle,
-                  Offset, Sector, AbstractLayoutPattern, CircularPattern,
+                  Offset, Sector, Ellipse, Polygon, AbstractLayoutPattern, CircularPattern,
                   LinearPattern, Helix,
                   LayRatio, area, perimeter, centroid, support, distance, boundary, r_in,
                   r_ex,
@@ -38,7 +39,7 @@ using .Engine: ε₀, μ₀, AbstractInternalImpedance,
                impedance!, potential!, to_buffer!, from_buffer, initialize_buffers,
                LineParametersProblem, CoaxialFormulation, FEM, LCMBackend,
                GmshBackend, backend, LineParameters, bundle!, eliminate!, transposition!,
-               SpectralIntegral, integrate, nominal, Λ, reductions,
+               SpectralIntegral, integrate, Λ, reductions,
                @formulation, @air, @earth, @mixed
 
 export Material, material, EarthLayer, EarthModel, homogeneous, @layers
@@ -51,7 +52,7 @@ export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Enclosure, Cable
        CableSystem, build
 export @design, @terminal, core, insulation, screen, sheath, bedding, jacket, stranded,
        wires, tape, trefoil, flat
-public Commons, Materials, Earth, DataModel, validate, resolve, Sector,
+public Commons, Materials, Earth, DataModel, validate, resolve, Sector, Ellipse, Polygon,
        PerforatedShape, ArcPolygon
 public PlacedRegion, CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
 export compute, LineParametersProblem, CoaxialFormulation, FEM, LineParameters

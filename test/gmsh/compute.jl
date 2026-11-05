@@ -63,6 +63,38 @@
             end
         end
     end
+    @testset "a $id meshes and solves" for (id, part, connections, n) in (
+        ("duct-bank",
+            Enclosure(Region(:bank, Rectangle(0.3, 0.2), Material(:insulator, Inf, 9)),
+                Repeat(LinearPattern(2, 0.12),
+                    Enclosure(Region(:hole, Circle(0.05), Material(:insulator, Inf)),
+                        Terminal(:core,
+                            Region(:core, Circle(0.01),
+                                Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)))))),
+            [(core = 1,)], 2),
+        ("elliptical-duct",
+            Enclosure(
+                Region(:duct, LineCableModels.Ellipse(30e-3, 20e-3), Material(:insulator, Inf)),
+                Terminal(:core,
+                    Region(:core, Circle(0.01),
+                        Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)))),
+            [(core = 1,)], 1))
+        design = build(CableDesign, id, part)
+        system = build(CableSystem, [design], [Placement(0, -1)];
+            connections = connections, id = id, line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+            frequencies = [0.1])
+        mktempdir() do folder
+            cd(folder) do
+                result = compute(problem, FEM())
+                @test result isa LineParameters{Float64}
+                @test size(result.Z) == (1, 1, 1)
+                resistance = 1.7241e-8 / (n * π * 0.01^2) +
+                             2π * 0.1 * LineCableModels.μ₀ / 8
+                @test abs(real(result.Z[1, 1, 1]) / resistance - 1) <= 2e-3
+            end
+        end
+    end
     # The frozen rows were produced on x86_64 Linux. Gmsh's meshing decisions depend on
     # floating point. The same build on the same platform regenerates the same mesh and
     # reproduces the rows to 1e-6 of the diagonal. On other platforms, the same geometry is

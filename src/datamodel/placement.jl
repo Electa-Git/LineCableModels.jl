@@ -70,10 +70,11 @@ function CircularPattern(n::Integer, r::Real, φ0::Real, span::Real, gap_frac::R
     return CircularPattern{T}(Int(n), convert.(T, values)...)
 end
 
-function CircularPattern(n::Integer, r::Offset, φ0::Real, span::Real, gap_frac::Real)
-    t, values... = promote(r.t, φ0, span, gap_frac)
-    T = promote_type(Float64, typeof(t))
-    return CircularPattern{T}(Int(n), Offset(convert(T, t)), convert.(T, values)...)
+function CircularPattern(n::Integer, r::Offset{S}, φ0::Real, span::Real,
+        gap_frac::Real) where {S <: Real}
+    values = promote(φ0, span, gap_frac)
+    T = promote_type(Float64, S, eltype(values))
+    return CircularPattern{T}(Int(n), map(x -> convert(T, x), r), convert.(T, values)...)
 end
 
 function validate(pattern::CircularPattern)
@@ -129,19 +130,19 @@ function resolve(::Union{EmptyBoundary, AbstractShape}, pattern::CircularPattern
     return pattern
 end
 
-# The members of a pattern at an offset lie on a circle beyond the outline inside them. Its
-# radius adds the offset and the radial half extent of a member to the outer radius of that
-# outline. That half extent is the radius of a circle, or half the height of a rectangle
-# that the pattern bends into an annular sector.
+# The members' centers lie on the outline of the layer of the clearance plus the member's
+# radial half extent.
 function resolve(outline::AbstractShape, pattern::CircularPattern{T, Offset{T}},
         circle::Circle) where {T}
-    return CircularPattern(pattern.n; r = support(outline) + pattern.r.t + circle.r,
+    return CircularPattern(
+        pattern.n; r = support(resolve(outline, map(t -> t + circle.r, pattern.r))),
         φ0 = pattern.φ0, span = pattern.span, gap_frac = pattern.gap_frac)
 end
 
 function resolve(outline::AbstractShape, pattern::CircularPattern{T, Offset{T}},
         rectangle::Rectangle) where {T}
-    return CircularPattern(pattern.n; r = support(outline) + pattern.r.t + rectangle.h / 2,
+    return CircularPattern(
+        pattern.n; r = support(resolve(outline, map(t -> t + rectangle.h / 2, pattern.r))),
         φ0 = pattern.φ0, span = pattern.span, gap_frac = pattern.gap_frac)
 end
 

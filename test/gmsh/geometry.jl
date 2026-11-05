@@ -24,6 +24,18 @@ end
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     Geometry, FieldModel = extension.Geometry, extension.FieldModel
     options = ComputationOptions(GmshBackend)
+    @testset "section records of an ellipse polygon and contour offset" begin
+        ellipse = LineCableModels.Ellipse(3.0e-3, 2.0e-3)
+        polygon = LineCableModels.Polygon([
+            (0.0, 0.0), (0.004, 0.0), (0.005, 0.003), (0.002, 0.005), (-0.001, 0.003)])
+        offset = LineCableModels.resolve(Rectangle(4.0e-3, 2.0e-3), Offset(0.5e-3))
+        @test extension.section(ellipse) == (kind = 1, a = 2.0e-3, b = 0.0)
+        @test extension.section(polygon).kind == 3
+        @test collect(extension.section(polygon))[2:3] ≈ [0.006, 0.005] rtol = 1e-12
+        @test extension.section(offset).kind == 3
+        @test collect(extension.section(offset))[2:3] ≈ [0.005, 0.003] rtol = 1e-12
+    end
+
     @testset "rectangle vertices split neighboring edges" begin
         reference = last(first(REFERENCES))
         model = FieldModel(reference, FEM())

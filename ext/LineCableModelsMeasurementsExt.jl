@@ -35,7 +35,7 @@ The derivative at the cusp of the absolute value takes `sign(0) = 0`.
 """
 module LineCableModelsMeasurementsExt
 
-import LineCableModels.Engine: nominal
+import LineCableModels.Commons: nominal
 using Measurements: Measurement, result, value
 using SpecialFunctions: SpecialFunctions, besselix, besselkx, besseljx, besselk
 

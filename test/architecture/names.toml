@@ -69,6 +69,7 @@ select = "fit a user's selection to the slot or option key it fills, lifting a S
 
 [modules.Commons]
 nouns = ["computation", "defaults", "values"]
+qualifiers = ["nominal"]
 
 [modules.Materials]
 nouns = ["kind"]
@@ -87,9 +88,9 @@ nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "o
     "designs", "connections", "blueprint", "conductor", "conductors",
     "dielectrics", "assembly", "core", "screen", "sheath", "bedding",
     "jacket", "tape", "wires", "spacing", "trefoil", "span", "apex", "fillet", "perimeter",
-    "polygon", "outline", "segment", "arc", "curve", "contour"]
+    "polygon", "outline", "segment", "arc", "curve", "contour", "ellipse", "vertices"]
 qualifiers = ["circular", "empty", "perforated", "placed", "stranded",
-    "layout", "flat", "linear", "outer"]
+    "layout", "flat", "linear", "outer", "elliptic"]
 symbols = ["φ", "ri", "ro", "w", "h", "t", "n", "φ0", "gap_frac", "q", "dir", "r", "a", "b"]
 prepositions = ["at"]
 
@@ -102,7 +103,7 @@ nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resist
     "line_parameters", "gmsh", "fem", "earth_return", "shunt", "buffers", "trace",
     "frequencies", "input", "connection", "radius", "bundles",
     "transposition", "integral", "integrand", "reductions", "air"]
-qualifiers = ["coaxial", "equivalent", "internal", "kept", "eliminated", "spectral", "nominal", "lcm", "mixed"]
+qualifiers = ["coaxial", "equivalent", "internal", "kept", "eliminated", "spectral", "lcm", "mixed"]
 symbols = ["Z", "Y", "r_ins_ex", "Λ", "ζ", "ε₀", "μ₀"]
 
 [modules.Engine.verbs]
@@ -151,6 +152,7 @@ AbstractFormulation = "the supertype of the formulations and of the formula fami
 AbstractBackend = "the supertype of the singletons that run a formulation"
 FormulationOptions = "the options of a formula or a formulation, its owner the first type parameter"
 ComputationOptions = "the options of a backend for one computation, its owner the first type parameter"
+nominal = "the nominal value of a quantity: the identity on a real number and componentwise on a complex number; the Measurements extension gives a measurement's nominal value"
 
 [register.Materials]
 lifts = ["material"]
@@ -171,6 +173,8 @@ AbstractShape = "the supertype of the exact cross-sections of cable parts"
 AbstractPrimitive = "the supertype of the shapes a part declares, with dimensions and a placement"
 Circle = "a circular cross-section with its placement"
 Annulus = "an annular cross-section with its placement"
+Ellipse = "an elliptical cross-section of two semi-axes along the axes of its placement"
+Polygon = "a cross-section bounded by straight edges between vertices given counterclockwise in the frame of its placement, no two edges crossing"
 Rectangle = "a rectangular cross-section with its placement: a strand that a circular pattern bends, or a container"
 AbstractLayoutPattern = "the supertype of the patterns that place the copies of a repeat"
 Offset = "a distance outward from the outline inside: the thickness of a layer or the clearance of a circular pattern"
@@ -181,17 +185,18 @@ LayRatio = "the lay length of a helix over the mean diameter of its course"
 area = "the cross-sectional area of a shape, or the signed area of a closed polyline, positive counterclockwise"
 centroid = "the centroid of a shape in the cable cross-section"
 support = "the radius of a circle about the origin that contains a shape, or the support function of a shape in a direction: its largest projection on that direction"
-boundary = "the outline of a shape: a circle, a rectangle, a sector or an arc polygon itself, an annulus's outer circle, a perforated shape's outer's; the next part resolves against it and an enclosure removes it from its fill"
+boundary = "the outline of a shape: a circle, a rectangle, a sector, an ellipse, a polygon or an arc polygon itself, an annulus's outer circle, a perforated shape's outer's; the next part resolves against it and an enclosure removes it from its fill"
 r_in = "the inner radius of a circular shape"
 r_ex = "the outer radius of a circular shape"
 placements = "the placements and the shared cross-section of the members a pattern lays"
 overlength = "the length of a helical path over the length of the cable"
 pitch = "the lay length of a helix at a radius"
 PerforatedShape = "a cross-section perforated by the cross-sections inside it, such as the fill between wires"
-ArcPolygon = "a region bounded by one closed path of segments and arcs, counterclockwise: a rounded polygon, an offset outline, the cell of a compaction"
+ArcPolygon = "a region bounded by one closed path of segments, arcs and elliptic arcs, counterclockwise: a rounded polygon, an offset outline, the cell of a compaction"
 Segment = "a straight curve between two points of the cross-section plane"
 Arc = "a circular curve of a radius about a placement, from its x-axis over a signed angular span"
-Curve = "a curve of a contour: a segment or an arc, the union of the two, written once"
+EllipticArc = "an elliptic curve of two semi-axes along the axes of a placement, from a parametric angle over a signed parametric span"
+Curve = "a curve of a contour: a segment, an arc or an elliptic arc, their union written once"
 Contour = "the closed paths of curves that bound a shape: its outer path and the path of each hole, each counterclockwise"
 LinearPattern = "n members placed on a line at a pitch, centered on the center of the enclosing part"
 distance = "the radius of a circle about the origin that a shape does not enter"
@@ -261,7 +266,6 @@ CoaxialInput = "the numerical input of a computation in the coaxial model: each 
 "transposition!" = "the ideal transposition: the mean of a matrix over the cyclic permutations of its rows and columns"
 SpectralIntegral = "the integral of a kernel in λ over [0, ∞) along the path ζ its constructor chooses, which integrate evaluates by the method its tag selects"
 integrate = "evaluate an integral by the method that its tag selects, with the controls of its section"
-nominal = "the nominal value of a quantity: the identity on a real number and componentwise on a complex number; the Measurements extension gives a measurement's nominal value"
 "Λ" = "the circumferential mean of the direct and image fields of a source on a receiver in one medium, the family tool of the earth return; a formula overrides it"
 reductions = "the conductor indices that the bundle and Kron reductions of a system merge, keep and remove under the formulation's options, with the labels of its conductors and of the kept rows"
 
@@ -377,12 +381,12 @@ direction = "the direction of an oriented curve leaving its first point, measure
 isinside = "whether a point lies inside a closed polygon, by the even-odd rule"
 "patches!" = "the four-sided patches of a passive annulus between its circles at their shared breaks, each with its arcs, spokes and corners, recorded for a region"
 lowest = "the lowest point: of a segment its lower end; of an arc the bottom of its circle when the arc passes it, else its lower end; of a contour the lowest of its outer path's curves, least y then least x"
-dimension = "the smallest metal dimension of a region: a circle's diameter, an annulus's thickness, a sector's shorter bounding-box side"
+dimension = "the smallest metal dimension of a region: a circle's diameter, an annulus's thickness, a rectangle's smaller side, a sector's shorter bounding-box side"
 anchor = "the measurement anchor of terminal t: the first probe point inside its metal, upward from the lowest point of each of its regions at the offsets of its dimension, for a shift of 0 and 1 % of the terminal's smallest dimension; refused when none is"
 curves = "the boundary curves of plane surfaces, sorted"
-turn = "the turn of an arc about its circle's center: its fraction of a revolution and its length"
+turn = "the turn of a curve of a contour: an arc's fraction of a revolution about its center and its length, a segment's zero fraction and its length"
 scan = "scan the frequencies of a problem with GetDP: at most workers processes, one per frequency, from the meshes of the run directory, each process's job files read when it exits, results/Z.tsv and results/P.tsv written after the last, the primitive Z in Ω/m and P in Ω·m of every frequency returned by terminal"
-section = "the native section of a shape or region: its kind, 1 a Circle, 2 an Annulus, 3 a Rectangle, 0 a Sector, a PerforatedShape its outer's, with the two lengths the native size law reads, (r, 0), (ro, ri), (w, h), a sector's bent height and width; of a placed region, its declared primitive's, or its resolved shape's when the primitive is an Offset"
+section = "the native section of a shape or region: its kind, 1 a Circle or an Ellipse, 2 an Annulus, 3 a Rectangle, a Sector, a Polygon or an ArcPolygon, a PerforatedShape its outer's, with the two lengths the native size law reads, (r, 0), (ro, ri), (w, h), an ellipse's smaller semi-axis and 0, a sector's sides ro - ri and span (ro + ri) / 2, a polygon's or an arc polygon's bounding-box sides; of a placed region, its declared primitive's, or its resolved shape's when the primitive is an Offset"
 
-# LineCableModelsMeasurementsExt defines no name: its methods extend Engine's nominal and SpecialFunctions' Bessel functions.
+# LineCableModelsMeasurementsExt defines no name: its methods extend Commons' nominal and SpecialFunctions' Bessel functions.
 [register.LineCableModelsMeasurementsExt]

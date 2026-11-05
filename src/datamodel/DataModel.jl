@@ -13,15 +13,18 @@ module DataModel
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..Commons: build, resolve, validate
 using ..Materials: Material
+using ..Commons: nominal
+using SpecialFunctions: ellipe
+using QuadGK: quadgk
 
 export Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
-export Sector
+export Sector, Ellipse, Polygon
 export AbstractLayoutPattern, CircularPattern, LinearPattern, Helix, LayRatio
 export area, perimeter, centroid, support, distance, boundary, r_in, r_ex, placements,
        overlength,
        pitch
 export PerforatedShape, ArcPolygon
-public Segment, Arc, Curve, Contour
+public Segment, Arc, EllipticArc, Curve, Contour
 export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Enclosure
 export PlacedRegion, CableDesign, CableSystem
 export CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten

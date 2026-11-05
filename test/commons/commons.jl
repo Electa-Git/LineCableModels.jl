@@ -9,6 +9,12 @@ function LineCableModels.compute(
 end
 
 @testset "Commons" begin
+    @testset "nominal keeps a real number and the parts of a complex number" begin
+        nominal = LineCableModels.nominal
+        @test nominal(2.5) === 2.5
+        @test nominal(complex(1.0, -2.0)) === complex(1.0, -2.0)
+    end
+
     @testset "validate returns what it checks" begin
         copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
         @test LineCableModels.validate(copper) === copper

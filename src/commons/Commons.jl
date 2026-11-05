@@ -8,7 +8,7 @@ module Commons
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 
-export build, resolve, validate, compute, defaults, select
+export build, resolve, validate, compute, defaults, select, nominal
 export AbstractFormulation, AbstractBackend, FormulationOptions, ComputationOptions
 
 """
@@ -114,6 +114,24 @@ $(TYPEDEF)
 Represent the common supertype of backend singletons that execute a formulation.
 """
 abstract type AbstractBackend end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return a real number unchanged or a complex number with nominal real and imaginary parts.
+Kernel branches and integration breakpoints use nominal values to exclude uncertainty
+from their decisions. The Measurements extension gives a `Measurement` its nominal value.
+
+# Arguments
+
+- `value`: numeric quantity.
+
+# Returns
+
+- The nominal value, in the unit of `value`.
+"""
+nominal(value::Real) = value
+nominal(value::Complex) = complex(nominal(real(value)), nominal(imag(value)))
 
 include("options.jl")
 

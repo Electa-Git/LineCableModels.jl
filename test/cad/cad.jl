@@ -1,4 +1,4 @@
-using LineCableModels.DataModel: Segment, Arc, Curve, Contour
+using LineCableModels.DataModel: Segment, Arc, EllipticArc, Curve, Contour
 using LineCableModels.CAD: draw
 
 struct RecordingTarget
@@ -156,7 +156,7 @@ end
             (0.25, (2.0e-3, 1.0e-3)), (1, (5.0e-3, -2.0e-3)))
             @test all(isapprox.(segment(t), point; atol = 1e-15))
         end
-        @test Curve{Float64} === Union{Segment{Float64}, Arc{Float64}}
+        @test Curve{Float64} === Union{Segment{Float64}, Arc{Float64}, EllipticArc{Float64}}
         sector = LineCableModels.Sector(1.0e-3, 3.0e-3, 1.2, 0, 0, at)
         @test eltype(Contour(sector).outer) === Curve{Float64}
         @test Segment((0, 1.0), (2.0, 3)).b == (2.0, 3.0)
@@ -186,11 +186,11 @@ end
     end
 
     @testset "invalid curves and paths" begin
-        open = Union{Segment{Float64}, Arc{Float64}}[
+        open = Curve{Float64}[
         Segment(
             (0.0, 0.0), (1.0, 0.0))]
-        empty = Union{Segment{Float64}, Arc{Float64}}[]
-        holes = Vector{Union{Segment{Float64}, Arc{Float64}}}[]
+        empty = Curve{Float64}[]
+        holes = Vector{Curve{Float64}}[]
         @test_throws DomainError Contour(open, holes)
         @test_throws DomainError Contour(empty, holes)
         @test_throws DomainError Segment((0.0, 0.0), (0.0, 0.0))

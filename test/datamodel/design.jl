@@ -1,3 +1,5 @@
+using LineCableModels.DataModel: Ellipse, Polygon, Sector
+
 # A pattern of explicit placements, declared outside the package: a repeat takes any
 # pattern.
 struct Listed <: AbstractLayoutPattern
@@ -226,9 +228,6 @@ end
         @test_throws DomainError build(CableDesign, "protrusion",
             Terminal(:core,
                 Enclosure(Region(:core_fill, Circle(4.0e-3), air), Stack(wire, course))))
-        box = Region(:box_fill, Rectangle(4.0e-3, 4.0e-3), air)
-        @test_throws ArgumentError build(CableDesign, "box",
-            Enclosure(box, Terminal(:core, wire)))
     end
 
     @testset "mixed inputs" begin
@@ -260,5 +259,96 @@ end
             homogeneous(rho = 100); frequencies = [50.0])
         result = compute(problem, CoaxialFormulation())
         @test result isa LineParameters
+    end
+    @testset "rectangular polygonal and elliptical containers" begin
+        pentagon = Polygon([
+            (0.0, 0.0), (0.04, 0.0), (0.05, 0.03), (0.02, 0.05), (-0.01, 0.03)])
+        for (container, inside, crossing) in (
+            (Rectangle(20e-3, 10e-3), Circle(1.0e-3), Circle(1.0e-3, Placement(0, 4.5e-3))),
+            (pentagon, Circle(1.0e-3, Placement(0.02, 0.02)),
+                Circle(1.0e-3, Placement(0.02, 0.5e-3))),
+            (Ellipse(30e-3, 20e-3), Circle(9.9e-3, Placement(0, 10e-3)),
+                Circle(10.1e-3, Placement(0, 10e-3))))
+            design = build(CableDesign, "container",
+                Enclosure(Region(:container, container, air),
+                    Terminal(:core, Region(:core, inside, copper))))
+            @test only(design.terminals).regions == [1]
+            @test_throws DomainError build(CableDesign, "crossing",
+                Enclosure(Region(:container, container, air),
+                    Terminal(:core, Region(:core, crossing, copper))))
+        end
+        sector = Sector(0, 10.0e-3, 2π / 3, 1.0e-3 / sin(π / 3),
+            1.5e-3, Placement(0, 0))
+        for wire in (Circle(1.0e-3, Placement(5.0e-3, 0)),
+            Circle(1.0e-3,
+                Placement(5.0e-3,
+                    (5.0e-3 - 1.0e-3 / sin(π / 3)) * tan(π / 3) -
+                    (1.0e-3 + 0.5e-9) / cos(π / 3))))
+            design = build(CableDesign, "sector_container",
+                Enclosure(Region(:container, sector, air),
+                    Terminal(:core, Region(:core, wire, copper))))
+            @test only(design.terminals).regions == [1]
+        end
+        @test_throws DomainError build(CableDesign, "crossing_sector",
+            Enclosure(Region(:container, sector, air),
+                Terminal(:core,
+                    Region(:core, Circle(1.0e-3, Placement(5.0e-3, 5.5e-3)), copper))))
+    end
+
+    @testset "contents nest by containment" begin
+        sector = Sector(0, 10.0e-3, 2π / 3, 1.0e-3 / sin(π / 3),
+            1.5e-3, Placement(0, 0))
+        design = build(CableDesign, "nested_sector",
+            Terminal(:core,
+                Enclosure(Region(:outer, Circle(12.0e-3), air),
+                    Enclosure(Region(:wedge, sector, air),
+                        Region(:wire, Circle(1.0e-3, Placement(5.0e-3, 0)), copper)))))
+        fill = design.regions[last(design.fills).region].shape
+        @test length(fill.holes) == 1
+        @test only(fill.holes) == sector
+        design = build(CableDesign, "wires_and_tape",
+            Region(:inner, Circle(5.0e-3), air),
+            Enclosure(Region(:fill, Offset(2.2e-3), air),
+                Terminal(:core,
+                    Stack(
+                        Repeat(CircularPattern(8; r = Offset(0)),
+                            Region(:wire, Circle(1.0e-3), copper)),
+                        Repeat(CircularPattern(1; r = Offset(0)),
+                            Region(:tape, Rectangle(3.0e-3, 0.1e-3), copper))))))
+        fill = design.regions[only(design.fills).region].shape
+        @test length(fill.holes) == 9
+    end
+
+    @testset "a one-row duct bank" begin
+        concrete = Material(:insulator, Inf, 9)
+        design = build(CableDesign, "bank",
+            Enclosure(Region(:bank, Rectangle(0.3, 0.2), concrete),
+                Repeat(LinearPattern(2, 0.12),
+                    Enclosure(Region(:hole, Circle(0.05), air),
+                        Terminal(:core, Region(:core, Circle(0.01), copper))))))
+        @test [region.source.tag for region in design.regions] ==
+              [:core, :hole, :core, :hole, :bank]
+        @test [collect(centroid(region.shape)) for region in design.regions] ≈
+              [[-0.06, 0.0], [-0.06, 0.0], [0.06, 0.0], [0.06, 0.0], [0.0, 0.0]] rtol = 1e-12
+        @test [area(region.shape) for region in design.regions] ≈
+              [π * 0.01^2, π * (0.05^2 - 0.01^2), π * 0.01^2,
+            π * (0.05^2 - 0.01^2), 0.06 - 2π * 0.05^2] rtol = 1e-12
+        @test [(row.copies,) for row in design.repeats] == [([[1, 2], [3, 4]],)]
+        @test [(row.region, row.contents) for row in design.fills] ==
+              [(2, [1]), (4, [3]), (5, [1, 2, 3, 4])]
+        @test [(row.name, row.scope, row.regions) for row in design.terminals] ==
+              [(:core, [2], [1]), (:core, [3], [3])]
+    end
+
+    @testset "stranded wires inside an ellipse" begin
+        design = build(CableDesign, "elliptical_stranded",
+            Terminal(:core,
+                stranded(copper; center = Circle(1.0e-3), shape = Circle(1.0e-3),
+                    n = (6,), lay = LayRatio(12), boundary = Ellipse(4.0e-3, 3.0e-3))))
+        @test only(design.terminals).regions == collect(1:7)
+        @test_throws DomainError build(CableDesign, "crossing_stranded",
+            Terminal(:core,
+                stranded(copper; center = Circle(1.0e-3), shape = Circle(1.0e-3),
+                    n = (6,), lay = LayRatio(12), boundary = Ellipse(4.0e-3, 2.5e-3))))
     end
 end

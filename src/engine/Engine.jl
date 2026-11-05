@@ -12,6 +12,7 @@ module Engine
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..Commons: compute, defaults, select, validate
+using ..Commons: nominal
 using ..Commons: AbstractFormulation, AbstractBackend, FormulationOptions,
                  ComputationOptions
 using ..Materials: Material
@@ -30,7 +31,7 @@ export LineParametersProblem, CoaxialFormulation, FEM, LCMBackend, GmshBackend,
        backend, LineParameters
 export @formulation, @air, @earth, @mixed
 export bundle!, eliminate!, transposition!, reductions
-export SpectralIntegral, integrate, nominal
+export SpectralIntegral, integrate
 public CoaxialInput, solve!, Λ
 public InternalImpedance, InsulationImpedance, InsulationAdmittance, SemiconAdmittance,
        EarthReturn, Shunt, Resistivity, EarthProperties
@@ -238,24 +239,6 @@ The earth-return family defines the method that each of its formulas gets. A for
 another direct and image term defines its own method.
 """
 function Λ end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return a real number unchanged or a complex number with nominal real and imaginary parts.
-Kernel branches and integration breakpoints use nominal values to exclude uncertainty
-from their decisions. The Measurements extension gives a `Measurement` its nominal value.
-
-# Arguments
-
-- `value`: numeric quantity.
-
-# Returns
-
-- The nominal value, in the unit of `value`.
-"""
-nominal(value::Real) = value
-nominal(value::Complex) = complex(nominal(real(value)), nominal(imag(value)))
 
 include("constants/constants.jl")
 include("problem.jl")

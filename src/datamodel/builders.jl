@@ -138,7 +138,7 @@ region takes the name `<tag>_fill`.
 - `shape`: cross-section of one strand, a circle or a rectangle.
 - `n`: number of members in each course, from the inside out.
 - `lay`: [`LayRatio`](@ref) of every course, or one per course.
-- `boundary`: outline of the conductor, a [`Circle`](@ref) that the fill takes.
+- `boundary`: container of the fill, any primitive.
 - `fill`: material of the fill. Default: an insulator with infinite resistivity and unit
   relative permittivity and permeability.
 - `φ0`: angle of the first member of every course \\[rad\\], or one angle per course.

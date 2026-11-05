@@ -44,6 +44,8 @@ The cross-section of a region is declared by a primitive, a subtype of
   bends onto its layer. The width of a strand lies along the layer and its height across it.
 - [`Sector`](@ref): sector-shaped cross-section, such as a sector-shaped conductor or a
   segment of a Milliken conductor.
+- [`Ellipse`](@ref): elliptical cross-section, such as an elliptical duct.
+- [`Polygon`](@ref): cross-section bounded by straight edges, such as a duct bank.
 - [`Offset`](@ref): layer of thickness `t` around the outline of the part beneath it. An
   offset represents an insulation, a semicon screen, a sheath or a jacket, and is resolved
   against that outline when the design is built.
@@ -55,10 +57,10 @@ the wires of a layer. A [`Placement`](@ref) is a translation and a rotation rela
 parent frame.
 
 The exact outline of a cross-section is its [`Contour`](@ref DataModel.Contour): closed
-paths of segments and arcs, each counterclockwise. An [`ArcPolygon`](@ref) is the region
-inside one such path. The outline gives the area, the centroid and the [`perimeter`](@ref)
-of an arc polygon. It does the same for a sector with fillets, or with sides that meet off
-its center.
+paths of segments and of circular or elliptic arcs, each counterclockwise. An
+[`ArcPolygon`](@ref) is the region inside one such path. The outline gives the area, the
+centroid and the [`perimeter`](@ref) of an arc polygon. It does the same for a sector with
+fillets, or with sides that meet off its center.
 
 ## Cable parts
 

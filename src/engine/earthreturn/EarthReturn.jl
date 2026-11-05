@@ -544,10 +544,10 @@ module EarthReturn
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults, validate
-using ...Commons: FormulationOptions
+using ...Commons: FormulationOptions, nominal
 using ...DataModel: support
 using ..Engine: AbstractEarthReturn, CoaxialInput, LineParametersProblem, SpectralIntegral,
-                integrate, nominal, ε₀, μ₀
+                integrate, ε₀, μ₀
 import ..Engine: impedance!, potential!, to_buffer!, from_buffer, initialize_buffers, Λ
 using LinearAlgebra: ldiv!, lu!
 using SpecialFunctions: besselix, besselkx, besseljx, besselk

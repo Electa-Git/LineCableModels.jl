@@ -84,9 +84,80 @@ function validate(arc::Arc)
 end
 
 """
-A curve of a contour is a [`Segment`](@ref) or an [`Arc`](@ref) in the floating type `T`.
+$(TYPEDEF)
+
+Represent a placed elliptic curve with parametric angle ``θ=φ0+s\\,span``.
+A positive span runs counterclockwise.
+
+$(TYPEDFIELDS)
 """
-const Curve{T} = Union{Segment{T}, Arc{T}}
+struct EllipticArc{T <: Real}
+    "Center \\[m\\] and direction of semi-axis `a` \\[rad\\]."
+    at::Placement{T}
+    "Semi-axis along the local x-axis \\[m\\]."
+    a::T
+    "Semi-axis along the local y-axis \\[m\\]."
+    b::T
+    "Parametric angle at the start \\[rad\\]."
+    φ0::T
+    "Signed parametric span \\[rad\\]."
+    span::T
+    @doc """
+    $(TYPEDSIGNATURES)
+
+    Construct an elliptic arc through `validate`, with semi-axes in \\[m\\]
+    and parametric angles in \\[rad\\].
+    """
+    function EllipticArc{T}(at::Placement{T}, a::T, b::T, φ0::T, span::T) where {T <: Real}
+        return validate(new{T}(at, a, b, φ0, span))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct an elliptic arc from its placement, semi-axes \\[m\\], initial parametric
+angle and signed span \\[rad\\], promoted with `Float64`.
+"""
+function EllipticArc(at::Placement, a::Real, b::Real, φ0::Real, span::Real)
+    T = promote_type(Float64, eltype(at), typeof(a), typeof(b), typeof(φ0), typeof(span))
+    return EllipticArc{T}(convert(Placement{T}, at), convert(T, a), convert(T, b),
+        convert(T, φ0), convert(T, span))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Check that the semi-axes are positive and finite \\[m\\], a finite initial angle and
+``0<|span|≤2π`` \\[rad\\]. Return `arc`, or throw `DomainError`.
+"""
+function validate(arc::EllipticArc)
+    isfinite(nominal(arc.a)) && nominal(arc.a) > 0 ||
+        throw(DomainError(arc.a, "EllipticArc.a must be positive and finite"))
+    isfinite(nominal(arc.b)) && nominal(arc.b) > 0 ||
+        throw(DomainError(arc.b, "EllipticArc.b must be positive and finite"))
+    isfinite(nominal(arc.φ0)) ||
+        throw(DomainError(arc.φ0, "EllipticArc.φ0 must be finite"))
+    isfinite(nominal(arc.span)) && 0 < abs(nominal(arc.span)) <= 2π ||
+        throw(DomainError(arc.span, "EllipticArc.span must be finite with 0 < |span| ≤ 2π"))
+    return arc
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return ``at(a\\cos θ,b\\sin θ)`` \\[m\\], with ``θ=φ0+s\\,span`` \\[rad\\]
+for ``s∈[0,1]`` \\[dimensionless\\].
+"""
+function (arc::EllipticArc)(s::Real)
+    θ = arc.φ0 + s * arc.span
+    return arc.at((arc.a * cos(θ), arc.b * sin(θ)))
+end
+
+"""
+A curve of a contour is a [`Segment`](@ref) an [`Arc`](@ref) or an [`EllipticArc`](@ref) in the floating type `T`.
+"""
+const Curve{T} = Union{Segment{T}, Arc{T}, EllipticArc{T}}
 
 """
 $(TYPEDEF)
@@ -139,7 +210,7 @@ end
 """
 $(TYPEDEF)
 
-Represent a region bounded by one closed path of segments and circular arcs.
+Represent a region bounded by one closed path of segments, circular arcs and elliptic arcs.
 
 $(TYPEDFIELDS)
 """
@@ -187,6 +258,96 @@ support(shape::ArcPolygon, φ::Real) = support(Contour(shape), φ)
 distance(shape::ArcPolygon) = distance(Contour(shape))
 boundary(shape::ArcPolygon) = shape
 
+function Base.issubset(B::AbstractShape, A::Union{Rectangle, Polygon, Ellipse, ArcPolygon})
+    T = promote_type(eltype(A), eltype(B))
+    paths = (Contour(A).outer, Contour(B).outer)
+    for edge in [curve for path in paths for curve in path if curve isa Segment]
+        dx, dy = edge.b .- edge.a
+        φ = atan(-dx, dy)
+        radius = support(A, φ)
+        tolerance = sqrt(eps(float(nominal(radius)))) *
+                    max(one(nominal(radius)), nominal(radius))
+        nominal(support(B, φ)) <= nominal(radius) + tolerance || return false
+    end
+    points = [[curve(t) for curve in path for t in (zero(T), one(T))] for path in paths]
+    arcs = [[(at = curve.at, a = curve.r, b = curve.r, φ0 = zero(T), span = curve.span)
+             for curve in path if curve isa Arc] for path in paths]
+    for (i, path) in enumerate(paths)
+        append!(arcs[i],
+            [(at = curve.at, a = curve.a, b = curve.b,
+                 φ0 = curve.φ0, span = curve.span)
+             for curve in path if curve isa EllipticArc])
+    end
+    c = centroid(A)
+    d = centroid(B) .- c
+    direction = atan(d[2], d[1])
+    for arc in Iterators.flatten(arcs)
+        start = arc.at.φ + atan(arc.a * sin(arc.φ0), arc.b * cos(arc.φ0))
+        finish = arc.at.φ + atan(arc.a * sin(arc.φ0 + arc.span),
+            arc.b * cos(arc.φ0 + arc.span))
+        span = sign(arc.span) * mod(sign(arc.span) * (finish - start), T(2π))
+        abs(nominal(arc.span)) >= 2π && (span = sign(arc.span) * T(2π))
+        nominal(arc.span) < 0 && (start += T(π))
+        low = start + (nominal(span) < 0 ? span : zero(T))
+        high = start + (nominal(span) > 0 ? span : zero(T))
+        φ = direction + T(2π) * round(nominal(((low + high) / 2 - direction) / T(2π)))
+        φ = nominal(φ) < nominal(low) ? low : (nominal(φ) > nominal(high) ? high : φ)
+        for angle in (low, high)
+            radius = support(A, angle)
+            tolerance = sqrt(eps(float(nominal(radius)))) *
+                        max(one(nominal(radius)), nominal(radius))
+            nominal(support(B, angle)) <= nominal(radius) + tolerance || return false
+        end
+        for _ in 1:100
+            values = [(zero(T), zero(T), zero(T)) for _ in paths]
+            for i in eachindex(paths)
+                point = first(points[i])
+                value = point[1] * cos(φ) + point[2] * sin(φ)
+                values[i] = (value, -point[1] * sin(φ) + point[2] * cos(φ), -value)
+                for point in points[i]
+                    value = point[1] * cos(φ) + point[2] * sin(φ)
+                    if nominal(value) > nominal(values[i][1])
+                        values[i] = (value, -point[1] * sin(φ) + point[2] * cos(φ), -value)
+                    end
+                end
+                for curve in arcs[i]
+                    ψ = φ - curve.at.φ
+                    θ = atan(curve.b * sin(ψ), curve.a * cos(ψ))
+                    nominal(mod(sign(curve.span) * (θ - curve.φ0), T(2π))) <=
+                    abs(nominal(curve.span)) || continue
+                    h = hypot(curve.a * cos(ψ), curve.b * sin(ψ))
+                    projection = curve.at.x * cos(φ) + curve.at.y * sin(φ)
+                    value = projection + h
+                    if nominal(value) >= nominal(values[i][1])
+                        derivative = (curve.b^2 - curve.a^2) * sin(ψ) * cos(ψ) / h
+                        values[i] = (value,
+                            -curve.at.x * sin(φ) + curve.at.y * cos(φ) + derivative,
+                            -projection + (curve.b^2 - curve.a^2) * cos(2ψ) / h -
+                            derivative^2 / h)
+                    end
+                end
+            end
+            derivative = values[1][2] - values[2][2]
+            second = values[1][3] - values[2][3]
+            iszero(nominal(derivative)) && break
+            nominal(second) > 0 || break
+            step = derivative / second
+            angle = φ - step
+            angle = nominal(angle) < nominal(low) ? low :
+                    (nominal(angle) > nominal(high) ? high : angle)
+            tolerance = sqrt(eps(float(nominal(φ)))) * max(one(nominal(φ)), abs(nominal(φ)))
+            stop = abs(nominal(angle - φ)) <= tolerance
+            φ = angle
+            stop && break
+        end
+        radius = support(A, φ)
+        tolerance = sqrt(eps(float(nominal(radius)))) *
+                    max(one(nominal(radius)), nominal(radius))
+        nominal(support(B, φ)) <= nominal(radius) + tolerance || return false
+    end
+    return true
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -200,10 +361,18 @@ function resolve(at::Placement, shape::ArcPolygon)
     for curve in [curve for curve in shape.outline if curve isa Segment]
         push!(outline, Segment(at(curve.a), at(curve.b)))
     end
-    # Insert the arcs at their original positions in the path.
+    for (k, curve) in [(k, curve)
+         for (k, curve) in enumerate(shape.outline)
+         if curve isa Union{Arc, EllipticArc}]
+        insert!(outline, k, curve)
+    end
     for (k, curve) in
         [(k, curve) for (k, curve) in enumerate(shape.outline) if curve isa Arc]
-        insert!(outline, k, Arc(at * curve.at, curve.r, curve.span))
+        outline[k] = Arc(at * curve.at, curve.r, curve.span)
+    end
+    for (k, curve) in
+        [(k, curve) for (k, curve) in enumerate(shape.outline) if curve isa EllipticArc]
+        outline[k] = EllipticArc(at * curve.at, curve.a, curve.b, curve.φ0, curve.span)
     end
     return ArcPolygon(outline)
 end
@@ -219,6 +388,11 @@ function area(contour::Contour{T}) where {T}
         for curve in [curve for curve in path if curve isa Arc]
             P, Q = curve(0), curve(1)
             result += orientation * (curve.r^2 * curve.span +
+                       curve.at.x * (Q[2] - P[2]) - curve.at.y * (Q[1] - P[1])) / 2
+        end
+        for curve in [curve for curve in path if curve isa EllipticArc]
+            P, Q = curve(0), curve(1)
+            result += orientation * (curve.a * curve.b * curve.span +
                        curve.at.x * (Q[2] - P[2]) - curve.at.y * (Q[1] - P[1])) / 2
         end
     end
@@ -248,6 +422,21 @@ function centroid(contour::Contour{T}) where {T}
                   ρ^3 * (cos(θ₁) - cos(θ₂)) / 3 -
                   ρ^2 * sin(curve.span) * (P[2] + Q[2] - 2curve.at.y) / 6)
         end
+        for curve in [curve for curve in path if curve isa EllipticArc]
+            P, Q = curve(0), curve(1)
+            θ₁, θ₂ = curve.φ0, curve.φ0 + curve.span
+            cross = P[1] * Q[2] - P[2] * Q[1]
+            A = curve.a * curve.b * (curve.span - sin(curve.span)) / 2
+            u = (sin(θ₂) - sin(θ₁)) / 3 -
+                sin(curve.span) * (cos(θ₁) + cos(θ₂)) / 6
+            v = (cos(θ₁) - cos(θ₂)) / 3 -
+                sin(curve.span) * (sin(θ₁) + sin(θ₂)) / 6
+            c, d = cos(curve.at.φ), sin(curve.at.φ)
+            x += orientation * ((P[1] + Q[1]) * cross / 6 + curve.at.x * A +
+                  curve.a * curve.b * (curve.a * c * u - curve.b * d * v))
+            y += orientation * ((P[2] + Q[2]) * cross / 6 + curve.at.y * A +
+                  curve.a * curve.b * (curve.a * d * u + curve.b * c * v))
+        end
     end
     return (x, y) ./ area(contour)
 end
@@ -260,6 +449,12 @@ function perimeter(contour::Contour{T}) where {T}
         end
         for curve in [curve for curve in path if curve isa Arc]
             result += curve.r * abs(curve.span)
+        end
+        for curve in [curve for curve in path if curve isa EllipticArc]
+            result += abs(first(quadgk(θ -> hypot(curve.a * sin(θ), curve.b * cos(θ)),
+                curve.φ0, curve.φ0 + curve.span;
+                rtol = eps(float(nominal(one(T))))^(3 / 4),
+                norm = x -> abs(nominal(x)))))
         end
     end
     return result
@@ -276,6 +471,9 @@ function support(contour::Contour{T}) where {T}
         if mod(sign(curve.span) * (φ - curve.at.φ), 2π) <= abs(curve.span)
             result = max(result, hypot(curve.at.x, curve.at.y) + curve.r)
         end
+    end
+    for curve in [curve for curve in contour.outer if curve isa EllipticArc]
+        result = max(result, hypot(curve.at.x, curve.at.y) + max(curve.a, curve.b))
     end
     return result
 end
@@ -294,6 +492,18 @@ function support(contour::Contour, φ::Real)
         end
         if mod(sign(curve.span) * (φ - curve.at.φ), 2π) <= abs(curve.span)
             result = max(result, curve.at.x * cos(φ) + curve.at.y * sin(φ) + curve.r)
+        end
+    end
+    for curve in [curve for curve in contour.outer if curve isa EllipticArc]
+        for point in (curve(0), curve(1))
+            result = max(result, point[1] * cos(φ) + point[2] * sin(φ))
+        end
+        ψ = φ - curve.at.φ
+        θ = atan(curve.b * sin(ψ), curve.a * cos(ψ))
+        if nominal(mod(sign(curve.span) * (θ - curve.φ0), 2π)) <= abs(nominal(curve.span))
+            result = max(result,
+                curve.at.x * cos(φ) + curve.at.y * sin(φ) +
+                hypot(curve.a * cos(ψ), curve.b * sin(ψ)))
         end
     end
     return result
@@ -334,6 +544,10 @@ function distance(contour::Contour{T}) where {T}
                     end
                 end
             end
+        end
+        for curve in [curve for curve in path if curve isa EllipticArc]
+            radius = max(curve.a, curve.b)
+            result = min(result, max(zero(T), hypot(curve.at.x, curve.at.y) - radius))
         end
         inside &= k == 1 ? !iszero(winding) : iszero(winding)
     end
@@ -524,4 +738,32 @@ function Contour(shape::PerforatedShape)
     holes = copy(contour.holes)
     append!(holes, [Contour(hole).outer for hole in shape.holes])
     return Contour(contour.outer, holes)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct the four counterclockwise elliptic quadrants of `ellipse`,
+``φ0=kπ/2``, ``span=π/2`` \\[rad\\], for ``k=0,…,3``.
+Semi-axes and center coordinates are in \\[m\\].
+"""
+function Contour(ellipse::Ellipse{T}) where {T}
+    return Contour(
+        Curve{T}[EllipticArc(ellipse.at, ellipse.a, ellipse.b, T(k * π / 2),
+                     T(π / 2)) for k in 0:3],
+        Vector{Curve{T}}[])
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct the placed edges ``Segment(at(v_i),at(v_{i+1}))`` \\[m\\] of `polygon`,
+Close the last edge to the first vertex. The contour has no holes.
+"""
+function Contour(polygon::Polygon{T}) where {T}
+    points = [polygon.at(vertex) for vertex in polygon.vertices]
+    return Contour(
+        Curve{T}[Segment(points[i], points[mod1(i + 1, length(points))])
+                 for i in eachindex(points)],
+        Vector{Curve{T}}[])
 end

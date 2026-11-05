@@ -375,6 +375,159 @@ end
 """
 $(TYPEDEF)
 
+Represent an ellipse with semi-axes `a` and `b` along the axes of its placement.
+
+$(TYPEDFIELDS)
+"""
+struct Ellipse{T <: Real} <: AbstractPrimitive{T}
+    "Semi-axis along the local x-axis \\[m\\]."
+    a::T
+    "Semi-axis along the local y-axis \\[m\\]."
+    b::T
+    "Placement of the center and axes."
+    at::Placement{T}
+    @doc """
+    $(TYPEDSIGNATURES)
+
+    Construct an ellipse through `validate`, with semi-axes in \\[m\\].
+    """
+    function Ellipse{T}(a::T, b::T, at::Placement{T}) where {T <: Real}
+        return validate(new{T}(a, b, at))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct an ellipse at the origin with semi-axes `a` and `b` \\[m\\], promoted with `Float64`.
+"""
+function Ellipse(a::Real, b::Real)
+    T = promote_type(Float64, typeof(a), typeof(b))
+    return Ellipse{T}(convert(T, a), convert(T, b), Placement(zero(T), zero(T)))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct an ellipse at `at` with semi-axes `a` and `b` \\[m\\], promoted with `Float64`.
+"""
+function Ellipse(a::Real, b::Real, at::Placement)
+    T = promote_type(Float64, typeof(a), typeof(b), eltype(at))
+    return Ellipse{T}(convert(T, a), convert(T, b), convert(Placement{T}, at))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Check ``a>0`` and ``b>0`` finite semi-axes \\[m\\], and return `ellipse`.
+Throw `DomainError` for a semi-axis outside these bounds.
+"""
+function validate(ellipse::Ellipse)
+    isfinite(nominal(ellipse.a)) && nominal(ellipse.a) > zero(nominal(ellipse.a)) ||
+        throw(DomainError(ellipse.a, "Ellipse.a must be positive and finite"))
+    isfinite(nominal(ellipse.b)) && nominal(ellipse.b) > zero(nominal(ellipse.b)) ||
+        throw(DomainError(ellipse.b, "Ellipse.b must be positive and finite"))
+    return ellipse
+end
+
+"""
+$(TYPEDEF)
+
+Represent a simple polygon with counterclockwise vertices in its placement's frame.
+
+$(TYPEDFIELDS)
+"""
+struct Polygon{T <: Real} <: AbstractPrimitive{T}
+    "Counterclockwise vertices in the local frame \\[m\\]."
+    vertices::Vector{Tuple{T, T}}
+    "Placement of the local frame."
+    at::Placement{T}
+    @doc """
+    $(TYPEDSIGNATURES)
+
+    Construct a polygon through `validate`, with vertex coordinates in \\[m\\].
+    """
+    function Polygon{T}(vertices::Vector{Tuple{T, T}}, at::Placement{T}) where {T <: Real}
+        return validate(new{T}(vertices, at))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct a polygon at the origin from `vertices` \\[m\\], promoted with `Float64`.
+"""
+function Polygon(vertices::AbstractVector{<:Tuple{Real, Real}})
+    T = promote_type(Float64, (typeof(x) for vertex in vertices for x in vertex)...)
+    return Polygon{T}(Tuple{T, T}[convert.(T, vertex) for vertex in vertices],
+        Placement(zero(T), zero(T)))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct a polygon from local `vertices` \\[m\\] at `at`, promoted with `Float64`.
+"""
+function Polygon(vertices::AbstractVector{<:Tuple{Real, Real}}, at::Placement)
+    T = promote_type(Float64, eltype(at), (typeof(x) for vertex in vertices
+    for x in vertex)...)
+    return Polygon{T}(Tuple{T, T}[convert.(T, vertex) for vertex in vertices],
+        convert(Placement{T}, at))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Check for at least three finite vertices, positive shoelace area
+``2A=\\sum_i(x_i y_{i+1}-y_i x_{i+1})`` \\[m²\\], and edges that meet only
+at adjacent shared ends. Segment intersections use the signs of
+``(Q-P)\\times(R-P)``. Return `polygon`, or throw `DomainError`.
+"""
+function validate(polygon::Polygon)
+    vertices = polygon.vertices
+    n = length(vertices)
+    n >= 3 || throw(DomainError(vertices, "Polygon needs at least three vertices"))
+    all(isfinite(nominal(x)) for vertex in vertices for x in vertex) ||
+        throw(DomainError(vertices, "Polygon coordinates must be finite"))
+    A = sum(vertices[i][1] * vertices[mod1(i + 1, n)][2] -
+            vertices[i][2] * vertices[mod1(i + 1, n)][1] for i in 1:n)
+    nominal(A) > zero(nominal(A)) ||
+        throw(DomainError(vertices, "Polygon signed area must be positive"))
+    for i in 1:n
+        P, Q = vertices[i], vertices[mod1(i + 1, n)]
+        any(!iszero(nominal(x)) for x in Q .- P) ||
+            throw(DomainError(vertices, "Polygon edges must have distinct ends"))
+        for j in (i + 1):n
+            R, S = vertices[j], vertices[mod1(j + 1, n)]
+            if j == i + 1 || (i == 1 && j == n)
+                a, b, c = j == i + 1 ? (P, Q, S) : (R, S, Q)
+                cross = (b[1] - a[1]) * (c[2] - b[2]) -
+                        (b[2] - a[2]) * (c[1] - b[1])
+                dot = sum((b .- a) .* (c .- b))
+                iszero(nominal(cross)) && nominal(dot) <= zero(nominal(dot)) &&
+                    throw(DomainError(vertices, "Polygon adjacent edges must not overlap"))
+                continue
+            end
+            crosses = ((Q[1] - P[1]) * (R[2] - P[2]) - (Q[2] - P[2]) * (R[1] - P[1]),
+                (Q[1] - P[1]) * (S[2] - P[2]) - (Q[2] - P[2]) * (S[1] - P[1]),
+                (S[1] - R[1]) * (P[2] - R[2]) - (S[2] - R[2]) * (P[1] - R[1]),
+                (S[1] - R[1]) * (Q[2] - R[2]) - (S[2] - R[2]) * (Q[1] - R[1]))
+            if min(nominal(P[1]), nominal(Q[1])) <= max(nominal(R[1]), nominal(S[1])) &&
+               min(nominal(R[1]), nominal(S[1])) <= max(nominal(P[1]), nominal(Q[1])) &&
+               min(nominal(P[2]), nominal(Q[2])) <= max(nominal(R[2]), nominal(S[2])) &&
+               min(nominal(R[2]), nominal(S[2])) <= max(nominal(P[2]), nominal(Q[2])) &&
+               nominal(crosses[1]) * nominal(crosses[2]) <= 0 &&
+               nominal(crosses[3]) * nominal(crosses[4]) <= 0
+                throw(DomainError(vertices, "Polygon edges must not cross or touch"))
+            end
+        end
+    end
+    return polygon
+end
+
+"""
+$(TYPEDEF)
+
 Represent a cross-section with holes: the outer cross-section without the cross-sections
 inside it, such as the fill between the wires of a course.
 
@@ -407,6 +560,61 @@ end
 Base.eltype(::AbstractShape{T}) where {T} = T
 
 """
+    issubset(B::AbstractShape, A::AbstractShape)
+
+Return whether the outline `B` lies within the region of `A`, written `B ⊆ A`.
+For a circle or annulus `A`, translate `B` to the frame centered on `A` as
+`C = resolve(Placement(-A.at.x, -A.at.y), B)`. Compare ``support(C)≤r_ex(A)+tol``
+and ``distance(C)+tol≥r_in(A)``, with the tolerance computed from `r_ex(A)`.
+
+For a rectangle or polygon `A`, compare ``support(B,φ)≤support(A,φ)+tol``
+at the outward normals of every segment of both contours. This is exact for convex `A`.
+For an ellipse, sector or arc polygon `A`, compare those normals too.
+Also minimize ``g(φ)=support(A,φ)-support(B,φ)`` within each arc's outward normal range.
+Use circular and elliptic arcs of either contour.
+
+Newton's method starts from the direction of `centroid(B)` about `centroid(A)`.
+It stops when the nominal angle change is at most ``√eps(float(φ))max(1,|φ|)``,
+when the first derivative is zero, or when the second derivative is nonpositive.
+The limit of 100 iterations bounds the work when the angle change exceeds the criterion.
+
+The active supporting curve supplies closed derivatives.
+For ``h=√(a²cos²ψ+b²sin²ψ)``, use
+``h'=(b²-a²)sinψ cosψ/h`` and ``h''=(b²-a²)cos(2ψ)/h-(h')²/h``.
+Circular arcs have ``a=b=r``. For a point, use its projection and its derivatives.
+
+The arithmetic uses the promoted coordinate type. Decisions and the stop criterion use
+`nominal` values. The support tolerance is ``√eps(float(x))max(1,x)`` for the
+support ``x`` compared \\[m\\].
+
+A sector also requires ``distance(C)+tol≥A.ri``, with
+`C = resolve(Placement(-A.at.x, -A.at.y), B)` and the tolerance computed from `A.ri`.
+For `A.ri = 0`, this condition holds at once. An annular sector is its convex hull
+without the disk of radius `A.ri` about its center, so the test is exact for it.
+
+An arc polygon uses the support of its convex hull.
+A content in a concave pocket can pass. The design's cover check tests it.
+A perforated `B` uses the directional support of its outer boundary.
+"""
+function Base.issubset(B::AbstractShape, A::Union{Circle, Annulus})
+    C = resolve(Placement(-A.at.x, -A.at.y), B)
+    radius = r_ex(A)
+    tolerance = sqrt(eps(float(radius))) * max(one(radius), radius)
+    return support(C) <= radius + tolerance &&
+           distance(C) + tolerance >= r_in(A)
+end
+
+function Base.issubset(B::AbstractShape, A::Sector)
+    B ⊆ ArcPolygon(Contour(A).outer) || return false
+    iszero(nominal(A.ri)) && return true
+    C = resolve(Placement(-A.at.x, -A.at.y), B)
+    radius = A.ri
+    tolerance = sqrt(eps(float(nominal(radius)))) *
+                max(one(nominal(radius)), nominal(radius))
+    return nominal(distance(C)) + tolerance >= nominal(radius)
+end
+
+"""
     area(shape)
 
 Return the cross-sectional area of `shape` \\[m²\\]:
@@ -426,6 +634,10 @@ an arc polygon, take the area of their contour by Green's theorem,
 ``A = \\frac12 \\oint (x\\,dy-y\\,dx)``. A segment from ``P`` to ``Q`` adds
 ``(P \\times Q)/2``. An arc of radius ``ρ`` about ``c`` from ``θ_1`` to ``θ_2`` adds
 ``ρ^2(θ_2-θ_1)/2 + c\\times(Q-P)/2``. Each hole subtracts its own area.
+
+An ellipse has ``A=πab``. A polygon uses
+``A=\\sum_i(x_i y_{i+1}-y_i x_{i+1})/2``.
+An elliptic arc adds ``ab\\,span/2+c\\times(Q-P)/2``.
 """
 function area end
 
@@ -469,6 +681,13 @@ chord moment and the circular segment's moment:
 ``c ρ^2(Δ-\\sin Δ)/2 + ρ^3(\\sin θ_2-\\sin θ_1,\\cos θ_1-\\cos θ_2)/3
 -ρ^2\\sin Δ(P+Q-2c)/6``, where ``Δ=θ_2-θ_1``.
 Each hole subtracts its own moment.
+
+An ellipse's centroid is its center. A polygon uses
+``c=\\sum_i(v_i+v_{i+1})(v_i\\times v_{i+1})/(6A)``, then applies its placement.
+
+For an elliptic arc, let ``L=R(at.φ)diag(a,b)``, ``u_i=(cos θ_i,sin θ_i)``,
+and ``B=ab(Δ-sin Δ)/2``. Its Green moment is the chord moment plus
+``cB+abL((sin θ_2-sin θ_1,cos θ_1-cos θ_2)/3-sin Δ(u_1+u_2)/6)``.
 """
 function centroid end
 
@@ -511,6 +730,17 @@ projection of the center plus the outer radius. A rectangle takes its farthest c
 sector or an arc polygon takes the farthest point of its outer curves. On an arc, it is
 the point at the radius from the center along `φ` when `φ` falls within the arc, else an
 end.
+
+An ellipse or elliptic arc uses the circumscribed circle for unary support:
+``hypot(c_x,c_y)+max(a,b)``, exact for a centered ellipse and a bound otherwise.
+For a polygon, unary support takes the farthest vertex and directional support the
+largest vertex projection.
+
+The ellipse's directional support is
+``c⋅u+√(a²cos²ψ+b²sin²ψ)``, ``ψ=φ-at.φ``. On an elliptic arc, its maximizer
+``θ=atan(b sin ψ,a cos ψ)`` contributes when it lies in the parametric interval.
+otherwise an endpoint gives the largest projection.
+
 Holes leave the support unchanged, so for an annulus or a sector it is the support of the
 convex hull.
 """
@@ -541,6 +771,11 @@ when the origin lies inside the outer path and outside every hole. On a segment
 ``P+t(Q-P)``, the nearest point has
 ``t=\\operatorname{clamp}(-P\\cdot(Q-P)/|Q-P|^2,0,1)``. On an arc, it lies toward the
 origin when that direction falls within the arc, else at an end.
+
+A polygon uses its placed
+edges and the winding number for the inside test. An ellipse or elliptic arc uses
+``max(0,hypot(c_x,c_y)-max(a,b))``, the circumscribed circle's bound, exact for a
+centered ellipse.
 """
 function distance end
 
@@ -556,7 +791,7 @@ distance(shape::PerforatedShape) = distance(shape.outer)
 """
     boundary(shape)
 
-Return the outline of `shape`. A circle, rectangle, sector and arc polygon are their own outlines. The
+Return the outline of `shape`. A circle, rectangle, sector, ellipse, polygon and arc polygon are their own outlines. The
 outline of an annulus is the circle of its outer radius. The outline of a
 [`PerforatedShape`](@ref) is the outline of its outer cross-section. The next part resolves
 against the outline, and an enclosure removes it from its fill.
@@ -614,8 +849,9 @@ function resolve(at::Placement, sector::Sector)
         sector.ri, sector.ro, sector.span, sector.apex, sector.fillet, at * sector.at)
 end
 function resolve(at::Placement, shape::PerforatedShape)
-    return PerforatedShape(resolve(at, shape.outer), [resolve(at, hole)
-                                                      for hole in shape.holes])
+    outer = resolve(at, shape.outer)
+    return PerforatedShape(outer,
+        AbstractShape{eltype(outer)}[resolve(at, hole) for hole in shape.holes])
 end
 
 Base.map(f, circle::Circle) = Circle(f(circle.r), map(f, circle.at))
@@ -634,7 +870,9 @@ function Base.map(f, sector::Sector)
         f(sector.fillet), map(f, sector.at))
 end
 function Base.map(f, shape::PerforatedShape)
-    return PerforatedShape(map(f, shape.outer), [map(f, hole) for hole in shape.holes])
+    outer = map(f, shape.outer)
+    return PerforatedShape(outer,
+        AbstractShape{eltype(outer)}[map(f, hole) for hole in shape.holes])
 end
 
 centroid(rectangle::Rectangle) = (rectangle.at.x, rectangle.at.y)
@@ -674,6 +912,10 @@ Return the length of every outer and hole curve of `shape` \\[m\\]:
 ``P_\\mathrm{rectangle}=2(w+h)``, where the radii, width and height are in \\[m\\].
 A sector, arc polygon, perforated shape or contour sums its curves:
 a segment contributes ``|Q-P|`` and an arc contributes ``ρ|θ_2-θ_1|``.
+An ellipse has ``P=4aE(1-b²/a²)``, with ``E`` the complete elliptic integral of the
+second kind. The formula also holds for ``b>a``. Polygon perimeters sum their edges' lengths.
+An elliptic arc integrates ``√(a²sin²θ+b²cos²θ)`` over its parametric interval
+with QuadGK, the incomplete elliptic integral of the second kind.
 """
 function perimeter end
 
@@ -723,4 +965,134 @@ function validate(offset::Offset, sector::Sector)
     offset.t <= limit || throw(DomainError(offset.t,
         "Offset.t must not exceed $limit m, apex sin(span / 2), the thickness that fits"))
     return offset
+end
+
+area(ellipse::Ellipse) = π * ellipse.a * ellipse.b
+function area(polygon::Polygon)
+    vertices = polygon.vertices
+    return sum(vertices[i][1] * vertices[mod1(i + 1, length(vertices))][2] -
+               vertices[i][2] * vertices[mod1(i + 1, length(vertices))][1]
+    for i in eachindex(vertices)) / 2
+end
+centroid(ellipse::Ellipse) = (ellipse.at.x, ellipse.at.y)
+function centroid(polygon::Polygon{T}) where {T}
+    x, y = zero(T), zero(T)
+    vertices = polygon.vertices
+    for i in eachindex(vertices)
+        P, Q = vertices[i], vertices[mod1(i + 1, length(vertices))]
+        cross = P[1] * Q[2] - P[2] * Q[1]
+        x += (P[1] + Q[1]) * cross
+        y += (P[2] + Q[2]) * cross
+    end
+    return polygon.at((x, y) ./ (6area(polygon)))
+end
+support(ellipse::Ellipse) = hypot(ellipse.at.x, ellipse.at.y) + max(ellipse.a, ellipse.b)
+function support(ellipse::Ellipse, φ::Real)
+    ψ = φ - ellipse.at.φ
+    return ellipse.at.x * cos(φ) + ellipse.at.y * sin(φ) +
+           sqrt(ellipse.a^2 * cos(ψ)^2 + ellipse.b^2 * sin(ψ)^2)
+end
+function support(polygon::Polygon)
+    return maximum(hypot(polygon.at(vertex)...) for vertex in polygon.vertices)
+end
+function support(polygon::Polygon, φ::Real)
+    return maximum(point[1] * cos(φ) + point[2] * sin(φ)
+    for point in (polygon.at(vertex) for vertex in polygon.vertices))
+end
+function distance(ellipse::Ellipse)
+    return max(zero(ellipse.a), hypot(ellipse.at.x, ellipse.at.y) -
+                                max(ellipse.a, ellipse.b))
+end
+distance(polygon::Polygon) = distance(Contour(polygon))
+perimeter(ellipse::Ellipse) = 4ellipse.a * ellipe(1 - ellipse.b^2 / ellipse.a^2)
+function perimeter(polygon::Polygon)
+    return sum(hypot((polygon.vertices[mod1(i + 1, length(polygon.vertices))] .-
+                      polygon.vertices[i])...) for i in eachindex(polygon.vertices))
+end
+boundary(ellipse::Ellipse) = ellipse
+boundary(polygon::Polygon) = polygon
+
+"""
+$(TYPEDSIGNATURES)
+
+Place the ellipse by ``at_{new}=at\\,at_{ellipse}`` and keep its semi-axes \\[m\\].
+"""
+function resolve(at::Placement, ellipse::Ellipse)
+    placed = at * ellipse.at
+    T = promote_type(Float64, eltype(ellipse), eltype(placed))
+    return Ellipse{T}(convert(T, ellipse.a), convert(T, ellipse.b), convert(Placement{T}, placed))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Place the polygon by ``at_{new}=at\\,at_{polygon}`` and keep its local vertices \\[m\\].
+"""
+function resolve(at::Placement, polygon::Polygon)
+    return Polygon(polygon.vertices, at * polygon.at)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Map the semi-axes \\[m\\] and placement of `ellipse` by ``x\\mapsto f(x)``.
+"""
+function Base.map(f, ellipse::Ellipse)
+    return Ellipse(f(ellipse.a), f(ellipse.b), map(f, ellipse.at))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Map the local vertex coordinates \\[m\\] and placement of `polygon` by ``x\\mapsto f(x)``.
+"""
+function Base.map(f, polygon::Polygon)
+    return Polygon([map(f, vertex) for vertex in polygon.vertices], map(f, polygon.at))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Resolve a distance ``t`` \\[m\\] outward over the outer contour of `shape`.
+Move each segment by ``t(dy,-dx)/|Q-P|``, grow each counterclockwise arc's
+radius to ``r+t``, and join a counterclockwise corner of turn ``Δ`` with an
+arc of radius ``t`` and span ``Δ``. A tangent join keeps the two moved curves.
+Throw `ArgumentError` for a clockwise arc or corner, or an elliptic arc.
+"""
+function resolve(shape::AbstractShape, offset::Offset)
+    path = Contour(shape).outer
+    T = promote_type(eltype(shape), typeof(offset.t))
+    outline = Curve{T}[]
+    normals = Tuple{T, T}[]
+    isempty([curve for curve in path if curve isa EllipticArc]) ||
+        throw(ArgumentError("an offset follows a circle, an annulus, a sector, a rectangle or a convex polygon"))
+    for curve in [curve for curve in path if curve isa Segment]
+        dx, dy = curve.b .- curve.a
+        φ = atan(-dx, dy)
+        push!(normals, (φ, φ))
+        push!(outline,
+            Segment(curve.a .+ offset.t .* (cos(φ), sin(φ)),
+                curve.b .+ offset.t .* (cos(φ), sin(φ))))
+    end
+    for (k, curve) in [(k, curve) for (k, curve) in enumerate(path) if curve isa Arc]
+        nominal(curve.span) > 0 ||
+            throw(ArgumentError("an offset follows a circle, an annulus, a sector, a rectangle or a convex polygon"))
+        insert!(normals, k, (curve.at.φ, curve.at.φ + curve.span))
+        insert!(outline, k, Arc(curve.at, curve.r + offset.t, curve.span))
+    end
+    result = Curve{T}[]
+    for k in eachindex(path)
+        push!(result, outline[k])
+        φ = normals[k][2]
+        Δ = mod(normals[mod1(k + 1, length(path))][1] - φ + π, 2π) - π
+        scale = max(one(nominal(φ)), abs(nominal(φ)),
+            abs(nominal(normals[mod1(k + 1, length(path))][1])))
+        tolerance = sqrt(eps(float(scale))) * max(one(scale), scale)
+        nominal(Δ) >= -tolerance ||
+            throw(ArgumentError("an offset follows a circle, an annulus, a sector, a rectangle or a convex polygon"))
+        if nominal(Δ) > tolerance && nominal(offset.t) > 0
+            push!(result, Arc(Placement(path[k](1)..., φ), offset.t, Δ))
+        end
+    end
+    return ArcPolygon(result)
 end

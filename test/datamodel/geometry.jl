@@ -1,4 +1,5 @@
-using LineCableModels.DataModel: Sector, ArcPolygon, Curve, Segment, Arc
+using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon, Curve, Segment, Arc,
+                                 EllipticArc
 
 @testset "DataModel geometry" begin
     @testset "mapping scales real fields" begin
@@ -282,5 +283,78 @@ using LineCableModels.DataModel: Sector, ArcPolygon, Curve, Segment, Arc
             @test support(circle, φ) ≈ projection + circle.r rtol = 1e-12
             @test support(annulus, φ) ≈ projection + annulus.ro rtol = 1e-12
         end
+    end
+    @testset "ellipse moments and directional support" begin
+        ellipse = Ellipse(3.0e-3, 2.0e-3, Placement(0.01, -0.02, π / 7))
+        @test_throws DomainError Ellipse(0, 2.0e-3)
+        @test_throws DomainError Ellipse(3.0e-3, -1.0e-3)
+        @test_throws DomainError Ellipse(Inf, 2.0e-3)
+        @test area(ellipse) ≈ 6π * 1.0e-6 rtol = 1e-12
+        @test collect(centroid(ellipse)) ≈ [0.01, -0.02] rtol = 1e-12
+        @test perimeter(ellipse) ≈ 0.012 * 1.3221199657742158 rtol = 1e-12
+        @test perimeter(Ellipse(2.0e-3, 3.0e-3)) ≈ perimeter(ellipse) rtol = 1e-12
+        for φ in (0, π / 2, π, 3π / 2, 1.0)
+            @test support(ellipse, φ) ≈
+                  0.01cos(φ) - 0.02sin(φ) +
+                  sqrt(9.0e-6 * cos(φ - π / 7)^2 + 4.0e-6 * sin(φ - π / 7)^2) rtol = 1e-12
+        end
+        contour = LineCableModels.DataModel.Contour(ellipse)
+        @test area(contour) ≈ area(ellipse) rtol = 1e-12
+        @test collect(centroid(contour)) ≈ collect(centroid(ellipse)) rtol = 1e-12
+        @test perimeter(contour) ≈ perimeter(ellipse) rtol = 1e-12
+    end
+
+    @testset "an elliptic arc bounds a half ellipse" begin
+        shape = ArcPolygon(Curve{Float64}[
+        EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π),
+        Segment((-3.0e-3, 0.0), (3.0e-3, 0.0))])
+        @test area(shape) ≈ 3π * 1.0e-6 rtol = 1e-12
+        @test collect(centroid(shape)) ≈ [0, 8.0e-3 / (3π)] rtol = 1e-12
+        @test perimeter(shape) ≈ 6.0e-3 + 0.006 * 1.3221199657742158 rtol = 1e-12
+    end
+
+    @testset "polygon moments and directional support" begin
+        @test_throws DomainError Polygon([(0, 0), (1, 0)])
+        @test_throws DomainError Polygon([(0, 0), (0, 1), (1, 0)])
+        @test_throws DomainError Polygon([(0, 0), (3, 2), (0, 2), (2, 0)])
+        pentagon = [
+            (0.0, 0.0), (0.004, 0.0), (0.005, 0.003), (0.002, 0.005), (-0.001, 0.003)]
+        L = [(0.0, 0.0), (0.004, 0.0), (0.004, 0.001),
+            (0.001, 0.001), (0.001, 0.003), (0.0, 0.003)]
+        for (vertices, A, c, P, d, projections) in (
+            (pentagon, 21.0e-6, [0.002, 46.0e-3 / 21],
+                (4 + 2sqrt(10) + 2sqrt(13)) * 1.0e-3, sqrt(370) * 1.0e-3,
+                (0.005, 0.005, 0.001, 0.0, 0.002cos(1) + 0.005sin(1))),
+            (L, 6.0e-6, [0.0015, 0.001], 0.014, 0.02,
+                (0.004, 0.003, 0.003sin(π), 0.0, 0.001cos(1) + 0.003sin(1))))
+            polygon = Polygon(vertices)
+            @test area(polygon) ≈ A rtol = 1e-12
+            @test collect(centroid(polygon)) ≈ c rtol = 1e-12
+            @test perimeter(polygon) ≈ P rtol = 1e-12
+            @test distance(Polygon(vertices, Placement(-0.0005, -0.0005))) == 0
+            @test distance(Polygon(vertices, Placement(0.02, 0.0))) ≈ d rtol = 1e-12
+            for (φ, projection) in zip((0, π / 2, π, 3π / 2, 1.0), projections)
+                @test support(polygon, φ) ≈ projection rtol = 1e-12
+            end
+        end
+    end
+
+    @testset "contour offsets satisfy Steiner's formulas" begin
+        pentagon = Polygon([
+            (0.0, 0.0), (0.004, 0.0), (0.005, 0.003), (0.002, 0.005), (-0.001, 0.003)])
+        for (shape, A, P) in ((Rectangle(4.0e-3, 2.0e-3), 8.0e-6, 0.012),
+            (pentagon, 21.0e-6, (4 + 2sqrt(10) + 2sqrt(13)) * 1.0e-3))
+            offset = LineCableModels.resolve(shape, Offset(0.5e-3))
+            @test offset isa ArcPolygon
+            @test area(offset) ≈ A + P * 0.5e-3 + π * 0.5e-3^2 rtol = 1e-12
+            @test perimeter(offset) ≈ P + 2π * 0.5e-3 rtol = 1e-12
+            second = LineCableModels.resolve(offset, Offset(0.25e-3))
+            @test area(second) ≈ A + P * 0.75e-3 + π * 0.75e-3^2 rtol = 1e-12
+        end
+        L = Polygon([(0.0, 0.0), (0.004, 0.0), (0.004, 0.001),
+            (0.001, 0.001), (0.001, 0.003), (0.0, 0.003)])
+        refusal = ArgumentError("an offset follows a circle, an annulus, a sector, a rectangle or a convex polygon")
+        @test_throws refusal LineCableModels.resolve(L, Offset(0.5e-3))
+        @test_throws refusal LineCableModels.resolve(Ellipse(3.0e-3, 2.0e-3), Offset(0.5e-3))
     end
 end
