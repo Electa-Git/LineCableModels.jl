@@ -88,7 +88,8 @@ nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "o
     "designs", "connections", "blueprint", "conductor", "conductors",
     "dielectrics", "assembly", "core", "screen", "sheath", "bedding",
     "jacket", "tape", "wires", "spacing", "trefoil", "span", "apex", "fillet", "perimeter",
-    "polygon", "outline", "segment", "arc", "curve", "contour", "ellipse", "vertices"]
+    "polygon", "outline", "segment", "arc", "curve", "contour", "ellipse", "vertices",
+    "parallel", "clearance", "dimension", "turn", "direction"]
 qualifiers = ["circular", "empty", "perforated", "placed", "stranded",
     "layout", "flat", "linear", "outer", "elliptic"]
 symbols = ["φ", "ri", "ro", "w", "h", "t", "n", "φ0", "gap_frac", "q", "dir", "r", "a", "b"]
@@ -127,8 +128,7 @@ draw = "draw a system, a design, a placed region, a shape, a contour, a path or 
 nouns = ["overrides", "interval", "field", "tags", "strand", "air", "scale",
     "geometry", "key", "point", "points", "buckets", "lines", "arcs", "ends", "curves", "breaks",
     "contacts", "loops", "surfaces", "patches", "outlines", "pockets", "anchors", "faces",
-    "compartments", "direction", "inside", "anchor", "dimension", "turn", "section", "directory",
-    "segments"]
+    "compartments", "inside", "anchor", "section", "directory", "segments"]
 qualifiers = ["low", "high", "closed", "lowest"]
 symbols = ["gamma"]
 
@@ -174,6 +174,11 @@ AbstractShape = "the supertype of the exact cross-sections of cable parts"
 AbstractPrimitive = "the supertype of the shapes a part declares, with dimensions and a placement"
 Circle = "a circular cross-section with its placement"
 Annulus = "an annular cross-section with its placement"
+turn = "the turn of a curve: the turn of its tangent as a fraction of a revolution and its length, zero for a segment, the span over a revolution for an arc, the turn of its normal for an elliptic arc; of the parallel of a face at a signed distance between two points, the signed fraction and length of that piece, negative once the face has vanished"
+parallel = "the parallel at a distance signed along the outward normal: of a curve, a segment moved along its normal, an arc of its radius plus the distance in its sense, an elliptic arc of its offset plus the distance; of the piece of a curve's parallel between two points; of the junction of two consecutive curves, the end of the first parallel and the start of the second, one point where they meet and each end moved along its own normal where they diverge; of a contour, curve for curve, trimmed at its junctions, with an arc about each corner where the parallels diverge"
+clearance = "the clearance between two curves: their two nearest points, its width and the parameters of the two points on their curves, for two arcs of one center the difference of their radii less the distance of their centers, for two arcs of one ellipse the difference of their offsets; the middle of the common range when the two points are not unique"
+dimension = "the distance across the metal of a shape: twice the depth at which the inward parallel of its outline first degenerates; a circle's diameter, an annulus's thickness, a rectangle's smaller side"
+direction = "the direction of the tangent of a curve at a parameter; of an oriented curve stored in a geometry, its direction leaving its first point, measured at a distance along it, so that tangent arcs of different radii compare"
 Ellipse = "an elliptical cross-section of two semi-axes along the axes of its placement"
 Polygon = "a cross-section bounded by straight edges between vertices given counterclockwise in the frame of its placement, no two edges crossing"
 Rectangle = "a rectangular cross-section with its placement: a strand that a circular pattern bends, or a container"
@@ -379,14 +384,11 @@ key = "the registry key of a geometric entity: its defining numbers rounded to 1
 "faces!" = "the plane surfaces of a contour: one of its outer loop with its holes' clockwise loops when no two loops share a point, the walked faces when they do; a shape by its contour; a fill by its compartments and the free spans of its shell when it is a course of wires, else by its contour"
 compartments = "the course of wires tangent to the inner circle of a fill: its center, the inner, contact and shell radii, the wires' angles and holes, and the free spans of the shell; with no wires when the fill is not such a course"
 "walk!" = "walk oriented boundaries, each with its material on the left, into their cycles: the plane surfaces of the positive cycles with the negative cycles they contain, and the negative cycles no face contains"
-direction = "the direction of an oriented curve leaving its first point, measured at a distance along it, so that tangent arcs of different radii compare"
 isinside = "whether a point lies inside a closed polygon, by the even-odd rule"
 "patches!" = "the four-sided patches of a passive annulus between its circles at their shared breaks, each with its arcs, spokes and corners, recorded for a region"
 lowest = "the lowest point: of a segment its lower end; of an arc the bottom of its circle when the arc passes it, else its lower end; of a contour the lowest of its outer path's curves, least y then least x"
-dimension = "the smallest metal dimension of a region: a circle's diameter, an annulus's thickness, a rectangle's smaller side, a sector's shorter bounding-box side"
 anchor = "the measurement anchor of terminal t: the first probe point inside its metal, upward from the lowest point of each of its regions at the offsets of its dimension, for a shift of 0 and 1 % of the terminal's smallest dimension; refused when none is"
 curves = "the boundary curves of plane surfaces, sorted"
-turn = "the turn of a curve of a contour: an arc's fraction of a revolution about its center and its length, a segment's zero fraction and its length, an elliptic arc's turn of its normal as a fraction of a revolution and its length"
 scan = "scan the frequencies of a problem with GetDP: at most workers processes, one per frequency, from the meshes of the run directory, each process's job files read when it exits, results/Z.tsv and results/P.tsv written after the last, the primitive Z in Ω/m and P in Ω·m of every frequency returned by terminal"
 section = "the native section of a shape or region: its kind, 1 a Circle or an Ellipse, 2 an Annulus or a layer, 3 a Rectangle, a Sector, a Polygon or an ArcPolygon, a PerforatedShape its outer's, with the two lengths the native size law reads, (r, 0), (ro, ri), (w, h), an ellipse's smaller semi-axis and 0, a sector's sides ro - ri and span (ro + ri) / 2, a polygon's or an arc polygon's bounding-box sides; of a placed region, its declared primitive's, or, when the primitive is an Offset, its resolved shape's: a layer around another outline by the containing radii of its outer and its hole, whose difference is its thickness, and a fill by its container's"
 

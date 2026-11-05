@@ -103,10 +103,10 @@ end
         @test record.a - record.b ≈ 3e-3 rtol = 1e-12
         arc = LineCableModels.DataModel.EllipticArc(
             Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, 0.5e-3)
-        @test extension.turn(arc).fraction ≈ 1 / 4 rtol = 1e-12
-        @test extension.turn(arc).length ≈
+        @test LineCableModels.DataModel.turn(arc).fraction ≈ 1 / 4 rtol = 1e-12
+        @test LineCableModels.DataModel.turn(arc).length ≈
               0.003 * 1.3221199657742158 + 0.5e-3 * π / 2 rtol = 1e-12
-        @test extension.turn(LineCableModels.DataModel.EllipticArc(
+        @test LineCableModels.DataModel.turn(LineCableModels.DataModel.EllipticArc(
             Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, 0)).length ≈
               0.003 * 1.3221199657742158 rtol = 1e-12
         problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);

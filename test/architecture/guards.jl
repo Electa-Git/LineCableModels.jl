@@ -975,6 +975,93 @@ function offset_reads(directory)
     return found
 end
 
+function dimension_methods(directory)
+    found = Dict{String, Int}()
+    signatures = Bool[]
+    for base in ("src", "ext"), file in repository_files(joinpath(directory, base))
+
+        endswith(file, ".jl") || continue
+        visit(parse_source(file)) do node
+            if kind(node) in (K"function", K"=") && numchildren(node) == 2
+                signature = node[1]
+                while kind(signature) in (K"where", K"::") && numchildren(signature) == 2
+                    signature = signature[1]
+                end
+                if kind(signature) == K"call" &&
+                   !isempty(syntax_name(signature[1])) &&
+                   last(syntax_name(signature[1])) == :dimension
+                    push!(signatures,
+                        numchildren(signature) == 2 &&
+                            kind(signature[2]) == K"::" &&
+                            numchildren(signature[2]) == 2 &&
+                            syntax_name(signature[2][1]) == (:shape,) &&
+                            syntax_name(signature[2][2]) == (:AbstractShape,))
+                    count!(found,
+                        string(relative(file, directory), ":",
+                            JuliaSyntax.source_line(node), " | ", JuliaSyntax.sourcetext(node)))
+                end
+            end
+            return true
+        end
+    end
+    isempty(signatures) && count!(found, "src | dimension | no method")
+    length(signatures) == 1 && only(signatures) && empty!(found)
+    return found
+end
+
+function distances_across(directory)
+    found = Dict{String, Int}()
+    for file in repository_files(joinpath(directory, "ext"))
+        endswith(file, ".jl") || continue
+        visit(parse_source(file)) do node
+            if kind(node) in (K"function", K"=") && numchildren(node) == 2
+                signature = node[1]
+                while kind(signature) in (K"where", K"::") && numchildren(signature) == 2
+                    signature = signature[1]
+                end
+                if kind(signature) == K"call" &&
+                   !isempty(syntax_name(signature[1])) &&
+                   last(syntax_name(signature[1])) == :section
+                    return false
+                end
+            end
+            rejected = calls(node, (:getBoundingBox,))
+            operands = binary(node)
+            if operands !== nothing
+                operator, left, right = operands
+                if syntax_name(operator) == (:-,)
+                    rejected |= kind(left) == K"." && kind(right) == K"." &&
+                                syntax_name(last_child(left)) == (:ro,) &&
+                                syntax_name(last_child(right)) == (:ri,)
+                elseif syntax_name(operator) == (:min,)
+                    rejected |= kind(left) == K"." && kind(right) == K"." &&
+                                ((syntax_name(last_child(left)) == (:w,) &&
+                                  syntax_name(last_child(right)) == (:h,)) ||
+                                 (syntax_name(last_child(left)) == (:h,) &&
+                                  syntax_name(last_child(right)) == (:w,)))
+                elseif syntax_name(operator) == (:*,)
+                    for (literal, field) in ((left, right), (right, left))
+                        rejected |= kind(literal) == K"Integer" && literal.val == 2 &&
+                                    kind(field) == K"." &&
+                                    syntax_name(last_child(field)) == (:r,)
+                    end
+                end
+            elseif kind(node) == K"juxtapose" && numchildren(node) == 2
+                for (literal, field) in ((node[1], node[2]), (node[2], node[1]))
+                    rejected |= kind(literal) == K"Integer" && literal.val == 2 &&
+                                kind(field) == K"." &&
+                                syntax_name(last_child(field)) == (:r,)
+                end
+            end
+            rejected && count!(found,
+                string(relative(file, directory), ":",
+                    JuliaSyntax.source_line(node), " | ", JuliaSyntax.sourcetext(node)))
+            return true
+        end
+    end
+    return found
+end
+
 const UNHYGIENIC = (:tempdir, :mktempdir, :tempname, :homedir)
 
 # File hygiene. Per file and name, the references to `tempdir`, `mktempdir`, `tempname`

@@ -134,9 +134,10 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Check that the semi-axes are positive and finite \\[m\\], a finite initial angle and
-``0<|span|≤2π`` \\[rad\\], and a nonnegative finite normal offset \\[m\\].
-Return `arc`, or throw `DomainError`.
+Check that the semi-axes are positive and finite \\[m\\], the initial angle finite and
+``0<|span|≤2π`` \\[rad\\]. The normal offset is finite and above ``-ρ_{min}`` \\[m\\]. The
+radius ``ρ_{min}`` is the least of ``ρ(θ)=(a^2\\sin^2θ+b^2\\cos^2θ)^{3/2}/(ab)`` over the
+range of the arc. Return `arc`, or throw `DomainError`.
 """
 function validate(arc::EllipticArc)
     isfinite(nominal(arc.a)) && nominal(arc.a) > 0 ||
@@ -147,8 +148,23 @@ function validate(arc::EllipticArc)
         throw(DomainError(arc.φ0, "EllipticArc.φ0 must be finite"))
     isfinite(nominal(arc.span)) && 0 < abs(nominal(arc.span)) <= 2π ||
         throw(DomainError(arc.span, "EllipticArc.span must be finite with 0 < |span| ≤ 2π"))
-    isfinite(nominal(arc.offset)) && nominal(arc.offset) >= 0 ||
-        throw(DomainError(arc.offset, "EllipticArc.offset must be nonnegative and finite"))
+    θ₁, θ₂ = minmax(arc.φ0, arc.φ0 + arc.span)
+    ρ_min = min(hypot(arc.a * sin(θ₁), arc.b * cos(θ₁))^3,
+        hypot(arc.a * sin(θ₂), arc.b * cos(θ₂))^3) / (arc.a * arc.b)
+    if nominal(arc.a) > nominal(arc.b)
+        if ceil(nominal(θ₁ / π)) <= floor(nominal(θ₂ / π))
+            ρ_min = arc.b^2 / arc.a
+        end
+    elseif nominal(arc.a) < nominal(arc.b)
+        if ceil(nominal((θ₁ - π / 2) / π)) <= floor(nominal((θ₂ - π / 2) / π))
+            ρ_min = arc.a^2 / arc.b
+        end
+    else
+        ρ_min = arc.a
+    end
+    isfinite(nominal(arc.offset)) && nominal(arc.offset) > -nominal(ρ_min) ||
+        throw(DomainError(arc.offset,
+            "EllipticArc.offset must be finite and above minus its smallest radius of curvature, $(ρ_min) m"))
     return arc
 end
 
@@ -164,6 +180,743 @@ function (arc::EllipticArc)(s::Real)
     ρ = hypot(arc.b * cos(θ), arc.a * sin(θ))
     return arc.at((arc.a * cos(θ) + arc.offset * arc.b * cos(θ) / ρ,
         arc.b * sin(θ) + arc.offset * arc.a * sin(θ) / ρ))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the tangent direction of `curve` at `t` in \\[rad\\].
+
+``θ=atan(b_2-a_2,b_1-a_1)``.
+"""
+function direction(curve::Segment, t::Real)
+    return atan(curve.b[2] - curve.a[2], curve.b[1] - curve.a[1])
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the tangent direction of `curve` at `t` in \\[rad\\].
+
+``θ=at.φ+t\\,span+sign(span)π/2``.
+"""
+function direction(curve::Arc, t::Real)
+    return curve.at.φ + t * curve.span + sign(curve.span) * π / 2
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the tangent direction of `curve` at `t` in \\[rad\\].
+
+``α=at.φ+atan(sign(span)b cos θ,-sign(span)a sin θ)``, with ``θ=φ0+t\\,span``.
+"""
+function direction(curve::EllipticArc, t::Real)
+    θ = curve.φ0 + t * curve.span
+    return curve.at.φ + atan(sign(curve.span) * curve.b * cos(θ),
+        -sign(curve.span) * curve.a * sin(θ))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the fraction of a revolution \\[dimensionless\\] and length \\[m\\] of the straight
+curve `segment`. The fraction is zero, and the length is the distance between its endpoints
+\\[m\\].
+"""
+function turn(segment::Segment{T}) where {T}
+    return (fraction = zero(T), length = hypot((segment.b .- segment.a)...))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the fraction of a revolution \\[dimensionless\\] and length \\[m\\] of the circular
+curve `arc`. Its radius is in \\[m\\] and its signed span in \\[rad\\]. The fraction is
+`abs(span) / (2π)` and the length is `abs(span) * r`.
+"""
+function turn(arc::Arc)
+    span = abs(arc.span)
+    return (fraction = span / (2π), length = span * arc.r)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the normal's fraction of a revolution \\[dimensionless\\] and length \\[m\\] of the
+elliptic curve `arc`, ``|Δα|/(2π)`` and ``|L+d Δα|``. Its semi-axes ``a,b`` and normal
+offset ``d`` are in \\[m\\], and its parametric ends ``θ₁,θ₂`` and signed span are in
+\\[rad\\]. The normal turns by ``Δα=span+δ(θ₂)-δ(θ₁)``, with
+``δ(θ)=atan((a-b)sin(θ)cos(θ),b cos²(θ)+a sin²(θ))``. The base arc's signed length is
+``L=∫_{θ₁}^{θ₂}hypot(a sin(θ),b cos(θ))dθ``.
+"""
+function turn(arc::EllipticArc{T}) where {T}
+    a, b = arc.a, arc.b
+    θ₁, θ₂ = arc.φ0, arc.φ0 + arc.span
+    Δα = arc.span + atan((a - b) * sin(θ₂) * cos(θ₂),
+        b * cos(θ₂)^2 + a * sin(θ₂)^2) -
+         atan((a - b) * sin(θ₁) * cos(θ₁),
+        b * cos(θ₁)^2 + a * sin(θ₁)^2)
+    L = first(quadgk(θ -> hypot(a * sin(θ), b * cos(θ)), θ₁, θ₂;
+        rtol = eps(float(nominal(one(T))))^(3 / 4),
+        norm = x -> abs(nominal(x))))
+    return (fraction = abs(Δα) / (2π), length = abs(L + arc.offset * Δα))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the parallel of `curve` at outward distance `d` in \\[m\\].
+
+``p_d=p+d(cos φ,sin φ)``, with ``φ=atan(-dx,dy)``.
+"""
+function parallel(curve::Segment, d::Real)
+    dx, dy = curve.b .- curve.a
+    φ = atan(-dx, dy)
+    return Segment(curve.a .+ d .* (cos(φ), sin(φ)),
+        curve.b .+ d .* (cos(φ), sin(φ)))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the parallel of `curve` at outward distance `d` in \\[m\\].
+
+``r_d=r+sign(span)d``.
+"""
+function parallel(curve::Arc, d::Real)
+    return Arc(curve.at, curve.r + sign(curve.span) * d, curve.span)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the parallel of `curve` at outward distance `d` in \\[m\\].
+
+``offset_d=offset+d``.
+"""
+function parallel(curve::EllipticArc, d::Real)
+    return EllipticArc(curve.at, curve.a, curve.b, curve.φ0, curve.span,
+        curve.offset + d)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the piece of the parallel of `curve` between `p` and `q` in \\[m\\].
+
+``p_d(t)=p+t(q-p)``.
+"""
+function parallel(curve::Segment, d::Real, p, q)
+    return Segment(p, q)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the piece of the parallel of `curve` between `p` and `q` in \\[m\\].
+
+``r_d=r+sign(span)d``, with span ``sign(span)2π\\,turn(curve,d,p,q).fraction``.
+"""
+function parallel(curve::Arc, d::Real, p, q)
+    return Arc(
+        Placement(curve.at.x, curve.at.y,
+            atan(p[2] - curve.at.y, p[1] - curve.at.x)),
+        curve.r + sign(curve.span) * d,
+        sign(curve.span) * 2π * turn(curve, d, p, q).fraction)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the piece of the parallel of `curve` between `p` and `q` in \\[m\\].
+
+``offset_d=offset+d``.
+"""
+function parallel(curve::EllipticArc, d::Real, p, q)
+    return parallel(curve, d)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
+`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
+both points lie at the distance `d` from ``j`` along the outward normal. Where the two
+parallels converge, both points are their intersection nearest ``j``. Where they diverge,
+each point is the end of its own parallel.
+"""
+function parallel(a::Segment, b::Segment, d::Real)
+    j = a(1)
+    θa, θb = direction(a, 1), direction(b, 0)
+    τ = π - mod(π - (θb - θa), 2π)
+    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
+    sine = nominal(u[1] * v[2] - u[2] * v[1])
+    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
+       abs(sine) <= sqrt(eps(float(one(sine))))
+        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
+        return (p, p)
+    elseif nominal(sin(τ) * d) < 0
+        A, B = parallel(a, d), parallel(b, d)
+        U, V = A.b .- A.a, B.b .- B.a
+        w = B.a .- A.a
+        t = (w[1] * V[2] - w[2] * V[1]) / (U[1] * V[2] - U[2] * V[1])
+        p = A.a .+ t .* U
+        return (p, p)
+    else
+        return (parallel(a, d)(1), parallel(b, d)(0))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
+`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
+both points lie at the distance `d` from ``j`` along the outward normal. Where the two
+parallels converge, both points are their intersection nearest ``j``. Where they diverge,
+each point is the end of its own parallel.
+"""
+function parallel(a::Segment, b::Arc, d::Real)
+    j = a(1)
+    θa, θb = direction(a, 1), direction(b, 0)
+    τ = π - mod(π - (θb - θa), 2π)
+    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
+    sine = nominal(u[1] * v[2] - u[2] * v[1])
+    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
+       abs(sine) <= sqrt(eps(float(one(sine))))
+        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
+        return (p, p)
+    elseif nominal(sin(τ) * d) < 0
+        A, B = parallel(a, d), parallel(b, d)
+        U = A.b .- A.a
+        w = A.a .- (B.at.x, B.at.y)
+        L = U[1]^2 + U[2]^2
+        h = -(w[1] * U[1] + w[2] * U[2]) / L
+        Δ = h^2 - (w[1]^2 + w[2]^2 - B.r^2) / L
+        δ = sqrt(max(Δ, zero(Δ)))
+        points = (A.a .+ (h - δ) .* U, A.a .+ (h + δ) .* U)
+        p = argmin(xy -> nominal(hypot((xy .- j)...)), points)
+        return (p, p)
+    else
+        return (parallel(a, d)(1), parallel(b, d)(0))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
+`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
+both points lie at the distance `d` from ``j`` along the outward normal. Where the two
+parallels converge, both points are their intersection nearest ``j``. Where they diverge,
+each point is the end of its own parallel.
+"""
+function parallel(a::Arc, b::Segment, d::Real)
+    j = a(1)
+    θa, θb = direction(a, 1), direction(b, 0)
+    τ = π - mod(π - (θb - θa), 2π)
+    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
+    sine = nominal(u[1] * v[2] - u[2] * v[1])
+    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
+       abs(sine) <= sqrt(eps(float(one(sine))))
+        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
+        return (p, p)
+    elseif nominal(sin(τ) * d) < 0
+        A, B = parallel(b, d), parallel(a, d)
+        U = A.b .- A.a
+        w = A.a .- (B.at.x, B.at.y)
+        L = U[1]^2 + U[2]^2
+        h = -(w[1] * U[1] + w[2] * U[2]) / L
+        Δ = h^2 - (w[1]^2 + w[2]^2 - B.r^2) / L
+        δ = sqrt(max(Δ, zero(Δ)))
+        points = (A.a .+ (h - δ) .* U, A.a .+ (h + δ) .* U)
+        p = argmin(xy -> nominal(hypot((xy .- j)...)), points)
+        return (p, p)
+    else
+        return (parallel(a, d)(1), parallel(b, d)(0))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
+`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
+both points lie at the distance `d` from ``j`` along the outward normal. Where the two
+parallels converge, both points are their intersection nearest ``j``. Where they diverge,
+each point is the end of its own parallel.
+"""
+function parallel(a::Arc, b::Arc, d::Real)
+    j = a(1)
+    θa, θb = direction(a, 1), direction(b, 0)
+    τ = π - mod(π - (θb - θa), 2π)
+    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
+    sine = nominal(u[1] * v[2] - u[2] * v[1])
+    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
+       abs(sine) <= sqrt(eps(float(one(sine))))
+        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
+        return (p, p)
+    elseif nominal(sin(τ) * d) < 0
+        A, B = parallel(a, d), parallel(b, d)
+        w = (B.at.x - A.at.x, B.at.y - A.at.y)
+        L = hypot(w...)
+        U = w ./ L
+        h = (A.r^2 - B.r^2 + L^2) / (2L)
+        Δ = A.r^2 - h^2
+        δ = sqrt(max(Δ, zero(Δ)))
+        center = (A.at.x, A.at.y) .+ h .* U
+        points = (center .+ δ .* (-U[2], U[1]), center .- δ .* (-U[2], U[1]))
+        p = argmin(xy -> nominal(hypot((xy .- j)...)), points)
+        return (p, p)
+    else
+        return (parallel(a, d)(1), parallel(b, d)(0))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
+`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
+both points lie at the distance `d` from ``j`` along the outward normal. Where the two
+parallels diverge, each point is the end of its own parallel. Where they converge, the
+method throws `DomainError`: the parallels of an elliptic arc and its neighbour meet at no
+point of a conic.
+"""
+function parallel(a::EllipticArc, b::Segment, d::Real)
+    j = a(1)
+    θa, θb = direction(a, 1), direction(b, 0)
+    τ = π - mod(π - (θb - θa), 2π)
+    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
+    sine = nominal(u[1] * v[2] - u[2] * v[1])
+    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
+       abs(sine) <= sqrt(eps(float(one(sine))))
+        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
+        return (p, p)
+    elseif nominal(sin(τ) * d) < 0
+        throw(DomainError(j,
+            "the parallels of an elliptic arc and its neighbour meet at no point of a conic at $(j) m"))
+    else
+        return (parallel(a, d)(1), parallel(b, d)(0))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
+`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
+both points lie at the distance `d` from ``j`` along the outward normal. Where the two
+parallels diverge, each point is the end of its own parallel. Where they converge, the
+method throws `DomainError`: the parallels of an elliptic arc and its neighbour meet at no
+point of a conic.
+"""
+function parallel(a::EllipticArc, b::Arc, d::Real)
+    j = a(1)
+    θa, θb = direction(a, 1), direction(b, 0)
+    τ = π - mod(π - (θb - θa), 2π)
+    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
+    sine = nominal(u[1] * v[2] - u[2] * v[1])
+    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
+       abs(sine) <= sqrt(eps(float(one(sine))))
+        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
+        return (p, p)
+    elseif nominal(sin(τ) * d) < 0
+        throw(DomainError(j,
+            "the parallels of an elliptic arc and its neighbour meet at no point of a conic at $(j) m"))
+    else
+        return (parallel(a, d)(1), parallel(b, d)(0))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
+`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
+both points lie at the distance `d` from ``j`` along the outward normal. Where the two
+parallels diverge, each point is the end of its own parallel. Where they converge, the
+method throws `DomainError`: the parallels of an elliptic arc and its neighbour meet at no
+point of a conic.
+"""
+function parallel(a::EllipticArc, b::EllipticArc, d::Real)
+    j = a(1)
+    θa, θb = direction(a, 1), direction(b, 0)
+    τ = π - mod(π - (θb - θa), 2π)
+    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
+    sine = nominal(u[1] * v[2] - u[2] * v[1])
+    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
+       abs(sine) <= sqrt(eps(float(one(sine))))
+        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
+        return (p, p)
+    elseif nominal(sin(τ) * d) < 0
+        throw(DomainError(j,
+            "the parallels of an elliptic arc and its neighbour meet at no point of a conic at $(j) m"))
+    else
+        return (parallel(a, d)(1), parallel(b, d)(0))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
+`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
+both points lie at the distance `d` from ``j`` along the outward normal. Where the two
+parallels diverge, each point is the end of its own parallel. Where they converge, the
+method throws `DomainError`: the parallels of an elliptic arc and its neighbour meet at no
+point of a conic.
+"""
+function parallel(a::Segment, b::EllipticArc, d::Real)
+    j = a(1)
+    θa, θb = direction(a, 1), direction(b, 0)
+    τ = π - mod(π - (θb - θa), 2π)
+    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
+    sine = nominal(u[1] * v[2] - u[2] * v[1])
+    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
+       abs(sine) <= sqrt(eps(float(one(sine))))
+        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
+        return (p, p)
+    elseif nominal(sin(τ) * d) < 0
+        throw(DomainError(j,
+            "the parallels of an elliptic arc and its neighbour meet at no point of a conic at $(j) m"))
+    else
+        return (parallel(a, d)(1), parallel(b, d)(0))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
+`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
+both points lie at the distance `d` from ``j`` along the outward normal. Where the two
+parallels diverge, each point is the end of its own parallel. Where they converge, the
+method throws `DomainError`: the parallels of an elliptic arc and its neighbour meet at no
+point of a conic.
+"""
+function parallel(a::Arc, b::EllipticArc, d::Real)
+    j = a(1)
+    θa, θb = direction(a, 1), direction(b, 0)
+    τ = π - mod(π - (θb - θa), 2π)
+    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
+    sine = nominal(u[1] * v[2] - u[2] * v[1])
+    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
+       abs(sine) <= sqrt(eps(float(one(sine))))
+        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
+        return (p, p)
+    elseif nominal(sin(τ) * d) < 0
+        throw(DomainError(j,
+            "the parallels of an elliptic arc and its neighbour meet at no point of a conic at $(j) m"))
+    else
+        return (parallel(a, d)(1), parallel(b, d)(0))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the turn of the parallel of `face` at the distance `d` \\[m\\] between the points `p`
+and `q`. The fraction is zero, and the signed length \\[m\\] is ``(q-p)⋅u`` for the unit
+direction ``u`` of `face`.
+"""
+function turn(face::Segment, d::Real, p, q)
+    u = (face.b .- face.a) ./ hypot((face.b .- face.a)...)
+    return (fraction = zero(face.a[1] + d),
+        length = (q[1] - p[1]) * u[1] + (q[2] - p[2]) * u[2])
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the turn of the parallel of `face` at the distance `d` \\[m\\] between the points `p`
+and `q`. The signed fraction of a revolution is ``θ/(2π)``, and the signed length is
+``θ(r+\\mathrm{sign}(span)\\,d)`` \\[m\\]. The angle ``θ=|span|-m_0+m_1`` \\[rad\\] takes
+the moves about the center from the start of `face` to `p` and from its end to `q`. Each
+move counts in the sense in which `face` turns. Both values are negative once the face has
+vanished.
+"""
+function turn(face::Arc, d::Real, p, q)
+    P, Q = face(0), face(1)
+    m₀ = sign(face.span) * (π - mod(
+        π -
+        (atan(p[2] - face.at.y, p[1] - face.at.x) -
+         atan(P[2] - face.at.y, P[1] - face.at.x)), 2π))
+    m₁ = sign(face.span) * (π - mod(
+        π -
+        (atan(q[2] - face.at.y, q[1] - face.at.x) -
+         atan(Q[2] - face.at.y, Q[1] - face.at.x)), 2π))
+    θ = abs(face.span) - m₀ + m₁
+    return (fraction = θ / (2π), length = θ * (face.r + sign(face.span) * d))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `(p, q, d, s, t)` for the nearest points `p` of `curve` and `q` of `other`. Their
+distance is `d` \\[m\\], and their parameters give ``p = curve(s)`` and ``q = other(t)``.
+Each parameter lies in ``[0, 1]`` and is exactly 0 or 1 at an end. Parallel segments take
+the middle of their common range, at their perpendicular distance, or else their nearest
+ends.
+"""
+function clearance(curve::Segment, other::Segment)
+    u, v = curve.b .- curve.a, other.b .- other.a
+    w = other.a .- curve.a
+    z = zero(u[1] + v[1])
+    candidates = [(s, t, hypot((curve(s) .- other(t))...))
+                  for s in (z, one(z)) for t in (z, one(z))]
+    cross = u[1] * v[2] - u[2] * v[1]
+    if iszero(nominal(cross))
+        L = hypot(u...)
+        n = u ./ L
+        α,
+        β = w[1] * n[1] + w[2] * n[2],
+        (other.b[1] - curve.a[1]) * n[1] + (other.b[2] - curve.a[2]) * n[2]
+        lo = max(z, min(α, β))
+        hi = min(L, max(α, β))
+        if nominal(lo) <= nominal(hi)
+            h = (lo + hi) / 2
+            s = h / L
+            t = (h - α) / (β - α)
+            p, q = curve(s), other(t)
+            return (p, q, abs(w[1] * n[2] - w[2] * n[1]), s, t)
+        end
+    else
+        s = (w[1] * v[2] - w[2] * v[1]) / cross
+        t = (w[1] * u[2] - w[2] * u[1]) / cross
+        if 0 <= nominal(s) <= 1 && 0 <= nominal(t) <= 1
+            push!(candidates, (s, t, z))
+        end
+    end
+    for s in (z, one(z))
+        p = curve(s)
+        t = ((p[1] - other.a[1]) * v[1] + (p[2] - other.a[2]) * v[2]) /
+            (v[1]^2 + v[2]^2)
+        t = nominal(t) <= 0 ? z : nominal(t) >= 1 ? one(z) : t
+        push!(candidates, (s, t, hypot((p .- other(t))...)))
+    end
+    for t in (z, one(z))
+        q = other(t)
+        s = ((q[1] - curve.a[1]) * u[1] + (q[2] - curve.a[2]) * u[2]) /
+            (u[1]^2 + u[2]^2)
+        s = nominal(s) <= 0 ? z : nominal(s) >= 1 ? one(z) : s
+        push!(candidates, (s, t, hypot((curve(s) .- q)...)))
+    end
+    s, t, d = argmin(candidate -> nominal(candidate[3]), candidates)
+    return (curve(s), other(t), d, s, t)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `(p, q, d, s, t)` for the nearest points `p` of `curve` and `q` of `other`. Their
+distance is `d` \\[m\\], and their parameters give ``p = curve(s)`` and ``q = other(t)``.
+Each parameter lies in ``[0, 1]`` and is exactly 0 or 1 at an end. The pair is the nearest
+among the ends, the feet of the normals and the crossings.
+"""
+function clearance(curve::Segment, other::Arc)
+    u = curve.b .- curve.a
+    z = zero(u[1] + other.r)
+    candidates = [(s, t, hypot((curve(s) .- other(t))...))
+                  for s in (z, one(z)) for t in (z, one(z))]
+    L = u[1]^2 + u[2]^2
+    for t in (z, one(z))
+        q = other(t)
+        s = ((q[1] - curve.a[1]) * u[1] + (q[2] - curve.a[2]) * u[2]) / L
+        s = nominal(s) <= 0 ? z : nominal(s) >= 1 ? one(z) : s
+        push!(candidates, (s, t, hypot((curve(s) .- q)...)))
+    end
+    for s in (z, one(z))
+        p = curve(s)
+        φ = atan(p[2] - other.at.y, p[1] - other.at.x)
+        travel = mod(sign(other.span) * (φ - other.at.φ), 2π)
+        if nominal(travel) <= abs(nominal(other.span))
+            t = travel / abs(other.span)
+            push!(candidates, (s, t, hypot((p .- other(t))...)))
+        end
+    end
+    h = ((other.at.x - curve.a[1]) * u[1] +
+         (other.at.y - curve.a[2]) * u[2]) / L
+    if 0 <= nominal(h) <= 1
+        s = h
+        p = curve(s)
+        for φ in (atan(-u[1], u[2]), atan(u[1], -u[2]))
+            travel = mod(sign(other.span) * (φ - other.at.φ), 2π)
+            if nominal(travel) <= abs(nominal(other.span))
+                t = travel / abs(other.span)
+                push!(candidates, (s, t, hypot((p .- other(t))...)))
+            end
+        end
+    end
+    w = curve.a .- (other.at.x, other.at.y)
+    Δ = h^2 - (w[1]^2 + w[2]^2 - other.r^2) / L
+    if nominal(Δ) >= 0
+        for s in (h - sqrt(max(Δ, zero(Δ))), h + sqrt(max(Δ, zero(Δ))))
+            if 0 <= nominal(s) <= 1
+                p = curve(s)
+                φ = atan(p[2] - other.at.y, p[1] - other.at.x)
+                travel = mod(sign(other.span) * (φ - other.at.φ), 2π)
+                if nominal(travel) <= abs(nominal(other.span))
+                    t = travel / abs(other.span)
+                    push!(candidates, (s, t, z))
+                end
+            end
+        end
+    end
+    s, t, d = argmin(candidate -> nominal(candidate[3]), candidates)
+    return (curve(s), other(t), d, s, t)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `clearance(other, curve)` with its two points and its two parameters swapped,
+`(q, p, d, t, s)`.
+"""
+function clearance(curve::Arc, other::Segment)
+    q, p, d, t, s = clearance(other, curve)
+    return (p, q, d, s, t)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `(p, q, d, s, t)` for the nearest points `p` of `curve` and `q` of `other`. Their
+distance is `d` \\[m\\], and their parameters give ``p = curve(s)`` and ``q = other(t)``.
+Each parameter lies in ``[0, 1]`` and is exactly 0 or 1 at an end. Concentric arcs take the
+middle of their common range, at ``|r_1-r_2|`` less the distance of their centers, or else
+their nearest ends.
+"""
+function clearance(curve::Arc, other::Arc)
+    z = zero(curve.r + other.r)
+    candidates = [(s, t, hypot((curve(s) .- other(t))...))
+                  for s in (z, one(z)) for t in (z, one(z))]
+    w = (other.at.x - curve.at.x, other.at.y - curve.at.y)
+    L = hypot(w...)
+    if nominal(curve.at.x) == nominal(other.at.x) &&
+       nominal(curve.at.y) == nominal(other.at.y)
+        α = mod(curve.at.φ + min(curve.span, zero(curve.span)), 2π)
+        β = mod(other.at.φ + min(other.span, zero(other.span)), 2π)
+        ranges = [(max(α, β + k * 2π),
+                      min(α + abs(curve.span), β + k * 2π + abs(other.span)), k)
+                  for k in (-1, 0, 1)
+                  if nominal(max(α, β + k * 2π)) <=
+                     nominal(min(α + abs(curve.span), β + k * 2π + abs(other.span)))]
+        if !isempty(ranges)
+            lo, hi, k = argmax(interval -> nominal(interval[2] - interval[1]), ranges)
+            φ = (lo + hi) / 2
+            s = nominal(curve.span) > 0 ? (φ - α) / abs(curve.span) :
+                (α + abs(curve.span) - φ) / abs(curve.span)
+            t = nominal(other.span) > 0 ? (φ - β - k * 2π) / abs(other.span) :
+                (β + k * 2π + abs(other.span) - φ) / abs(other.span)
+            s = nominal(φ) == nominal(α) ?
+                (nominal(curve.span) > 0 ? z : one(z)) :
+                nominal(φ) == nominal(α + abs(curve.span)) ?
+                (nominal(curve.span) > 0 ? one(z) : z) : s
+            t = nominal(φ) == nominal(β + k * 2π) ?
+                (nominal(other.span) > 0 ? z : one(z)) :
+                nominal(φ) == nominal(β + k * 2π + abs(other.span)) ?
+                (nominal(other.span) > 0 ? one(z) : z) : t
+            return (curve(s), other(t), abs(curve.r - other.r) - L, s, t)
+        end
+    else
+        for s in (z, one(z))
+            p = curve(s)
+            φ = atan(p[2] - other.at.y, p[1] - other.at.x)
+            travel = mod(sign(other.span) * (φ - other.at.φ), 2π)
+            if nominal(travel) <= abs(nominal(other.span))
+                t = travel / abs(other.span)
+                push!(candidates, (s, t, hypot((p .- other(t))...)))
+            end
+        end
+        for t in (z, one(z))
+            q = other(t)
+            φ = atan(q[2] - curve.at.y, q[1] - curve.at.x)
+            travel = mod(sign(curve.span) * (φ - curve.at.φ), 2π)
+            if nominal(travel) <= abs(nominal(curve.span))
+                s = travel / abs(curve.span)
+                push!(candidates, (s, t, hypot((curve(s) .- q)...)))
+            end
+        end
+        for φ in (atan(w[2], w[1]), atan(w[2], w[1]) + π),
+            ψ in (atan(w[2], w[1]), atan(w[2], w[1]) + π)
+
+            travel₁ = mod(sign(curve.span) * (φ - curve.at.φ), 2π)
+            travel₂ = mod(sign(other.span) * (ψ - other.at.φ), 2π)
+            if nominal(travel₁) <= abs(nominal(curve.span)) &&
+               nominal(travel₂) <= abs(nominal(other.span))
+                s, t = travel₁ / abs(curve.span), travel₂ / abs(other.span)
+                push!(candidates, (s, t, hypot((curve(s) .- other(t))...)))
+            end
+        end
+        h = (curve.r^2 - other.r^2 + L^2) / (2L)
+        Δ = curve.r^2 - h^2
+        if nominal(Δ) >= 0
+            n = w ./ L
+            center = (curve.at.x, curve.at.y) .+ h .* n
+            for point in (center .+ sqrt(max(Δ, zero(Δ))) .* (-n[2], n[1]),
+                center .- sqrt(max(Δ, zero(Δ))) .* (-n[2], n[1]))
+                φ = atan(point[2] - curve.at.y, point[1] - curve.at.x)
+                ψ = atan(point[2] - other.at.y, point[1] - other.at.x)
+                travel₁ = mod(sign(curve.span) * (φ - curve.at.φ), 2π)
+                travel₂ = mod(sign(other.span) * (ψ - other.at.φ), 2π)
+                if nominal(travel₁) <= abs(nominal(curve.span)) &&
+                   nominal(travel₂) <= abs(nominal(other.span))
+                    s, t = travel₁ / abs(curve.span), travel₂ / abs(other.span)
+                    push!(candidates, (s, t, z))
+                end
+            end
+        end
+    end
+    s, t, d = argmin(candidate -> nominal(candidate[3]), candidates)
+    return (curve(s), other(t), d, s, t)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `(p, q, d, s, t)` for the nearest points `p` of `curve` and `q` of `other`. Their
+distance is `d` \\[m\\], and their parameters give ``p = curve(s)`` and ``q = other(t)``.
+Each parameter lies in ``[0, 1]`` and is exactly 0 or 1 at an end. Arcs of one ellipse take
+the middle of their common range, at ``|o_1-o_2|`` for their offsets ``o_1`` and ``o_2``, or
+else their nearest ends. Arcs of different ellipses throw `DomainError`.
+"""
+function clearance(curve::EllipticArc, other::EllipticArc)
+    (nominal(curve.at.x), nominal(curve.at.y), nominal(curve.at.φ),
+        nominal(curve.a), nominal(curve.b)) ==
+    (nominal(other.at.x), nominal(other.at.y), nominal(other.at.φ),
+        nominal(other.a), nominal(other.b)) ||
+        throw(DomainError((curve, other), "the clearance of two elliptic arcs needs one ellipse"))
+    z = zero(curve.a + other.a)
+    candidates = [(s, t, hypot((curve(s) .- other(t))...))
+                  for s in (z, one(z)) for t in (z, one(z))]
+    α = mod(curve.φ0 + min(curve.span, zero(curve.span)), 2π)
+    β = mod(other.φ0 + min(other.span, zero(other.span)), 2π)
+    ranges = [(max(α, β + k * 2π),
+                  min(α + abs(curve.span), β + k * 2π + abs(other.span)), k)
+              for k in (-1, 0, 1)
+              if nominal(max(α, β + k * 2π)) <=
+                 nominal(min(α + abs(curve.span), β + k * 2π + abs(other.span)))]
+    if !isempty(ranges)
+        lo, hi, k = argmax(interval -> nominal(interval[2] - interval[1]), ranges)
+        φ = (lo + hi) / 2
+        s = nominal(curve.span) > 0 ? (φ - α) / abs(curve.span) :
+            (α + abs(curve.span) - φ) / abs(curve.span)
+        t = nominal(other.span) > 0 ? (φ - β - k * 2π) / abs(other.span) :
+            (β + k * 2π + abs(other.span) - φ) / abs(other.span)
+        s = nominal(φ) == nominal(α) ?
+            (nominal(curve.span) > 0 ? z : one(z)) :
+            nominal(φ) == nominal(α + abs(curve.span)) ?
+            (nominal(curve.span) > 0 ? one(z) : z) : s
+        t = nominal(φ) == nominal(β + k * 2π) ?
+            (nominal(other.span) > 0 ? z : one(z)) :
+            nominal(φ) == nominal(β + k * 2π + abs(other.span)) ?
+            (nominal(other.span) > 0 ? one(z) : z) : t
+        return (curve(s), other(t), abs(curve.offset - other.offset), s, t)
+    end
+    s, t, d = argmin(candidate -> nominal(candidate[3]), candidates)
+    return (curve(s), other(t), d, s, t)
 end
 
 """
@@ -217,6 +970,193 @@ function validate(contour::Contour{T}) where {T}
         end
     end
     return contour
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the parallel of `contour` at the distance `d` \\[m\\], signed along the outward
+normal of the region: positive outward, negative into it. Each curve of the outer path takes
+`parallel(curve, d)`. Each curve of a hole's path takes `parallel(curve, -d)`, since that
+path runs counterclockwise about the hole.
+
+Each curve ends at its junction with the next, given by `parallel(a, b, d)`. Where the two
+parallels meet, both end at that point. Where they diverge, an arc of radius ``|d|`` about
+the corner joins the two ends. Outward on a convex outline, the result is the offset
+outline.
+"""
+function parallel(contour::Contour, d::Real)
+    T = promote_type(typeof(first(contour.outer)(0)[1]), typeof(d))
+    paths = Vector{Curve{T}}[]
+    for (i, path) in enumerate((contour.outer, contour.holes...))
+        d′ = i == 1 ? d : -d
+        if length(path) == 1
+            push!(paths, Curve{T}[parallel(only(path), d′)])
+            continue
+        end
+        junctions = [parallel(path[k], path[mod1(k + 1, length(path))], d′)
+                     for k in eachindex(path)]
+        outline = Curve{T}[]
+        for k in eachindex(path)
+            p, q = junctions[k]
+            push!(outline, parallel(path[k], d′,
+                junctions[mod1(k - 1, length(path))][2], p))
+            if nominal.(p) != nominal.(q)
+                j = path[k](1)
+                θa = direction(path[k], 1)
+                θb = direction(path[mod1(k + 1, length(path))], 0)
+                τ = π - mod(π - (θb - θa), 2π)
+                push!(outline, Arc(Placement(j..., atan(p[2] - j[2], p[1] - j[1])),
+                    abs(d′), τ))
+            end
+        end
+        push!(paths, outline)
+    end
+    return Contour(first(paths), paths[2:end])
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the distance across the metal of `shape` \\[m\\]: twice the depth at which the inward
+parallel of its outline first degenerates. The distance is the least of three bounds:
+
+```math
+d = \\min\\left(\\min d_{ab},\\; 2 \\min \\rho,\\; 2 \\min e_c\\right).
+```
+
+The width ``d_{ab}`` is the `clearance` of two curves that are not adjacent, or that lie on
+different paths. It counts where their inward parallels meet. There the chord between its
+two points lies in the inward normal cone of the outline at both ends. Its midpoint lies in
+the metal. The radius ``\\rho`` runs over the arcs that turn with the metal. For an elliptic
+arc, it is the smallest radius of curvature of its parallel.
+
+The depth ``e_c`` is where the `parallel` piece of a face ``c`` with a corner at an end
+vanishes between the parallels of its neighbours. Bisection of the signed length of the
+piece finds it. A segment of length ``L`` between two segments at the interior angles
+``\\theta_1`` and ``\\theta_2`` \\[rad\\] has
+``e_c = L / (\\cot(\\theta_1/2) + \\cot(\\theta_2/2))``.
+"""
+function dimension(shape::AbstractShape)
+    contour = Contour(shape)
+    T = eltype(shape)
+    bounds = T[]
+    paths = (contour.outer, contour.holes...)
+    for (i, path) in enumerate(paths), (j, otherpath) in enumerate(paths)
+
+        j < i && continue
+        for (k, a) in enumerate(path), (l, b) in enumerate(otherpath)
+
+            if i == j && (l <= k || l == k + 1 || (k == 1 && l == length(path)))
+                continue
+            end
+            p, q, w, s, t = clearance(a, b)
+            u = (q .- p) ./ w
+            counts = true
+            for (curve, parameter, chord, side, index, edges) in
+                ((a, s, u, i == 1 ? 1 : -1, k, path),
+                (b, t, .-u, j == 1 ? 1 : -1, l, otherpath))
+                if 0 < nominal(parameter) < 1
+                    θ = direction(curve, parameter) + side * π / 2
+                    n = (cos(θ), sin(θ))
+                    sine = nominal(chord[1] * n[2] - chord[2] * n[1])
+                    counts &= nominal(chord[1] * n[1] + chord[2] * n[2]) > 0 &&
+                              abs(sine) <= sqrt(eps(float(one(sine))))
+                else
+                    before = nominal(parameter) == 0 ?
+                             edges[mod1(index - 1, length(edges))] : curve
+                    after = nominal(parameter) == 0 ?
+                            curve : edges[mod1(index + 1, length(edges))]
+                    θa, θb = direction(before, 1), direction(after, 0)
+                    τ = π - mod(π - (θb - θa), 2π)
+                    na = (cos(θa + side * π / 2), sin(θa + side * π / 2))
+                    nb = (cos(θb + side * π / 2), sin(θb + side * π / 2))
+                    sine = nominal(na[1] * nb[2] - na[2] * nb[1])
+                    if nominal(na[1] * nb[1] + na[2] * nb[2]) > 0 &&
+                       abs(sine) <= sqrt(eps(float(one(sine))))
+                        cross = nominal(chord[1] * na[2] - chord[2] * na[1])
+                        counts &= nominal(chord[1] * na[1] + chord[2] * na[2]) > 0 &&
+                                  abs(cross) <= sqrt(eps(float(one(cross))))
+                    elseif nominal(side * τ) < 0
+                        cross₁ = nominal(na[1] * chord[2] - na[2] * chord[1])
+                        cross₂ = nominal(chord[1] * nb[2] - chord[2] * nb[1])
+                        counts &= side * cross₁ <= sqrt(eps(float(one(cross₁)))) &&
+                                  side * cross₂ <= sqrt(eps(float(one(cross₂))))
+                    else
+                        counts = false
+                    end
+                end
+            end
+            if counts
+                m = (p .+ q) ./ 2
+                if iszero(nominal(distance(Contour(resolve(Placement(-m[1], -m[2]), shape)))))
+                    push!(bounds, w)
+                end
+            end
+        end
+    end
+    for (i, path) in enumerate(paths)
+        side = i == 1 ? 1 : -1
+        for curve in [curve for curve in path if curve isa Arc]
+            if nominal(side * sign(curve.span)) > 0
+                push!(bounds, 2 * curve.r)
+            end
+        end
+        for curve in [curve for curve in path if curve isa EllipticArc]
+            if nominal(side * sign(curve.span)) > 0
+                θ₁, θ₂ = minmax(curve.φ0, curve.φ0 + curve.span)
+                ρ_min = min(hypot(curve.a * sin(θ₁), curve.b * cos(θ₁))^3,
+                    hypot(curve.a * sin(θ₂), curve.b * cos(θ₂))^3) / (curve.a * curve.b)
+                if nominal(curve.a) > nominal(curve.b)
+                    if ceil(nominal(θ₁ / π)) <= floor(nominal(θ₂ / π))
+                        ρ_min = curve.b^2 / curve.a
+                    end
+                elseif nominal(curve.a) < nominal(curve.b)
+                    if ceil(nominal((θ₁ - π / 2) / π)) <= floor(nominal((θ₂ - π / 2) / π))
+                        ρ_min = curve.a^2 / curve.b
+                    end
+                else
+                    ρ_min = curve.a
+                end
+
+                push!(bounds, 2 * (ρ_min + curve.offset))
+            end
+        end
+    end
+    width = min(support(shape, 0) + support(shape, π),
+        support(shape, π / 2) + support(shape, 3π / 2))
+    limit = minimum([bounds; width]) / 2
+    for (i, path) in enumerate(paths)
+        side = i == 1 ? 1 : -1
+        for k in eachindex(path)
+            a, c,
+            b = path[mod1(k - 1, length(path))], path[k],
+            path[mod1(k + 1, length(path))]
+            corners = false
+            for (before, after) in ((a, c), (c, b))
+                θa, θb = direction(before, 1), direction(after, 0)
+                U, V = (cos(θa), sin(θa)), (cos(θb), sin(θb))
+                sine = nominal(U[1] * V[2] - U[2] * V[1])
+                corners |= !(nominal(U[1] * V[1] + U[2] * V[2]) > 0 &&
+                             abs(sine) <= sqrt(eps(float(one(sine)))))
+            end
+            corners || continue
+            lo, hi = zero(limit), limit
+            while true
+                mid = (lo + hi) / 2
+                (nominal(mid) == nominal(lo) || nominal(mid) == nominal(hi)) && break
+                if nominal(turn(c, -side * mid,
+                    parallel(a, c, -side * mid)[2],
+                    parallel(c, b, -side * mid)[1]).length) > 0
+                    lo = mid
+                else
+                    hi = mid
+                end
+            end
+            nominal(hi) == nominal(limit) || push!(bounds, 2 * hi)
+        end
+    end
+    return minimum(bounds)
 end
 
 """

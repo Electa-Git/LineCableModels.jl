@@ -10,19 +10,18 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using Gmsh: Gmsh, gmsh
 using Printf: @sprintf
 using LinearAlgebra: I, ldiv!, lu!
-using QuadGK: quadgk
 using getdp_jll: getdp_jll
 import LineCableModels.Commons: build, compute, defaults, validate
 using LineCableModels.Commons: ComputationOptions, resolve, nominal
 using LineCableModels.Materials: Material
 using LineCableModels.Earth: EarthLayer
-import LineCableModels.DataModel: area
+import LineCableModels.DataModel: area, direction
 using LineCableModels.DataModel: AbstractShape, AbstractPrimitive, Circle, Annulus,
                                  Rectangle, Offset, Sector, Ellipse, Polygon, ArcPolygon,
                                  PerforatedShape,
                                  PlacedRegion, Placement, support
 import LineCableModels.CAD: draw
-using LineCableModels.DataModel: Segment, Arc, EllipticArc, Curve, Contour
+using LineCableModels.DataModel: Segment, Arc, EllipticArc, Curve, Contour, turn, dimension
 import LineCableModels.Engine: solve!
 using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem, LineParameters,
                               bundle!, eliminate!, transposition!, admittivity,

@@ -85,6 +85,14 @@ end
         @test Guards.offset_reads(directory) == Dict{String, Int}()
     end
 
+    @testset "one distance across" begin
+        @test Guards.dimension_methods(directory) == Dict{String, Int}()
+    end
+
+    @testset "no distance across outside dimension and section" begin
+        @test Guards.distances_across(directory) == Dict{String, Int}()
+    end
+
     @testset "Commons admission" begin
         @test Guards.commons_admission(methods, tree, homes) == Dict{String, Int}()
     end

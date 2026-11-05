@@ -65,6 +65,15 @@ moved along its outward normal by a distance is a piece of the parallel of an el
 centroid and the [`perimeter`](@ref) of an arc polygon. It does the same for a sector with
 fillets, or with sides that meet off its center.
 
+The parallel of a curve lies at a distance along its outward normal, positive outward and
+negative into the region. The function [`parallel`](@ref DataModel.parallel) gives the
+parallel of a curve or of a whole contour. At the junction of two curves, it gives the ends
+of their two parallels. The distance across the metal of a cross-section,
+[`dimension`](@ref DataModel.dimension), is twice the depth at which the inward parallel of
+its outline first degenerates. The function [`clearance`](@ref DataModel.clearance) gives
+the nearest points of two curves, and [`turn`](@ref DataModel.turn) the turn and length of
+one.
+
 ## Cable parts
 
 All parts are subtypes of [`AbstractCablePart`](@ref):

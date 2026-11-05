@@ -1085,13 +1085,8 @@ end
 $(TYPEDSIGNATURES)
 
 Resolve a distance ``t`` \\[m\\] outward over the outer contour of `shape`.
-Move each segment by ``t(dy,-dx)/|Q-P|``, grow each counterclockwise arc's
-radius to ``r+t``, and join a counterclockwise corner of turn ``Δ`` with an
-arc of radius ``t`` and span ``Δ``. A tangent join keeps the two moved curves.
-An elliptic arc's normal offset becomes ``d+t``, with endpoint normals
-``α(θ)=atan(a sin θ,b cos θ)+at.φ``.
-
 Return the layer of thickness `t`, ``PerforatedShape(parallel,[boundary(shape)])``.
+The layer rests on the parallel of the contour.
 Its `boundary` is the parallel.
 Throw `ArgumentError` for a clockwise arc or corner:
 "an offset follows a circle, an annulus, a sector, a rectangle, an ellipse or a convex polygon".
@@ -1099,7 +1094,6 @@ Throw `ArgumentError` for a clockwise arc or corner:
 function resolve(shape::AbstractShape, offset::Offset)
     path = Contour(shape).outer
     T = promote_type(eltype(shape), typeof(offset.t))
-    outline = Curve{T}[]
     normals = Tuple{T, T}[]
     indices = Int[]
     for (k, curve) in [(k, curve) for (k, curve) in enumerate(path) if curve isa Segment]
@@ -1107,16 +1101,12 @@ function resolve(shape::AbstractShape, offset::Offset)
         dx, dy = curve.b .- curve.a
         φ = atan(-dx, dy)
         push!(normals, (φ, φ))
-        push!(outline,
-            Segment(curve.a .+ offset.t .* (cos(φ), sin(φ)),
-                curve.b .+ offset.t .* (cos(φ), sin(φ))))
     end
     for (k, curve) in [(k, curve) for (k, curve) in enumerate(path) if curve isa Arc]
         nominal(curve.span) > 0 ||
             throw(ArgumentError("an offset follows a circle, an annulus, a sector, a rectangle, an ellipse or a convex polygon"))
         push!(indices, k)
         push!(normals, (curve.at.φ, curve.at.φ + curve.span))
-        push!(outline, Arc(curve.at, curve.r + offset.t, curve.span))
     end
     for (k, curve) in
         [(k, curve) for (k, curve) in enumerate(path) if curve isa EllipticArc]
@@ -1127,15 +1117,10 @@ function resolve(shape::AbstractShape, offset::Offset)
         push!(normals,
             (atan(curve.a * sin(θ₁), curve.b * cos(θ₁)) + curve.at.φ,
                 atan(curve.a * sin(θ₂), curve.b * cos(θ₂)) + curve.at.φ))
-        push!(outline,
-            EllipticArc(curve.at, curve.a, curve.b, curve.φ0, curve.span,
-                curve.offset + offset.t))
     end
     order = sortperm(indices)
-    outline, normals = outline[order], normals[order]
-    result = Curve{T}[]
+    normals = normals[order]
     for k in eachindex(path)
-        push!(result, outline[k])
         φ = normals[k][2]
         Δ = mod(normals[mod1(k + 1, length(path))][1] - φ + π, 2π) - π
         scale = max(one(nominal(φ)), abs(nominal(φ)),
@@ -1143,9 +1128,7 @@ function resolve(shape::AbstractShape, offset::Offset)
         tolerance = sqrt(eps(float(scale))) * max(one(scale), scale)
         nominal(Δ) >= -tolerance ||
             throw(ArgumentError("an offset follows a circle, an annulus, a sector, a rectangle, an ellipse or a convex polygon"))
-        if nominal(Δ) > tolerance && nominal(offset.t) > 0
-            push!(result, Arc(Placement(path[k](1)..., φ), offset.t, Δ))
-        end
     end
-    return PerforatedShape(ArcPolygon(result), AbstractShape{T}[boundary(shape)])
+    return PerforatedShape(ArcPolygon(parallel(Contour(shape), offset.t).outer),
+        AbstractShape{T}[boundary(shape)])
 end

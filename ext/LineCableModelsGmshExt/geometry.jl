@@ -953,50 +953,6 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the diameter of `shape` \\[m\\] as its smallest metal dimension in `geometry`.
-The circle's center and radius are in \\[m\\], and `surfaces` holds its plane surface tags.
-"""
-function dimension(::Geometry, shape::Circle, surfaces::AbstractVector{<:Integer})
-    return 2shape.r
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the thickness `ro - ri` of `shape` \\[m\\] as its smallest metal dimension in
-`geometry`. The annulus's center and radii are in \\[m\\], and `surfaces` holds its
-plane surface tags.
-"""
-function dimension(::Geometry, shape::Annulus, surfaces::AbstractVector{<:Integer})
-    return shape.ro - shape.ri
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the smaller side `min(w, h)` of `shape` \\[m\\] as its smallest metal dimension in
-`geometry`. The rectangle's center, width and height are in \\[m\\] and its rotation in
-\\[rad\\], and `surfaces` holds its plane surface tags.
-"""
-function dimension(::Geometry, shape::Rectangle, surfaces::AbstractVector{<:Integer})
-    return min(shape.w, shape.h)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the shorter bounding-box side \\[m\\] of the first plane surface in `surfaces`
-as the smallest metal dimension of `shape` in `geometry`. The sector's center and radii
-are in \\[m\\] and its angle and span in \\[rad\\].
-"""
-function dimension(::Geometry, shape::Sector, surfaces::AbstractVector{<:Integer})
-    bounds = gmsh.model.getBoundingBox(2, first(surfaces))
-    return min(bounds[4] - bounds[1], bounds[5] - bounds[2])
-end
-
-"""
-$(TYPEDSIGNATURES)
-
 Find the measurement anchor of terminal `t` in `geometry`. Probe upward from each region's
 lowest point. Its metal dimension sets the vertical and horizontal offsets. Accept the
 first point that lies inside the metal for horizontal shifts of 0 and 1 % of the smallest
@@ -1014,7 +970,7 @@ metal dimension of the terminal.
 function anchor(geometry::Geometry, t::Integer)
     system = geometry.model.problem.system
     indices = system.terminals[t].regions
-    dimensions = [dimension(geometry, system.regions[i].shape, geometry.surfaces[i])
+    dimensions = [dimension(system.regions[i].shape)
                   for i in indices]
     minimum_dimension = minimum(dimensions)
     for (i, width) in zip(indices, dimensions)
@@ -1048,53 +1004,6 @@ function curves(surfaces::AbstractVector{<:Integer})
         true, false, false)
     tags = [Int(tag) for (dim, tag) in boundaries if dim == 1]
     return sort!(unique(tags))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the fraction of a revolution \\[dimensionless\\] and length \\[m\\] of the
-straight curve `segment` stored in the geometry. The fraction is zero, and the length is
-the distance between its endpoints \\[m\\].
-"""
-function turn(segment::Segment{T}) where {T}
-    return (fraction = zero(T), length = hypot((segment.b .- segment.a)...))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the fraction of a revolution \\[dimensionless\\] and length \\[m\\] of the
-circular curve `arc` stored in the geometry. Its radius is in \\[m\\] and its signed span
-in \\[rad\\]. The fraction is `abs(span) / (2π)` and the length is `abs(span) * r`.
-"""
-function turn(arc::Arc)
-    span = abs(arc.span)
-    return (fraction = span / (2π), length = span * arc.r)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the normal's fraction of a revolution \\[dimensionless\\] and length \\[m\\] of
-the elliptic curve `arc` stored in the geometry. Its semi-axes ``a,b`` and normal offset
-``d`` are in \\[m\\], and its parametric ends ``θ₁,θ₂`` and signed span are in \\[rad\\].
-With ``δ(θ)=atan((a-b)sin(θ)cos(θ),b cos²(θ)+a sin²(θ))``, the normal's turn is
-``Δα=span+δ(θ₂)-δ(θ₁)`` and the base arc's signed length is
-``L=∫_{θ₁}^{θ₂}hypot(a sin(θ),b cos(θ))dθ``. The fraction is ``|Δα|/(2π)`` and the
-length is ``|L+d Δα|``.
-"""
-function turn(arc::EllipticArc{T}) where {T}
-    a, b = arc.a, arc.b
-    θ₁, θ₂ = arc.φ0, arc.φ0 + arc.span
-    Δα = arc.span + atan((a - b) * sin(θ₂) * cos(θ₂),
-        b * cos(θ₂)^2 + a * sin(θ₂)^2) -
-         atan((a - b) * sin(θ₁) * cos(θ₁),
-        b * cos(θ₁)^2 + a * sin(θ₁)^2)
-    L = first(quadgk(θ -> hypot(a * sin(θ), b * cos(θ)), θ₁, θ₂;
-        rtol = eps(float(nominal(one(T))))^(3 / 4),
-        norm = x -> abs(nominal(x))))
-    return (fraction = abs(Δα) / (2π), length = abs(L + arc.offset * Δα))
 end
 
 """
@@ -1267,7 +1176,7 @@ function Base.write(path::AbstractString, geometry::Geometry)
         p = first(geometry.ends[edge])
         xy = geometry.positions[p]
         radius = hypot(xy[1] - shape.at.x, xy[2] - shape.at.y)
-        thickness = minimum(layer.shape.ro - layer.shape.ri for layer in adjacent)
+        thickness = minimum(dimension(layer.shape) for layer in adjacent)
         points = unique(last.(gmsh.model.getBoundary([(1, edge)], false, false, false)))
         cables = [k - 1 for (k, tags) in enumerate(cable_curves) if edge in tags]
         return (radius = radius, thickness = thickness, points = points,
@@ -1317,7 +1226,7 @@ function Base.write(path::AbstractString, geometry::Geometry)
             println(io, "FEMAnnularRegion~{", i - 1, "} = ", patch.region - 1, ";")
             shape = system.regions[patch.region].shape
             for (name, number) in (("Fraction", patch.fraction), ("Radius", shape.ro),
-                ("Thickness", shape.ro - shape.ri))
+                ("Thickness", dimension(shape)))
                 println(io, "FEMAnnular", name, "~{", i - 1, "} = ",
                     @sprintf("%.17g", Float64(number)), ";")
             end
@@ -1374,7 +1283,7 @@ function Base.write(path::AbstractString, geometry::Geometry)
                 for layer in layers
                     edge in layer.curves || continue
                     key(layer.shape.at.x, layer.shape.at.y) == center || continue
-                    thickness = min(thickness, layer.shape.ro - layer.shape.ri)
+                    thickness = min(thickness, dimension(layer.shape))
                 end
                 return isfinite(thickness) ? thickness : 0.0
             end

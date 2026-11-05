@@ -1,5 +1,5 @@
 using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon, Curve, Segment, Arc,
-                                 EllipticArc
+                                 EllipticArc, Contour, parallel, clearance, dimension, turn
 
 @testset "DataModel geometry" begin
     @testset "mapping scales real fields" begin
@@ -367,7 +367,7 @@ using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon, Curve, Se
     @testset "an elliptic arc carries its normal offset" begin
         t = 0.5e-3
         @test_throws DomainError EllipticArc(
-            Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, -1.0e-3)
+            Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, -1.4e-3)
         @test_throws DomainError EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, Inf)
         arc = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, t)
         for (s, point) in ((0, [3.5e-3, 0]),
@@ -465,5 +465,253 @@ using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon, Curve, Se
             AbstractShape{Float64}[Circle(2.0e-3)])
         @test Circle(1.0e-3, Placement(3.5e-3, 0)) ⊆ band
         @test !(Circle(1.0e-3, Placement(2.5e-3, 0)) ⊆ band)
+    end
+
+    # Each distance of the curve geometry runs along the outward normal: positive out of the
+    # region, negative into it. A path runs counterclockwise about the region it bounds.
+    @testset "a curve's direction and turn" begin
+        segment = Segment((0.0, 0.0), (3.0e-3, 4.0e-3))
+        arc = Arc(Placement(0, 0, π / 6), 2.0e-3, π / 2)
+        reversed = Arc(Placement(0, 0, 0), 2.0e-3, -π / 2)
+        elliptic = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, 0.5e-3)
+        for t in (0, 1 / 2, 1)
+            @test LineCableModels.DataModel.direction(segment, t) ≈ atan(4, 3) rtol = 1e-12
+            @test LineCableModels.DataModel.direction(arc, t) ≈ 2π / 3 + t * π / 2 rtol = 1e-12
+            @test LineCableModels.DataModel.direction(reversed, t) ≈ -π / 2 - t * π / 2 rtol = 1e-12
+        end
+        @test LineCableModels.DataModel.direction(elliptic, 0) ≈ π / 2 rtol = 1e-12
+        @test LineCableModels.DataModel.direction(elliptic, 1) ≈ π rtol = 1e-12
+        @test turn(segment).fraction == 0
+        @test turn(segment).length ≈ 5.0e-3 rtol = 1e-12
+        @test turn(arc).fraction ≈ 1 / 4 rtol = 1e-12
+        @test turn(arc).length ≈ π * 1.0e-3 rtol = 1e-12
+        @test turn(elliptic).fraction ≈ 1 / 4 rtol = 1e-12
+        @test turn(elliptic).length ≈ 0.003 * 1.3221199657742158 + 0.5e-3 * π / 2 rtol = 1e-12
+    end
+
+    @testset "the parallel of a curve" begin
+        moved = parallel(Segment((0.0, 0.0), (4.0e-3, 0.0)), 0.5e-3)
+        @test collect(moved.a) ≈ [0, -0.5e-3] atol = 1e-15
+        @test collect(moved.b) ≈ [4.0e-3, -0.5e-3] atol = 1e-15
+        @test parallel(Arc(Placement(0, 0, 0), 2.0e-3, π / 2), 0.5e-3).r ≈ 2.5e-3 rtol = 1e-12
+        @test parallel(Arc(Placement(0, 0, 0), 2.0e-3, π / 2), -0.5e-3).r ≈ 1.5e-3 rtol = 1e-12
+        @test parallel(Arc(Placement(0, 0, 0), 2.0e-3, -π / 2), 0.5e-3).r ≈ 1.5e-3 rtol = 1e-12
+        elliptic = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, 0.5e-3)
+        @test parallel(elliptic, -0.2e-3).offset ≈ 0.3e-3 rtol = 1e-12
+        # The smallest radius of curvature of this quarter is b² / a = 4/3 mm, at θ = 0.
+        @test EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, -1.3e-3).offset ==
+              -1.3e-3
+        @test_throws DomainError EllipticArc(
+            Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, -1.4e-3)
+    end
+
+    @testset "the inward parallel of an ellipse satisfies Steiner's formulas" begin
+        a, b, d = 3.0e-3, 2.0e-3, -1.2e-3
+        P = 0.012 * 1.3221199657742158
+        inner = ArcPolygon(parallel(Contour(Ellipse(a, b, Placement(0.01, -0.02, π / 7))), d).outer)
+        @test all(curve -> curve isa EllipticArc && curve.offset == d, inner.outline)
+        @test area(inner) ≈ π * a * b + P * d + π * d^2 rtol = 1e-12
+        @test perimeter(inner) ≈ P + 2π * d rtol = 1e-12
+        @test collect(centroid(inner)) ≈ [0.01, -0.02] rtol = 1e-12
+        points = Tuple{Float64, Float64}[]
+        for k in 0:4095
+            θ = 2π * k / 4096
+            ρ = hypot(b * cos(θ), a * sin(θ))
+            x = a * cos(θ) + d * b * cos(θ) / ρ
+            y = b * sin(θ) + d * a * sin(θ) / ρ
+            push!(points,
+                (0.01 + x * cos(π / 7) - y * sin(π / 7),
+                    -0.02 + x * sin(π / 7) + y * cos(π / 7)))
+        end
+        tessellation = Polygon(points)
+        @test area(tessellation) ≈ area(inner) rtol = 1e-6
+        @test perimeter(tessellation) ≈ perimeter(inner) rtol = 1e-6
+        @test collect(centroid(tessellation)) ≈ collect(centroid(inner)) rtol = 1e-6
+    end
+
+    # The parallels of two consecutive curves meet at one point at a converging corner, a convex
+    # corner inward or a concave one outward. They also meet at a tangent junction, where the
+    # shared point moves along the shared normal. Where they diverge, each end moves along its
+    # own normal.
+    @testset "the junctions of two parallels" begin
+        at = Placement(0, 0)
+        @testset "a sharp quarter sector at the depth $e m" for e in
+                                                                (1.0e-3, 2.0e-3, 3.0e-3)
+            r = 10.0e-3
+            outer, inward, outward = Contour(Sector(0, r, π / 2, 0, 0, at)).outer
+            s = sqrt((r - e)^2 - e^2)
+            p1 = (s * cos(π / 4) + e * cos(π / 4), -s * sin(π / 4) + e * sin(π / 4))
+            p2 = (s * cos(π / 4) + e * cos(π / 4), s * sin(π / 4) - e * sin(π / 4))
+            p3 = (e * sqrt(2), 0.0)
+            for (junction, point) in ((parallel(outward, outer, -e), p1),
+                (parallel(outer, inward, -e), p2), (parallel(inward, outward, -e), p3))
+                @test collect(junction[1]) ≈ collect(point) rtol = 1e-12
+                @test junction[1] == junction[2]
+            end
+            @test turn(outward, -e, p3, p1).length ≈ s - e rtol = 1e-12
+            @test turn(outer, -e, p1, p2).length ≈ (r - e) * (π / 2 - 2atan(e / s)) rtol = 1e-12
+        end
+        @testset "a bent strand at the depth $e m" for e in (0.5e-3, 1.0e-3, 1.4e-3)
+            ri, ro = 8.5e-3, 11.5e-3
+            outer, inward, inner, outward = Contour(Sector(ri, ro, 0.3, 0, 0, at)).outer
+            so, si = sqrt((ro - e)^2 - e^2), sqrt((ri + e)^2 - e^2)
+            p1 = (so * cos(0.15) + e * sin(0.15), -so * sin(0.15) + e * cos(0.15))
+            p2 = (so * cos(0.15) + e * sin(0.15), so * sin(0.15) - e * cos(0.15))
+            p3 = (si * cos(0.15) + e * sin(0.15), si * sin(0.15) - e * cos(0.15))
+            p4 = (si * cos(0.15) + e * sin(0.15), -si * sin(0.15) + e * cos(0.15))
+            for (junction, point) in ((parallel(outward, outer, -e), p1),
+                (parallel(outer, inward, -e), p2), (parallel(inward, inner, -e), p3),
+                (parallel(inner, outward, -e), p4))
+                @test collect(junction[1]) ≈ collect(point) rtol = 1e-12
+                @test junction[1] == junction[2]
+            end
+            @test turn(outward, -e, p4, p1).length ≈ so - si rtol = 1e-12
+            @test turn(inward, -e, p2, p3).length ≈ so - si rtol = 1e-12
+            @test turn(outer, -e, p1, p2).length ≈ (ro - e) * (0.3 - 2asin(e / (ro - e))) rtol = 1e-12
+            @test turn(inner, -e, p3, p4).length ≈ (ri + e) * (0.3 - 2asin(e / (ri + e))) rtol = 1e-12
+        end
+        @testset "a Milliken segment at the depth $e m" for e in (0.3e-3, 0.6e-3, 0.9e-3)
+            R, ρ = 31.15e-3, 1.25e-3
+            outer, back, side, tip = Contour(Sector(0, R, π / 3, 0, ρ, at)).outer[1:4]
+            a, b = side(0), side(1)
+            p1 = outer(1) .* ((R - e) / R)
+            p2 = a .+ (e / ρ) .* ((back.at.x, back.at.y) .- a)
+            p3 = b .+ (e / ρ) .* ((tip.at.x, tip.at.y) .- b)
+            for (junction, point) in ((parallel(outer, back, -e), p1),
+                (parallel(back, side, -e), p2), (parallel(side, tip, -e), p3))
+                @test collect(junction[1]) ≈ collect(point) rtol = 1e-12
+                @test junction[1] == junction[2]
+            end
+            @test turn(side, -e, p2, p3).length ≈ hypot((b .- a)...) rtol = 1e-12
+            @test turn(back, -e, p1, p2).length ≈ (ρ - e) * abs(back.span) rtol = 1e-12
+        end
+        @testset "a reflex corner inward and a convex corner outward diverge" begin
+            e = 1.0e-3
+            outer, inward, outward = Contour(Sector(0, 10.0e-3, 4π / 3, 0, 0, at)).outer
+            p, q = parallel(inward, outward, -e)
+            @test collect(p) ≈ [e * sqrt(3) / 2, e / 2] rtol = 1e-12
+            @test collect(q) ≈ [e * sqrt(3) / 2, -e / 2] rtol = 1e-12
+            bottom, right = Contour(Rectangle(4.0e-3, 2.0e-3)).outer[1:2]
+            p, q = parallel(bottom, right, 0.5e-3)
+            @test collect(p) ≈ [2.0e-3, -1.5e-3] rtol = 1e-12
+            @test collect(q) ≈ [2.5e-3, -1.0e-3] rtol = 1e-12
+        end
+        @testset "an elliptic arc at a corner" begin
+            arc = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π)
+            chord = Segment((-3.0e-3, 0.0), (3.0e-3, 0.0))
+            p, q = parallel(arc, chord, 0.5e-3)
+            @test collect(p) ≈ [-3.5e-3, 0] atol = 1e-15
+            @test collect(q) ≈ [-3.0e-3, -0.5e-3] atol = 1e-15
+            @test_throws DomainError parallel(arc, chord, -0.5e-3)
+        end
+    end
+
+    @testset "the parallel of a contour" begin
+        t = 0.5e-3
+        hand = Curve{Float64}[
+        Segment((-2.0e-3, -1.5e-3), (2.0e-3, -1.5e-3)),
+        Arc(
+            Placement(2.0e-3, -1.0e-3, -π / 2), t, π / 2),
+        Segment(
+            (2.5e-3, -1.0e-3), (2.5e-3, 1.0e-3)),
+        Arc(
+            Placement(2.0e-3, 1.0e-3, 0), t, π / 2),
+        Segment(
+            (2.0e-3, 1.5e-3), (-2.0e-3, 1.5e-3)),
+        Arc(
+            Placement(-2.0e-3, 1.0e-3, π / 2), t, π / 2),
+        Segment(
+            (-2.5e-3, 1.0e-3), (-2.5e-3, -1.0e-3)),
+        Arc(
+            Placement(-2.0e-3, -1.0e-3, π), t, π / 2)]
+        outline = parallel(Contour(Rectangle(4.0e-3, 2.0e-3)), t).outer
+        @test length(outline) == length(hand)
+        for (curve, expected) in zip(outline, hand), s in (0, 1 / 2, 1)
+
+            @test collect(curve(s)) ≈ collect(expected(s)) atol = 1e-15
+        end
+        annulus = parallel(Contour(Annulus(1.0e-3, 3.0e-3, Placement(0, 0))), -t)
+        @test all(arc -> arc.r ≈ 2.5e-3, annulus.outer)
+        @test all(arc -> arc.r ≈ 1.5e-3, only(annulus.holes))
+        reflex = Contour(Sector(0, 10.0e-3, 4π / 3, 0, 0, Placement(0, 0)))
+        @test length(parallel(reflex, -1.0e-3).outer) == length(reflex.outer) + 1
+    end
+
+    @testset "the clearance of two curves" begin
+        lower = Segment((0.0, 0.0), (4.0e-3, 0.0))
+        upper = Segment((5.0e-3, 1.0e-3), (1.0e-3, 1.0e-3))
+        p, q, d, s, t = clearance(lower, upper)
+        @test collect(p) ≈ [2.5e-3, 0] atol = 1e-15
+        @test collect(q) ≈ [2.5e-3, 1.0e-3] atol = 1e-15
+        @test d ≈ 1.0e-3 rtol = 1e-12
+        @test collect((s, t)) ≈ [0.625, 0.625] rtol = 1e-12
+        segment = Segment((-3.0e-3, -2.0e-3), (3.0e-3, -2.0e-3))
+        p, q, d = clearance(segment, Arc(Placement(0, 0, π), 1.0e-3, π))
+        @test collect(p) ≈ [0, -2.0e-3] atol = 1e-15
+        @test collect(q) ≈ [0, -1.0e-3] atol = 1e-15
+        @test d ≈ 1.0e-3 rtol = 1e-12
+        inner = Arc(Placement(0, 0, 0), 2.0e-3, π / 2)
+        outer = Arc(Placement(0, 0, π / 4), 3.0e-3, π / 2)
+        p, q, d, s, t = clearance(inner, outer)
+        @test collect(p) ≈ 2.0e-3 .* [cos(3π / 8), sin(3π / 8)] rtol = 1e-12
+        @test collect(q) ≈ 3.0e-3 .* [cos(3π / 8), sin(3π / 8)] rtol = 1e-12
+        @test d === 3.0e-3 - 2.0e-3
+        @test collect((s, t)) ≈ [0.75, 0.25] rtol = 1e-12
+        quarter = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2)
+        moved = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, 0.5e-3)
+        p, q, d = clearance(quarter, moved)
+        @test collect(p) ≈ [3.0e-3 / √2, 2.0e-3 / √2] rtol = 1e-12
+        @test collect(q) ≈ [3.0e-3 / √2 + 0.5e-3 * 2 / √13, 2.0e-3 / √2 + 0.5e-3 * 3 / √13] rtol = 1e-12
+        @test d === 0.5e-3 - 0.0
+        opposite = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, π, π / 2, 0.5e-3)
+        p, q, d, s, t = clearance(quarter, opposite)
+        @test (s, t) == (0, 1)
+        @test p == quarter(0)
+        @test q == opposite(1)
+        @test d ≈ hypot(3.0e-3, 2.5e-3) rtol = 1e-12
+        another = EllipticArc(Placement(0, 0), 3.0e-3, 2.5e-3, π, π / 2)
+        @test_throws DomainError clearance(quarter, another)
+    end
+
+    # The distance across the metal is twice the depth at which the inward parallel of the
+    # outline first degenerates. The bent strand's inner arc closes between its two sides. A
+    # sharp sector's sides close on its arc at its inscribed radius. A fully filleted outline
+    # holds a disk of its fillet's radius, and an ellipse twice its smallest radius of curvature.
+    @testset "the distance across the metal" begin
+        at = Placement(0, 0)
+        shapes = (
+            ("bar", Rectangle(30.0e-3, 12.0e-3), 12.0e-3),
+            ("bent strand", Sector(8.5e-3, 11.5e-3, 0.3, 0, 0, at),
+                2 * 8.5e-3 * sin(0.15) / (1 - sin(0.15))),
+            ("bent tape", Sector(14.95e-3, 15.05e-3, 5π / 3, 0, 0, at), 0.1e-3),
+            ("rounded wedge",
+                Sector(0, 10.0e-3, 2π / 3, 1.0e-3 / sin(π / 3), 1.5e-3, at), 3.0e-3),
+            ("Milliken segment", Sector(0, 31.15e-3, π / 3, 0, 1.25e-3, at), 2.5e-3),
+            ("sharp quarter", Sector(0, 10.0e-3, π / 2, 0, 0, at),
+                2 * 10.0e-3 * sin(π / 4) / (1 + sin(π / 4))),
+            ("sharp third", Sector(0, 10.0e-3, 2π / 3, 0, 0, at),
+                2 * 10.0e-3 * sin(π / 3) / (1 + sin(π / 3))),
+            ("perforated bar",
+                LineCableModels.PerforatedShape(Rectangle(30.0e-3, 12.0e-3),
+                    LineCableModels.AbstractShape{Float64}[Circle(2.0e-3)]), 4.0e-3),
+            ("ellipse", Ellipse(3.0e-3, 2.0e-3), 2 * 2.0e-3^2 / 3.0e-3),
+            ("round ellipse", Ellipse(2.1e-3, 2.0e-3), 2 * 2.0e-3^2 / 2.1e-3),
+            ("duct wall",
+                LineCableModels.resolve(Ellipse(30.0e-3, 20.0e-3), Offset(3.0e-3)),
+                3.0e-3))
+        @testset "at y = $y m" for y in (0.0, 10.0)
+            place = Placement(0.0, y)
+            circle = LineCableModels.resolve(place, Circle(1.5e-3))
+            annulus = LineCableModels.resolve(place, Annulus(20.5e-3, 21.5e-3, Placement(0, 0)))
+            @test dimension(circle) === 2 * 1.5e-3
+            @test dimension(annulus) === 21.5e-3 - 20.5e-3
+            @testset "$id" for (id, shape, across) in shapes
+                @test dimension(LineCableModels.resolve(place, shape)) ≈ across rtol = 1e-12
+            end
+            half = ArcPolygon(Curve{Float64}[
+            EllipticArc(Placement(0, y), 3.0e-3, 2.0e-3, 0, π),
+            Segment((-3.0e-3, y), (3.0e-3, y))])
+            @test_throws DomainError dimension(half)
+        end
     end
 end

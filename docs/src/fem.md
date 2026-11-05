@@ -138,8 +138,8 @@ coefficients of the coaxial computation correspond to ``\mathrm{j}\omega P``. Th
 starting points of the lines reproduce the voltage references of `:martins2026`. The reference
 is the interface for a conductor in the air and infinite depth for a conductor in the earth.
 Each line is shifted horizontally by ``\min(10^{-5}, 0.01 d_i)`` m from the anchor of
-the terminal, where ``d_i`` is the smallest metal dimension of the terminal, and the metal
-interiors add nothing to the integral. The matrices are then reduced by bundling, Kron
+the terminal, where ``d_i`` is the least distance across the metal of the regions of the
+terminal, and the metal interiors add nothing to the integral. The matrices are then reduced by bundling, Kron
 elimination and ideal transposition, as in the coaxial computation.
 
 ## Domain and perfectly matched layers
