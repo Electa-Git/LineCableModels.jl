@@ -60,6 +60,20 @@ const OVERRIDES = (
 """
 $(TYPEDSIGNATURES)
 
+Return the segments per turn whose inscribed polygon bounds the relative error
+of a circle's area by `τ` \\[dimensionless\\]:
+
+``n=12⋅2^{max(0,⌈log₂(√(2π²/(3τ))/12)⌉)}``.
+
+The count is an `Int`.
+"""
+function segments(τ::Real)
+    return 12 * 2^max(0, ceil(Int, log2(sqrt(2π^2 / (3τ)) / 12)))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Check the Gmsh backend's factors, process counts, verbosity levels, and native controls.
 
 # Arguments

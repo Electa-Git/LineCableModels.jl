@@ -42,15 +42,18 @@ struct Geometry{M <: FieldModel}
     pockets::@NamedTuple{air::Vector{Int}, earth::Vector{Int}}
     "Terminal anchor coordinates and metal dimensions \\[m\\]."
     anchors::Vector{@NamedTuple{x::Float64, y::Float64, dimension::Float64}}
+    "Segments per turn of the circle rule, for curves drawn through points \\[dimensionless\\]."
+    segments::Int
 end
 
 """
 $(TYPEDSIGNATURES)
 
 Construct empty geometric registries for `model`. Allocate an empty vector of plane surfaces
-for each region.
+for each region. Set ``segments=segments(options.overrides.ConductorGeometryTolerance)``
+for curves drawn through points.
 """
-function Geometry(model::FieldModel)
+function Geometry(model::FieldModel, options::ComputationOptions{GmshBackend})
     return Geometry(model,
         Dict{NTuple{2, Float64}, Int}(),
         Dict{Int, NTuple{2, Float64}}(),
@@ -68,7 +71,8 @@ function Geometry(model::FieldModel)
         @NamedTuple{ccw::Int, cw::Int, curves::Vector{Int}}[],
         (air = Vector{Int}[], earth = Vector{Int}[]),
         (air = Int[], earth = Int[]),
-        @NamedTuple{x::Float64, y::Float64, dimension::Float64}[])
+        @NamedTuple{x::Float64, y::Float64, dimension::Float64}[],
+        segments(options.overrides.ConductorGeometryTolerance))
 end
 
 """
@@ -860,12 +864,13 @@ $(TYPEDSIGNATURES)
 Build the geometry of `model` in an initialized Gmsh session under `options`. Add the model
 named by the system's `id` and leave it in the session for the caller to remove. The native
 `ThinLayerStrips` control selects patches for passive annuli. Coordinates and radii are
-in \\[m\\] and angles in \\[rad\\]. Return the completed geometry with terminal anchors.
+in \\[m\\] and angles in \\[rad\\]. Carry ``segments=segments(τ)`` from the options
+to the drawing. Return the completed geometry with terminal anchors.
 """
 function build(::Type{Geometry}, model::FieldModel, options::ComputationOptions{GmshBackend})
     system = model.problem.system
     gmsh.model.add(system.id)
-    geometry = Geometry(model)
+    geometry = Geometry(model, options)
     for region in system.regions
         cut!(geometry, region.shape)
     end
@@ -1071,6 +1076,30 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Return the normal's fraction of a revolution \\[dimensionless\\] and length \\[m\\] of
+the elliptic curve `arc` stored in the geometry. Its semi-axes ``a,b`` and normal offset
+``d`` are in \\[m\\], and its parametric ends ``θ₁,θ₂`` and signed span are in \\[rad\\].
+With ``δ(θ)=atan((a-b)sin(θ)cos(θ),b cos²(θ)+a sin²(θ))``, the normal's turn is
+``Δα=span+δ(θ₂)-δ(θ₁)`` and the base arc's signed length is
+``L=∫_{θ₁}^{θ₂}hypot(a sin(θ),b cos(θ))dθ``. The fraction is ``|Δα|/(2π)`` and the
+length is ``|L+d Δα|``.
+"""
+function turn(arc::EllipticArc{T}) where {T}
+    a, b = arc.a, arc.b
+    θ₁, θ₂ = arc.φ0, arc.φ0 + arc.span
+    Δα = arc.span + atan((a - b) * sin(θ₂) * cos(θ₂),
+        b * cos(θ₂)^2 + a * sin(θ₂)^2) -
+         atan((a - b) * sin(θ₁) * cos(θ₁),
+        b * cos(θ₁)^2 + a * sin(θ₁)^2)
+    L = first(quadgk(θ -> hypot(a * sin(θ), b * cos(θ)), θ₁, θ₂;
+        rtol = eps(float(nominal(one(T))))^(3 / 4),
+        norm = x -> abs(nominal(x))))
+    return (fraction = abs(Δα) / (2π), length = abs(L + arc.offset * Δα))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Return the native section record of `shape`, a circle with center and radius in \\[m\\].
 The record holds `kind = 1`, `a = shape.r` \\[m\\], and `b = 0` \\[m\\].
 """
@@ -1158,6 +1187,49 @@ are in \\[rad\\].
 """
 function section(::Offset, shape::AbstractShape)
     return section(shape)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the native section record of the resolved `shape` of `offset` through its outer.
+The offset's thickness, coordinates, and returned lengths `a` and `b` are in \\[m\\],
+and angles are in \\[rad\\].
+"""
+function section(offset::Offset, shape::PerforatedShape)
+    return section(offset, shape, shape.outer)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the native section record of an offset fill whose container is the annulus `outer`.
+The record holds `kind = 2`, its outer radius `a` \\[m\\], and inner radius `b` \\[m\\].
+"""
+function section(::Offset, ::PerforatedShape, outer::Annulus)
+    return section(outer)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the native section record of an offset fill whose container is the layer `outer`.
+The offset's thickness, coordinates, and returned lengths `a` and `b` are in \\[m\\],
+and angles are in \\[rad\\].
+"""
+function section(offset::Offset, ::PerforatedShape, outer::PerforatedShape)
+    return section(offset, outer)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the native section record of the layer `shape`, with `kind = 2`,
+``a=support(outer)`` \\[m\\], and ``b=support(only(shape.holes))`` \\[m\\].
+The difference ``a-b`` is the thickness of the layer \\[m\\].
+"""
+function section(::Offset, shape::PerforatedShape, outer::AbstractShape)
+    return (kind = 2, a = support(outer), b = support(only(shape.holes)))
 end
 
 """
@@ -1362,6 +1434,12 @@ Draw the elliptic curve ``at(a cos θ,b sin θ)`` in \\[m\\] with Gmsh ellipse a
 Split its parametric span \\[rad\\] into intervals at most ``π/2``. Reuse an elliptic
 arc with the same ellipse, endpoints and midpoint from `curves` and `ends`. Return
 its stored tag with the requested orientation.
+
+For a nonzero normal offset ``d``, draw a spline through ``p(θ)+dn(θ)``.
+Use ``m=max(2,⌈segments⋅|Δα|/(2π)⌉)`` intervals at equal normal angles
+``α_j=α_1+jΔα/m``, inverted by ``θ=atan(b sin ψ,a cos ψ)``,
+where ``ψ=α_j-at.φ``. Shift ``θ`` by a multiple of ``2π`` into the piece.
+Angles are in \\[rad\\] and the offset in \\[m\\].
 """
 function draw(geometry::Geometry, arc::EllipticArc)
     tags = Int[]
@@ -1369,22 +1447,46 @@ function draw(geometry::Geometry, arc::EllipticArc)
     center = point!(geometry, (arc.at.x, arc.at.y))
     major = point!(geometry, arc.at(arc.a >= arc.b ? (arc.a, 0) : (0, arc.b)))
     for k in 0:(n - 1)
-        curve = EllipticArc(arc.at, arc.a, arc.b, arc.φ0 + k * arc.span / n, arc.span / n)
+        curve = EllipticArc(
+            arc.at, arc.a, arc.b, arc.φ0 + k * arc.span / n, arc.span / n, arc.offset)
         p, q = point!(geometry, curve(0)), point!(geometry, curve(1))
         stored = [tag
                   for (tag, candidate) in geometry.curves
                   if candidate isa EllipticArc &&
                      key(candidate.at.x, candidate.at.y,
-                         candidate.at.φ, candidate.a, candidate.b) ==
-                     key(curve.at.x, curve.at.y, curve.at.φ, curve.a, curve.b) &&
+                         candidate.at.φ, candidate.a, candidate.b, candidate.offset) ==
+                     key(curve.at.x, curve.at.y, curve.at.φ,
+                         curve.a, curve.b, curve.offset) &&
                      minmax(geometry.ends[tag]...) == minmax(p, q) &&
                      key(geometry, candidate(1 / 2)) == key(geometry, curve(1 / 2))]
         if isempty(stored)
             start_tag, stop_tag = curve.span > 0 ? (p, q) : (q, p)
-            tag = gmsh.model.geo.addEllipseArc(start_tag, center, major, stop_tag)
+            if iszero(curve.offset)
+                tag = gmsh.model.geo.addEllipseArc(start_tag, center, major, stop_tag)
+            else
+                θ₁, θ₂ = curve.φ0, curve.φ0 + curve.span
+                a, b = curve.a, curve.b
+                α₁ = curve.at.φ + θ₁ +
+                     atan((a - b) * sin(θ₁) * cos(θ₁),
+                         b * cos(θ₁)^2 + a * sin(θ₁)^2)
+                Δα = curve.span + atan((a - b) * sin(θ₂) * cos(θ₂),
+                    b * cos(θ₂)^2 + a * sin(θ₂)^2) -
+                     atan((a - b) * sin(θ₁) * cos(θ₁),
+                    b * cos(θ₁)^2 + a * sin(θ₁)^2)
+                m = max(2, ceil(Int, geometry.segments * abs(Δα) / (2π)))
+                points = [p]
+                for j in 1:(m - 1)
+                    ψ = α₁ + j * Δα / m - curve.at.φ
+                    θ = atan(b * sin(ψ), a * cos(ψ))
+                    θ += 2π * round(((θ₁ + θ₂) / 2 - θ) / (2π))
+                    push!(points, point!(geometry, curve((θ - θ₁) / curve.span)))
+                end
+                push!(points, q)
+                tag = gmsh.model.geo.addSpline(curve.span > 0 ? points : reverse(points))
+            end
             geometry.ends[tag] = (start_tag, stop_tag)
             geometry.curves[tag] = EllipticArc(curve.at, curve.a, curve.b,
-                curve.span > 0 ? curve.φ0 : curve.φ0 + curve.span, abs(curve.span))
+                curve.span > 0 ? curve.φ0 : curve.φ0 + curve.span, abs(curve.span), curve.offset)
             push!(tags, curve.span > 0 ? tag : -tag)
         else
             tag = only(stored)

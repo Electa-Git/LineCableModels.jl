@@ -260,6 +260,10 @@ and angle ``\varphi`` takes the target of the rectangle of width ``r_o - r_i`` a
 strip of ``\max(2, \lceil 2/m_h \rceil)`` radial intervals, with the target of the region at
 least ``2\pi r_o/n_c``.
 
+The parallel of an ellipse enters the geometry as a spline through points at equal steps
+of the angle of its normal. The spline takes ``n_c`` intervals per turn and at least two in
+each quarter of the ellipse.
+
 In a conductor, the width ``w`` is the radius of a circle, the thickness of an annulus or
 the smaller side of a rectangle, straight or bent. The skin depth ``\delta`` and the phase
 rate ``\beta`` follow from

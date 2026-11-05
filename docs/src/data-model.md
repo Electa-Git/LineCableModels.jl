@@ -48,16 +48,19 @@ The cross-section of a region is declared by a primitive, a subtype of
 - [`Polygon`](@ref): cross-section bounded by straight edges, such as a duct bank.
 - [`Offset`](@ref): layer of thickness `t` around the outline of the part beneath it. An
   offset represents an insulation, a semicon screen, a sheath or a jacket, and is resolved
-  against that outline when the design is built.
+  against that outline when the design is built. Around a circle, the layer is an annulus.
+  Around another outline, it lies between the outline and its parallel at the distance
+  `t`, such as the wall of an elliptical duct.
 
 The resolution also produces cross-sections that are not declared by any region, namely the
 [`Sector`](@ref) of a bent rectangular strand, which keeps the area of the strand, and the
 [`PerforatedShape`](@ref), which is a cross-section with holes, such as the filler between
-the wires of a layer. A [`Placement`](@ref) is a translation and a rotation relative to a
+the wires of a layer or a layer around an outline other than a circle. A [`Placement`](@ref) is a translation and a rotation relative to a
 parent frame.
 
 The exact outline of a cross-section is its [`Contour`](@ref DataModel.Contour): closed
-paths of segments and of circular or elliptic arcs, each counterclockwise. An
+paths of segments and of circular or elliptic arcs, each counterclockwise. An elliptic arc
+moved along its outward normal by a distance is a piece of the parallel of an ellipse. An
 [`ArcPolygon`](@ref) is the region inside one such path. The outline gives the area, the
 centroid and the [`perimeter`](@ref) of an arc polygon. It does the same for a sector with
 fillets, or with sides that meet off its center.

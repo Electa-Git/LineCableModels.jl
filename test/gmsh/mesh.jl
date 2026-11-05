@@ -33,6 +33,7 @@ end
             cp(joinpath(@__DIR__, "..", "..", "ext", "LineCableModelsGmshExt", "getdp"),
                 joinpath(directory, "input", "getdp"))
             write(joinpath(directory, "input", "model_data.pro"), model, options)
+            @test "FEMCircleSegments = 96;" in readlines(joinpath(directory, "input", "model_data.pro"))
             gmsh.initialize()
             try
                 geometry = build(extension.Geometry, model, options)

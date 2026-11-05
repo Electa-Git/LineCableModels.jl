@@ -351,4 +351,20 @@ end
                 stranded(copper; center = Circle(1.0e-3), shape = Circle(1.0e-3),
                     n = (6,), lay = LayRatio(12), boundary = Ellipse(4.0e-3, 2.5e-3))))
     end
+    @testset "an elliptical duct with its wall builds" begin
+        air = Material(:insulator, Inf)
+        pvc = Material(:insulator, Inf, 3)
+        design = build(CableDesign, "duct_wall",
+            Stack(
+                Enclosure(Region(:duct, Ellipse(30e-3, 20e-3), air),
+                    Terminal(:core, Region(:core, Circle(0.01), copper))),
+                Region(:wall, Offset(3e-3), pvc)))
+        wall = last(design.regions).shape
+        @test wall isa LineCableModels.PerforatedShape
+        @test area(wall) ≈ 0.12 * 1.3221199657742158 * 3e-3 + π * 3e-3^2 rtol = 1e-12
+        @test area(design.outer) ≈ area(boundary(wall)) rtol = 1e-12
+        @test area(design.outer) ≈
+              π * 30e-3 * 20e-3 +
+              0.12 * 1.3221199657742158 * 3e-3 + π * 3e-3^2 rtol = 1e-12
+    end
 end

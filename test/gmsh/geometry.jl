@@ -24,6 +24,11 @@ end
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     Geometry, FieldModel = extension.Geometry, extension.FieldModel
     options = ComputationOptions(GmshBackend)
+    @testset "the circle rule counts segments" begin
+        for (τ, count) in ((1e-3, 96), (1e-2, 48), (1e-4, 384), (2.0, 12))
+            @test extension.segments(τ) == count
+        end
+    end
     @testset "section records of an ellipse polygon and contour offset" begin
         ellipse = LineCableModels.Ellipse(3.0e-3, 2.0e-3)
         polygon = LineCableModels.Polygon([
@@ -34,6 +39,14 @@ end
         @test collect(extension.section(polygon))[2:3] ≈ [0.006, 0.005] rtol = 1e-12
         @test extension.section(offset).kind == 3
         @test collect(extension.section(offset))[2:3] ≈ [0.005, 0.003] rtol = 1e-12
+        @test extension.section(Offset(0.5e-3), offset).kind == 2
+        @test collect(extension.section(Offset(0.5e-3), offset))[2:3] ≈
+              [(√5 + 0.5) * 1e-3, √5 * 1e-3] rtol = 1e-12
+        fill = LineCableModels.PerforatedShape(offset,
+            LineCableModels.AbstractShape{Float64}[Circle(0.2e-3, Placement(0, 1.25e-3))])
+        @test extension.section(Offset(0.5e-3), fill).kind == 2
+        @test collect(extension.section(Offset(0.5e-3), fill))[2:3] ≈
+              [(√5 + 0.5) * 1e-3, √5 * 1e-3] rtol = 1e-12
     end
 
     @testset "rectangle vertices split neighboring edges" begin
@@ -42,7 +55,8 @@ end
         gmsh.initialize()
         try
             gmsh.model.add("rectangles")
-            geometry = Geometry(model)
+            geometry = Geometry(model, options)
+            @test geometry.segments == 96
             # Draw the smaller neighbor first to register its vertices on the edge.
             neighbor = Contour(
                 Curve{Float64}[
@@ -67,6 +81,59 @@ end
             if geometry.positions[p][1] == geometry.positions[q][1] == 2.0) ==
                   Set([((2.0, 0.0), (2.0, 0.5)),
                 ((2.0, 0.5), (2.0, 1.5)), ((2.0, 1.5), (2.0, 2.0))])
+        finally
+            gmsh.model.remove()
+            gmsh.finalize()
+        end
+    end
+
+    @testset "the parallel of an elliptical duct is drawn within the tolerance" begin
+        copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+        air = Material(:insulator, Inf)
+        pvc = Material(:insulator, Inf, 3)
+        design = build(CableDesign, "duct_wall",
+            Stack(
+                Enclosure(Region(:duct, LineCableModels.Ellipse(30e-3, 20e-3), air),
+                    Terminal(:core, Region(:core, Circle(0.01), copper))),
+                Region(:wall, Offset(3e-3), pvc)))
+        system = build(CableSystem, [design], [Placement(0, -1)];
+            connections = [(core = 1,)], id = "duct_wall", line_length = 1.0)
+        record = extension.section(last(system.regions))
+        @test record.kind == 2
+        @test record.a - record.b ≈ 3e-3 rtol = 1e-12
+        arc = LineCableModels.DataModel.EllipticArc(
+            Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, 0.5e-3)
+        @test extension.turn(arc).fraction ≈ 1 / 4 rtol = 1e-12
+        @test extension.turn(arc).length ≈
+              0.003 * 1.3221199657742158 + 0.5e-3 * π / 2 rtol = 1e-12
+        @test extension.turn(LineCableModels.DataModel.EllipticArc(
+            Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, 0)).length ≈
+              0.003 * 1.3221199657742158 rtol = 1e-12
+        problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+            frequencies = [0.1])
+        gmsh.initialize()
+        try
+            geometry = build(Geometry, FieldModel(problem, FEM()), options)
+            gmsh.model.geo.synchronize()
+            points = Tuple{Float64, Float64}[]
+            for tag in geometry.outlines[1].curves
+                low, high = gmsh.model.getParametrizationBounds(1, abs(tag))
+                parameters = collect(range(only(low), only(high); length = 4096))
+                tag < 0 && reverse!(parameters)
+                for parameter in parameters
+                    xyz = gmsh.model.getValue(1, abs(tag), [parameter])
+                    push!(points, (xyz[1], xyz[2]))
+                end
+                @test geometry.curves[abs(tag)] isa LineCableModels.DataModel.EllipticArc
+                @test geometry.curves[abs(tag)].offset == 3e-3
+            end
+            A_d = sum(points[k][1] * points[mod1(k + 1, length(points))][2] -
+                      points[k][2] * points[mod1(k + 1, length(points))][1]
+            for k in eachindex(points)) / 2
+            @test abs((A_d - π * 30e-3 * 20e-3) /
+                      (0.12 * 1.3221199657742158 * 3e-3 + π * 3e-3^2) - 1) <= 1e-3
+            repeated = draw(geometry, Contour(LineCableModels.resolve(Placement(0, -1), design.outer)).outer)
+            @test repeated.curves == geometry.outlines[1].curves
         finally
             gmsh.model.remove()
             gmsh.finalize()

@@ -223,13 +223,14 @@ using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon, Curve, Se
     @testset "a wedge offset satisfies Steiner's formula" begin
         S3 = Sector(0, 10.0e-3, 2π / 3, 1.0e-3 / sin(π / 3), 1.5e-3, Placement(0, 0))
         t = 0.5e-3
-        offset = LineCableModels.resolve(S3, Offset(t))
+        layer = LineCableModels.resolve(S3, Offset(t))
         expected = Sector(max(S3.ri - t, 0), S3.ro + t, S3.span,
             S3.apex - t / sin(S3.span / 2), S3.fillet + t, S3.at)
         for name in fieldnames(typeof(expected))
-            @test getfield(offset, name) == getfield(expected, name)
+            @test getfield(layer.outer, name) == getfield(expected, name)
         end
-        @test area(offset) ≈ area(S3) + perimeter(S3) * t + π * t^2 rtol = 1e-12
+        @test area(layer) ≈ perimeter(S3) * t + π * t^2 rtol = 1e-12
+        @test perimeter(boundary(layer)) ≈ perimeter(S3) + 2π * t rtol = 1e-12
     end
 
     @testset "a placement preserves rounded sector moments" begin
@@ -344,17 +345,125 @@ using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon, Curve, Se
             (0.0, 0.0), (0.004, 0.0), (0.005, 0.003), (0.002, 0.005), (-0.001, 0.003)])
         for (shape, A, P) in ((Rectangle(4.0e-3, 2.0e-3), 8.0e-6, 0.012),
             (pentagon, 21.0e-6, (4 + 2sqrt(10) + 2sqrt(13)) * 1.0e-3))
-            offset = LineCableModels.resolve(shape, Offset(0.5e-3))
-            @test offset isa ArcPolygon
-            @test area(offset) ≈ A + P * 0.5e-3 + π * 0.5e-3^2 rtol = 1e-12
-            @test perimeter(offset) ≈ P + 2π * 0.5e-3 rtol = 1e-12
-            second = LineCableModels.resolve(offset, Offset(0.25e-3))
-            @test area(second) ≈ A + P * 0.75e-3 + π * 0.75e-3^2 rtol = 1e-12
+            layer = LineCableModels.resolve(shape, Offset(0.5e-3))
+            @test layer isa LineCableModels.PerforatedShape
+            @test area(layer) ≈ P * 0.5e-3 + π * 0.5e-3^2 rtol = 1e-12
+            @test perimeter(boundary(layer)) ≈ P + 2π * 0.5e-3 rtol = 1e-12
+            @test area(boundary(layer)) ≈ A + P * 0.5e-3 + π * 0.5e-3^2 rtol = 1e-12
+            second = LineCableModels.resolve(boundary(layer), Offset(0.25e-3))
+            @test area(boundary(second)) ≈ A + P * 0.75e-3 + π * 0.75e-3^2 rtol = 1e-12
         end
         L = Polygon([(0.0, 0.0), (0.004, 0.0), (0.004, 0.001),
             (0.001, 0.001), (0.001, 0.003), (0.0, 0.003)])
-        refusal = ArgumentError("an offset follows a circle, an annulus, a sector, a rectangle or a convex polygon")
+        refusal = ArgumentError("an offset follows a circle, an annulus, a sector, a rectangle, an ellipse or a convex polygon")
         @test_throws refusal LineCableModels.resolve(L, Offset(0.5e-3))
-        @test_throws refusal LineCableModels.resolve(Ellipse(3.0e-3, 2.0e-3), Offset(0.5e-3))
+        clockwise = ArcPolygon(Curve{Float64}[
+        Segment((3.0e-3, 0.0), (3.0e-3, 3.0e-3)),
+        Segment((3.0e-3, 3.0e-3), (-3.0e-3, 3.0e-3)),
+        Segment((-3.0e-3, 3.0e-3), (-3.0e-3, 0.0)),
+        EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, π, -π)])
+        @test_throws refusal LineCableModels.resolve(clockwise, Offset(0.5e-3))
+    end
+    @testset "an elliptic arc carries its normal offset" begin
+        t = 0.5e-3
+        @test_throws DomainError EllipticArc(
+            Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, -1.0e-3)
+        @test_throws DomainError EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, Inf)
+        arc = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, t)
+        for (s, point) in ((0, [3.5e-3, 0]),
+            (1 / 2, [3.0e-3 / √2 + t * 2 / √13, 2.0e-3 / √2 + t * 3 / √13]),
+            (1, [0, 2.5e-3]))
+            @test collect(arc(s)) ≈ point rtol = 1e-12
+        end
+    end
+
+    @testset "the parallel of an ellipse satisfies Steiner's formulas" begin
+        t = 0.5e-3
+        at = Placement(0.01, -0.02, π / 7)
+        for (a, b, P) in ((3.0e-3, 2.0e-3, 0.012 * 1.3221199657742158),
+            (2.0e-3, 3.0e-3, 0.012 * 1.3221199657742158),
+            (2.0e-3, 2.0e-3, 4π * 1.0e-3))
+            layer = LineCableModels.resolve(Ellipse(a, b, at), Offset(t))
+            @test layer isa LineCableModels.PerforatedShape
+            parallel = boundary(layer)
+            @test parallel isa ArcPolygon
+            @test length(parallel.outline) == 4
+            @test all(curve -> curve isa EllipticArc && curve.offset == t, parallel.outline)
+            @test area(parallel) ≈ π * a * b + P * t + π * t^2 rtol = 1e-12
+            @test perimeter(parallel) ≈ P + 2π * t rtol = 1e-12
+            @test collect(centroid(parallel)) ≈ [0.01, -0.02] rtol = 1e-12
+            @test area(layer) ≈ P * t + π * t^2 rtol = 1e-12
+            points = Tuple{Float64, Float64}[]
+            for k in 0:4095
+                θ = 2π * k / 4096
+                ρ = hypot(b * cos(θ), a * sin(θ))
+                x = a * cos(θ) + t * b * cos(θ) / ρ
+                y = b * sin(θ) + t * a * sin(θ) / ρ
+                push!(points,
+                    (0.01 + x * cos(π / 7) - y * sin(π / 7),
+                        -0.02 + x * sin(π / 7) + y * cos(π / 7)))
+            end
+            tessellation = Polygon(points)
+            @test area(tessellation) ≈ π * a * b + P * t + π * t^2 rtol = 1e-6
+            @test perimeter(tessellation) ≈ P + 2π * t rtol = 1e-6
+            @test collect(centroid(tessellation)) ≈ [0.01, -0.02] rtol = 1e-6
+            for φ in (0, π / 2, π, 3π / 2, 1.0, 2.5)
+                @test support(parallel, φ) ≈
+                      0.01cos(φ) - 0.02sin(φ) +
+                      sqrt(a^2 * cos(φ - π / 7)^2 + b^2 * sin(φ - π / 7)^2) + t rtol = 1e-12
+            end
+        end
+    end
+
+    @testset "the parallel of a half ellipse" begin
+        t = 0.5e-3
+        for (a, b, P) in ((3.0e-3, 2.0e-3, 0.012 * 1.3221199657742158),
+            (2.0e-3, 3.0e-3, 0.012 * 1.3221199657742158),
+            (2.0e-3, 2.0e-3, 4π * 1.0e-3))
+            half = ArcPolygon(Curve{Float64}[
+            EllipticArc(Placement(0, 0), a, b, 0, π), Segment((-a, 0.0), (a, 0.0))])
+            parallel = boundary(LineCableModels.resolve(half, Offset(t)))
+            @test area(parallel) ≈ π * a * b / 2 + (2a + P / 2) * t + π * t^2 rtol = 1e-12
+            @test perimeter(parallel) ≈ 2a + P / 2 + 2π * t rtol = 1e-12
+            points = Tuple{Float64, Float64}[]
+            for k in 0:2048
+                θ = π * k / 2048
+                ρ = hypot(b * cos(θ), a * sin(θ))
+                push!(points, (a * cos(θ) + t * b * cos(θ) / ρ,
+                    b * sin(θ) + t * a * sin(θ) / ρ))
+            end
+            for k in 1:1024
+                θ = π + π / 2 * k / 1024
+                push!(points, (-a + t * cos(θ), t * sin(θ)))
+            end
+            for k in 0:1022
+                θ = 3π / 2 + π / 2 * k / 1023
+                push!(points, (a + t * cos(θ), t * sin(θ)))
+            end
+            tessellation = Polygon(points)
+            @test area(tessellation) ≈ area(parallel) rtol = 1e-6
+            @test collect(centroid(tessellation)) ≈ collect(centroid(parallel)) rtol = 1e-6
+        end
+    end
+
+    @testset "a second offset adds the distances" begin
+        E = Ellipse(3.0e-3, 2.0e-3, Placement(0.01, -0.02, π / 7))
+        second = boundary(LineCableModels.resolve(
+            boundary(LineCableModels.resolve(E, Offset(0.3e-3))), Offset(0.2e-3)))
+        single = boundary(LineCableModels.resolve(E, Offset(0.5e-3)))
+        @test area(second) ≈ area(single) rtol = 1e-15
+        @test [curve.offset for curve in second.outline] ==
+              [curve.offset for curve in single.outline]
+    end
+
+    @testset "a layer contains what lies in its band" begin
+        band = LineCableModels.resolve(Rectangle(4.0e-3, 2.0e-3), Offset(1.0e-3))
+        @test Circle(0.4e-3, Placement(0, 1.5e-3)) ⊆ band
+        @test !(Circle(0.4e-3, Placement(0, 1.2e-3)) ⊆ band)
+        @test !(Circle(0.4e-3, Placement(0, 1.8e-3)) ⊆ band)
+        band = LineCableModels.PerforatedShape(Rectangle(10.0e-3, 10.0e-3),
+            AbstractShape{Float64}[Circle(2.0e-3)])
+        @test Circle(1.0e-3, Placement(3.5e-3, 0)) ⊆ band
+        @test !(Circle(1.0e-3, Placement(2.5e-3, 0)) ⊆ band)
     end
 end

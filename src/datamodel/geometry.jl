@@ -581,7 +581,9 @@ The limit of 100 iterations bounds the work when the angle change exceeds the cr
 The active supporting curve supplies closed derivatives.
 For ``h=√(a²cos²ψ+b²sin²ψ)``, use
 ``h'=(b²-a²)sinψ cosψ/h`` and ``h''=(b²-a²)cos(2ψ)/h-(h')²/h``.
-Circular arcs have ``a=b=r``. For a point, use its projection and its derivatives.
+Circular arcs have ``a=b=r``. An offset elliptic arc has value ``c⋅u+h+d``.
+The normal offset ``d`` leaves these derivatives unchanged.
+For a point, use its projection and its derivatives.
 
 The arithmetic uses the promoted coordinate type. Decisions and the stop criterion use
 `nominal` values. The support tolerance is ``√eps(float(x))max(1,x)`` for the
@@ -638,6 +640,11 @@ an arc polygon, take the area of their contour by Green's theorem,
 An ellipse has ``A=πab``. A polygon uses
 ``A=\\sum_i(x_i y_{i+1}-y_i x_{i+1})/2``.
 An elliptic arc adds ``ab\\,span/2+c\\times(Q-P)/2``.
+Its normal offset ``d`` adds ``dL-d[p⋅τ̂]/2+d²Δα/2``, where
+``L=∫ρ\\,dθ``, ``ρ=hypot(b cos θ,a sin θ)``, and
+``Δα=span+[atan((a-b)sin θ cos θ,b cos²θ+a sin²θ)]``.
+Here ``p`` is the base point and ``τ̂`` its unit tangent.
+A layer subtracts the wrapped outline's area and gives ``Pt+πt²`` for a convex outline.
 """
 function area end
 
@@ -688,6 +695,16 @@ An ellipse's centroid is its center. A polygon uses
 For an elliptic arc, let ``L=R(at.φ)diag(a,b)``, ``u_i=(cos θ_i,sin θ_i)``,
 and ``B=ab(Δ-sin Δ)/2``. Its Green moment is the chord moment plus
 ``cB+abL((sin θ_2-sin θ_1,cos θ_1-cos θ_2)/3-sin Δ(u_1+u_2)/6)``.
+An offset ``d`` adds the band's moment
+``d∫p ds+(d²/2)∫p dα+(d²/2)[(p_y,-p_x)]+(d³/3)[(sin α,-cos α)]``
+and the segment moments from ``p_2`` to ``p_2+dn_2`` and from ``p_1+dn_1`` to ``p_1``.
+The integrals use ``∫p ds=cL+R(a[G(sin θ)],-b[H(cos θ)])`` and
+``∫p dα=cΔα+R(a²b[J(sin θ)],-ab²[K(cos θ)])``, with
+``G′(u)=√(b²+(a²-b²)u²)``, ``H′(v)=√(a²+(b²-a²)v²)``,
+``J′(u)=1/(b²+(a²-b²)u²)``, and ``K′(v)=1/(a²+(b²-a²)v²)``.
+These primitives use inverse hyperbolic and trigonometric functions that depend on
+the order of the semi-axes, and polynomials for equal axes.
+The layer's centroid subtracts the wrapped outline's moment and divides by its area.
 """
 function centroid end
 
@@ -741,6 +758,10 @@ The ellipse's directional support is
 ``θ=atan(b sin ψ,a cos ψ)`` contributes when it lies in the parametric interval.
 otherwise an endpoint gives the largest projection.
 
+A normal offset ``d`` adds ``d`` to the elliptic arc's circumscribed radius
+and to its interior directional maximum. Its ends use ``p+dn``.
+A layer has the support of its parallel boundary.
+
 Holes leave the support unchanged, so for an annulus or a sector it is the support of the
 convex hull.
 """
@@ -775,7 +796,8 @@ origin when that direction falls within the arc, else at an end.
 A polygon uses its placed
 edges and the winding number for the inside test. An ellipse or elliptic arc uses
 ``max(0,hypot(c_x,c_y)-max(a,b))``, the circumscribed circle's bound, exact for a
-centered ellipse.
+centered ellipse. An offset elliptic arc uses the radius ``max(a,b)+d``.
+A layer keeps its outer boundary's distance bound.
 """
 function distance end
 
@@ -913,9 +935,14 @@ Return the length of every outer and hole curve of `shape` \\[m\\]:
 A sector, arc polygon, perforated shape or contour sums its curves:
 a segment contributes ``|Q-P|`` and an arc contributes ``ρ|θ_2-θ_1|``.
 An ellipse has ``P=4aE(1-b²/a²)``, with ``E`` the complete elliptic integral of the
-second kind. The formula also holds for ``b>a``. Polygon perimeters sum their edges' lengths.
+second kind.
+
+The formula also holds for ``b>a``. Polygon perimeters sum their edges' lengths.
 An elliptic arc integrates ``√(a²sin²θ+b²cos²θ)`` over its parametric interval
 with QuadGK, the incomplete elliptic integral of the second kind.
+A normal offset ``d`` changes the signed length ``L`` to ``L+dΔα``,
+where ``Δα=span+[atan((a-b)sin θ cos θ,b cos²θ+a sin²θ)]``.
+A layer sums the perimeters of its parallel boundary and its hole.
 """
 function perimeter end
 
@@ -945,13 +972,17 @@ $(TYPEDSIGNATURES)
 Resolve the outward offset `t` \\[m\\] of a sector by
 ``(r_i,r_o,a,f)\\mapsto(\\max(r_i-t,0),r_o+t,a-t/\\sin(α),f+t)``,
 where ``α=span/2`` and all four lengths are in \\[m\\].
-Keep its angular span and placement.
+Keep its angular span and placement. Return the layer of thickness `t`,
+``PerforatedShape(Sector′,[inner])``, whose `boundary` is the parallel.
 """
 function resolve(inner::Sector, offset::Offset)
     validate(offset, inner)
-    return Sector(max(inner.ri - offset.t, zero(inner.ri)), inner.ro + offset.t,
-        inner.span, inner.apex - offset.t / sin(inner.span / 2),
-        inner.fillet + offset.t, inner.at)
+    T = promote_type(eltype(inner), typeof(offset.t))
+    return PerforatedShape(
+        Sector(max(inner.ri - offset.t, zero(inner.ri)), inner.ro + offset.t,
+            inner.span, inner.apex - offset.t / sin(inner.span / 2),
+            inner.fillet + offset.t, inner.at),
+        AbstractShape{T}[inner])
 end
 
 """
@@ -1057,16 +1088,22 @@ Resolve a distance ``t`` \\[m\\] outward over the outer contour of `shape`.
 Move each segment by ``t(dy,-dx)/|Q-P|``, grow each counterclockwise arc's
 radius to ``r+t``, and join a counterclockwise corner of turn ``Δ`` with an
 arc of radius ``t`` and span ``Δ``. A tangent join keeps the two moved curves.
-Throw `ArgumentError` for a clockwise arc or corner, or an elliptic arc.
+An elliptic arc's normal offset becomes ``d+t``, with endpoint normals
+``α(θ)=atan(a sin θ,b cos θ)+at.φ``.
+
+Return the layer of thickness `t`, ``PerforatedShape(parallel,[boundary(shape)])``.
+Its `boundary` is the parallel.
+Throw `ArgumentError` for a clockwise arc or corner:
+"an offset follows a circle, an annulus, a sector, a rectangle, an ellipse or a convex polygon".
 """
 function resolve(shape::AbstractShape, offset::Offset)
     path = Contour(shape).outer
     T = promote_type(eltype(shape), typeof(offset.t))
     outline = Curve{T}[]
     normals = Tuple{T, T}[]
-    isempty([curve for curve in path if curve isa EllipticArc]) ||
-        throw(ArgumentError("an offset follows a circle, an annulus, a sector, a rectangle or a convex polygon"))
-    for curve in [curve for curve in path if curve isa Segment]
+    indices = Int[]
+    for (k, curve) in [(k, curve) for (k, curve) in enumerate(path) if curve isa Segment]
+        push!(indices, k)
         dx, dy = curve.b .- curve.a
         φ = atan(-dx, dy)
         push!(normals, (φ, φ))
@@ -1076,10 +1113,26 @@ function resolve(shape::AbstractShape, offset::Offset)
     end
     for (k, curve) in [(k, curve) for (k, curve) in enumerate(path) if curve isa Arc]
         nominal(curve.span) > 0 ||
-            throw(ArgumentError("an offset follows a circle, an annulus, a sector, a rectangle or a convex polygon"))
-        insert!(normals, k, (curve.at.φ, curve.at.φ + curve.span))
-        insert!(outline, k, Arc(curve.at, curve.r + offset.t, curve.span))
+            throw(ArgumentError("an offset follows a circle, an annulus, a sector, a rectangle, an ellipse or a convex polygon"))
+        push!(indices, k)
+        push!(normals, (curve.at.φ, curve.at.φ + curve.span))
+        push!(outline, Arc(curve.at, curve.r + offset.t, curve.span))
     end
+    for (k, curve) in
+        [(k, curve) for (k, curve) in enumerate(path) if curve isa EllipticArc]
+        nominal(curve.span) > 0 ||
+            throw(ArgumentError("an offset follows a circle, an annulus, a sector, a rectangle, an ellipse or a convex polygon"))
+        θ₁, θ₂ = curve.φ0, curve.φ0 + curve.span
+        push!(indices, k)
+        push!(normals,
+            (atan(curve.a * sin(θ₁), curve.b * cos(θ₁)) + curve.at.φ,
+                atan(curve.a * sin(θ₂), curve.b * cos(θ₂)) + curve.at.φ))
+        push!(outline,
+            EllipticArc(curve.at, curve.a, curve.b, curve.φ0, curve.span,
+                curve.offset + offset.t))
+    end
+    order = sortperm(indices)
+    outline, normals = outline[order], normals[order]
     result = Curve{T}[]
     for k in eachindex(path)
         push!(result, outline[k])
@@ -1089,10 +1142,10 @@ function resolve(shape::AbstractShape, offset::Offset)
             abs(nominal(normals[mod1(k + 1, length(path))][1])))
         tolerance = sqrt(eps(float(scale))) * max(one(scale), scale)
         nominal(Δ) >= -tolerance ||
-            throw(ArgumentError("an offset follows a circle, an annulus, a sector, a rectangle or a convex polygon"))
+            throw(ArgumentError("an offset follows a circle, an annulus, a sector, a rectangle, an ellipse or a convex polygon"))
         if nominal(Δ) > tolerance && nominal(offset.t) > 0
             push!(result, Arc(Placement(path[k](1)..., φ), offset.t, Δ))
         end
     end
-    return ArcPolygon(result)
+    return PerforatedShape(ArcPolygon(result), AbstractShape{T}[boundary(shape)])
 end

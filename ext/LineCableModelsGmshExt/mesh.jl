@@ -154,11 +154,12 @@ For each material, compare the area from element vertices with its regions' area
 \\[m²\\], within a relative tolerance of `1e-8` plus the chord allowance
 
 ```math
-A_{\\mathrm{chord}} = \\frac{h^2}{6} \\sum_{\\mathrm{arcs}} |\\varphi|,
+A_{\\mathrm{chord}} = \\frac{h^2}{6} \\sum_{\\mathrm{curves}} |\\varphi|,
 ```
 
 where ``h²`` is the longest boundary edge squared \\[m²\\]. The angle ``\\varphi`` is the
-signed turn \\[rad\\] of each arc in the regions' contours. An arc of angle ``|\\varphi|``
+signed turn \\[rad\\] of every curve in the regions' contours, with zero for a segment.
+A curve of angle ``|\\varphi|``
 cut into chords of length at most ``h`` loses at most ``|\\varphi|h²/12`` of area, so the
 allowance is twice that loss. Higher-order elements use their Jacobians for the area
 integral. Return `path` unchanged, and restore the caller's current Gmsh model.
@@ -309,10 +310,10 @@ function validate(path::AbstractString, model::FieldModel)
             actual = sum(areas[surface] for surface in surfaces)
             h2 = maximum(sizes[surface] for surface in surfaces)
             total_turn = sum(
-                abs(curve.span) for r in indices
+                2π * turn(curve).fraction for r in indices
                 for contour in (contours[r],)
                 for boundary in (contour.outer, contour.holes...)
-                for curve in boundary if curve isa Arc;
+                for curve in boundary;
                 init = 0.0)
             allowance = total_turn * h2 / 6
             abs(actual - expected_area) <= 1e-8 * expected_area + allowance || error(

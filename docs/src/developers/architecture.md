@@ -113,8 +113,10 @@ A cross-section is one type with the methods of one unary interface: `area`, `ce
 The primitives are `Circle`, `Annulus`, `Rectangle`, `Sector`, `Ellipse` and `Polygon`.
 `ArcPolygon` is the region inside a closed path of segments and of circular or elliptic
 arcs. `Offset(t)` is an operator: a layer declared by
-its thickness, resolved on the outline of the part inside it. `PerforatedShape` is the
-cross-section of a fill, a container without the outlines of its contents. A new kind of
+its thickness, resolved on the outline of the part inside it. The layer is an `Annulus`
+around a circle and a `PerforatedShape` around another outline. `PerforatedShape` is the
+cross-section of a fill, a container without the outlines of its contents, or of such a
+layer. A new kind of
 cross-section is one type and its methods. The structure above it does not change.
 
 ### Declaration

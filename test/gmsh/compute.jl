@@ -78,6 +78,15 @@
                 Terminal(:core,
                     Region(:core, Circle(0.01),
                         Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)))),
+            [(core = 1,)], 1),
+        ("elliptical-duct-wall",
+            Stack(
+                Enclosure(
+                    Region(:duct, LineCableModels.Ellipse(30e-3, 20e-3), Material(:insulator, Inf)),
+                    Terminal(:core,
+                        Region(:core, Circle(0.01),
+                            Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)))),
+                Region(:wall, Offset(3e-3), Material(:insulator, Inf, 3))),
             [(core = 1,)], 1))
         design = build(CableDesign, id, part)
         system = build(CableSystem, [design], [Placement(0, -1)];

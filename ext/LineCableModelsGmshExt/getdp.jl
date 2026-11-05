@@ -2,6 +2,7 @@
 $(TYPEDSIGNATURES)
 
 Write the native model data of `model` to `path`, with the mesh controls in `options`.
+Write ``FEMCircleSegments=segments(τ)``, where ``τ=ConductorGeometryTolerance``.
 Use 17 significant digits for numbers and braces for numerical lists. Region dimensions
 come from [`section`](@ref), repeated regions from `model.strand`, passive annuli from
 `model.layer`, and terminal names from the model's labels.
@@ -65,6 +66,7 @@ function Base.write(path::AbstractString, model::FieldModel,
             ("FEMMumpsForwardErrorBudget", 0.01),
             ("PmlQuadrature", controls.PmlQuadrature),
             ("ConductorGeometryTolerance", controls.ConductorGeometryTolerance),
+            ("FEMCircleSegments", segments(controls.ConductorGeometryTolerance)),
             ("ConductorSkinDepthElements", controls.ConductorSkinDepthElements),
             ("ConductorMeshGrowth", controls.ConductorMeshGrowth),
             ("ConductorSkinDepths", controls.ConductorSkinDepths),

@@ -267,8 +267,6 @@ If(FEMWaveBoxRadius <= MeshDecayEarth)
 EndIf
 If(!FEMAirExcited) MeshWaveAir = MeshRemoteAir; EndIf
 MeshRemoteMax = Max[MeshBulk,Max[MeshRemoteAir,MeshRemoteEarth]];
-// Relative circle-area error also bounds aligned annular thickness error.
-FEMCircleSegments = 12*2^Max[0,Ceil[Log[Sqrt[2*Pi^2/(3*ConductorGeometryTolerance)]/12]/Log[2]]];
 FEMAnnularLayers = 0; MeshFine = 1e300;
 For region In {0:NumPhysicalRegions-1}
   FEMAnnularLayers += RegionAnnularPassive~{region};

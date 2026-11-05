@@ -10,6 +10,7 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using Gmsh: Gmsh, gmsh
 using Printf: @sprintf
 using LinearAlgebra: I, ldiv!, lu!
+using QuadGK: quadgk
 using getdp_jll: getdp_jll
 import LineCableModels.Commons: build, compute, defaults, validate
 using LineCableModels.Commons: ComputationOptions, resolve, nominal
