@@ -34,6 +34,9 @@ struct Geometry{M <: FieldModel}
     "Annular patch tags, region indices, and angular fractions \\[dimensionless\\]."
     patches::Vector{@NamedTuple{region::Int, surface::Int, arcs::NTuple{2, Int},
         spokes::NTuple{2, Int}, corners::NTuple{4, Int}, fraction::Float64}}
+    "The strips of the conductors and the depth of each \\[m\\]."
+    strips::Vector{@NamedTuple{region::Int, surface::Int, curves::NTuple{2, Vector{Int}},
+        spokes::NTuple{2, Int}, corners::NTuple{4, Int}, depth::Float64}}
     "Counterclockwise and clockwise outline loops and oriented curves of each cable."
     outlines::Vector{@NamedTuple{ccw::Int, cw::Int, curves::Vector{Int}}}
     "Clockwise curve lists of the holes in each medium's main face."
@@ -68,6 +71,8 @@ function Geometry(model::FieldModel, options::ComputationOptions{GmshBackend})
         [Int[] for _ in model.problem.system.regions],
         @NamedTuple{region::Int, surface::Int, arcs::NTuple{2, Int},
             spokes::NTuple{2, Int}, corners::NTuple{4, Int}, fraction::Float64}[],
+        @NamedTuple{region::Int, surface::Int, curves::NTuple{2, Vector{Int}},
+            spokes::NTuple{2, Int}, corners::NTuple{4, Int}, depth::Float64}[],
         @NamedTuple{ccw::Int, cw::Int, curves::Vector{Int}}[],
         (air = Vector{Int}[], earth = Vector{Int}[]),
         (air = Int[], earth = Int[]),
@@ -846,15 +851,76 @@ function patches!(geometry::Geometry, annulus::Annulus, i::Int)
         stop_tag = only(draw(geometry, Segment(geometry.positions[iq], geometry.positions[q])))
         loop = gmsh.model.geo.addCurveLoop([oc, -stop_tag, -ic, start_tag])
         surface = gmsh.model.geo.addPlaneSurface([loop])
-        u = geometry.positions[p] .- (annulus.at.x, annulus.at.y)
-        v = geometry.positions[q] .- (annulus.at.x, annulus.at.y)
-        a = atan(abs(u[1] * v[2] - u[2] * v[1]), u[1] * v[1] + u[2] * v[2])
         push!(geometry.patches,
             (region = i, surface = surface,
                 arcs = (abs(oc), abs(ic)), spokes = (abs(start_tag), abs(stop_tag)),
-                corners = (p, q, iq, ip), fraction = a / (2π)))
+                corners = (p, q, iq, ip),
+                fraction = turn(geometry.curves[abs(oc)]).fraction))
         push!(surfaces, surface)
     end
+    return surfaces
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Partition the conducting region `i` of `shape` into four-sided strips and a core. The strips
+lie between the contour and its `parallel` at the depth ``e = 0.45 d`` \\[m\\] inside the
+metal, where ``d`` is `dimension(shape)`. Each curve of each path of the contour bounds one
+strip. Its outer side is the curve's drawn pieces, and its inner side the drawn pieces of
+its parallel. A spoke joins each junction of the contour to the junction of the parallels.
+
+Each strip's loop runs counterclockwise. The parallels bound the core. Record each strip's
+region, surface, side curves, spokes, corners and depth ``e``. Return the tags of the strips
+and of the core.
+
+# Errors
+
+- Throws `DomainError` at a corner whose interior angle exceeds π, where a path of the
+  parallel gains a curve.
+"""
+function strips!(geometry::Geometry, shape::AbstractShape, i::Int)
+    contour = Contour(shape)
+    depth = 0.45 * dimension(shape)
+    inner = parallel(contour, -depth)
+    for (path, innerpath) in
+        zip((contour.outer, contour.holes...), (inner.outer, inner.holes...))
+        length(innerpath) > length(path) &&
+            throw(DomainError(shape,
+                "region $i has a reflex corner: the inward parallel of its outline " *
+                "gains a curve there, so the outline has no strips"))
+    end
+    surfaces = Int[]
+    loops = Int[]
+    for (k, (path, innerpath)) in
+        enumerate(zip((contour.outer, contour.holes...), (inner.outer, inner.holes...)))
+        tags = Int[]
+        for j in eachindex(path)
+            outer = draw(geometry, path[j])
+            pieces = draw(geometry, innerpath[j])
+            a, b = geometry.ends[abs(first(outer))]
+            p = first(outer) > 0 ? a : b
+            a, b = geometry.ends[abs(last(outer))]
+            q = last(outer) > 0 ? b : a
+            a, b = geometry.ends[abs(first(pieces))]
+            p′ = first(pieces) > 0 ? a : b
+            a, b = geometry.ends[abs(last(pieces))]
+            q′ = last(pieces) > 0 ? b : a
+            s = only(draw(geometry, Segment(geometry.positions[p], geometry.positions[p′])))
+            t = only(draw(geometry, Segment(geometry.positions[q], geometry.positions[q′])))
+            loop = k == 1 ? [outer; t; -reverse(pieces); -s] :
+                   [s; pieces; -t; -reverse(outer)]
+            corners = k == 1 ? (p, q, q′, p′) : (p, p′, q′, q)
+            surface = gmsh.model.geo.addPlaneSurface([gmsh.model.geo.addCurveLoop(loop)])
+            push!(geometry.strips,
+                (region = i, surface = surface, curves = (abs.(outer), abs.(pieces)),
+                    spokes = (s, t), corners = corners, depth = depth))
+            push!(surfaces, surface)
+            append!(tags, pieces)
+        end
+        push!(loops, gmsh.model.geo.addCurveLoop(k == 1 ? tags : -reverse(tags)))
+    end
+    push!(surfaces, gmsh.model.geo.addPlaneSurface(loops))
     return surfaces
 end
 
@@ -885,9 +951,12 @@ function build(::Type{Geometry}, model::FieldModel, options::ComputationOptions{
     if strips
         cut!(geometry, Annulus[system.regions[i].shape for i in annuli])
     end
+    conductor = [model.materials[g].conductor for g in model.material]
     for (i, region) in enumerate(system.regions)
         geometry.surfaces[i] = strips && model.layer[i] ?
                                patches!(geometry, region.shape, i) :
+                               conductor[i] && section(region).kind == 3 ?
+                               strips!(geometry, region.shape, i) :
                                faces!(geometry, region.shape)
     end
     for contour in contours
@@ -1111,7 +1180,9 @@ Write `geometry` to `path` as the frequency-independent physical CAD read by the
 sources. Write Gmsh's unrolled geometry to `path * "_unrolled"`, replace each point's size
 with `MeshFine`, append the native lists and physical groups, and remove the unrolled file.
 Coordinates, radii, thicknesses, arc lengths, and anchor dimensions are in \\[m\\].
-Angular fractions are dimensionless. Numbers use 17 significant digits.
+Angular fractions are dimensionless, and the angular match is in \\[rad\\].
+Numbers use 17 significant digits. Each patch lists the pairs of circular arcs that touch
+inside one another at its arcs' ends, the larger first, with both fractions.
 """
 function Base.write(path::AbstractString, geometry::Geometry)
     gmsh.model.geo.synchronize()
@@ -1144,6 +1215,29 @@ function Base.write(path::AbstractString, geometry::Geometry)
         cables = [k - 1 for (k, tags) in enumerate(cable_curves) if edge in tags]
         return (radius = radius, thickness = thickness, points = points,
             cables = cables, fraction = turn(geometry.curves[abs(edge)]).fraction)
+    end
+    incident = Dict{Int, Vector{Int}}()
+    for ((circle, (p, q)), tag) in geometry.arcs
+        push!(get!(incident, p, Int[]), tag)
+        push!(get!(incident, q, Int[]), tag)
+    end
+    tangencies = map(geometry.patches) do patch
+        entries = NTuple{4, Float64}[]
+        for A in patch.arcs, e in geometry.ends[A], N in get(incident, e, Int[])
+            N == A && continue
+            a = first(geometry.ends[A]) == e ? A : -A
+            n = first(geometry.ends[N]) == e ? N : -N
+            ds = turn(geometry.curves[A]).length
+            δa = direction(geometry, a, ds) - direction(geometry, a, 0)
+            δn = direction(geometry, n, ds) - direction(geometry, n, 0)
+            Δ = direction(geometry, n, 0) - direction(geometry, a, 0)
+            cos(Δ) > 0 && abs(sin(Δ)) <= sqrt(eps(float(one(sin(Δ))))) || continue
+            sign(δa) * sign(δn) > 0 || continue
+            L, S = abs(δa) < abs(δn) ? (A, N) : (N, A)
+            push!(entries, (L, S, turn(geometry.curves[L]).fraction,
+                turn(geometry.curves[S]).fraction))
+        end
+        return entries
     end
     raw = path * "_unrolled"
     gmsh.write(raw)
@@ -1193,8 +1287,31 @@ function Base.write(path::AbstractString, geometry::Geometry)
                 println(io, "FEMAnnular", name, "~{", i - 1, "} = ",
                     @sprintf("%.17g", Float64(number)), ";")
             end
+            for (name, entries) in (
+                ("Contacts", [number for pair in tangencies[i] for number in pair[1:2]]),
+                ("ContactFractions",
+                    [number for pair in tangencies[i] for number in pair[3:4]]))
+                numbers = [@sprintf("%.17g", Float64(number)) for number in entries]
+                println(io, "FEMAnnular", name, "~{", i - 1, "}() = {",
+                    join(numbers, ", "), "};")
+            end
         end
         println(io, "FEMAnnularPatches = ", length(geometry.patches), ";")
+        println(io, "FEMAngularMatch = ", @sprintf("%.17g", sqrt(eps(Float64))), ";")
+        for (k, strip) in enumerate(geometry.strips)
+            println(io, "FEMStripRegion~{", k - 1, "} = ", strip.region - 1, ";")
+            println(io, "FEMStripSurface~{", k - 1, "} = ", strip.surface, ";")
+            for (name, entries) in
+                (("OuterCurves", strip.curves[1]), ("InnerCurves", strip.curves[2]),
+                ("InnerLengths",
+                    [turn(geometry.curves[c]).length for c in strip.curves[2]]),
+                ("Spokes", strip.spokes), ("Corners", strip.corners))
+                numbers = [@sprintf("%.17g", Float64(number)) for number in entries]
+                println(
+                    io, "FEMStrip", name, "~{", k - 1, "}() = {", join(numbers, ", "), "};")
+            end
+        end
+        println(io, "FEMStrips = ", length(geometry.strips), ";")
         for (i, boundary) in enumerate(boundaries)
             lists = (("Points", boundary.points), ("Cables", boundary.cables))
             for (name, entries) in lists
@@ -1238,21 +1355,29 @@ function Base.write(path::AbstractString, geometry::Geometry)
             println(io, "FEMConductor~{", i - 1, "} = ", Int(conductor), ";")
             conductor || continue
             println(io, "FEMConductorMaterial~{", i - 1, "} = ", material, ";")
-            println(io, "FEMConductorKind~{", i - 1, "} = ", section(shape).kind, ";")
+            println(io, "FEMConductorKind~{", i - 1, "} = ",
+                section(system.regions[i]).kind, ";")
+            owned = [strip for strip in geometry.strips if strip.region == i]
+            println(io, "FEMConductorDimension~{", i - 1, "} = ",
+                @sprintf("%.17g", dimension(shape)), ";")
+            println(io, "FEMConductorStrips~{", i - 1, "} = ", length(owned), ";")
+            if !isempty(owned)
+                println(io, "FEMStripDepth~{", i - 1, "} = ",
+                    @sprintf("%.17g", first(owned).depth), ";")
+            end
             arcs = [turn(geometry.curves[abs(edge)]) for edge in edges]
-            center = key(shape.at.x, shape.at.y)
             thicknesses = map(edges) do edge
                 thickness = Inf
                 for layer in layers
                     edge in layer.curves || continue
-                    key(layer.shape.at.x, layer.shape.at.y) == center || continue
                     thickness = min(thickness, dimension(layer.shape))
                 end
                 return isfinite(thickness) ? thickness : 0.0
             end
             for (name, entries) in (("ArcLengths", [arc.length for arc in arcs]),
                 ("ArcFractions", [arc.fraction for arc in arcs]),
-                ("LayerThickness", thicknesses), ("BulkSurfaces", surfaces))
+                ("LayerThickness", thicknesses), (
+                    "BulkSurfaces", setdiff(surfaces, [strip.surface for strip in owned])))
                 numbers = [@sprintf("%.17g", Float64(number)) for number in entries]
                 println(io, "FEMConductor", name, "~{", i - 1, "}() = {",
                     join(numbers, ", "), "};")

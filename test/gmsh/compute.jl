@@ -30,13 +30,29 @@
     end
     # Each conductor takes the conductor mesh controls on its arcs and its straight sides.
     # At 0.1 Hz, the real part of Z is the direct-current resistance plus ωμ₀/8, the earth
-    # return resistance. At 50 Hz, the skin depth of copper, 9.35 mm, is less than the width
-    # of each conductor. The graded layer of the controls then applies.
-    @testset "a $id meshes as a conductor" for (id, shape, straight, target) in (
+    # return resistance. Each of these outlines has straight sides or several arcs. The mesh
+    # gives each curve of its contour one transfinite strip at every frequency. The strip's
+    # depth is 0.45 of the distance across the metal.
+    @testset "a $id meshes as a conductor" for (id, shape, straight, target, across) in (
         ("rounded-wedge",
             LineCableModels.Sector(0, 10.0e-3, 2π / 3,
-                1.0e-3 / sin(π / 3), 1.5e-3, Placement(0, 0)), 2, 10.0e-3 / 5),
-        ("straight-bar", Rectangle(30.0e-3, 12.0e-3), 4, 12.0e-3 / 5))
+                1.0e-3 / sin(π / 3), 1.5e-3, Placement(0, 0)), 2, 10.0e-3 / 5, 3.0e-3),
+        ("straight-bar", Rectangle(30.0e-3, 12.0e-3), 4, 12.0e-3 / 5, 12.0e-3),
+        ("bent-strand",
+            LineCableModels.Sector(8.5e-3, 11.5e-3, 0.3, 0, 0, Placement(0, 0)),
+            2, 3.0e-3 / 5, 2 * 8.5e-3 * sin(0.15) / (1 - sin(0.15))),
+        ("bent-tape",
+            LineCableModels.Sector(14.95e-3, 15.05e-3, 5π / 3, 0, 0, Placement(0, 0)), 2,
+            0.1e-3 / 5, 0.1e-3),
+        ("milliken-segment",
+            LineCableModels.Sector(0, 31.15e-3, π / 3, 0, 1.25e-3, Placement(0, 0)), 2,
+            π / 3 * 31.15e-3 / 2 / 5, 2.5e-3),
+        ("sharp-quarter",
+            LineCableModels.Sector(0, 10.0e-3, π / 2, 0, 0, Placement(0, 0)),
+            2, π / 2 * 10.0e-3 / 2 / 5, 2 * 10.0e-3 * sin(π / 4) / (1 + sin(π / 4))),
+        ("sharp-third",
+            LineCableModels.Sector(0, 10.0e-3, 2π / 3, 0, 0, Placement(0, 0)),
+            2, 10.0e-3 / 5, 2 * 10.0e-3 * sin(π / 3) / (1 + sin(π / 3))))
         copper = Material(:conductor, 1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
         design = build(CableDesign, id, Terminal(:core, Region(:core, shape, copper)))
         system = build(CableSystem, [design], [Placement(0.0, 10.0)];
@@ -55,6 +71,10 @@
                 line = only(filter(startswith("FEMConductorArcFractions~{0}()"), lines))
                 fractions = parse.(Float64, split(match(r"= \{([^}]*)\};$", line)[1], ','))
                 @test count(iszero, fractions) == straight
+                @test "FEMConductorStrips~{0} = $(length(Contour(shape).outer));" in lines
+                line = only(filter(startswith("FEMStripDepth~{0} = "), lines))
+                @test isapprox(parse(Float64, match(r"= (.*);$", line)[1]), 0.45 * across;
+                    rtol = 1e-12)
                 metadata = readlines(joinpath(retained, "logs", "mesh-0001-metadata.txt"))
                 line = only(filter(startswith("region_mesh_sizes_m "), metadata))
                 @test isapprox(parse(Float64, last(split(line))), target; rtol = 1e-12)
@@ -78,6 +98,23 @@
                 resistance = 1.7241e-8 / (π * 9.0e-3 * 3.0e-3) +
                              2π * 0.1 * LineCableModels.μ₀ / 8
                 @test abs(real(result.Z[1, 1, 1]) / resistance - 1) <= 2e-3
+            end
+        end
+    end
+    # An L-shaped polygon has a corner whose interior angle is 3π/2. The inward parallel
+    # of its outline gains a curve there, so the outline has no strips.
+    @testset "a reflex corner has no strips" begin
+        copper = Material(:conductor, 1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
+        shape = LineCableModels.Polygon([(0.0, 0.0), (0.01, 0.0), (0.01, 0.004),
+            (0.004, 0.004), (0.004, 0.01), (0.0, 0.01)])
+        design = build(CableDesign, "reflex", Terminal(:core, Region(:core, shape, copper)))
+        system = build(CableSystem, [design], [Placement(0.0, 10.0)];
+            connections = [(core = 1,)], id = "reflex", line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+            frequencies = [0.1])
+        mktempdir() do folder
+            cd(folder) do
+                @test_throws r"reflex corner" compute(problem, FEM())
             end
         end
     end
@@ -154,20 +191,23 @@
             end
         end
     end
-    # The frozen rows were produced on x86_64 Linux. Gmsh's meshing decisions depend on
-    # floating point. The same build on the same platform regenerates the same mesh and
-    # reproduces the rows to 1e-6 of the diagonal. On other platforms, the same geometry is
-    # meshed slightly differently. Pull request 67 measured deviations up to 6e-4 of the
-    # diagonal in Z and Y at most frequencies on Apple silicon, Intel macOS and Windows. There
-    # the rows hold within the FEM acceptance metric, 1e-2, as the coaxial cases do everywhere
-    # because their rows' mesh is older than today's. The comparison with the analytical rows
-    # and the known status holds on every platform and is the physics check.
-    wire_pair_tolerance = Sys.islinux() && Sys.ARCH === :x86_64 ? 1e-6 : 1e-2
+    # The frozen rows were produced on x86_64 Linux with Gmsh 4.15.2. Gmsh's meshing
+    # decisions depend on floating point. A build is the platform and the Gmsh version
+    # together. The same build regenerates the same mesh and reproduces the rows to 1e-6 of
+    # the diagonal. Another platform or another Gmsh version meshes the same geometry
+    # slightly differently. Pull request 67 measured deviations up to 6e-4 of the diagonal
+    # in Z and Y at most frequencies on Apple silicon, Intel macOS and Windows. With Gmsh
+    # 4.13.1 on x86_64 Linux, the deviations are up to 2.7e-4 of the diagonal. There the
+    # rows hold within the FEM acceptance metric, 1e-2, as the coaxial cases do everywhere
+    # because their rows' mesh is older than today's. The comparison with the analytical
+    # rows and the known status holds on every platform and is the physics check.
+    wire_pair_tolerance = Sys.islinux() && Sys.ARCH === :x86_64 &&
+                          gmsh.GMSH_API_VERSION == "4.15.2" ? 1e-6 : 1e-2
     facts = Dict(
         "two_bare_wires" => (wire_pair_tolerance, (Z = 0.00568, Y = 0.00798)),
         "two_insulated_wires" => (wire_pair_tolerance, (Z = 0.00407, Y = 0.000447)),
         "coaxial_circular_strands" => (1e-2, (Z = 0.0492, Y = 0.105)),
-        "coaxial_rectangular_strands" => (1e-2, (Z = 0.0522, Y = 0.104)),
+        "coaxial_rectangular_strands" => (1e-2, (Z = 0.0520, Y = 0.104)),
         "overhead_bare_wires" => (wire_pair_tolerance, (Z = 0.00610, Y = 0.00817)),
         "mixed_bare_wires" => (wire_pair_tolerance, (Z = 0.00609, Y = 0.00617)))
     @testset "$case" for (case, reference) in REFERENCES

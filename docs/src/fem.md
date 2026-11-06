@@ -258,15 +258,16 @@ and ``\min(w, h_\square)/2`` for a rectangular strand. A sector of radii ``r_i``
 and angle ``\varphi`` takes the target of the rectangle of width ``r_o - r_i`` and height
 ``\varphi (r_o + r_i)/2``. A thin passive annulus is meshed as a
 strip of ``\max(2, \lceil 2/m_h \rceil)`` radial intervals, with the target of the region at
-least ``2\pi r_o/n_c``.
+least ``2\pi r_o/n_c``. Where a circle touches the inside of a larger one and either
+bounds a passive annulus, the larger circle's arc takes the smaller interval angle.
 
 The parallel of an ellipse enters the geometry as a spline through points at equal steps
 of the angle of its normal. The spline takes ``n_c`` intervals per turn and at least two in
 each quarter of the ellipse.
 
-In a conductor, the width ``w`` is the radius of a circle, the thickness of an annulus or
-the smaller side of a rectangle, straight or bent. The skin depth ``\delta`` and the phase
-rate ``\beta`` follow from
+In a conductor, the width ``w`` is the radius of a circle and the thickness of an annulus or
+of a layer around another outline. For every other outline, ``w`` is the distance across the
+metal. The skin depth ``\delta`` and the phase rate ``\beta`` follow from
 ``\sqrt{\mathrm{j}\omega\mu\widehat\sigma} = 1/\delta + \mathrm{j}\beta``. A graded layer of
 elements along the contour of the conductor, of depth ``e`` and ``N`` intervals growing by
 the ratio ``g``, starts at the first size ``h_1``:
@@ -280,11 +281,21 @@ h_1^\ast = \min\left(\frac{m_h\delta}{n_\delta}, \frac{m_h w}{n_t}\right),
 
 where ``n_s``, ``n_\delta``, ``g`` and, for an annulus, ``n_t`` are the overrides
 `ConductorSkinDepths`, `ConductorSkinDepthElements`, `ConductorMeshGrowth` and
-`ConductorThicknessElements`. For a circle and a rectangle, ``n_t = 5``, and ``f`` is 0.5
-for a circle and 0.45 for an annulus. Only a circle or an annulus whose width ``w`` exceeds
-``\delta`` takes the graded layer. Another conducting outline takes the node counts of its
-curves and the interior target alone. The interior of the conductor has the target
-``\min(h, m_h w / n_t)``, further limited to ``2\pi m_h / (12\beta)`` when
+`ConductorThicknessElements`. For every other outline, ``n_t = 5``. A circle, an annulus or
+a layer takes the graded layer when its width ``w`` exceeds ``\delta``. Gmsh extrudes it
+inward from the contour, with ``f`` equal to 0.5 for a circle and 0.45 otherwise.
+
+The other conductors take the layer at every frequency, as four-sided strips of the depth
+``e = 0.45 w`` in place of ``\min(n_s\delta, f w)``. Each curve of each path of the contour
+bounds one strip with the piece of its parallel inside the metal. A straight line joins each
+junction of the contour to the junction of the parallels. These lines take the ``N``
+intervals of the layer, which grow by the ratio ``g`` from the contour. The parallel takes
+as many intervals as its curve, shared among its pieces by their lengths. An outline with a
+corner whose interior angle exceeds ``\pi`` has no strips, and the computation stops with an
+error.
+
+The interior of a conductor, inside the parallels where it has strips, has the target
+``\min(h, m_h w / n_t)``. That target is at most ``2\pi m_h / (12\beta)`` when
 ``w / \delta \leq n_s``.
 
 ## Computation options

@@ -21,10 +21,10 @@ FEM values within 1e-8. Run each script from the repository root as
 | `overhead_bare_wires` | two bare copper wires of radius 42.5 mm, 1 m apart, 1 m above earth of 0.1 Ω·m (εr 1) | `e41bba13` | `20261031-100133` |
 | `mixed_bare_wires` | the same wires at (0, 1) m and (1, −1) m, one overhead and one buried | `e41bba13` | `20261031-100324` |
 
-The `fem` rows of `coaxial_rectangular_strands` come from the run `20261104-195453`, at the
-commit that meshes each of its rectangular strands as a conductor. That run computes the case as
-`test/references/problems.jl` declares it, with the options of the FEM test of the suite. The
-`analytical` rows are those of `2bff171d`.
+The `fem` rows of `coaxial_rectangular_strands` come from the run `20261106-131133`, at the
+commit that meshes each of its rectangular strands with transfinite strips. That run computes
+the case as `test/references/problems.jl` declares it, with the options of the FEM test of the
+suite. The `analytical` rows are those of `2bff171d`.
 
 The coaxial cable, from the center out:
 
@@ -49,10 +49,13 @@ evenly spaced on a logarithmic scale. The FEM rows hold 11 of them, one per 0.8 
 Each case folder also holds `physical.geo`, the geometry file of the FEM run of its
 script. At commit `989af96c`, the four original scripts ran unchanged with
 gmsh_jll 4.15.2. Their FEM rows match `matrices.csv` within 5.4e-9 of the largest
-diagonal entry. Each `physical.geo` is the retained file of its case's run of 2026-10-25, without
-the lines `FEMConductorWidth` and `FEMConductorSector`, which the extension no longer writes. The
-file of `coaxial_rectangular_strands` is the retained file of its run `20261104-195453`. The
-geometry tests compare against these files.
+diagonal entry.
+
+Each `physical.geo` is the retained file of its case's run of 2026-10-25. It holds the lines
+that the extension has written since then, without the lines `FEMConductorWidth` and
+`FEMConductorSector`, which the extension no longer writes. The file of
+`coaxial_rectangular_strands` is the retained file of its run `20261106-131133`. The geometry
+tests compare against these files.
 
 Running a script again gives analytical values identical to the bit and FEM values within about
 1e-8 of the largest diagonal entry. FEM meshes depend on incidental state such as the length of
@@ -110,7 +113,7 @@ The port's run gives these maxima against the analytical rows:
 | `two_bare_wires` | 0.568 % | 0.798 % |
 | `two_insulated_wires` | 0.407 % | 0.0447 % |
 | `coaxial_circular_strands` | 4.92 % | 10.5 % |
-| `coaxial_rectangular_strands` | 5.22 % | 10.4 % |
+| `coaxial_rectangular_strands` | 5.20 % | 10.4 % |
 | `overhead_bare_wires` | 0.610 % | 0.817 % |
 | `mixed_bare_wires` | 0.609 % | 0.617 % |
 
@@ -129,7 +132,7 @@ For `two_bare_wires`, `two_insulated_wires`, `overhead_bare_wires` and
 `mixed_bare_wires`, the meshes coincide with the source meshes.
 Their rows agree with the frozen `fem` rows within 1e-6 scaled.
 The frozen wire-pair rows use a tolerance of 1e-6 of the largest diagonal entry on the reference
-platform, x86_64 Linux, and 1e-2, the FEM acceptance metric, on other platforms.
+build, x86_64 Linux with Gmsh 4.15.2, and 1e-2, the FEM acceptance metric, on other builds.
 For the coaxial cases, the maxima against the `fem` rows frozen on 2026-10-25 are:
 
 | Case | Scaled difference in Z | Scaled difference in Y |
