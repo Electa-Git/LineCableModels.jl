@@ -104,6 +104,38 @@
             end
         end
     end
+    @testset "three coaxials in a pipe mesh and solve" begin
+        copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+        polymer = Material(:insulator, 1.0e14, 2.3)
+        coax = Stack(Terminal(:core, Region(:core, Circle(0.01), copper)),
+            Region(:insulation, Offset(8.0e-3), polymer),
+            Terminal(:screen, Region(:screen, Offset(1.0e-3), copper)),
+            Region(:jacket, Offset(3.0e-3), polymer))
+        d = 2 * 22.0e-3 / sqrt(3)
+        design = build(CableDesign, "pipe",
+            Stack(
+                Enclosure(
+                    Region(:fill, Circle(22.0e-3 * (1 + 2 / sqrt(3))), Material(:insulator, Inf)),
+                    Assembly(Tuple(Placement(d * cos(θ), d * sin(θ)) => coax
+                    for θ in (π / 2, 7π / 6, 11π / 6)))),
+                Terminal(:pipe,
+                    Region(:pipe, Offset(8.0e-3),
+                        Material(:conductor, 1.7475e-7, 1.0, 36.6326, 20.0, 0.0045))),
+                Region(:coating, Offset(3.0e-3), polymer)))
+        system = build(CableSystem, [design], [Placement(0, -1)];
+            connections = [(core = 1, screen = 2, pipe = 3)], id = "pipe", line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+            frequencies = [0.1])
+        mktempdir() do folder
+            cd(folder) do
+                result = compute(problem, FEM())
+                @test size(result.Z) == (3, 3, 1)
+                resistance = 1.7241e-8 / (3 * π * 0.01^2) +
+                             2π * 0.1 * LineCableModels.μ₀ / 8
+                @test abs(real(result.Z[1, 1, 1]) / resistance - 1) <= 2e-3
+            end
+        end
+    end
     # The frozen rows were produced on x86_64 Linux. Gmsh's meshing decisions depend on
     # floating point. The same build on the same platform regenerates the same mesh and
     # reproduces the rows to 1e-6 of the diagonal. On other platforms, the same geometry is

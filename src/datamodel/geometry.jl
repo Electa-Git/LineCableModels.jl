@@ -73,6 +73,24 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Return the placement that undoes `p`, so that `inv(p) * p` and `p * inv(p)` are the
+identity:
+
+```math
+x = -(x_p \\cos\\phi_p + y_p \\sin\\phi_p), \\qquad y = x_p \\sin\\phi_p - y_p \\cos\\phi_p,
+\\qquad \\phi = -\\phi_p,
+```
+
+where ``(x_p, y_p)`` is the position of `p` \\[m\\] and ``\\phi_p`` its rotation \\[rad\\].
+"""
+function Base.inv(p::Placement)
+    return Placement(-(p.x * cos(p.φ) + p.y * sin(p.φ)),
+        p.x * sin(p.φ) - p.y * cos(p.φ), -p.φ)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Rotate `point` by the rotation of `placement`, then translate it by the position of
 `placement`:
 

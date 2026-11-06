@@ -68,8 +68,9 @@ blueprint = LineCableModels.flatten(design)
      rho = conductor.material.rho) for conductor in blueprint.conductors]
 
 # Insulation layer of the core:
-[(conductor = layer.conductor, r_in = layer.r_in, r_ex = layer.r_ex,
-     eps_r = layer.material.eps_r) for layer in blueprint.dielectrics]
+[(conductor = k, r_in = layer.r_in, r_ex = layer.r_ex, eps_r = layer.material.eps_r)
+ for (k, range) in enumerate(blueprint.dielectric_ranges)
+ for layer in blueprint.dielectrics[range]]
 
 #=
 ## Cable system and problem definition

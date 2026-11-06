@@ -40,13 +40,22 @@ end
         @test extension.section(offset).kind == 3
         @test collect(extension.section(offset))[2:3] ≈ [0.005, 0.003] rtol = 1e-12
         @test extension.section(Offset(0.5e-3), offset).kind == 2
-        @test collect(extension.section(Offset(0.5e-3), offset))[2:3] ≈
-              [(√5 + 0.5) * 1e-3, √5 * 1e-3] rtol = 1e-12
+        @test collect(extension.section(Offset(0.5e-3), offset))[2:3] ≈ [0.5e-3, 0] rtol = 1e-12
         fill = LineCableModels.PerforatedShape(offset,
             LineCableModels.AbstractShape{Float64}[Circle(0.2e-3, Placement(0, 1.25e-3))])
         @test extension.section(Offset(0.5e-3), fill).kind == 2
-        @test collect(extension.section(Offset(0.5e-3), fill))[2:3] ≈
-              [(√5 + 0.5) * 1e-3, √5 * 1e-3] rtol = 1e-12
+        @test collect(extension.section(Offset(0.5e-3), fill))[2:3] ≈ [0.5e-3, 0] rtol = 1e-12
+    end
+
+    # The record of a band takes its thickness from the band itself, the same at every
+    # placement of the band.
+    @testset "a band's record is its thickness at every placement" begin
+        band = LineCableModels.resolve(Rectangle(10.0e-3, 4.0e-3), Offset(1.0e-3))
+        for place in (Placement(0, 0), Placement(0, 10.0), Placement(0.3, -1.2, 0.7))
+            record = extension.section(Offset(1.0e-3), LineCableModels.resolve(place, band))
+            @test record.kind == 2
+            @test record.a - record.b ≈ 1.0e-3 rtol = 1e-12
+        end
     end
 
     @testset "rectangle vertices split neighboring edges" begin
