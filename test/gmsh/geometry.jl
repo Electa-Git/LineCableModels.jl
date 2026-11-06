@@ -181,8 +181,8 @@ end
         gmsh.initialize()
         try
             geometry = build(Geometry, FieldModel(problem, FEM()), options)
-            @test length.(geometry.surfaces) == [fill(1, 10); 9]
-            @test length(gmsh.model.getEntities(2)) == 19
+            @test length.(geometry.surfaces) == [fill(1, 7); fill(5, 3); 9]
+            @test length(gmsh.model.getEntities(2)) == 31
         finally
             gmsh.model.remove()
             gmsh.finalize()

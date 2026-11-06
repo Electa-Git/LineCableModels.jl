@@ -21,7 +21,8 @@ using LineCableModels.DataModel: AbstractShape, AbstractPrimitive, Circle, Annul
                                  PerforatedShape,
                                  PlacedRegion, Placement, support
 import LineCableModels.CAD: draw
-using LineCableModels.DataModel: Segment, Arc, EllipticArc, Curve, Contour, turn, dimension
+using LineCableModels.DataModel: Segment, Arc, EllipticArc, Curve, Contour, turn, parallel,
+                                 dimension
 import LineCableModels.Engine: solve!
 using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem, LineParameters,
                               bundle!, eliminate!, transposition!, admittivity,

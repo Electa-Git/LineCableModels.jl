@@ -34,6 +34,9 @@ struct Geometry{M <: FieldModel}
     "Annular patch tags, region indices, and angular fractions \\[dimensionless\\]."
     patches::Vector{@NamedTuple{region::Int, surface::Int, arcs::NTuple{2, Int},
         spokes::NTuple{2, Int}, corners::NTuple{4, Int}, fraction::Float64}}
+    "The strips of the conductors and the depth of each \\[m\\]."
+    strips::Vector{@NamedTuple{region::Int, surface::Int, curves::NTuple{2, Vector{Int}},
+        spokes::NTuple{2, Int}, corners::NTuple{4, Int}, depth::Float64}}
     "Counterclockwise and clockwise outline loops and oriented curves of each cable."
     outlines::Vector{@NamedTuple{ccw::Int, cw::Int, curves::Vector{Int}}}
     "Clockwise curve lists of the holes in each medium's main face."
@@ -68,6 +71,8 @@ function Geometry(model::FieldModel, options::ComputationOptions{GmshBackend})
         [Int[] for _ in model.problem.system.regions],
         @NamedTuple{region::Int, surface::Int, arcs::NTuple{2, Int},
             spokes::NTuple{2, Int}, corners::NTuple{4, Int}, fraction::Float64}[],
+        @NamedTuple{region::Int, surface::Int, curves::NTuple{2, Vector{Int}},
+            spokes::NTuple{2, Int}, corners::NTuple{4, Int}, depth::Float64}[],
         @NamedTuple{ccw::Int, cw::Int, curves::Vector{Int}}[],
         (air = Vector{Int}[], earth = Vector{Int}[]),
         (air = Int[], earth = Int[]),
@@ -859,6 +864,69 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Partition the conducting region `i` of `shape` into four-sided strips and a core. The strips
+lie between the contour and its `parallel` at the depth ``e = 0.45 d`` \\[m\\] inside the
+metal, where ``d`` is `dimension(shape)`. Each curve of each path of the contour bounds one
+strip. Its outer side is the curve's drawn pieces, and its inner side the drawn pieces of
+its parallel. A spoke joins each junction of the contour to the junction of the parallels.
+
+Each strip's loop runs counterclockwise. The parallels bound the core. Record each strip's
+region, surface, side curves, spokes, corners and depth ``e``. Return the tags of the strips
+and of the core.
+
+# Errors
+
+- Throws `DomainError` at a corner whose interior angle exceeds π, where a path of the
+  parallel gains a curve.
+"""
+function strips!(geometry::Geometry, shape::AbstractShape, i::Int)
+    contour = Contour(shape)
+    depth = 0.45 * dimension(shape)
+    inner = parallel(contour, -depth)
+    for (path, innerpath) in
+        zip((contour.outer, contour.holes...), (inner.outer, inner.holes...))
+        length(innerpath) > length(path) &&
+            throw(DomainError(shape,
+                "region $i has a reflex corner: the inward parallel of its outline " *
+                "gains a curve there, so the outline has no strips"))
+    end
+    surfaces = Int[]
+    loops = Int[]
+    for (k, (path, innerpath)) in
+        enumerate(zip((contour.outer, contour.holes...), (inner.outer, inner.holes...)))
+        tags = Int[]
+        for j in eachindex(path)
+            outer = draw(geometry, path[j])
+            pieces = draw(geometry, innerpath[j])
+            a, b = geometry.ends[abs(first(outer))]
+            p = first(outer) > 0 ? a : b
+            a, b = geometry.ends[abs(last(outer))]
+            q = last(outer) > 0 ? b : a
+            a, b = geometry.ends[abs(first(pieces))]
+            p′ = first(pieces) > 0 ? a : b
+            a, b = geometry.ends[abs(last(pieces))]
+            q′ = last(pieces) > 0 ? b : a
+            s = only(draw(geometry, Segment(geometry.positions[p], geometry.positions[p′])))
+            t = only(draw(geometry, Segment(geometry.positions[q], geometry.positions[q′])))
+            loop = k == 1 ? [outer; t; -reverse(pieces); -s] :
+                   [s; pieces; -t; -reverse(outer)]
+            corners = k == 1 ? (p, q, q′, p′) : (p, p′, q′, q)
+            surface = gmsh.model.geo.addPlaneSurface([gmsh.model.geo.addCurveLoop(loop)])
+            push!(geometry.strips,
+                (region = i, surface = surface, curves = (abs.(outer), abs.(pieces)),
+                    spokes = (s, t), corners = corners, depth = depth))
+            push!(surfaces, surface)
+            append!(tags, pieces)
+        end
+        push!(loops, gmsh.model.geo.addCurveLoop(k == 1 ? tags : -reverse(tags)))
+    end
+    push!(surfaces, gmsh.model.geo.addPlaneSurface(loops))
+    return surfaces
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Build the geometry of `model` in an initialized Gmsh session under `options`. Add the model
 named by the system's `id` and leave it in the session for the caller to remove. The native
 `ThinLayerStrips` control selects patches for passive annuli. Coordinates and radii are
@@ -883,9 +951,12 @@ function build(::Type{Geometry}, model::FieldModel, options::ComputationOptions{
     if strips
         cut!(geometry, Annulus[system.regions[i].shape for i in annuli])
     end
+    conductor = [model.materials[g].conductor for g in model.material]
     for (i, region) in enumerate(system.regions)
         geometry.surfaces[i] = strips && model.layer[i] ?
                                patches!(geometry, region.shape, i) :
+                               conductor[i] && section(region).kind == 3 ?
+                               strips!(geometry, region.shape, i) :
                                faces!(geometry, region.shape)
     end
     for contour in contours
@@ -1264,6 +1335,20 @@ function Base.write(path::AbstractString, geometry::Geometry)
         end
         println(io, "FEMAnnularPatches = ", length(geometry.patches), ";")
         println(io, "FEMAngularMatch = ", @sprintf("%.17g", sqrt(eps(Float64))), ";")
+        for (k, strip) in enumerate(geometry.strips)
+            println(io, "FEMStripRegion~{", k - 1, "} = ", strip.region - 1, ";")
+            println(io, "FEMStripSurface~{", k - 1, "} = ", strip.surface, ";")
+            for (name, entries) in
+                (("OuterCurves", strip.curves[1]), ("InnerCurves", strip.curves[2]),
+                ("InnerLengths",
+                    [turn(geometry.curves[c]).length for c in strip.curves[2]]),
+                ("Spokes", strip.spokes), ("Corners", strip.corners))
+                numbers = [@sprintf("%.17g", Float64(number)) for number in entries]
+                println(
+                    io, "FEMStrip", name, "~{", k - 1, "}() = {", join(numbers, ", "), "};")
+            end
+        end
+        println(io, "FEMStrips = ", length(geometry.strips), ";")
         for (i, boundary) in enumerate(boundaries)
             lists = (("Points", boundary.points), ("Cables", boundary.cables))
             for (name, entries) in lists
@@ -1307,21 +1392,29 @@ function Base.write(path::AbstractString, geometry::Geometry)
             println(io, "FEMConductor~{", i - 1, "} = ", Int(conductor), ";")
             conductor || continue
             println(io, "FEMConductorMaterial~{", i - 1, "} = ", material, ";")
-            println(io, "FEMConductorKind~{", i - 1, "} = ", section(shape).kind, ";")
+            println(io, "FEMConductorKind~{", i - 1, "} = ",
+                section(system.regions[i]).kind, ";")
+            owned = [strip for strip in geometry.strips if strip.region == i]
+            println(io, "FEMConductorDimension~{", i - 1, "} = ",
+                @sprintf("%.17g", dimension(shape)), ";")
+            println(io, "FEMConductorStrips~{", i - 1, "} = ", length(owned), ";")
+            if !isempty(owned)
+                println(io, "FEMStripDepth~{", i - 1, "} = ",
+                    @sprintf("%.17g", first(owned).depth), ";")
+            end
             arcs = [turn(geometry.curves[abs(edge)]) for edge in edges]
-            center = key(shape.at.x, shape.at.y)
             thicknesses = map(edges) do edge
                 thickness = Inf
                 for layer in layers
                     edge in layer.curves || continue
-                    key(layer.shape.at.x, layer.shape.at.y) == center || continue
                     thickness = min(thickness, dimension(layer.shape))
                 end
                 return isfinite(thickness) ? thickness : 0.0
             end
             for (name, entries) in (("ArcLengths", [arc.length for arc in arcs]),
                 ("ArcFractions", [arc.fraction for arc in arcs]),
-                ("LayerThickness", thicknesses), ("BulkSurfaces", surfaces))
+                ("LayerThickness", thicknesses), (
+                    "BulkSurfaces", setdiff(surfaces, [strip.surface for strip in owned])))
                 numbers = [@sprintf("%.17g", Float64(number)) for number in entries]
                 println(io, "FEMConductor", name, "~{", i - 1, "}() = {",
                     join(numbers, ", "), "};")
