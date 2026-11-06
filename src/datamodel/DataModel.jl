@@ -25,7 +25,7 @@ export area, perimeter, centroid, support, distance, boundary, r_in, r_ex, place
        pitch
 export PerforatedShape, ArcPolygon
 public Segment, Arc, EllipticArc, Curve, Contour, turn, parallel, clearance, dimension,
-       direction
+       direction, lowest
 export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Enclosure, Assembly
 export PlacedRegion, CableDesign, CableSystem
 export CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten

@@ -1,5 +1,6 @@
 using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon, Curve, Segment, Arc,
-                                 EllipticArc, Contour, parallel, clearance, dimension, turn
+                                 EllipticArc, Contour, parallel, clearance, dimension, turn,
+                                 lowest
 
 @testset "DataModel geometry" begin
     @testset "mapping scales real fields" begin
@@ -722,5 +723,68 @@ using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon, Curve, Se
             Segment((-3.0e-3, y), (3.0e-3, y))])
             @test_throws DomainError dimension(half)
         end
+    end
+
+    @testset "the lowest point of an ellipse" begin
+        ellipse = Ellipse(9.0e-3, 3.0e-3)
+        for (shape, low) in (
+            (ellipse, [0, -3.0e-3]),
+            (Ellipse(9.0e-3, 3.0e-3, Placement(0, 0, π / 2)), [0, -9.0e-3]),
+            (Ellipse(9.0e-3, 3.0e-3, Placement(0, 10)), [0, 10 - 3.0e-3]),
+            (LineCableModels.resolve(ellipse, Offset(1.0e-3)), [0, -4.0e-3]))
+            @test collect(lowest(Contour(shape))) ≈ low atol = 1e-15
+        end
+        quarter = EllipticArc(Placement(0, 0), 9.0e-3, 3.0e-3, 0, π / 2)
+        @test collect(lowest(quarter)) ≈ [9.0e-3, 0] atol = 1e-15
+    end
+
+    @testset "the lowest point of an outline agrees with its downward support" begin
+        at = Placement(0, 0)
+        shapes = (
+            ("circle", Circle(1.5e-3)),
+            ("annulus", Annulus(20.5e-3, 21.5e-3, at)),
+            ("bar", Rectangle(30.0e-3, 12.0e-3)),
+            ("bent strand", Sector(8.5e-3, 11.5e-3, 0.3, 0, 0, at)),
+            ("rounded wedge", Sector(0, 10.0e-3, 2π / 3, 1.0e-3 / sin(π / 3), 1.5e-3, at)),
+            ("Milliken segment", Sector(0, 31.15e-3, π / 3, 0, 1.25e-3, at)),
+            ("ellipse", Ellipse(9.0e-3, 3.0e-3)),
+            ("pentagon",
+                Polygon([(0.0, 0.0), (0.004, 0.0), (0.005, 0.003),
+                    (0.002, 0.005), (-0.001, 0.003)])),
+            ("half ellipse",
+                ArcPolygon(Curve{Float64}[
+                EllipticArc(at, 3.0e-3, 2.0e-3, 0, π), Segment(
+                    (-3.0e-3, 0.0), (3.0e-3, 0.0))])),
+            ("perforated bar",
+                LineCableModels.PerforatedShape(Rectangle(30.0e-3, 12.0e-3),
+                    LineCableModels.AbstractShape{Float64}[Circle(2.0e-3)])),
+            ("duct wall",
+                LineCableModels.resolve(Ellipse(30.0e-3, 20.0e-3), Offset(3.0e-3))))
+        @testset "at ($(place.x), $(place.y)) m" for place in
+                                                     (at, Placement(0.3, -1.2, 0.7))
+            @testset "$id" for (id, shape) in shapes
+                placed = LineCableModels.resolve(place, shape)
+                @test lowest(Contour(placed))[2] ≈ -support(placed, 3π / 2) atol = 1e-15
+            end
+        end
+    end
+
+    @testset "the lowest point of a strand of a course in a fill" begin
+        copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+        polymer = Material(:insulator, Inf)
+        design = build(CableDesign, "mixed_courses",
+            Terminal(:core, Region(:core_metal, Circle(0.01), copper)),
+            Terminal(:screen,
+                Enclosure(Region(:fill, Offset(0.004), polymer),
+                    Stack(
+                        Repeat(CircularPattern(6; r = Offset(0)),
+                            Region(:wires, Circle(0.001), copper)),
+                        Repeat(CircularPattern(3; r = Offset(0)),
+                            Region(:strands, Rectangle(0.004, 0.002), copper))))))
+        system = build(CableSystem, [design], [Placement(0.0, -1.0)];
+            connections = [(core = 1, screen = 2)], id = "mixed_courses", line_length = 1.0)
+        sector = system.regions[8].shape
+        @test collect(lowest(Contour(sector))) ≈
+              [0.014cos(2 / 13), -1.0 - 0.014sin(2 / 13)]
     end
 end

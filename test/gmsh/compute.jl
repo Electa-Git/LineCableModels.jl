@@ -63,6 +63,24 @@
             end
         end
     end
+    @testset "a conducting ellipse meshes and solves" begin
+        copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+        design = build(CableDesign, "conducting-ellipse",
+            Terminal(:core, Region(:core, LineCableModels.Ellipse(9.0e-3, 3.0e-3), copper)))
+        system = build(CableSystem, [design], [Placement(0, -1)];
+            connections = [(core = 1,)], id = "conducting-ellipse", line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+            frequencies = [0.1])
+        mktempdir() do folder
+            cd(folder) do
+                result = compute(problem, FEM())
+                @test size(result.Z) == (1, 1, 1)
+                resistance = 1.7241e-8 / (π * 9.0e-3 * 3.0e-3) +
+                             2π * 0.1 * LineCableModels.μ₀ / 8
+                @test abs(real(result.Z[1, 1, 1]) / resistance - 1) <= 2e-3
+            end
+        end
+    end
     @testset "a $id meshes and solves" for (id, part, connections, n) in (
         ("duct-bank",
             Enclosure(Region(:bank, Rectangle(0.3, 0.2), Material(:insulator, Inf, 9)),

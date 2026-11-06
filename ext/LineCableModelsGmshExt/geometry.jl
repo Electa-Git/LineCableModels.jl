@@ -916,43 +916,6 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the lowest point of `contour`'s outer path, ordered by least `y`, then least `x`.
-Coordinates and radii are in \\[m\\] and angles in \\[rad\\]. The returned coordinate
-pair is in \\[m\\].
-"""
-function lowest(contour::Contour)
-    return argmin(xy -> (xy[2], xy[1]), [lowest(curve) for curve in contour.outer])
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the lower endpoint of `segment`, ordered by least `y`, then least `x`.
-The endpoints and returned coordinate pair are in \\[m\\].
-"""
-function lowest(segment::Segment)
-    return argmin(xy -> (xy[2], xy[1]), (segment(0), segment(1)))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the lowest point of `arc`: the bottom of its circle when its signed span passes
-that point, otherwise its lower endpoint. Order ties by least `x`. The center, radius,
-and returned coordinates are in \\[m\\], and the first angle and span in \\[rad\\].
-"""
-function lowest(arc::Arc)
-    endpoints = (arc(0), arc(1))
-    if mod(sign(arc.span) * (3π / 2 - arc.at.φ), 2π) <= abs(arc.span)
-        return argmin(xy -> (xy[2], xy[1]),
-            (endpoints..., (arc.at.x, arc.at.y - arc.r)))
-    end
-    return argmin(xy -> (xy[2], xy[1]), endpoints)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
 Find the measurement anchor of terminal `t` in `geometry`. Probe upward from each region's
 lowest point. Its metal dimension sets the vertical and horizontal offsets. Accept the
 first point that lies inside the metal for horizontal shifts of 0 and 1 % of the smallest
@@ -1417,11 +1380,13 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the ellipse's native section record, ``kind=1``, ``a=min(shape.a,shape.b)``
-\\[m\\] and ``b=0`` \\[m\\].
+Return the native section record of `shape`, an ellipse with center and semi-axes in
+\\[m\\]. The record holds `kind = 1`, `a = dimension(shape) / 2` \\[m\\], and `b = 0`
+\\[m\\]. The length `a` is half the ellipse's `dimension`, the depth at which its inward
+parallel first degenerates, as a circle's radius is.
 """
 function section(shape::Ellipse)
-    return (kind = 1, a = min(shape.a, shape.b), b = zero(shape.a))
+    return (kind = 1, a = dimension(shape) / 2, b = zero(dimension(shape)))
 end
 
 """

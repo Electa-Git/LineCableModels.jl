@@ -34,7 +34,13 @@ end
         polygon = LineCableModels.Polygon([
             (0.0, 0.0), (0.004, 0.0), (0.005, 0.003), (0.002, 0.005), (-0.001, 0.003)])
         offset = LineCableModels.resolve(Rectangle(4.0e-3, 2.0e-3), Offset(0.5e-3))
-        @test extension.section(ellipse) == (kind = 1, a = 2.0e-3, b = 0.0)
+        for (shape, radius) in ((ellipse, 2.0e-3^2 / 3.0e-3),
+            (LineCableModels.Ellipse(9.0e-3, 3.0e-3), 1.0e-3),
+            (LineCableModels.Ellipse(3.0e-3, 3.0e-3), 3.0e-3))
+            record = extension.section(shape)
+            @test (record.kind, record.b) == (1, 0)
+            @test record.a ≈ radius atol = 1e-15
+        end
         @test extension.section(polygon).kind == 3
         @test collect(extension.section(polygon))[2:3] ≈ [0.006, 0.005] rtol = 1e-12
         @test extension.section(offset).kind == 3
@@ -175,9 +181,6 @@ end
         @test last.(plan.outer_spans) ≈ fill(2π / 3 - 4 / 13, 3)
         @test extension.section(system.regions[8]) == (kind = 3, a = 0.004, b = 0.002)
         @test extension.section(last(system.regions)) == (kind = 2, a = 0.014, b = 0.01)
-        sector = system.regions[8].shape
-        @test collect(extension.lowest(Contour(sector))) ≈
-              [0.014cos(2 / 13), -1.0 - 0.014sin(2 / 13)]
         gmsh.initialize()
         try
             geometry = build(Geometry, FieldModel(problem, FEM()), options)

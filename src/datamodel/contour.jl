@@ -1599,6 +1599,64 @@ function support(contour::Contour, φ::Real)
     return result
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the lowest point of `contour`'s outer path, ordered by least `y`, then least `x`.
+Coordinates and radii are in \\[m\\] and angles in \\[rad\\]. The returned coordinate
+pair is in \\[m\\].
+"""
+function lowest(contour::Contour)
+    return argmin(xy -> (xy[2], xy[1]), [lowest(curve) for curve in contour.outer])
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the lower endpoint of `segment`, ordered by least `y`, then least `x`.
+The endpoints and returned coordinate pair are in \\[m\\].
+"""
+function lowest(segment::Segment)
+    return argmin(xy -> (xy[2], xy[1]), (segment(0), segment(1)))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the lowest point of `arc`: the bottom of its circle when its signed span passes
+that point, otherwise its lower endpoint. Order ties by least `x`. The center, radius,
+and returned coordinates are in \\[m\\], and the first angle and span in \\[rad\\].
+"""
+function lowest(arc::Arc)
+    endpoints = (arc(0), arc(1))
+    if mod(sign(arc.span) * (3π / 2 - arc.at.φ), 2π) <= abs(arc.span)
+        return argmin(xy -> (xy[2], xy[1]),
+            (endpoints..., (arc.at.x, arc.at.y - arc.r)))
+    end
+    return argmin(xy -> (xy[2], xy[1]), endpoints)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the lowest point of `arc`: the bottom of its curve when its signed parametric span
+passes that point, otherwise its lower endpoint. The bottom is the point where the outward
+normal of the curve points down. Order ties by least `x`. The center, semi-axes, normal
+offset, and returned coordinates are in \\[m\\], and the first parametric angle and span in
+\\[rad\\].
+"""
+function lowest(arc::EllipticArc)
+    endpoints = (arc(0), arc(1))
+    ψ = 3π / 2 - arc.at.φ
+    θ = atan(arc.b * sin(ψ), arc.a * cos(ψ))
+    travel = mod(sign(arc.span) * (θ - arc.φ0), 2π)
+    if nominal(travel) <= abs(nominal(arc.span))
+        return argmin(xy -> (xy[2], xy[1]),
+            (endpoints..., arc(travel / abs(arc.span))))
+    end
+    return argmin(xy -> (xy[2], xy[1]), endpoints)
+end
+
 function distance(contour::Contour{T}) where {T}
     result = hypot(first(contour.outer)(0)...)
     inside = true
