@@ -62,20 +62,27 @@ struct CableBlueprint{T <: Real, V <: AbstractVector{<:BlueprintDielectric}}
     conductors::Vector{BlueprintConductor{T}}
     "Dielectric layers, from the inside out."
     dielectrics::V
-    "Range of the dielectric layers in the interval of each conductor."
+    """
+    Range of the dielectric layers in the interval of each conductor. A conductor without
+    one has the empty range `(n + 1):n`, where `n` counts the layers before its place.
+    """
     dielectric_ranges::Vector{UnitRange{Int}}
     """
     Relative permeability of the interval of each conductor, with the correction for the
     helical path of its current \\[dimensionless\\].
     """
     mu_r_ins::Vector{T}
-    "Range of the conductors of each concentric assembly."
+    """
+    Range of the conductors of each concentric assembly. An assembly without one has the
+    empty range `(n + 1):n`, where `n` counts the conductors before its place.
+    """
     assembly_ranges::Vector{UnitRange{Int}}
     "Center of each concentric assembly in the frame of the cable, in \\[m\\]."
     positions::Vector{Tuple{T, T}}
     """
-    Range of the interior layers of each concentric assembly: the regions around its members,
-    inside its first conductor or out to its outline.
+    Range of the interior layers of each concentric assembly: the regions around its
+    members, inside its first conductor or out to its outline. An assembly without members
+    has the empty range `(n + 1):n`, where `n` counts the layers before its place.
     """
     interior_ranges::Vector{UnitRange{Int}}
     function CableBlueprint{T}(id::String, conductors::Vector{BlueprintConductor{T}},

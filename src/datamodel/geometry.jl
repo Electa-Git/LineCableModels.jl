@@ -364,25 +364,29 @@ function Sector(ri::Real, ro::Real, span::Real, apex::Real, fillet::Real, at::Pl
 end
 
 function validate(sector::Sector)
-    isfinite(sector.ri) && sector.ri >= zero(sector.ri) ||
+    isfinite(nominal(sector.ri)) && nominal(sector.ri) >= zero(nominal(sector.ri)) ||
         throw(DomainError(sector.ri, "Sector.ri must be nonnegative and finite"))
-    isfinite(sector.ro) && sector.ro > sector.ri ||
+    isfinite(nominal(sector.ro)) && nominal(sector.ro) > nominal(sector.ri) ||
         throw(DomainError(sector.ro, "Sector.ro must be finite and exceed Sector.ri"))
-    zero(sector.span) < sector.span <= 2π ||
+    zero(nominal(sector.span)) < nominal(sector.span) <= 2π ||
         throw(DomainError(sector.span, "Sector.span must lie in (0, 2π]"))
-    isfinite(sector.apex) && sector.apex >= zero(sector.apex) &&
-    (sector.span >= π || sector.apex < sector.ro * cos(sector.span / 2)) ||
+    isfinite(nominal(sector.apex)) && nominal(sector.apex) >= zero(nominal(sector.apex)) &&
+    (nominal(sector.span) >= π ||
+     nominal(sector.apex) < nominal(sector.ro) * cos(nominal(sector.span) / 2)) ||
         throw(DomainError(sector.apex,
             "Sector.apex must be nonnegative and finite, and below ro cos(span / 2) when span < π"))
-    isfinite(sector.fillet) && sector.fillet >= zero(sector.fillet) ||
+    isfinite(nominal(sector.fillet)) &&
+    nominal(sector.fillet) >= zero(nominal(sector.fillet)) ||
         throw(DomainError(sector.fillet, "Sector.fillet must be nonnegative and finite"))
-    if sector.fillet > zero(sector.fillet)
-        sector.apex * sin(sector.span / 2) + 2sector.fillet < sector.ro ||
+    if nominal(sector.fillet) > zero(nominal(sector.fillet))
+        nominal(sector.apex) * sin(nominal(sector.span) / 2) + 2nominal(sector.fillet) <
+        nominal(sector.ro) ||
             throw(DomainError(sector.fillet,
                 "Sector.fillet must satisfy apex sin(span / 2) + 2 fillet < ro"))
-        if iszero(sector.ri)
-            sector.fillet * (csc(sector.span / 2) - 1) + sector.apex <
-            sector.ro - 2sector.fillet ||
+        if iszero(nominal(sector.ri))
+            nominal(sector.fillet) * (csc(nominal(sector.span) / 2) - 1) +
+            nominal(sector.apex) <
+            nominal(sector.ro) - 2nominal(sector.fillet) ||
                 throw(DomainError(sector.fillet,
                     "Sector.fillet must satisfy fillet (csc(span / 2) - 1) + apex < ro - 2 fillet"))
         end
@@ -619,9 +623,10 @@ A perforated `B` uses the directional support of its outer boundary.
 function Base.issubset(B::AbstractShape, A::Union{Circle, Annulus})
     C = resolve(Placement(-A.at.x, -A.at.y), B)
     radius = r_ex(A)
-    tolerance = sqrt(eps(float(radius))) * max(one(radius), radius)
-    return support(C) <= radius + tolerance &&
-           distance(C) + tolerance >= r_in(A)
+    tolerance = sqrt(eps(float(nominal(radius)))) *
+                max(one(nominal(radius)), nominal(radius))
+    return nominal(support(C)) <= nominal(radius) + tolerance &&
+           nominal(distance(C)) + tolerance >= nominal(r_in(A))
 end
 
 function Base.issubset(B::AbstractShape, A::Sector)
@@ -670,7 +675,7 @@ area(circle::Circle) = π * circle.r^2
 area(annulus::Annulus) = π * (annulus.ro^2 - annulus.ri^2)
 area(rectangle::Rectangle) = rectangle.w * rectangle.h
 function area(sector::Sector)
-    if iszero(sector.apex) && iszero(sector.fillet)
+    if iszero(sector.apex) && iszero(nominal(sector.fillet))
         return sector.span * (sector.ro^2 - sector.ri^2) / 2
     end
     return area(Contour(sector))
@@ -729,7 +734,7 @@ function centroid end
 centroid(shape::Union{Circle, Annulus}) = (shape.at.x, shape.at.y)
 
 function centroid(sector::Sector)
-    if !(iszero(sector.apex) && iszero(sector.fillet))
+    if !(iszero(sector.apex) && iszero(nominal(sector.fillet)))
         return centroid(Contour(sector))
     end
     d = 4sin(sector.span / 2) * (sector.ro^3 - sector.ri^3) /
@@ -748,16 +753,22 @@ end
 """
     support(shape)
 
-Return the radius of a circle about the origin that contains `shape` \\[m\\]:
+Return the radius of the smallest circle about the origin that contains `shape` \\[m\\],
+the distance of its farthest point from the origin. For a circle or an annulus, it is
 
 ```math
 S = \\sqrt{x_c^2 + y_c^2} + r_o,
 ```
 
-where ``(x_c, y_c)`` is the center of `shape` and ``r_o`` its outer radius \\[m\\]. A
-[`PerforatedShape`](@ref) has the support of its outer cross-section. A rectangle has
-``S=\\operatorname{hypot}(x_c,y_c)+\\operatorname{hypot}(w,h)/2``, and a contour or an
-arc polygon the farthest point of its outer curves.
+where ``(x_c, y_c)`` is the center of `shape` and ``r_o`` its outer radius \\[m\\]. The
+support of a [`PerforatedShape`](@ref) is that of its outer cross-section. Of a rectangle,
+it is the farthest corner, and of a polygon the farthest vertex. A sector, a contour or an
+arc polygon takes the farthest point of its outer curves.
+
+On an arc, the farthest point lies at the radius beyond the center when the direction of
+the center falls within the arc. Otherwise it lies at an end. Every point of an arc about
+the origin lies at its radius. An ellipse or an elliptic arc takes the point of its curve
+farthest from the origin, at its normal offset.
 
 `support(shape, φ)` returns the support function ``\\max(x\\cos φ+y\\sin φ)`` \\[m\\]
 of `shape` in the direction `φ` \\[rad\\]. For a circle or an annulus, it is the
@@ -766,19 +777,14 @@ sector or an arc polygon takes the farthest point of its outer curves. On an arc
 the point at the radius from the center along `φ` when `φ` falls within the arc, else an
 end.
 
-An ellipse or elliptic arc uses the circumscribed circle for unary support:
-``hypot(c_x,c_y)+max(a,b)``, exact for a centered ellipse and a bound otherwise.
-For a polygon, unary support takes the farthest vertex and directional support the
-largest vertex projection.
-
 The ellipse's directional support is
 ``c⋅u+√(a²cos²ψ+b²sin²ψ)``, ``ψ=φ-at.φ``. On an elliptic arc, its maximizer
 ``θ=atan(b sin ψ,a cos ψ)`` contributes when it lies in the parametric interval.
-otherwise an endpoint gives the largest projection.
+Otherwise an endpoint gives the largest projection.
 
-A normal offset ``d`` adds ``d`` to the elliptic arc's circumscribed radius
-and to its interior directional maximum. Its ends use ``p+dn``.
-A layer has the support of its parallel boundary.
+A normal offset ``d`` adds ``d`` to the elliptic arc's interior directional maximum. Its
+ends use ``p+dn``. A layer has the support of its parallel boundary. Each curve has the
+supports of its points, and a contour the largest of its outer curves' supports.
 
 Holes leave the support unchanged, so for an annulus or a sector it is the support of the
 convex hull.
@@ -787,7 +793,7 @@ function support end
 
 support(circle::Circle) = hypot(circle.at.x, circle.at.y) + circle.r
 support(annulus::Annulus) = hypot(annulus.at.x, annulus.at.y) + annulus.ro
-support(sector::Sector) = hypot(sector.at.x, sector.at.y) + sector.ro
+support(sector::Sector) = support(Contour(sector))
 support(shape::PerforatedShape) = support(shape.outer)
 
 """
@@ -917,17 +923,18 @@ end
 
 centroid(rectangle::Rectangle) = (rectangle.at.x, rectangle.at.y)
 function support(rectangle::Rectangle)
-    hypot(rectangle.at.x, rectangle.at.y) + hypot(rectangle.w, rectangle.h) / 2
+    return maximum(hypot(point...) for curve in Contour(rectangle).outer
+    for point in (curve(0), curve(1)))
 end
 boundary(rectangle::Rectangle) = rectangle
 distance(rectangle::Rectangle) = distance(Contour(rectangle))
 
 function distance(sector::Sector)
     offset = hypot(sector.at.x, sector.at.y)
-    if iszero(sector.apex) && iszero(sector.fillet)
+    if iszero(sector.apex) && iszero(nominal(sector.fillet))
         return max(zero(offset), offset - sector.ro, sector.ri - offset)
     end
-    inner = if sector.ri > zero(sector.ri)
+    inner = if nominal(sector.ri) > zero(nominal(sector.ri))
         sector.ri
     else
         sector.apex + sector.fillet / sin(sector.span / 2) - sector.fillet
@@ -1035,7 +1042,7 @@ function centroid(polygon::Polygon{T}) where {T}
     end
     return polygon.at((x, y) ./ (6area(polygon)))
 end
-support(ellipse::Ellipse) = hypot(ellipse.at.x, ellipse.at.y) + max(ellipse.a, ellipse.b)
+support(ellipse::Ellipse) = support(EllipticArc(ellipse.at, ellipse.a, ellipse.b, 0, 2π))
 function support(ellipse::Ellipse, φ::Real)
     ψ = φ - ellipse.at.φ
     return ellipse.at.x * cos(φ) + ellipse.at.y * sin(φ) +

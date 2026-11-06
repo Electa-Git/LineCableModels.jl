@@ -787,4 +787,52 @@ using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon, Curve, Se
         @test collect(lowest(Contour(sector))) ≈
               [0.014cos(2 / 13), -1.0 - 0.014sin(2 / 13)]
     end
+
+    @testset "the unary support is the farthest point" begin
+        rectangle = LineCableModels.resolve(Placement(0.01, 0), Rectangle(4.0e-3, 2.0e-3))
+        @test support(rectangle) ≈ hypot(0.012, 0.001) rtol = 1e-14
+        sector = LineCableModels.resolve(Placement(0.02, 0, π / 2),
+            Sector(8.5e-3, 11.5e-3, 0.3, 0, 0, Placement(0, 0)))
+        @test support(sector) ≈
+              sqrt(0.02^2 + 11.5e-3^2 + 2 * 0.02 * 11.5e-3 * sin(0.15)) rtol = 1e-14
+        ellipse = Ellipse(3.0e-3, 2.0e-3, Placement(0, 0.01))
+        @test support(ellipse) ≈ 0.012 rtol = 1e-14
+        @test support(Contour(ellipse)) ≈ 0.012 rtol = 1e-14
+        arc = EllipticArc(Placement(0, 0.01), 3.0e-3, 2.0e-3, π, π / 2)
+        @test support(arc) ≈ hypot(3.0e-3, 0.01) rtol = 1e-14
+    end
+
+    @testset "a hole that touches its outer leaves no metal" begin
+        shape = LineCableModels.PerforatedShape(Rectangle(0.25, 0.125),
+            LineCableModels.AbstractShape{Float64}[Circle(0.03125, Placement(0, 0.03125))])
+        @test dimension(shape) == 0
+    end
+
+    @testset "an elliptic arc's least offset is its ellipse's convex bound" begin
+        limit = -dimension(Ellipse(9.0e-3, 3.0e-3)) / 2
+        @test EllipticArc(Placement(0, 0), 9.0e-3, 3.0e-3, 0, 2π, nextfloat(limit)).offset ==
+              nextfloat(limit)
+        @test_throws DomainError EllipticArc(
+            Placement(0, 0), 9.0e-3, 3.0e-3, 0, 2π, prevfloat(limit))
+        base = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, π, -π)
+        least = -dimension(reverse(base)) / 2
+        @test EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, π, -π, nextfloat(least)).offset ==
+              nextfloat(least)
+        @test_throws DomainError EllipticArc(
+            Placement(0, 0), 3.0e-3, 2.0e-3, π, -π, prevfloat(least))
+    end
+
+    @testset "a small hole far from the sides keeps the bar's dimension" begin
+        shape = LineCableModels.PerforatedShape(Rectangle(30.0e-3, 12.0e-3),
+            LineCableModels.AbstractShape{Float64}[Circle(0.5e-3)])
+        @test dimension(shape) ≈ 6.0e-3 - 0.5e-3 rtol = 1e-12
+    end
+
+    @testset "a curve reversed twice is itself" begin
+        for curve in (Segment((0.0, 0.0), (1.0e-3, 2.0e-3)),
+            Arc(Placement(1.0e-3, 0, 0.25), 2.0e-3, 0.5),
+            EllipticArc(Placement(0, 0, 0.25), 3.0e-3, 2.0e-3, 0.25, 0.5, 0.5e-3))
+            @test reverse(reverse(curve)) == curve
+        end
+    end
 end

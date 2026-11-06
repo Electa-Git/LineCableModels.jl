@@ -458,19 +458,20 @@
     end
 
     @testset "the equivalent earths against independent tanh recursions" begin
-        T = Float64
-        for N in 1:6, frequency in (T(1), T(50), T(1e6))
+        for N in 1:6, frequency in (Float64(1), Float64(50), Float64(1e6))
 
-            mu0 = T(4) * T(π) / T(10)^7
-            eps0 = T(88541878128) / T(10)^22
-            rho = T[100, 500, 20, 200, 30, 1000][1:N]
-            epsilon = T[10, 4, 30, 7, 3, 15][1:N]
-            depths = T[2, 7, 1, 3, 4][1:(N - 1)]
-            s = complex(zero(T), 2T(π) * frequency)
+            mu0 = Float64(4) * Float64(π) / Float64(10)^7
+            eps0 = Float64(88541878128) / Float64(10)^22
+            rho = Float64[100, 500, 20, 200, 30, 1000][1:N]
+            epsilon = Float64[10, 4, 30, 7, 3, 15][1:N]
+            depths = Float64[2, 7, 1, 3, 4][1:(N - 1)]
+            s = complex(zero(Float64), 2 * Float64(π) * frequency)
             for id in (:martins2020, :xue2021)
-                magnetic = id == :martins2020 ? T[1, 3, 2, 1, 4, 1][1:N] : ones(T, N)
+                magnetic = id == :martins2020 ? Float64[1, 3, 2, 1, 4, 1][1:N] :
+                           ones(Float64, N)
                 layers = ntuple(N) do k
-                    EarthLayer(rho[k], epsilon[k], magnetic[k], k == N ? T(Inf) : depths[k])
+                    EarthLayer(rho[k], epsilon[k], magnetic[k], k == N ? Float64(Inf) :
+                                                                depths[k])
                 end
                 value = Engine.EarthProperties.Formula(Val(id))(layers, frequency)
                 if id == :martins2020
@@ -479,10 +480,10 @@
                         q = sqrt(inv(rho[k]))
                         b = sqrt(expected)
                         t = tanh(depths[k] *
-                                 sqrt(T(π) * frequency * mu0 * magnetic[k] / rho[k]))
+                                 sqrt(Float64(π) * frequency * mu0 * magnetic[k] / rho[k]))
                         expected = (q * (b + q * t) / (q + b * t))^2
                     end
-                    @test inv(value.rho) ≈ expected rtol = 200eps(T)
+                    @test inv(value.rho) ≈ expected rtol = 200eps(Float64)
                     @test value.eps_r == epsilon[end]
                     @test value.mu_r == magnetic[end]
                 else
@@ -494,7 +495,7 @@
                         expected = q[k] * (expected + q[k] * t) / (q[k] + expected * t)
                     end
                     recovered = s * mu0 * (inv(value.rho) + s * eps0 * value.eps_r) - air
-                    @test recovered ≈ expected^2 rtol = 200eps(T)
+                    @test recovered ≈ expected^2 rtol = 200eps(Float64)
                 end
             end
         end

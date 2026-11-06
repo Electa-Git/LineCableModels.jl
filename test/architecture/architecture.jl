@@ -19,6 +19,7 @@ end
     tree = Guards.PackageTree(LineCableModels, extensions, pkgdir(LineCableModels))
     files = Guards.source_files(pkgdir(LineCableModels))
     directory = pkgdir(LineCableModels)
+    curve_members = nameof.(Base.uniontypes(LineCableModels.DataModel.Curve{Float64}))
     methods = Guards.package_methods(tree)
     homes = Guards.home_directories(tree)
 
@@ -66,7 +67,7 @@ end
     end
 
     @testset "symbol switches and probes" begin
-        @test Guards.symbol_switches(files, directory) == Dict{String, Int}()
+        @test Guards.symbol_switches(files, directory, curve_members) == Dict{String, Int}()
     end
 
     @testset "decisions by absence" begin
@@ -86,7 +87,13 @@ end
     end
 
     @testset "one distance across" begin
-        @test Guards.dimension_methods(directory) == Dict{String, Int}()
+        @test Guards.dimension_methods(directory, curve_members) == Dict{String, Int}()
+        planted = joinpath(@__DIR__, "probes", "sources", "planted")
+        @test Guards.dimension_methods(planted, curve_members) == Dict{String, Int}(
+            "src/dimensions.jl:1 | dimension(shape::Rectangle) = 1" => 1,
+            "src/dimensions.jl:2 | dimension(curve::Clothoid) = 1" => 1)
+        clean = joinpath(@__DIR__, "probes", "sources", "clean")
+        @test Guards.dimension_methods(clean, curve_members) == Dict{String, Int}()
     end
 
     @testset "no distance across outside dimension and section" begin
@@ -229,7 +236,12 @@ end
             "src/storage.jl | work" => 2)
         @test Guards.repeated_access_names(files, directory) ==
               Dict{String, Int}("src/repeats.jl" => 3)
-        @test Guards.symbol_switches(files, directory) == Dict{String, Int}(
+        @test Guards.symbol_switches(
+            filter(file -> basename(file) == "curves.jl", files), directory, curve_members) ==
+              Dict{String, Int}("src/curves.jl | type test" => 1)
+        @test Guards.symbol_switches(
+            filter(file -> basename(file) != "curves.jl", files), directory, curve_members) ==
+              Dict{String, Int}(
             "src/switches.jl | applicable" => 2,
             "src/switches.jl | eval" => 2,
             "src/switches.jl | symbol" => 9,
@@ -254,7 +266,10 @@ end
         @test Guards.reserved_verbs(files, directory) == Dict{String, Int}()
         @test Guards.storage_vocabulary(files, directory) == Dict{String, Int}()
         @test Guards.repeated_access_names(files, directory) == Dict{String, Int}()
-        @test Guards.symbol_switches(files, directory) == Dict{String, Int}()
+        @test Guards.symbol_switches(files, directory, curve_members) == Dict{String, Int}()
+        @test Guards.symbol_switches(
+            filter(file -> basename(file) == "curves.jl", files), directory, curve_members) ==
+              Dict{String, Int}()
         @test Guards.absences(files, directory) == Dict{String, Int}()
         @test Guards.file_hygiene(files, directory) == Dict{String, Int}()
 

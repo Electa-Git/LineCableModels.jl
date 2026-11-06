@@ -74,4 +74,17 @@ using SpecialFunctions: besselix, besselkx, besseljx, besselk
         frequencies = reference.frequencies[1:50:end])
     result = @inferred compute(problem, CoaxialFormulation())
     @test result isa LineParameters{Measurement{Float64}}
+
+    ro, apex = measurement(10.0e-3, 1.0e-5), measurement(0.0, 1.0e-4)
+    A = area(LineCableModels.Sector(0, ro, 2π / 3, apex, 0, Placement(0, 0)))
+    @test Measurements.value(A) ≈ π * 1.0e-4 / 3 rtol = 1e-12
+    @test Measurements.uncertainty_components(A)[(apex.val, apex.err, apex.tag)] ≈
+          sqrt(3) * 10.0e-3 * 1.0e-4 rtol = 1e-9
+    sharp = LineCableModels.Sector(0, 10.0e-3, 2π / 3, 0, measurement(0.0, 1.0e-5),
+        Placement(0, 0))
+    @test Measurements.value(area(sharp)) ≈ π * 1.0e-4 / 3 rtol = 1e-12
+    @test Measurements.uncertainty(area(sharp)) == 0
+    @test length(LineCableModels.DataModel.Contour(sharp).outer) ==
+          length(LineCableModels.DataModel.Contour(
+        LineCableModels.Sector(0, 10.0e-3, 2π / 3, 0, 0, Placement(0, 0))).outer)
 end

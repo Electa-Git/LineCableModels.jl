@@ -42,9 +42,14 @@ end
             @test record.a ≈ radius atol = 1e-15
         end
         @test extension.section(polygon).kind == 3
-        @test collect(extension.section(polygon))[2:3] ≈ [0.006, 0.005] rtol = 1e-12
+        @test extension.section(polygon).a == extension.section(polygon).b ==
+              LineCableModels.DataModel.dimension(polygon)
+        square = LineCableModels.Polygon(
+            [(-5.0e-3, -5.0e-3), (5.0e-3, -5.0e-3), (5.0e-3, 5.0e-3), (-5.0e-3, 5.0e-3)],
+            Placement(0, 0, π / 4))
+        @test collect(extension.section(square))[2:3] ≈ [10.0e-3, 10.0e-3] rtol = 1e-12
         @test extension.section(offset).kind == 3
-        @test collect(extension.section(offset))[2:3] ≈ [0.005, 0.003] rtol = 1e-12
+        @test collect(extension.section(offset))[2:3] ≈ [1.0e-3, 1.0e-3] rtol = 1e-12
         @test extension.section(Offset(0.5e-3), offset).kind == 2
         @test collect(extension.section(Offset(0.5e-3), offset))[2:3] ≈ [0.5e-3, 0] rtol = 1e-12
         fill = LineCableModels.PerforatedShape(offset,

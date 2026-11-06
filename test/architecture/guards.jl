@@ -798,12 +798,62 @@ end
 # Whether a type test is admitted: inside a `catch` clause, in the condition of a
 # comprehension or generator, or in the predicate of a selection call, given as an
 # anonymous function or a `do` block.
-function admitted(node)
+function admitted(node, curve_members)
     child, parent = node, node.parent
     while parent !== nothing
         k = kind(parent)
         k == K"catch" && return true
-        k == K"filter" && child === last_child(parent) && return true
+        if k == K"filter" && child === last_child(parent)
+            members = Set{Symbol}()
+            visit(node) do candidate
+                kind(candidate) == K"Identifier" && candidate.val in curve_members &&
+                    push!(members, candidate.val)
+                return true
+            end
+            isempty(members) && return true
+            owner = node.parent
+            while owner !== nothing
+                kind(owner) == K"function" && break
+                if kind(owner) == K"=" && numchildren(owner) == 2
+                    signature = owner[1]
+                    while kind(signature) in (K"where", K"::") &&
+                        numchildren(signature) == 2
+                        signature = signature[1]
+                    end
+                    kind(signature) == K"call" && break
+                end
+                owner = owner.parent
+            end
+            owner === nothing && return true
+            filters = Set{Symbol}()
+            visit(owner) do selection
+                selection !== owner && kind(selection) == K"function" && return false
+                if selection !== owner && kind(selection) == K"=" &&
+                   numchildren(selection) == 2
+                    signature = selection[1]
+                    while kind(signature) in (K"where", K"::") &&
+                        numchildren(signature) == 2
+                        signature = signature[1]
+                    end
+                    kind(signature) == K"call" && return false
+                end
+                if kind(selection) == K"filter"
+                    visit(last_child(selection)) do candidate
+                        if type_test(candidate)
+                            visit(candidate) do identifier
+                                kind(identifier) == K"Identifier" &&
+                                    identifier.val in curve_members &&
+                                    push!(filters, identifier.val)
+                                return true
+                            end
+                        end
+                        return true
+                    end
+                end
+                return true
+            end
+            return length(filters) < 2 || all(member -> member in filters, curve_members)
+        end
         k in (K"->", K"do") && calls(parent.parent, SELECTIONS) && return true
         child, parent = parent, parent.parent
     end
@@ -812,7 +862,7 @@ end
 
 # Symbol switches and probes. Per file and form: calls to `applicable`, `@eval` calls,
 # comparisons against a Symbol literal, and type tests that are not admitted.
-function symbol_switches(files, directory)
+function symbol_switches(files, directory, curve_members)
     found = Dict{String, Int}()
     for file in files
         path = relative(file, directory)
@@ -822,7 +872,7 @@ function symbol_switches(files, directory)
             kind(node) == K"macrocall" && numchildren(node) > 0 &&
                 syntax_name(node[1]) in EVAL && count!(found, string(path, " | eval"))
             symbol_comparison(node) && count!(found, string(path, " | symbol"))
-            type_test(node) && !admitted(node) &&
+            type_test(node) && !admitted(node, curve_members) &&
                 count!(found, string(path, " | type test"))
             return true
         end
@@ -975,9 +1025,9 @@ function offset_reads(directory)
     return found
 end
 
-function dimension_methods(directory)
+function dimension_methods(directory, curve_members)
     found = Dict{String, Int}()
-    signatures = Bool[]
+    signatures = Pair{Symbol, String}[]
     for base in ("src", "ext"), file in repository_files(joinpath(directory, base))
 
         endswith(file, ".jl") || continue
@@ -990,22 +1040,32 @@ function dimension_methods(directory)
                 if kind(signature) == K"call" &&
                    !isempty(syntax_name(signature[1])) &&
                    last(syntax_name(signature[1])) == :dimension
-                    push!(signatures,
-                        numchildren(signature) == 2 &&
-                            kind(signature[2]) == K"::" &&
-                            numchildren(signature[2]) == 2 &&
-                            syntax_name(signature[2][1]) == (:shape,) &&
-                            syntax_name(signature[2][2]) == (:AbstractShape,))
-                    count!(found,
-                        string(relative(file, directory), ":",
-                            JuliaSyntax.source_line(node), " | ", JuliaSyntax.sourcetext(node)))
+                    entry = string(relative(file, directory), ":",
+                        JuliaSyntax.source_line(node), " | ", JuliaSyntax.sourcetext(node))
+                    if numchildren(signature) == 2 &&
+                       kind(signature[2]) == K"::" &&
+                       numchildren(signature[2]) == 2
+                        argument = signature[2]
+                        if syntax_name(argument[1]) == (:shape,) &&
+                           syntax_name(argument[2]) == (:AbstractShape,)
+                            push!(signatures, :AbstractShape => entry)
+                        elseif length(syntax_name(argument[2])) == 1 &&
+                               only(syntax_name(argument[2])) in curve_members
+                            push!(signatures, only(syntax_name(argument[2])) => entry)
+                        end
+                    end
+                    count!(found, entry)
                 end
             end
             return true
         end
     end
-    isempty(signatures) && count!(found, "src | dimension | no method")
-    length(signatures) == 1 && only(signatures) && empty!(found)
+    for (type, entry) in signatures
+        count(signature -> first(signature) == type, signatures) == 1 &&
+            delete!(found, entry)
+    end
+    any(signature -> first(signature) == :AbstractShape, signatures) ||
+        count!(found, "src | dimension | no method")
     return found
 end
 

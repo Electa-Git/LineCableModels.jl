@@ -483,7 +483,7 @@ function compartments(shape::PerforatedShape, outer::Annulus)
     wires = [hole for hole in shape.holes if hole isa Circle]
     cutouts = [hole
                for hole in shape.holes
-               if hole isa Sector && iszero(hole.apex) && iszero(hole.fillet)]
+               if hole isa Sector && iszero(hole.apex) && iszero(nominal(hole.fillet))]
     length(wires) + length(cutouts) == length(shape.holes) || return plan
     isempty(wires) && return plan
     entries = Tuple{Float64, Circle{Float64}}[]
@@ -1341,11 +1341,8 @@ function draw(geometry::Geometry, arc::EllipticArc)
                 α₁ = curve.at.φ + θ₁ +
                      atan((a - b) * sin(θ₁) * cos(θ₁),
                          b * cos(θ₁)^2 + a * sin(θ₁)^2)
-                Δα = curve.span + atan((a - b) * sin(θ₂) * cos(θ₂),
-                    b * cos(θ₂)^2 + a * sin(θ₂)^2) -
-                     atan((a - b) * sin(θ₁) * cos(θ₁),
-                    b * cos(θ₁)^2 + a * sin(θ₁)^2)
-                m = max(2, ceil(Int, geometry.segments * abs(Δα) / (2π)))
+                Δα = sign(curve.span) * 2π * turn(curve).fraction
+                m = max(2, ceil(Int, geometry.segments * turn(curve).fraction))
                 points = [p]
                 for j in 1:(m - 1)
                     ψ = α₁ + j * Δα / m - curve.at.φ
@@ -1392,23 +1389,19 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the polygon's native section record, ``kind=3``, with bounding-box sides
-``a=support(shape,0)+support(shape,π)`` and
-``b=support(shape,π/2)+support(shape,3π/2)`` \\[m\\].
+Return the polygon's native section record, ``kind=3``, with ``a=b=dimension(shape)``
+\\[m\\]: its distance across, the same at every placement.
 """
 function section(shape::Polygon)
-    return (kind = 3, a = support(shape, 0) + support(shape, π),
-        b = support(shape, π / 2) + support(shape, 3π / 2))
+    return (kind = 3, a = dimension(shape), b = dimension(shape))
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return the arc polygon's native section record, ``kind=3``, with bounding-box sides
-``a=support(shape,0)+support(shape,π)`` and
-``b=support(shape,π/2)+support(shape,3π/2)`` \\[m\\].
+Return the arc polygon's native section record, ``kind=3``, with ``a=b=dimension(shape)``
+\\[m\\]: its distance across, the same at every placement.
 """
 function section(shape::ArcPolygon)
-    return (kind = 3, a = support(shape, 0) + support(shape, π),
-        b = support(shape, π / 2) + support(shape, 3π / 2))
+    return (kind = 3, a = dimension(shape), b = dimension(shape))
 end
