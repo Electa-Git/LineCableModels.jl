@@ -44,10 +44,10 @@ Public = true
 Private = false
 ```
 
-## CAD
+## BaseGeometry
 
 ```@autodocs
-Modules = [LineCableModels.CAD]
+Modules = [LineCableModels.BaseGeometry]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true
 Private = false

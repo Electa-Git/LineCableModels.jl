@@ -1,20 +1,20 @@
-using LineCableModels.CAD: Segment, Arc, EllipticArc, Curve, Contour, draw
+using LineCableModels.BaseGeometry: Segment, Arc, EllipticArc, Curve, Contour, draw
 
 struct RecordingTarget
     curves::Vector{Union{Segment, Arc}}
 end
 
-function LineCableModels.CAD.draw(target::RecordingTarget, segment::Segment)
+function LineCableModels.BaseGeometry.draw(target::RecordingTarget, segment::Segment)
     push!(target.curves, segment)
     return segment
 end
 
-function LineCableModels.CAD.draw(target::RecordingTarget, arc::Arc)
+function LineCableModels.BaseGeometry.draw(target::RecordingTarget, arc::Arc)
     push!(target.curves, arc)
     return arc
 end
 
-@testset "CAD" begin
+@testset "BaseGeometry" begin
     @testset "circle quadrants ignore the placement rotation" begin
         for φ in (0.0, 0.7, -π / 3)
             circle = Circle(2.0e-3, Placement(1.0e-3, -3.0e-3, φ))

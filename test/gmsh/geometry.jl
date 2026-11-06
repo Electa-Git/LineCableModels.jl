@@ -43,7 +43,7 @@ end
         end
         @test extension.section(polygon).kind == 3
         @test extension.section(polygon).a == extension.section(polygon).b ==
-              LineCableModels.CAD.dimension(polygon)
+              LineCableModels.BaseGeometry.dimension(polygon)
         square = LineCableModels.Polygon(
             [(-5.0e-3, -5.0e-3), (5.0e-3, -5.0e-3), (5.0e-3, 5.0e-3), (-5.0e-3, 5.0e-3)],
             Placement(0, 0, π / 4))
@@ -121,12 +121,12 @@ end
         record = extension.section(last(system.regions))
         @test record.kind == 2
         @test record.a - record.b ≈ 3e-3 rtol = 1e-12
-        arc = LineCableModels.CAD.EllipticArc(
+        arc = LineCableModels.BaseGeometry.EllipticArc(
             Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, 0.5e-3)
-        @test LineCableModels.CAD.turn(arc).fraction ≈ 1 / 4 rtol = 1e-12
-        @test LineCableModels.CAD.turn(arc).length ≈
+        @test LineCableModels.BaseGeometry.turn(arc).fraction ≈ 1 / 4 rtol = 1e-12
+        @test LineCableModels.BaseGeometry.turn(arc).length ≈
               0.003 * 1.3221199657742158 + 0.5e-3 * π / 2 rtol = 1e-12
-        @test LineCableModels.CAD.turn(LineCableModels.CAD.EllipticArc(
+        @test LineCableModels.BaseGeometry.turn(LineCableModels.BaseGeometry.EllipticArc(
             Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, 0)).length ≈
               0.003 * 1.3221199657742158 rtol = 1e-12
         problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
@@ -144,7 +144,7 @@ end
                     xyz = gmsh.model.getValue(1, abs(tag), [parameter])
                     push!(points, (xyz[1], xyz[2]))
                 end
-                @test geometry.curves[abs(tag)] isa LineCableModels.CAD.EllipticArc
+                @test geometry.curves[abs(tag)] isa LineCableModels.BaseGeometry.EllipticArc
                 @test geometry.curves[abs(tag)].offset == 3e-3
             end
             A_d = sum(points[k][1] * points[mod1(k + 1, length(points))][2] -

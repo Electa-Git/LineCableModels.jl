@@ -19,7 +19,7 @@ end
     tree = Guards.PackageTree(LineCableModels, extensions, pkgdir(LineCableModels))
     files = Guards.source_files(pkgdir(LineCableModels))
     directory = pkgdir(LineCableModels)
-    curve_members = nameof.(Base.uniontypes(LineCableModels.CAD.Curve{Float64}))
+    curve_members = nameof.(Base.uniontypes(LineCableModels.BaseGeometry.Curve{Float64}))
     datamodel = LineCableModels.DataModel
     shapes = [name
               for name in names(datamodel; all = true)

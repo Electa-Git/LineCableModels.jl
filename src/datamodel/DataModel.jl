@@ -15,8 +15,9 @@ import ..Commons: build, resolve, validate
 using ..Materials: Material
 using ..Commons: nominal
 using SpecialFunctions: ellipe
-import ..CAD: Contour, area, perimeter, centroid, support, distance, dimension, draw
-using ..CAD: Placement, Segment, Arc, EllipticArc, Curve, parallel
+import ..BaseGeometry: Contour, area, perimeter, centroid, support, distance, dimension,
+                       draw
+using ..BaseGeometry: Placement, Segment, Arc, EllipticArc, Curve, parallel
 
 export AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
 export Sector, Ellipse, Polygon

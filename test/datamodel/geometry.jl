@@ -1,6 +1,7 @@
 using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon
-using LineCableModels.CAD: Curve, Segment, Arc, EllipticArc, Contour, parallel, clearance,
-                           dimension, turn, lowest
+using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, parallel,
+                                    clearance,
+                                    dimension, turn, lowest
 
 @testset "DataModel geometry" begin
     @testset "mapping scales real fields" begin
@@ -309,7 +310,7 @@ using LineCableModels.CAD: Curve, Segment, Arc, EllipticArc, Contour, parallel, 
                   0.01cos(φ) - 0.02sin(φ) +
                   sqrt(9.0e-6 * cos(φ - π / 7)^2 + 4.0e-6 * sin(φ - π / 7)^2) rtol = 1e-12
         end
-        contour = LineCableModels.CAD.Contour(ellipse)
+        contour = LineCableModels.BaseGeometry.Contour(ellipse)
         @test area(contour) ≈ area(ellipse) rtol = 1e-12
         @test collect(centroid(contour)) ≈ collect(centroid(ellipse)) rtol = 1e-12
         @test perimeter(contour) ≈ perimeter(ellipse) rtol = 1e-12
@@ -485,12 +486,12 @@ using LineCableModels.CAD: Curve, Segment, Arc, EllipticArc, Contour, parallel, 
         reversed = Arc(Placement(0, 0, 0), 2.0e-3, -π / 2)
         elliptic = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, 0.5e-3)
         for t in (0, 1 / 2, 1)
-            @test LineCableModels.CAD.direction(segment, t) ≈ atan(4, 3) rtol = 1e-12
-            @test LineCableModels.CAD.direction(arc, t) ≈ 2π / 3 + t * π / 2 rtol = 1e-12
-            @test LineCableModels.CAD.direction(reversed, t) ≈ -π / 2 - t * π / 2 rtol = 1e-12
+            @test LineCableModels.BaseGeometry.direction(segment, t) ≈ atan(4, 3) rtol = 1e-12
+            @test LineCableModels.BaseGeometry.direction(arc, t) ≈ 2π / 3 + t * π / 2 rtol = 1e-12
+            @test LineCableModels.BaseGeometry.direction(reversed, t) ≈ -π / 2 - t * π / 2 rtol = 1e-12
         end
-        @test LineCableModels.CAD.direction(elliptic, 0) ≈ π / 2 rtol = 1e-12
-        @test LineCableModels.CAD.direction(elliptic, 1) ≈ π rtol = 1e-12
+        @test LineCableModels.BaseGeometry.direction(elliptic, 0) ≈ π / 2 rtol = 1e-12
+        @test LineCableModels.BaseGeometry.direction(elliptic, 1) ≈ π rtol = 1e-12
         @test turn(segment).fraction == 0
         @test turn(segment).length ≈ 5.0e-3 rtol = 1e-12
         @test turn(arc).fraction ≈ 1 / 4 rtol = 1e-12

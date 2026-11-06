@@ -12,7 +12,7 @@ module LineCableModels
 include("commons/Commons.jl")
 include("materials/Materials.jl")
 include("earth/Earth.jl")
-include("cad/CAD.jl")
+include("basegeometry/BaseGeometry.jl")
 include("datamodel/DataModel.jl")
 include("engine/Engine.jl")
 
@@ -21,7 +21,7 @@ using .Commons: build, resolve, validate, compute, defaults, select, nominal,
                 AbstractBackend, FormulationOptions, ComputationOptions
 using .Materials: Material, material
 using .Earth: EarthLayer, EarthModel, homogeneous, @layers
-using .CAD: Placement, area, perimeter, centroid, support, distance
+using .BaseGeometry: Placement, area, perimeter, centroid, support, distance
 using .DataModel: AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle,
                   Offset, Sector, Ellipse, Polygon, AbstractLayoutPattern, CircularPattern,
                   LinearPattern, Helix,
@@ -60,7 +60,7 @@ public Commons, Materials, Earth, DataModel, validate, resolve, Sector, Ellipse,
 public PlacedRegion, CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
 export compute, LineParametersProblem, CoaxialFormulation, FEM, LineParameters
 export @formulation, @air, @earth, @mixed
-public Engine, CAD, defaults, select, AbstractFormulation, AbstractBackend,
+public Engine, BaseGeometry, defaults, select, AbstractFormulation, AbstractBackend,
        FormulationOptions,
        ComputationOptions
 public ε₀, μ₀, LCMBackend, GmshBackend, backend

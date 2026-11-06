@@ -55,7 +55,7 @@ vflat = "flat"
 [global]
 nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "formulation",
     "options", "backend", "insulation", "system", "line_length", "terminals", "assemblies",
-    "layer", "model", "problem", "center", "label", "cad", "holes",
+    "layer", "model", "problem", "center", "label", "base_geometry", "holes",
     "positions", "dielectric", "ranges", "arc", "span", "offset"]
 qualifiers = ["cable", "outer"]
 symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "mu_r_ins", "φ", "φ0", "r", "a", "b"]
@@ -118,12 +118,12 @@ solve = "find the line parameters of a problem at each of its frequencies"
 [modules."Engine.EarthReturn"]
 symbols = ["i0m1"]
 
-[modules.CAD]
+[modules.BaseGeometry]
 nouns = ["placement", "segment", "curve", "contour", "area", "centroid", "perimeter", "support",
     "distance", "dimension", "parallel", "clearance", "turn", "direction"]
 qualifiers = ["elliptic", "lowest"]
 
-[modules.CAD.verbs]
+[modules.BaseGeometry.verbs]
 draw = "draw a system, a design, a placed region, a shape, a contour, a path or a curve on a target, in the target's own primitives"
 
 [modules.LineCableModelsGmshExt]
@@ -350,7 +350,7 @@ visacro2012 = "ρ(f) and ε_r(f) of a soil layer by Visacro and Alipio (2012, co
 martins2020 = "the equivalent conductivity of the described layers by Martins-Britto, Lopes and Rondineau (2020, commit 49c5bb69, earthprops/ehem/formulas/martinsbritto2020.jl)"
 xue2021 = "the equivalent propagation constant of the described layers by Xue and coauthors (2021, commit 49c5bb69, earthprops/ehem/formulas/xue2021.jl)"
 
-[register.CAD.public]
+[register.BaseGeometry.public]
 Placement = "a planar translation and rotation relative to a parent frame"
 Segment = "a straight curve between two points of the cross-section plane"
 Arc = "a circular curve of a radius about a placement, from its x-axis over a signed angular span"

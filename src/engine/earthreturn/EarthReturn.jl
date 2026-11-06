@@ -545,7 +545,7 @@ module EarthReturn
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults, validate
 using ...Commons: FormulationOptions, nominal
-using ...CAD: support
+using ...BaseGeometry: support
 using ..Engine: AbstractEarthReturn, CoaxialInput, LineParametersProblem, SpectralIntegral,
                 integrate, ε₀, μ₀
 import ..Engine: impedance!, potential!, to_buffer!, from_buffer, initialize_buffers, Λ

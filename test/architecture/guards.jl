@@ -14,7 +14,7 @@ using JuliaSyntax: JuliaSyntax, SyntaxNode, @K_str, kind, children, numchildren,
                    is_prefix_call
 
 # The module layout, in load order. Engine's children take Engine's position.
-const ORDER = (:Commons, :Materials, :Earth, :CAD, :DataModel, :Engine)
+const ORDER = (:Commons, :Materials, :Earth, :BaseGeometry, :DataModel, :Engine)
 # Base and the standard libraries whose exported names share a user's scope with the names
 # that the root module exports.
 const DEPENDENCIES = (Base,)

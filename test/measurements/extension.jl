@@ -84,7 +84,7 @@ using SpecialFunctions: besselix, besselkx, besseljx, besselk
         Placement(0, 0))
     @test Measurements.value(area(sharp)) ≈ π * 1.0e-4 / 3 rtol = 1e-12
     @test Measurements.uncertainty(area(sharp)) == 0
-    @test length(LineCableModels.CAD.Contour(sharp).outer) ==
-          length(LineCableModels.CAD.Contour(
+    @test length(LineCableModels.BaseGeometry.Contour(sharp).outer) ==
+          length(LineCableModels.BaseGeometry.Contour(
         LineCableModels.Sector(0, 10.0e-3, 2π / 3, 0, 0, Placement(0, 0))).outer)
 end

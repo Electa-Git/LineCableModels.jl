@@ -17,7 +17,7 @@ using ..Commons: AbstractFormulation, AbstractBackend, FormulationOptions,
                  ComputationOptions
 using ..Materials: Material
 using ..Earth: EarthLayer, EarthModel
-using ..CAD: Placement, support
+using ..BaseGeometry: Placement, support
 using ..DataModel: CableSystem, flatten
 using LinearAlgebra: I, checksquare, ldiv!, lu!, mul!
 using QuadGK: alloc_segbuf, quadgk
