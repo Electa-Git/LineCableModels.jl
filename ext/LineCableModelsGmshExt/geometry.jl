@@ -1131,12 +1131,12 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the native section record of the layer `shape`, with `kind = 2`,
-``a=support(outer)`` \\[m\\], and ``b=support(only(shape.holes))`` \\[m\\].
-The difference ``a-b`` is the thickness of the layer \\[m\\].
+Return the native section record of the layer `shape`, with `kind = 2`, its thickness
+``a = dimension(shape)`` \\[m\\] and ``b = 0`` \\[m\\]. The difference ``a-b`` is the
+thickness of the layer at every placement \\[m\\].
 """
-function section(::Offset, shape::PerforatedShape, outer::AbstractShape)
-    return (kind = 2, a = support(outer), b = support(only(shape.holes)))
+function section(::Offset, shape::PerforatedShape, ::AbstractShape)
+    return (kind = 2, a = dimension(shape), b = zero(dimension(shape)))
 end
 
 """

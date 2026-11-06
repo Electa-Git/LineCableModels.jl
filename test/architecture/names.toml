@@ -86,7 +86,7 @@ nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "o
     "repeat", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
     "regions", "id", "tree", "repeats", "lays", "compactions", "fills",
     "designs", "connections", "blueprint", "conductor", "conductors",
-    "dielectrics", "assembly", "core", "screen", "sheath", "bedding",
+    "dielectrics", "assembly", "members", "interior", "core", "screen", "sheath", "bedding",
     "jacket", "tape", "wires", "spacing", "trefoil", "span", "apex", "fillet", "perimeter",
     "polygon", "outline", "segment", "arc", "curve", "contour", "ellipse", "vertices",
     "parallel", "clearance", "dimension", "turn", "direction"]
@@ -215,11 +215,12 @@ Repeat = "copies of a part at the placements of a pattern, each copy a scope of 
 Lay = "the helix that the copies of a repeat follow along the cable"
 Enclosure = "a fill region whose cross-section is a container without the parts inside it"
 PlacedRegion = "a declared region with its resolved cross-section"
+Assembly = "sub-cables of different parts, each at its placement in the frame of the part that encloses them"
 CableDesign = "a cable described: its declared parts, its placed regions and the tables that map them"
 CableSystem = "the cables of a line in one cross-section, placed, with the conductor index of each terminal"
 CableBlueprint = "a cable described for coaxial formulations: equivalent tubes, their dielectric layers and assemblies"
 BlueprintConductor = "one terminal of a cable as an equivalent tube and its material"
-BlueprintDielectric = "one dielectric layer of the interval of an equivalent tube"
+BlueprintDielectric = "one dielectric layer of the interval of an equivalent tube, or of the interior of an assembly around its members"
 flatten = "the blueprint of a cable design"
 "@design" = "the cable design built from the parts of a block, from the inside out"
 "@terminal" = "the terminal of a name around the parts of a block"
@@ -390,7 +391,7 @@ lowest = "the lowest point: of a segment its lower end; of an arc the bottom of 
 anchor = "the measurement anchor of terminal t: the first probe point inside its metal, upward from the lowest point of each of its regions at the offsets of its dimension, for a shift of 0 and 1 % of the terminal's smallest dimension; refused when none is"
 curves = "the boundary curves of plane surfaces, sorted"
 scan = "scan the frequencies of a problem with GetDP: at most workers processes, one per frequency, from the meshes of the run directory, each process's job files read when it exits, results/Z.tsv and results/P.tsv written after the last, the primitive Z in Ω/m and P in Ω·m of every frequency returned by terminal"
-section = "the native section of a shape or region: its kind, 1 a Circle or an Ellipse, 2 an Annulus or a layer, 3 a Rectangle, a Sector, a Polygon or an ArcPolygon, a PerforatedShape its outer's, with the two lengths the native size law reads, (r, 0), (ro, ri), (w, h), an ellipse's smaller semi-axis and 0, a sector's sides ro - ri and span (ro + ri) / 2, a polygon's or an arc polygon's bounding-box sides; of a placed region, its declared primitive's, or, when the primitive is an Offset, its resolved shape's: a layer around another outline by the containing radii of its outer and its hole, whose difference is its thickness, and a fill by its container's"
+section = "the native section of a shape or region: its kind, 1 a Circle or an Ellipse, 2 an Annulus or a layer, 3 a Rectangle, a Sector, a Polygon or an ArcPolygon, a PerforatedShape its outer's, with the two lengths the native size law reads, (r, 0), (ro, ri), (w, h), an ellipse's smaller semi-axis and 0, a sector's sides ro - ri and span (ro + ri) / 2, a polygon's or an arc polygon's bounding-box sides; of a placed region, its declared primitive's, or, when the primitive is an Offset, its resolved shape's: a layer around another outline by its thickness `dimension` and 0, and a fill by its container's"
 
 # LineCableModelsMeasurementsExt defines no name: its methods extend Commons' nominal and SpecialFunctions' Bessel functions.
 [register.LineCableModelsMeasurementsExt]

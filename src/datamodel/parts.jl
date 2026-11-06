@@ -244,6 +244,110 @@ end
 """
 $(TYPEDEF)
 
+Place sub-cables of different parts in the frame of the part that encloses them. Each member
+is a part in its own frame, and its placement puts it in the frame of the assembly. Each
+member is a scope: the terminals declared in it are distinct terminals of the design. The
+members lie apart from each other and outside the part inside the assembly. The outline of
+the assembly is the circle about the center that contains its members.
+
+$(TYPEDFIELDS)
+"""
+struct Assembly{M <: Tuple{Vararg{Pair{<:Placement, <:AbstractCablePart}}}} <:
+       AbstractCablePart
+    "Members of the assembly, each a placement and the part placed there."
+    members::M
+    function Assembly(members::M) where {M <: Tuple{Vararg{Pair{
+            <:Placement, <:AbstractCablePart}}}}
+        return new{M}(members)
+    end
+end
+
+# A member lies apart from the other members when there is no part inside the assembly.
+function validate(shape::AbstractShape, ::Assembly, circle::Circle,
+        others::AbstractVector, ::EmptyBoundary)
+    shape ⊆ PerforatedShape(circle, others) || throw(DomainError(shape,
+        "a member of an assembly must not overlap another member or the part inside the assembly"))
+    return shape
+end
+
+# A member lies apart from the other members and the part inside the assembly.
+function validate(shape::AbstractShape, ::Assembly, circle::Circle,
+        others::AbstractVector, inner::AbstractShape)
+    T = eltype(circle)
+    shape ⊆ PerforatedShape(circle, AbstractShape{T}[inner; others]) ||
+        throw(DomainError(shape,
+            "a member of an assembly must not overlap another member or the part inside the assembly"))
+    return shape
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Resolve each member in its own frame and place its regions and rows in the enclosing frame.
+"""
+function resolve(described::NamedTuple, assembly::Assembly)
+    resolved = [resolve(EmptyBoundary(), part) for (at, part) in assembly.members]
+    outlines = [resolve(at, member.outer)
+                for ((at, part), member) in zip(assembly.members, resolved)]
+    regions = [PlacedRegion(placed.source, resolve(at, placed.shape))
+               for ((at, part), member) in zip(assembly.members, resolved)
+               for placed in member.regions]
+    circle = Circle(maximum(placed -> support(placed.shape), regions))
+    T = eltype(circle)
+    for (k, outline) in enumerate(outlines)
+        others = AbstractShape{T}[shape for (j, shape) in enumerate(outlines) if j != k]
+        validate(outline, assembly, circle, others, described.outer)
+    end
+    rows = NamedTuple[]
+    terminals = NamedTuple[]
+    repeats = NamedTuple[]
+    lays = NamedTuple[]
+    fills = NamedTuple[]
+    for (k, ((at, part), member)) in enumerate(zip(assembly.members, resolved))
+        shift = length(described.regions) +
+                sum(j -> length(resolved[j].regions), 1:(k - 1); init = 0)
+        base = length(described.assemblies) + length(rows) + 1
+        push!(rows,
+            (at = at,
+                regions = Int[index + shift
+                              for index in eachindex(member.regions)
+                              if all(row -> index ∉ row.regions, member.assemblies)],
+                members = Int[index + base
+                              for index in eachindex(member.assemblies)
+                              if all(row -> index ∉ row.members, member.assemblies)]))
+        append!(rows,
+            NamedTuple[(at = at * row.at, regions = row.regions .+ shift,
+                           members = row.members .+ base) for row in member.assemblies])
+        append!(terminals,
+            NamedTuple[(name = row.name, scope = Int[base; row.scope .+ base],
+                           regions = row.regions .+ shift) for row in member.terminals])
+        append!(repeats,
+            NamedTuple[(placements = [at * placement for placement in row.placements],
+                           copies = UnitRange{Int}[indices .+ shift
+                                                   for indices in row.copies])
+                       for row in member.repeats])
+        append!(lays,
+            NamedTuple[(
+                           regions = UnitRange{Int}[indices .+ shift
+                                                    for indices in row.regions],
+                           radii = row.radii, pitches = row.pitches, overlengths = row.overlengths,
+                           axis = at(row.axis)) for row in member.lays])
+        append!(fills,
+            NamedTuple[(region = row.region + shift, contents = row.contents .+ shift)
+                       for row in member.fills])
+    end
+    return merge(described,
+        (regions = [described.regions; regions], outer = circle,
+            terminals = NamedTuple[described.terminals; terminals],
+            assemblies = NamedTuple[described.assemblies; rows],
+            repeats = NamedTuple[described.repeats; repeats],
+            lays = NamedTuple[described.lays; lays], fills = NamedTuple[described.fills;
+                                                                        fills]))
+end
+
+"""
+$(TYPEDEF)
+
 Lay the copies of a repeat along the cable. Each copy follows the helix about the center of
 the repeat, at the lay radius of its centroid:
 
@@ -345,6 +449,15 @@ end
 Base.map(f, stack::Stack) = Stack(map.(f, stack.items))
 Base.map(f, terminal::Terminal) = Terminal(terminal.name, map(f, terminal.part))
 Base.map(f, repeat::Repeat) = Repeat(map(f, repeat.pattern), map(f, repeat.part))
+"""
+$(TYPEDSIGNATURES)
+
+Map `f` over each member's placement and part.
+"""
+function Base.map(f, assembly::Assembly)
+    Assembly(Tuple(map(f, at) => map(f, part)
+    for (at, part) in assembly.members))
+end
 Base.map(f, lay::Lay) = Lay(map(f, lay.helix), map(f, lay.part))
 function Base.map(f, enclosure::Enclosure)
     return Enclosure(map(f, enclosure.fill), map(f, enclosure.contents))

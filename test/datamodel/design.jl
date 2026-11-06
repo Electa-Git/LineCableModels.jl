@@ -367,4 +367,58 @@ end
               π * 30e-3 * 20e-3 +
               0.12 * 1.3221199657742158 * 3e-3 + π * 3e-3^2 rtol = 1e-12
     end
+
+    @testset "a duct bank of unequal ducts in two rows" begin
+        concrete = Material(:insulator, Inf, 9)
+        design = build(CableDesign, "bank",
+            Enclosure(Region(:bank, Rectangle(0.3, 0.3), concrete),
+                Assembly((
+                    Placement(-0.07,
+                        -0.07) => Enclosure(Region(:hole, Circle(0.05), air),
+                        Terminal(:core, Region(:core, Circle(0.01), copper))),
+                    Placement(0.07,
+                        0.07) => Enclosure(Region(:hole, Circle(0.04), air),
+                        Terminal(:core, Region(:core, Circle(0.01), copper)))))))
+        @test [region.source.tag for region in design.regions] ==
+              [:core, :hole, :core, :hole, :bank]
+        @test [collect(centroid(region.shape)) for region in design.regions[1:4]] ≈
+              [[-0.07, -0.07], [-0.07, -0.07], [0.07, 0.07], [0.07, 0.07]] rtol = 1e-12
+        @test [area(region.shape) for region in design.regions] ≈
+              [π * 0.01^2, π * (0.05^2 - 0.01^2), π * 0.01^2, π * (0.04^2 - 0.01^2),
+            0.09 - π * 0.05^2 - π * 0.04^2] rtol = 1e-12
+        @test [(row.regions, row.members) for row in design.assemblies] ==
+              [([5], [2, 3]), ([1, 2], Int[]), ([3, 4], Int[])]
+        @test [(row.at.x, row.at.y) for row in design.assemblies] ==
+              [(0.0, 0.0), (-0.07, -0.07), (0.07, 0.07)]
+        @test isempty(design.repeats)
+        @test [(row.region, row.contents) for row in design.fills] ==
+              [(2, [1]), (4, [3]), (5, [1, 2, 3, 4])]
+        @test [(row.name, row.scope, row.regions) for row in design.terminals] ==
+              [(:core, [2], [1]), (:core, [3], [3])]
+    end
+
+    # The sector cores touch along their sides, each in its frame at its centroid. A core
+    # rotated by 0.02 rad about the center enters its neighbour.
+    @testset "the members of an assembly lie apart" begin
+        sector = Sector(0, 10.0e-3, 2π / 3, 1.0e-3 / sin(π / 3), 1.5e-3, Placement(0, 0))
+        c = first(centroid(sector))
+        core = Sector(0, 10.0e-3, 2π / 3, 1.0e-3 / sin(π / 3), 1.5e-3, Placement(-c, 0))
+        for (angles, apart) in
+            (((0, 2π / 3, 4π / 3), true), ((0, 2π / 3 - 0.02, 4π / 3), false))
+            part = Stack(
+                Enclosure(Region(:fill, Circle(11.0e-3), air),
+                    Assembly(Tuple(Placement(c * cos(φ),
+                                       c * sin(φ),
+                                       φ) => Stack(
+                                       Terminal(name, Region(:core, core, copper)),
+                                       Region(:insulation, Offset(1.0e-3), polymer))
+                    for (φ, name) in zip(angles, (:phase_a, :phase_b, :phase_c))))),
+                Region(:jacket, Offset(3.0e-3), polymer))
+            if apart
+                @test length(build(CableDesign, "three_sector_cores", part).assemblies) == 4
+            else
+                @test_throws DomainError build(CableDesign, "three_sector_cores", part)
+            end
+        end
+    end
 end

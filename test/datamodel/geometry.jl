@@ -58,6 +58,15 @@ using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon, Curve, Se
         @test support(wire) ≈ hypot(3.0e-3, 1.0) + 1.5e-3
     end
 
+    @testset "the inverse of a placement undoes it" begin
+        for p in (Placement(1.0e-3, -2.0e-3, 0.3), Placement(-0.25, 0.5, 2.0),
+            Placement(0.04, 0.0, -π / 3))
+            for q in (inv(p) * p, p * inv(p))
+                @test [q.x, q.y, q.φ] ≈ [0, 0, 0] atol = 1e-15
+            end
+        end
+    end
+
     @testset "the nearest distance of a shape from the origin" begin
         @test distance(Circle(1.0e-3, Placement(3.0e-3, 0))) ≈ 2.0e-3
         @test distance(Circle(1.0e-3)) == 0

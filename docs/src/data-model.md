@@ -155,6 +155,12 @@ resistivity of the tube. The helical path of the current also introduces a solen
 correction in the relative permeability of the interval, `mu_r_ins`. The equations are given
 in the docstring of [`flatten`](@ref).
 
+The members of an [`Assembly`](@ref) and the copies of a repeated part are sub-cables. Each
+sub-cable reduces to its own concentric assembly about its center. The regions of an
+assembly around its members, such as the fill inside a pipe, form its interior, whose
+layers `interior_ranges` gives. The coaxial formulations compute one concentric assembly
+per cable, and the finite element model computes every region as declared.
+
 ## Cable systems
 
 The call `build(CableSystem, designs, placements; connections, id, line_length)` places each

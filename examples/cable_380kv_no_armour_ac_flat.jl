@@ -133,9 +133,10 @@ coefficient of the interval is small compared to that of the XLPE.
 =#
 
 # Dielectric layers of the core and sheath intervals:
-[(conductor = layer.conductor, r_in = layer.r_in, r_ex = layer.r_ex,
+[(conductor = k, r_in = layer.r_in, r_ex = layer.r_ex,
      eps_r = layer.material.eps_r, mu_r = layer.material.mu_r)
- for layer in blueprint.dielectrics] # [m], [m], [dimensionless], [dimensionless]
+ for (k, range) in enumerate(blueprint.dielectric_ranges)
+ for layer in blueprint.dielectrics[range]] # [m], [m], [dimensionless], [dimensionless]
 
 #=
 The current in a stranded core follows the helices of its rectangular strands and also

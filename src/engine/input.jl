@@ -98,6 +98,10 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
         assemblies = [span .+ tube_starts[k]
                       for (k, blueprint) in enumerate(blueprints)
                       for span in blueprint.assembly_ranges]
+        for blueprint in blueprints
+            length(blueprint.positions) == 1 ||
+                throw(ArgumentError("the coaxial formulation computes one concentric assembly per cable; the cable $(blueprint.id) holds $(length(blueprint.positions)) assemblies"))
+        end
         centers = [system.placements[k] * Placement(only(blueprint.positions)...)
                    for (k, blueprint) in enumerate(blueprints)]
         x = [convert(T, center.x) for center in centers]

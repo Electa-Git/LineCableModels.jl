@@ -155,7 +155,8 @@ becomes an equivalent tube. A course of laid wires becomes a tube whose material
 the direct-current resistance and the geometric mean radius of the wires. The overlength of
 the helix enters the resistivity. The solenoid effect of the helix enters the relative
 permeability of the dielectric interval, `mu_r_ins`. The dielectric layers between two
-consecutive conductors form the interval of the inner one. The lay correction is made in the
+consecutive conductors form the interval of the inner one. The regions of an assembly
+around its members form the interior of that assembly. The lay correction is made in the
 equivalence. The earth-return formulas never see it.
 
 ### System
