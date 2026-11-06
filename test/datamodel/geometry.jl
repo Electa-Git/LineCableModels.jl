@@ -398,8 +398,8 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
             @test layer isa LineCableModels.PerforatedShape
             parallel = boundary(layer)
             @test parallel isa ArcPolygon
-            @test length(parallel.outline) == 4
-            @test all(curve -> curve isa EllipticArc && curve.offset == t, parallel.outline)
+            @test length(parallel.outer) == 4
+            @test all(curve -> curve isa EllipticArc && curve.offset == t, parallel.outer)
             @test area(parallel) ≈ π * a * b + P * t + π * t^2 rtol = 1e-12
             @test perimeter(parallel) ≈ P + 2π * t rtol = 1e-12
             @test collect(centroid(parallel)) ≈ [0.01, -0.02] rtol = 1e-12
@@ -463,8 +463,8 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
             boundary(LineCableModels.resolve(E, Offset(0.3e-3))), Offset(0.2e-3)))
         single = boundary(LineCableModels.resolve(E, Offset(0.5e-3)))
         @test area(second) ≈ area(single) rtol = 1e-15
-        @test [curve.offset for curve in second.outline] ==
-              [curve.offset for curve in single.outline]
+        @test [curve.offset for curve in second.outer] ==
+              [curve.offset for curve in single.outer]
     end
 
     @testset "a layer contains what lies in its band" begin
@@ -502,8 +502,8 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
 
     @testset "the parallel of a curve" begin
         moved = parallel(Segment((0.0, 0.0), (4.0e-3, 0.0)), 0.5e-3)
-        @test collect(moved.a) ≈ [0, -0.5e-3] atol = 1e-15
-        @test collect(moved.b) ≈ [4.0e-3, -0.5e-3] atol = 1e-15
+        @test collect(moved.p) ≈ [0, -0.5e-3] atol = 1e-15
+        @test collect(moved.q) ≈ [4.0e-3, -0.5e-3] atol = 1e-15
         @test parallel(Arc(Placement(0, 0, 0), 2.0e-3, π / 2), 0.5e-3).r ≈ 2.5e-3 rtol = 1e-12
         @test parallel(Arc(Placement(0, 0, 0), 2.0e-3, π / 2), -0.5e-3).r ≈ 1.5e-3 rtol = 1e-12
         @test parallel(Arc(Placement(0, 0, 0), 2.0e-3, -π / 2), 0.5e-3).r ≈ 1.5e-3 rtol = 1e-12
@@ -520,7 +520,7 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         a, b, d = 3.0e-3, 2.0e-3, -1.2e-3
         P = 0.012 * 1.3221199657742158
         inner = ArcPolygon(parallel(Contour(Ellipse(a, b, Placement(0.01, -0.02, π / 7))), d).outer)
-        @test all(curve -> curve isa EllipticArc && curve.offset == d, inner.outline)
+        @test all(curve -> curve isa EllipticArc && curve.offset == d, inner.outer)
         @test area(inner) ≈ π * a * b + P * d + π * d^2 rtol = 1e-12
         @test perimeter(inner) ≈ P + 2π * d rtol = 1e-12
         @test collect(centroid(inner)) ≈ [0.01, -0.02] rtol = 1e-12
@@ -827,6 +827,24 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         shape = LineCableModels.PerforatedShape(Rectangle(30.0e-3, 12.0e-3),
             LineCableModels.AbstractShape{Float64}[Circle(0.5e-3)])
         @test dimension(shape) ≈ 6.0e-3 - 0.5e-3 rtol = 1e-12
+    end
+
+    @testset "the area and centroid of a layer infer" begin
+        t = 0.5e-3
+        inner = Rectangle(4.0e-3, 2.0e-3, Placement(0.01, 0.02))
+        layer = LineCableModels.resolve(inner, Offset(t))
+        @test @inferred(area(layer)) ≈ 2 * (4.0e-3 + 2.0e-3) * t + π * t^2 rtol = 1e-12
+        @test collect(@inferred(centroid(layer))) ≈ [0.01, 0.02] rtol = 1e-12
+    end
+
+    @testset "a rectangle placed by its constructor" begin
+        at = Placement(0.01, -0.02, π / 7)
+        placed = Rectangle(4.0e-3, 2.0e-3, at)
+        moved = LineCableModels.resolve(at, Rectangle(4.0e-3, 2.0e-3))
+        @test area(placed) == area(moved)
+        @test centroid(placed) == centroid(moved)
+        @test support(placed) == support(moved)
+        @test support(placed, 0.3) == support(moved, 0.3)
     end
 
     @testset "a curve reversed twice is itself" begin

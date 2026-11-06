@@ -58,7 +58,7 @@ nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "f
     "layer", "model", "problem", "center", "label", "base_geometry", "holes",
     "positions", "dielectric", "ranges", "arc", "span", "offset"]
 qualifiers = ["cable", "outer"]
-symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "mu_r_ins", "φ", "φ0", "r", "a", "b"]
+symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "mu_r_ins", "φ", "φ0", "r", "a", "b", "q"]
 prepositions = ["at"]
 
 [global.verbs]
@@ -89,10 +89,10 @@ nouns = ["shape", "primitive", "circle", "annulus", "rectangle", "sector",
     "designs", "connections", "blueprint", "conductor", "conductors",
     "dielectrics", "assembly", "members", "interior", "core", "screen", "sheath", "bedding",
     "jacket", "tape", "wires", "spacing", "trefoil", "apex", "fillet",
-    "polygon", "outline", "ellipse", "vertices"]
+    "polygon", "ellipse", "vertices"]
 qualifiers = ["circular", "empty", "perforated", "placed", "stranded",
     "layout", "flat", "linear"]
-symbols = ["ri", "ro", "w", "h", "t", "n", "gap_frac", "q", "dir"]
+symbols = ["ri", "ro", "w", "h", "t", "n", "gap_frac", "dir"]
 
 [modules.DataModel.verbs]
 flatten = "reduce a cable design to the equivalent tubes and dielectric layers of its blueprint"
@@ -122,6 +122,7 @@ symbols = ["i0m1"]
 nouns = ["placement", "segment", "curve", "contour", "area", "centroid", "perimeter", "support",
     "distance", "dimension", "parallel", "clearance", "turn", "direction"]
 qualifiers = ["elliptic", "lowest"]
+symbols = ["p"]
 
 [modules.BaseGeometry.verbs]
 draw = "draw a system, a design, a placed region, a shape, a contour, a path or a curve on a target, in the target's own primitives"
@@ -191,7 +192,7 @@ placements = "the placements and the shared cross-section of the members a patte
 overlength = "the length of a helical path over the length of the cable"
 pitch = "the lay length of a helix at a radius"
 PerforatedShape = "a cross-section perforated by the cross-sections inside it, such as the fill between wires or a layer around an outline other than a circle"
-ArcPolygon = "a region bounded by one closed path of segments, arcs and elliptic arcs, counterclockwise: a rounded polygon, an offset outline, the cell of a compaction"
+ArcPolygon = "a region bounded by its outer path of segments, arcs and elliptic arcs, counterclockwise: a rounded polygon, an offset outline, the cell of a compaction"
 LinearPattern = "n members placed on a line at a pitch, centered on the center of the enclosing part"
 AbstractCablePart = "the supertype of the declared parts of a cable"
 Region = "a part of one material in one cross-section"
@@ -352,7 +353,7 @@ xue2021 = "the equivalent propagation constant of the described layers by Xue an
 
 [register.BaseGeometry.public]
 Placement = "a planar translation and rotation relative to a parent frame"
-Segment = "a straight curve between two points of the cross-section plane"
+Segment = "a straight curve from its point p to its point q in the cross-section plane"
 Arc = "a circular curve of a radius about a placement, from its x-axis over a signed angular span"
 EllipticArc = "an elliptic curve of two semi-axes along the axes of a placement, from a parametric angle over a signed parametric span, moved by its offset along its outward normal"
 Curve = "a curve of a contour: a segment, an arc or an elliptic arc, their union written once"

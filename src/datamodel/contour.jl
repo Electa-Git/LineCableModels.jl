@@ -7,15 +7,15 @@ $(TYPEDFIELDS)
 """
 struct ArcPolygon{T <: Real} <: AbstractShape{T}
     "Closed path of curves that bounds the region, counterclockwise, in the frame of the cable."
-    outline::Vector{Curve{T}}
+    outer::Vector{Curve{T}}
     @doc """
     $(TYPEDSIGNATURES)
 
-    Construct a region from its counterclockwise `outline`, with coordinates in \\[m\\]
+    Construct a region from its counterclockwise `outer` path, with coordinates in \\[m\\]
     and angles in \\[rad\\], through `validate`.
     """
-    function ArcPolygon(outline::Vector{Curve{T}}) where {T <: Real}
-        return validate(new{T}(outline))
+    function ArcPolygon(outer::Vector{Curve{T}}) where {T <: Real}
+        return validate(new{T}(outer))
     end
 end
 
@@ -27,18 +27,18 @@ return `shape`.
 Coordinates are in \\[m\\] and angles in \\[rad\\].
 """
 function validate(shape::ArcPolygon{T}) where {T}
-    Contour(shape.outline, Vector{Curve{T}}[])
+    Contour(shape.outer, Vector{Curve{T}}[])
     return shape
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return `shape.outline` as the outer path with no holes.
+Return `shape.outer` as the outer path with no holes.
 Coordinates are in \\[m\\] and angles in \\[rad\\].
 """
 function Contour(shape::ArcPolygon{T}) where {T}
-    return Contour(shape.outline, Vector{Curve{T}}[])
+    return Contour(shape.outer, Vector{Curve{T}}[])
 end
 
 area(shape::ArcPolygon) = area(Contour(shape))
@@ -53,7 +53,7 @@ function Base.issubset(B::AbstractShape, A::Union{Rectangle, Polygon, Ellipse, A
     T = promote_type(eltype(A), eltype(B))
     paths = (Contour(A).outer, Contour(B).outer)
     for edge in [curve for path in paths for curve in path if curve isa Segment]
-        dx, dy = edge.b .- edge.a
+        dx, dy = edge.q .- edge.p
         φ = atan(-dx, dy)
         radius = support(A, φ)
         tolerance = sqrt(eps(float(nominal(radius)))) *
@@ -127,10 +127,10 @@ function Base.issubset(B::AbstractShape, A::PerforatedShape)
         nominal(radius) || return false
     end
     for hole in [hole for hole in A.holes if !(hole isa Circle)]
-        directions = [atan(-(edge.b[1] - edge.a[1]), edge.b[2] - edge.a[2])
+        directions = [atan(-(edge.q[1] - edge.p[1]), edge.q[2] - edge.p[2])
                       for edge in Contour(hole).outer if edge isa Segment]
         append!(directions,
-            [atan(-(edge.b[1] - edge.a[1]), edge.b[2] - edge.a[2]) + π
+            [atan(-(edge.q[1] - edge.p[1]), edge.q[2] - edge.p[2]) + π
              for edge in Contour(B).outer if edge isa Segment])
         apart = false
         for ψ in directions
@@ -153,7 +153,7 @@ and rotations in \\[rad\\]. Keep each elliptic arc's normal offset \\[m\\].
 """
 function resolve(at::Placement, shape::ArcPolygon)
     T = promote_type(eltype(at), eltype(shape))
-    return ArcPolygon(Curve{T}[resolve(at, curve) for curve in shape.outline])
+    return ArcPolygon(Curve{T}[resolve(at, curve) for curve in shape.outer])
 end
 
 """
@@ -162,11 +162,11 @@ $(TYPEDSIGNATURES)
 Map the curves' coordinates \\[m\\], radii \\[m\\], angles \\[rad\\] and normal offsets \\[m\\] of `shape` by ``x\\mapsto f(x)``.
 """
 function Base.map(f, shape::ArcPolygon)
-    outline = similar(shape.outline)
-    for (k, curve) in enumerate(shape.outline)
-        outline[k] = map(f, curve)
+    outer = similar(shape.outer)
+    for (k, curve) in enumerate(shape.outer)
+        outer[k] = map(f, curve)
     end
-    return ArcPolygon(outline)
+    return ArcPolygon(outer)
 end
 
 """

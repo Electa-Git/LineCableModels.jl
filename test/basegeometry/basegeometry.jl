@@ -158,7 +158,7 @@ end
         @test Curve{Float64} === Union{Segment{Float64}, Arc{Float64}, EllipticArc{Float64}}
         sector = LineCableModels.Sector(1.0e-3, 3.0e-3, 1.2, 0, 0, at)
         @test eltype(Contour(sector).outer) === Curve{Float64}
-        @test Segment((0, 1.0), (2.0, 3)).b == (2.0, 3.0)
+        @test Segment((0, 1.0), (2.0, 3)).q == (2.0, 3.0)
         @test Arc(Placement(0.0, 0.0), 1, 0.5).span == 0.5
     end
 

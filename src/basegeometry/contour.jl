@@ -7,34 +7,34 @@ $(TYPEDFIELDS)
 """
 struct Segment{T <: Real}
     "Coordinates at `t = 0` in \\[m\\]."
-    a::NTuple{2, T}
+    p::NTuple{2, T}
     "Coordinates at `t = 1` in \\[m\\]."
-    b::NTuple{2, T}
-    function Segment{T}(a::NTuple{2, T}, b::NTuple{2, T}) where {T <: Real}
-        return validate(new{T}(a, b))
+    q::NTuple{2, T}
+    function Segment{T}(p::NTuple{2, T}, q::NTuple{2, T}) where {T <: Real}
+        return validate(new{T}(p, q))
     end
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Construct a segment from the points `a` and `b` \\[m\\], in the type that their
+Construct a segment from the points `p` and `q` \\[m\\], in the type that their
 coordinates promote to with `Float64`.
 
 # Errors
 
 - Throws `DomainError` when a coordinate is not finite or the points coincide.
 """
-function Segment(a::Tuple{Real, Real}, b::Tuple{Real, Real})
-    T = promote_type(Float64, typeof.(a)..., typeof.(b)...)
-    return Segment{T}(convert.(T, a), convert.(T, b))
+function Segment(p::Tuple{Real, Real}, q::Tuple{Real, Real})
+    T = promote_type(Float64, typeof.(p)..., typeof.(q)...)
+    return Segment{T}(convert.(T, p), convert.(T, q))
 end
 
 function validate(segment::Segment)
-    all(isfinite, (segment.a..., segment.b...)) || throw(DomainError(
-        (segment.a, segment.b), "Segment coordinates must be finite"))
-    segment.a != segment.b || throw(DomainError(
-        (segment.a, segment.b), "Segment endpoints must differ"))
+    all(isfinite, (segment.p..., segment.q...)) || throw(DomainError(
+        (segment.p, segment.q), "Segment coordinates must be finite"))
+    segment.p != segment.q || throw(DomainError(
+        (segment.p, segment.q), "Segment endpoints must differ"))
     return segment
 end
 
@@ -190,7 +190,7 @@ Return the tangent direction of `curve` at `t` in \\[rad\\].
 ``θ=atan(b_2-a_2,b_1-a_1)``.
 """
 function direction(curve::Segment, t::Real)
-    return atan(curve.b[2] - curve.a[2], curve.b[1] - curve.a[1])
+    return atan(curve.q[2] - curve.p[2], curve.q[1] - curve.p[1])
 end
 
 """
@@ -225,7 +225,7 @@ curve `segment`. The fraction is zero, and the length is the distance between it
 \\[m\\].
 """
 function turn(segment::Segment{T}) where {T}
-    return (fraction = zero(T), length = hypot((segment.b .- segment.a)...))
+    return (fraction = zero(T), length = hypot((segment.q .- segment.p)...))
 end
 
 """
@@ -271,10 +271,10 @@ Return the parallel of `curve` at outward distance `d` in \\[m\\].
 ``p_d=p+d(cos φ,sin φ)``, with ``φ=atan(-dx,dy)``.
 """
 function parallel(curve::Segment, d::Real)
-    dx, dy = curve.b .- curve.a
+    dx, dy = curve.q .- curve.p
     φ = atan(-dx, dy)
-    return Segment(curve.a .+ d .* (cos(φ), sin(φ)),
-        curve.b .+ d .* (cos(φ), sin(φ)))
+    return Segment(curve.p .+ d .* (cos(φ), sin(φ)),
+        curve.q .+ d .* (cos(φ), sin(φ)))
 end
 
 """
@@ -358,10 +358,10 @@ function parallel(a::Segment, b::Segment, d::Real)
         return (p, p)
     elseif nominal(sin(τ) * d) < 0
         A, B = parallel(a, d), parallel(b, d)
-        U, V = A.b .- A.a, B.b .- B.a
-        w = B.a .- A.a
+        U, V = A.q .- A.p, B.q .- B.p
+        w = B.p .- A.p
         t = (w[1] * V[2] - w[2] * V[1]) / (U[1] * V[2] - U[2] * V[1])
-        p = A.a .+ t .* U
+        p = A.p .+ t .* U
         return (p, p)
     else
         return (parallel(a, d)(1), parallel(b, d)(0))
@@ -389,13 +389,13 @@ function parallel(a::Segment, b::Arc, d::Real)
         return (p, p)
     elseif nominal(sin(τ) * d) < 0
         A, B = parallel(a, d), parallel(b, d)
-        U = A.b .- A.a
-        w = A.a .- (B.at.x, B.at.y)
+        U = A.q .- A.p
+        w = A.p .- (B.at.x, B.at.y)
         L = U[1]^2 + U[2]^2
         h = -(w[1] * U[1] + w[2] * U[2]) / L
         Δ = h^2 - (w[1]^2 + w[2]^2 - B.r^2) / L
         δ = sqrt(max(Δ, zero(Δ)))
-        points = (A.a .+ (h - δ) .* U, A.a .+ (h + δ) .* U)
+        points = (A.p .+ (h - δ) .* U, A.p .+ (h + δ) .* U)
         p = argmin(xy -> nominal(hypot((xy .- j)...)), points)
         return (p, p)
     else
@@ -424,13 +424,13 @@ function parallel(a::Arc, b::Segment, d::Real)
         return (p, p)
     elseif nominal(sin(τ) * d) < 0
         A, B = parallel(b, d), parallel(a, d)
-        U = A.b .- A.a
-        w = A.a .- (B.at.x, B.at.y)
+        U = A.q .- A.p
+        w = A.p .- (B.at.x, B.at.y)
         L = U[1]^2 + U[2]^2
         h = -(w[1] * U[1] + w[2] * U[2]) / L
         Δ = h^2 - (w[1]^2 + w[2]^2 - B.r^2) / L
         δ = sqrt(max(Δ, zero(Δ)))
-        points = (A.a .+ (h - δ) .* U, A.a .+ (h + δ) .* U)
+        points = (A.p .+ (h - δ) .* U, A.p .+ (h + δ) .* U)
         p = argmin(xy -> nominal(hypot((xy .- j)...)), points)
         return (p, p)
     else
@@ -622,8 +622,8 @@ and `q`. The fraction is zero, and the signed length \\[m\\] is ``(q-p)⋅u`` fo
 direction ``u`` of `face`.
 """
 function turn(face::Segment, d::Real, p, q)
-    u = (face.b .- face.a) ./ hypot((face.b .- face.a)...)
-    return (fraction = zero(face.a[1] + d),
+    u = (face.q .- face.p) ./ hypot((face.q .- face.p)...)
+    return (fraction = zero(face.p[1] + d),
         length = (q[1] - p[1]) * u[1] + (q[2] - p[2]) * u[2])
 end
 
@@ -661,8 +661,8 @@ the middle of their common range, at their perpendicular distance, or else their
 ends.
 """
 function clearance(curve::Segment, other::Segment)
-    u, v = curve.b .- curve.a, other.b .- other.a
-    w = other.a .- curve.a
+    u, v = curve.q .- curve.p, other.q .- other.p
+    w = other.p .- curve.p
     z = zero(u[1] + v[1])
     candidates = [(s, t, hypot((curve(s) .- other(t))...))
                   for s in (z, one(z)) for t in (z, one(z))]
@@ -672,7 +672,7 @@ function clearance(curve::Segment, other::Segment)
         n = u ./ L
         α,
         β = w[1] * n[1] + w[2] * n[2],
-        (other.b[1] - curve.a[1]) * n[1] + (other.b[2] - curve.a[2]) * n[2]
+        (other.q[1] - curve.p[1]) * n[1] + (other.q[2] - curve.p[2]) * n[2]
         lo = max(z, min(α, β))
         hi = min(L, max(α, β))
         if nominal(lo) <= nominal(hi)
@@ -691,14 +691,14 @@ function clearance(curve::Segment, other::Segment)
     end
     for s in (z, one(z))
         p = curve(s)
-        t = ((p[1] - other.a[1]) * v[1] + (p[2] - other.a[2]) * v[2]) /
+        t = ((p[1] - other.p[1]) * v[1] + (p[2] - other.p[2]) * v[2]) /
             (v[1]^2 + v[2]^2)
         t = nominal(t) <= 0 ? z : nominal(t) >= 1 ? one(z) : t
         push!(candidates, (s, t, hypot((p .- other(t))...)))
     end
     for t in (z, one(z))
         q = other(t)
-        s = ((q[1] - curve.a[1]) * u[1] + (q[2] - curve.a[2]) * u[2]) /
+        s = ((q[1] - curve.p[1]) * u[1] + (q[2] - curve.p[2]) * u[2]) /
             (u[1]^2 + u[2]^2)
         s = nominal(s) <= 0 ? z : nominal(s) >= 1 ? one(z) : s
         push!(candidates, (s, t, hypot((curve(s) .- q)...)))
@@ -716,14 +716,14 @@ Each parameter lies in ``[0, 1]`` and is exactly 0 or 1 at an end. The pair is t
 among the ends, the feet of the normals and the crossings.
 """
 function clearance(curve::Segment, other::Arc)
-    u = curve.b .- curve.a
+    u = curve.q .- curve.p
     z = zero(u[1] + other.r)
     candidates = [(s, t, hypot((curve(s) .- other(t))...))
                   for s in (z, one(z)) for t in (z, one(z))]
     L = u[1]^2 + u[2]^2
     for t in (z, one(z))
         q = other(t)
-        s = ((q[1] - curve.a[1]) * u[1] + (q[2] - curve.a[2]) * u[2]) / L
+        s = ((q[1] - curve.p[1]) * u[1] + (q[2] - curve.p[2]) * u[2]) / L
         s = nominal(s) <= 0 ? z : nominal(s) >= 1 ? one(z) : s
         push!(candidates, (s, t, hypot((curve(s) .- q)...)))
     end
@@ -736,8 +736,8 @@ function clearance(curve::Segment, other::Arc)
             push!(candidates, (s, t, hypot((p .- other(t))...)))
         end
     end
-    h = ((other.at.x - curve.a[1]) * u[1] +
-         (other.at.y - curve.a[2]) * u[2]) / L
+    h = ((other.at.x - curve.p[1]) * u[1] +
+         (other.at.y - curve.p[2]) * u[2]) / L
     if 0 <= nominal(h) <= 1
         s = h
         p = curve(s)
@@ -749,7 +749,7 @@ function clearance(curve::Segment, other::Arc)
             end
         end
     end
-    w = curve.a .- (other.at.x, other.at.y)
+    w = curve.p .- (other.at.x, other.at.y)
     Δ = h^2 - (w[1]^2 + w[2]^2 - other.r^2) / L
     if nominal(Δ) >= 0
         for s in (h - sqrt(max(Δ, zero(Δ))), h + sqrt(max(Δ, zero(Δ))))
@@ -926,7 +926,7 @@ Place the endpoints of `curve` \\[m\\] by `at`, whose translation is in \\[m\\]
 and rotation in \\[rad\\].
 """
 function resolve(at::Placement, curve::Segment)
-    return Segment(at(curve.a), at(curve.b))
+    return Segment(at(curve.p), at(curve.q))
 end
 
 """
@@ -955,7 +955,7 @@ $(TYPEDSIGNATURES)
 Map the endpoint coordinates \\[m\\] of `curve` by `f`.
 """
 function Base.map(f, curve::Segment)
-    return Segment(map(f, curve.a), map(f, curve.b))
+    return Segment(map(f, curve.p), map(f, curve.q))
 end
 
 """
@@ -985,7 +985,7 @@ Return `curve` traversed in the opposite direction. Coordinates and lengths are 
 and angles are in \\[rad\\].
 """
 function Base.reverse(curve::Segment)
-    return Segment(curve.b, curve.a)
+    return Segment(curve.q, curve.p)
 end
 
 """
@@ -995,7 +995,7 @@ Return the distance across the metal of `curve`, the metal on its left \\[m\\]: 
 since the inward parallel of a straight curve never degenerates.
 """
 function dimension(curve::Segment)
-    return oftype(curve.a[1], Inf)
+    return oftype(curve.p[1], Inf)
 end
 
 """
@@ -1064,7 +1064,7 @@ $(TYPEDSIGNATURES)
 Return the distance \\[m\\] of the farther endpoint of `curve` from the origin.
 """
 function support(curve::Segment)
-    return max(hypot(curve.a...), hypot(curve.b...))
+    return max(hypot(curve.p...), hypot(curve.q...))
 end
 
 """
@@ -1140,7 +1140,7 @@ $(TYPEDSIGNATURES)
 Return the largest projection of the endpoints of `curve` along `φ` \\[rad\\], in \\[m\\].
 """
 function support(curve::Segment, φ::Real)
-    return maximum(point[1] * cos(φ) + point[2] * sin(φ) for point in (curve.a, curve.b))
+    return maximum(point[1] * cos(φ) + point[2] * sin(φ) for point in (curve.p, curve.q))
 end
 
 """
@@ -1438,7 +1438,7 @@ function area(contour::Contour{T}) where {T}
     for (k, path) in enumerate((contour.outer, contour.holes...))
         orientation = k == 1 ? 1 : -1
         for curve in [curve for curve in path if curve isa Segment]
-            P, Q = curve.a, curve.b
+            P, Q = curve.p, curve.q
             result += orientation * (P[1] * Q[2] - P[2] * Q[1]) / 2
         end
         for curve in [curve for curve in path if curve isa Arc]
@@ -1500,7 +1500,7 @@ function centroid(contour::Contour{T}) where {T}
     for (k, path) in enumerate((contour.outer, contour.holes...))
         orientation = k == 1 ? 1 : -1
         for curve in [curve for curve in path if curve isa Segment]
-            P, Q = curve.a, curve.b
+            P, Q = curve.p, curve.q
             cross = P[1] * Q[2] - P[2] * Q[1]
             x += orientation * (P[1] + Q[1]) * cross / 6
             y += orientation * (P[2] + Q[2]) * cross / 6
@@ -1717,7 +1717,7 @@ function distance(contour::Contour{T}) where {T}
     for (k, path) in enumerate((contour.outer, contour.holes...))
         winding = 0
         for curve in [curve for curve in path if curve isa Segment]
-            P, Q = curve.a, curve.b
+            P, Q = curve.p, curve.q
             dx, dy = Q .- P
             t = clamp(-(P[1] * dx + P[2] * dy) / (dx^2 + dy^2), zero(T), one(T))
             result = min(result, hypot(curve(t)...))
@@ -1769,7 +1769,7 @@ where ``\\boldsymbol{a}`` and ``\\boldsymbol{b}`` are its endpoint coordinates \
 Return coordinates in \\[m\\].
 """
 function (segment::Segment)(t::Real)
-    return segment.a .+ t .* (segment.b .- segment.a)
+    return segment.p .+ t .* (segment.q .- segment.p)
 end
 
 """

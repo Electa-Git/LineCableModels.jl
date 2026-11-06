@@ -148,9 +148,21 @@ type that they promote to with `Float64`.
 
 - Throws `DomainError` when `w` or `h` is not positive and finite.
 """
-function Rectangle(w::Real, h::Real)
-    T = promote_type(Float64, typeof(w), typeof(h))
-    return Rectangle{T}(convert(T, w), convert(T, h), Placement(zero(T), zero(T)))
+Rectangle(w::Real, h::Real) = Rectangle(w, h, Placement(zero(w), zero(h)))
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct a rectangle of width `w` and height `h` \\[m\\] at the placement `at`, in the
+type that they promote to with `Float64`.
+
+# Errors
+
+- Throws `DomainError` when `w` or `h` is not positive and finite.
+"""
+function Rectangle(w::Real, h::Real, at::Placement)
+    T = promote_type(Float64, typeof(w), typeof(h), eltype(at))
+    return Rectangle{T}(convert(T, w), convert(T, h), convert(Placement{T}, at))
 end
 
 function validate(rectangle::Rectangle)
@@ -558,8 +570,8 @@ function area(sector::Sector)
     end
     return area(Contour(sector))
 end
-function area(shape::PerforatedShape)
-    return area(shape.outer) - sum(area, shape.holes; init = zero(eltype(shape)))
+function area(shape::PerforatedShape{T}) where {T}
+    return area(shape.outer) - (sum(area, shape.holes; init = zero(T))::T)
 end
 
 """
@@ -600,10 +612,10 @@ function centroid(sector::Sector)
     return sector.at((d, zero(d)))
 end
 
-function centroid(shape::PerforatedShape)
+function centroid(shape::PerforatedShape{T}) where {T}
     x, y = area(shape.outer) .* centroid(shape.outer)
     for hole in shape.holes
-        x, y = (x, y) .- area(hole) .* centroid(hole)
+        x, y = (x, y) .- (area(hole)::T) .* (centroid(hole)::Tuple{T, T})
     end
     return (x, y) ./ area(shape)
 end
@@ -949,7 +961,7 @@ function resolve(shape::AbstractShape, offset::Offset)
     indices = Int[]
     for (k, curve) in [(k, curve) for (k, curve) in enumerate(path) if curve isa Segment]
         push!(indices, k)
-        dx, dy = curve.b .- curve.a
+        dx, dy = curve.q .- curve.p
         φ = atan(-dx, dy)
         push!(normals, (φ, φ))
     end
