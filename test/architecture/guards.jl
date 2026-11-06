@@ -14,7 +14,7 @@ using JuliaSyntax: JuliaSyntax, SyntaxNode, @K_str, kind, children, numchildren,
                    is_prefix_call
 
 # The module layout, in load order. Engine's children take Engine's position.
-const ORDER = (:Commons, :Materials, :Earth, :DataModel, :Engine, :CAD)
+const ORDER = (:Commons, :Materials, :Earth, :CAD, :DataModel, :Engine)
 # Base and the standard libraries whose exported names share a user's scope with the names
 # that the root module exports.
 const DEPENDENCIES = (Base,)
@@ -1025,9 +1025,10 @@ function offset_reads(directory)
     return found
 end
 
-function dimension_methods(directory, curve_members)
+# The distance across. Every method of `dimension` on a concrete shape type, by file and line:
+# the distance across is one computation over the contour.
+function dimension_methods(directory, shapes)
     found = Dict{String, Int}()
-    signatures = Pair{Symbol, String}[]
     for base in ("src", "ext"), file in repository_files(joinpath(directory, base))
 
         endswith(file, ".jl") || continue
@@ -1039,33 +1040,24 @@ function dimension_methods(directory, curve_members)
                 end
                 if kind(signature) == K"call" &&
                    !isempty(syntax_name(signature[1])) &&
-                   last(syntax_name(signature[1])) == :dimension
-                    entry = string(relative(file, directory), ":",
-                        JuliaSyntax.source_line(node), " | ", JuliaSyntax.sourcetext(node))
-                    if numchildren(signature) == 2 &&
-                       kind(signature[2]) == K"::" &&
-                       numchildren(signature[2]) == 2
-                        argument = signature[2]
-                        if syntax_name(argument[1]) == (:shape,) &&
-                           syntax_name(argument[2]) == (:AbstractShape,)
-                            push!(signatures, :AbstractShape => entry)
-                        elseif length(syntax_name(argument[2])) == 1 &&
-                               only(syntax_name(argument[2])) in curve_members
-                            push!(signatures, only(syntax_name(argument[2])) => entry)
+                   last(syntax_name(signature[1])) == :dimension &&
+                   numchildren(signature) >= 2 &&
+                   kind(signature[2]) == K"::" &&
+                   numchildren(signature[2]) in (1, 2)
+                    argument = signature[2]
+                    visit(argument[numchildren(argument)]) do annotation
+                        if kind(annotation) == K"Identifier" && annotation.val in shapes
+                            entry = string(relative(file, directory), ":",
+                                JuliaSyntax.source_line(node), " | ", JuliaSyntax.sourcetext(node))
+                            found[entry] = 1
                         end
+                        return true
                     end
-                    count!(found, entry)
                 end
             end
             return true
         end
     end
-    for (type, entry) in signatures
-        count(signature -> first(signature) == type, signatures) == 1 &&
-            delete!(found, entry)
-    end
-    any(signature -> first(signature) == :AbstractShape, signatures) ||
-        count!(found, "src | dimension | no method")
     return found
 end
 

@@ -50,9 +50,9 @@ The package is six modules in one load order, and two extensions.
 | `Commons` | the grammar: `validate`, `resolve`, `build`, `compute`, `defaults`, `select`, the abstract types `AbstractFormulation` and `AbstractBackend`, the option records |
 | `Materials` | `Material{T, K}`, the properties of a material with its class `K` as a type parameter |
 | `Earth` | `EarthLayer`, `EarthModel`, `homogeneous`: the air and the earth as a stack of layers |
-| `DataModel` | the cross-sections, their outlines, the placement, the declared parts, the cable design, the cable system, the blueprint and the builders of the surface syntax |
+| `CAD` | the plane geometry of the placement, the segments, arcs and elliptic arcs, the contour and every method on them, and the verb `draw`, which walks a contour to its curves on a target |
+| `DataModel` | the cross-sections of a cable, each with its contour, the declared parts, the cable design, the cable system, the blueprint and the builders of the surface syntax |
 | `Engine` | the problem, the formulations, the backends, the formula families, the numerical input, the buffers, the loop, the reductions, the spectral tools and the result |
-| `CAD` | the verb `draw`, which draws the outlines of a system or a design on a target |
 | `LineCableModelsGmshExt` | the finite-element backend, with its model, geometry, meshes, GetDP scan and result |
 | `LineCableModelsMeasurementsExt` | the propagation of input uncertainty: methods only |
 

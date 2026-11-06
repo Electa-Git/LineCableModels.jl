@@ -15,17 +15,16 @@ import ..Commons: build, resolve, validate
 using ..Materials: Material
 using ..Commons: nominal
 using SpecialFunctions: ellipe
-using QuadGK: quadgk
+import ..CAD: Contour, area, perimeter, centroid, support, distance, dimension, draw
+using ..CAD: Placement, Segment, Arc, EllipticArc, Curve, parallel
 
-export Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
+export AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
 export Sector, Ellipse, Polygon
 export AbstractLayoutPattern, CircularPattern, LinearPattern, Helix, LayRatio
-export area, perimeter, centroid, support, distance, boundary, r_in, r_ex, placements,
+export boundary, r_in, r_ex, placements,
        overlength,
        pitch
 export PerforatedShape, ArcPolygon
-public Segment, Arc, EllipticArc, Curve, Contour, turn, parallel, clearance, dimension,
-       direction, lowest
 export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Enclosure, Assembly
 export PlacedRegion, CableDesign, CableSystem
 export CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten

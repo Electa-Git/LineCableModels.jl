@@ -1,5 +1,4 @@
-using LineCableModels.DataModel: Segment, Arc, EllipticArc, Curve, Contour
-using LineCableModels.CAD: draw
+using LineCableModels.CAD: Segment, Arc, EllipticArc, Curve, Contour, draw
 
 struct RecordingTarget
     curves::Vector{Union{Segment, Arc}}

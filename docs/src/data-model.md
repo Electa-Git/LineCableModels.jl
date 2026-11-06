@@ -58,7 +58,7 @@ The resolution also produces cross-sections that are not declared by any region,
 the wires of a layer or a layer around an outline other than a circle. A [`Placement`](@ref) is a translation and a rotation relative to a
 parent frame.
 
-The exact outline of a cross-section is its [`Contour`](@ref DataModel.Contour): closed
+The exact outline of a cross-section is its [`Contour`](@ref CAD.Contour): closed
 paths of segments and of circular or elliptic arcs, each counterclockwise. An elliptic arc
 moved along its outward normal by a distance is a piece of the parallel of an ellipse. An
 [`ArcPolygon`](@ref) is the region inside one such path. The outline gives the area, the
@@ -66,12 +66,12 @@ centroid and the [`perimeter`](@ref) of an arc polygon. It does the same for a s
 fillets, or with sides that meet off its center.
 
 The parallel of a curve lies at a distance along its outward normal, positive outward and
-negative into the region. The function [`parallel`](@ref DataModel.parallel) gives the
+negative into the region. The function [`parallel`](@ref CAD.parallel) gives the
 parallel of a curve or of a whole contour. At the junction of two curves, it gives the ends
 of their two parallels. The distance across the metal of a cross-section,
-[`dimension`](@ref DataModel.dimension), is twice the depth at which the inward parallel of
-its outline first degenerates. The function [`clearance`](@ref DataModel.clearance) gives
-the nearest points of two curves, and [`turn`](@ref DataModel.turn) the turn and length of
+[`dimension`](@ref CAD.dimension), is twice the depth at which the inward parallel of
+its outline first degenerates. The function [`clearance`](@ref CAD.clearance) gives
+the nearest points of two curves, and [`turn`](@ref CAD.turn) the turn and length of
 one.
 
 ## Cable parts

@@ -1,118 +1,6 @@
 """
 $(TYPEDEF)
 
-Represent a planar translation and a rotation relative to a parent frame.
-
-$(TYPEDFIELDS)
-"""
-struct Placement{T <: Real}
-    "Horizontal translation \\[m\\]."
-    x::T
-    "Vertical translation \\[m\\]."
-    y::T
-    "Counterclockwise rotation \\[rad\\]."
-    φ::T
-    function Placement{T}(x::T, y::T, φ::T) where {T <: Real}
-        return validate(new{T}(x, y, φ))
-    end
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Construct a placement in the type that its coordinates promote to with `Float64`. The
-arguments are the fields of [`Placement`](@ref), and the rotation is zero unless given.
-
-# Errors
-
-- Throws `DomainError` when a coordinate or the rotation is not finite.
-"""
-function Placement(x::Real, y::Real, φ::Real = 0)
-    values = promote(x, y, φ)
-    T = promote_type(Float64, eltype(values))
-    return Placement{T}(convert.(T, values)...)
-end
-
-function validate(placement::Placement)
-    all(isfinite, (placement.x, placement.y, placement.φ)) || throw(DomainError(
-        (placement.x, placement.y, placement.φ),
-        "Placement coordinates and rotation must be finite"))
-    return placement
-end
-
-Base.eltype(::Placement{T}) where {T} = T
-
-function Base.map(f, placement::Placement)
-    return Placement(f(placement.x), f(placement.y), f(placement.φ))
-end
-
-function Base.convert(::Type{Placement{T}}, placement::Placement) where {T <: Real}
-    return Placement{T}(
-        convert(T, placement.x), convert(T, placement.y), convert(T, placement.φ))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Compose `child`, a placement in the frame of `parent`, into the frame that holds `parent`:
-
-```math
-x = x_p + x_c \\cos\\phi_p - y_c \\sin\\phi_p, \\qquad
-y = y_p + x_c \\sin\\phi_p + y_c \\cos\\phi_p, \\qquad
-\\phi = \\phi_p + \\phi_c,
-```
-
-where ``(x_p, y_p)`` and ``(x_c, y_c)`` are the positions of `parent` and `child` \\[m\\], and
-``\\phi_p`` and ``\\phi_c`` are their rotations \\[rad\\].
-"""
-function Base.:*(parent::Placement, child::Placement)
-    return Placement(parent.x + cos(parent.φ) * child.x - sin(parent.φ) * child.y,
-        parent.y + sin(parent.φ) * child.x + cos(parent.φ) * child.y, parent.φ + child.φ)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the placement that undoes `p`, so that `inv(p) * p` and `p * inv(p)` are the
-identity:
-
-```math
-x = -(x_p \\cos\\phi_p + y_p \\sin\\phi_p), \\qquad y = x_p \\sin\\phi_p - y_p \\cos\\phi_p,
-\\qquad \\phi = -\\phi_p,
-```
-
-where ``(x_p, y_p)`` is the position of `p` \\[m\\] and ``\\phi_p`` its rotation \\[rad\\].
-"""
-function Base.inv(p::Placement)
-    return Placement(-(p.x * cos(p.φ) + p.y * sin(p.φ)),
-        p.x * sin(p.φ) - p.y * cos(p.φ), -p.φ)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Rotate `point` by the rotation of `placement`, then translate it by the position of
-`placement`:
-
-```math
-x = x_0 + u \\cos\\phi - v \\sin\\phi, \\qquad y = y_0 + u \\sin\\phi + v \\cos\\phi,
-```
-
-where ``(u, v)`` is `point` \\[m\\], ``(x_0, y_0)`` is the position of `placement` \\[m\\] and
-``\\phi`` is its rotation \\[rad\\].
-
-# Returns
-
-- The point `(x, y)` in the parent frame \\[m\\].
-"""
-function (placement::Placement)(point::Tuple{Real, Real})
-    return (placement.x + cos(placement.φ) * point[1] - sin(placement.φ) * point[2],
-        placement.y + sin(placement.φ) * point[1] + cos(placement.φ) * point[2])
-end
-
-"""
-$(TYPEDEF)
-
 Supertype of the exact cross-sections of the parts of a cable, in the floating type `T`.
 """
 abstract type AbstractShape{T <: Real} end
@@ -655,22 +543,12 @@ where ``r`` is the radius of a circle, ``r_i`` and ``r_o`` are inner and outer r
 and ``h`` are the width and height of a rectangle \\[m\\], and ``\\Delta\\phi`` \\[rad\\] is
 the angular span of a sector. A [`PerforatedShape`](@ref) has the area of its outer
 cross-section less the areas of its holes. A sector with displaced sides or fillets, and
-an arc polygon, take the area of their contour by Green's theorem,
-``A = \\frac12 \\oint (x\\,dy-y\\,dx)``. A segment from ``P`` to ``Q`` adds
-``(P \\times Q)/2``. An arc of radius ``ρ`` about ``c`` from ``θ_1`` to ``θ_2`` adds
-``ρ^2(θ_2-θ_1)/2 + c\\times(Q-P)/2``. Each hole subtracts its own area.
+an arc polygon, take the area of their contour by Green's theorem.
 
 An ellipse has ``A=πab``. A polygon uses
 ``A=\\sum_i(x_i y_{i+1}-y_i x_{i+1})/2``.
-An elliptic arc adds ``ab\\,span/2+c\\times(Q-P)/2``.
-Its normal offset ``d`` adds ``dL-d[p⋅τ̂]/2+d²Δα/2``, where
-``L=∫ρ\\,dθ``, ``ρ=hypot(b cos θ,a sin θ)``, and
-``Δα=span+[atan((a-b)sin θ cos θ,b cos²θ+a sin²θ)]``.
-Here ``p`` is the base point and ``τ̂`` its unit tangent.
 A layer subtracts the wrapped outline's area and gives ``Pt+πt²`` for a convex outline.
 """
-function area end
-
 area(circle::Circle) = π * circle.r^2
 area(annulus::Annulus) = π * (annulus.ro^2 - annulus.ri^2)
 area(rectangle::Rectangle) = rectangle.w * rectangle.h
@@ -705,32 +583,12 @@ are its inner and outer radii. A circle and an annulus have their centroid at th
 
 where ``A_o`` and ``\\mathbf c_o`` are the area and centroid of its outer cross-section, and
 ``A_h`` and ``\\mathbf c_h`` those of each hole. A rectangle's centroid is its center.
-A rounded sector, arc polygon or contour uses ``\\mathbf c = \\mathbf M/A``.
-A segment contributes ``(P+Q)(P\\times Q)/6`` to ``\\mathbf M``. An arc adds that
-chord moment and the circular segment's moment:
-``c ρ^2(Δ-\\sin Δ)/2 + ρ^3(\\sin θ_2-\\sin θ_1,\\cos θ_1-\\cos θ_2)/3
--ρ^2\\sin Δ(P+Q-2c)/6``, where ``Δ=θ_2-θ_1``.
-Each hole subtracts its own moment.
+A rounded sector or an arc polygon takes the centroid of its contour.
 
 An ellipse's centroid is its center. A polygon uses
 ``c=\\sum_i(v_i+v_{i+1})(v_i\\times v_{i+1})/(6A)``, then applies its placement.
-
-For an elliptic arc, let ``L=R(at.φ)diag(a,b)``, ``u_i=(cos θ_i,sin θ_i)``,
-and ``B=ab(Δ-sin Δ)/2``. Its Green moment is the chord moment plus
-``cB+abL((sin θ_2-sin θ_1,cos θ_1-cos θ_2)/3-sin Δ(u_1+u_2)/6)``.
-An offset ``d`` adds the band's moment
-``d∫p ds+(d²/2)∫p dα+(d²/2)[(p_y,-p_x)]+(d³/3)[(sin α,-cos α)]``
-and the segment moments from ``p_2`` to ``p_2+dn_2`` and from ``p_1+dn_1`` to ``p_1``.
-The integrals use ``∫p ds=cL+R(a[G(sin θ)],-b[H(cos θ)])`` and
-``∫p dα=cΔα+R(a²b[J(sin θ)],-ab²[K(cos θ)])``, with
-``G′(u)=√(b²+(a²-b²)u²)``, ``H′(v)=√(a²+(b²-a²)v²)``,
-``J′(u)=1/(b²+(a²-b²)u²)``, and ``K′(v)=1/(a²+(b²-a²)v²)``.
-These primitives use inverse hyperbolic and trigonometric functions that depend on
-the order of the semi-axes, and polynomials for equal axes.
 The layer's centroid subtracts the wrapped outline's moment and divides by its area.
 """
-function centroid end
-
 centroid(shape::Union{Circle, Annulus}) = (shape.at.x, shape.at.y)
 
 function centroid(sector::Sector)
@@ -762,35 +620,20 @@ S = \\sqrt{x_c^2 + y_c^2} + r_o,
 
 where ``(x_c, y_c)`` is the center of `shape` and ``r_o`` its outer radius \\[m\\]. The
 support of a [`PerforatedShape`](@ref) is that of its outer cross-section. Of a rectangle,
-it is the farthest corner, and of a polygon the farthest vertex. A sector, a contour or an
-arc polygon takes the farthest point of its outer curves.
-
-On an arc, the farthest point lies at the radius beyond the center when the direction of
-the center falls within the arc. Otherwise it lies at an end. Every point of an arc about
-the origin lies at its radius. An ellipse or an elliptic arc takes the point of its curve
-farthest from the origin, at its normal offset.
+it is the farthest corner, and of a polygon the farthest vertex. A sector or an arc
+polygon takes the support of its contour. An ellipse takes the point of its curve farthest
+from the origin.
 
 `support(shape, φ)` returns the support function ``\\max(x\\cos φ+y\\sin φ)`` \\[m\\]
 of `shape` in the direction `φ` \\[rad\\]. For a circle or an annulus, it is the
 projection of the center plus the outer radius. A rectangle takes its farthest corner. A
-sector or an arc polygon takes the farthest point of its outer curves. On an arc, it is
-the point at the radius from the center along `φ` when `φ` falls within the arc, else an
-end.
-
-The ellipse's directional support is
-``c⋅u+√(a²cos²ψ+b²sin²ψ)``, ``ψ=φ-at.φ``. On an elliptic arc, its maximizer
-``θ=atan(b sin ψ,a cos ψ)`` contributes when it lies in the parametric interval.
-Otherwise an endpoint gives the largest projection.
-
-A normal offset ``d`` adds ``d`` to the elliptic arc's interior directional maximum. Its
-ends use ``p+dn``. A layer has the support of its parallel boundary. Each curve has the
-supports of its points, and a contour the largest of its outer curves' supports.
+sector or an arc polygon takes the support of its contour. The ellipse's directional
+support is ``c⋅u+√(a²cos²ψ+b²sin²ψ)``, ``ψ=φ-at.φ``. A layer has the support of its
+parallel boundary.
 
 Holes leave the support unchanged, so for an annulus or a sector it is the support of the
 convex hull.
 """
-function support end
-
 support(circle::Circle) = hypot(circle.at.x, circle.at.y) + circle.r
 support(annulus::Annulus) = hypot(annulus.at.x, annulus.at.y) + annulus.ro
 support(sector::Sector) = support(Contour(sector))
@@ -811,20 +654,10 @@ a sector is its center of curvature. For a sector, ``r_i`` is the nearest point 
 inner side: `ri` for an inner arc, `apex` for a sharp tip and
 ``apex+fillet/\\sin(span/2)-fillet`` for a rounded tip.
 
-A rectangle, an arc polygon or a contour takes the nearest point of its curves. It is zero
-when the origin lies inside the outer path and outside every hole. On a segment
-``P+t(Q-P)``, the nearest point has
-``t=\\operatorname{clamp}(-P\\cdot(Q-P)/|Q-P|^2,0,1)``. On an arc, it lies toward the
-origin when that direction falls within the arc, else at an end.
-
-A polygon uses its placed
-edges and the winding number for the inside test. An ellipse or elliptic arc uses
-``max(0,hypot(c_x,c_y)-max(a,b))``, the circumscribed circle's bound, exact for a
-centered ellipse. An offset elliptic arc uses the radius ``max(a,b)+d``.
-A layer keeps its outer boundary's distance bound.
+A rectangle, a polygon or an arc polygon takes the distance of its contour. An ellipse
+uses ``max(0,hypot(c_x,c_y)-max(a,b))``, the circumscribed circle's bound, exact for a
+centered ellipse. A layer keeps its outer boundary's distance bound.
 """
-function distance end
-
 distance(circle::Circle) = max(zero(circle.r), hypot(circle.at.x, circle.at.y) - circle.r)
 
 function distance(shape::Annulus)
@@ -957,20 +790,13 @@ Return the length of every outer and hole curve of `shape` \\[m\\]:
 
 ``P_\\mathrm{circle}=2πr``, ``P_\\mathrm{annulus}=2π(r_i+r_o)`` and
 ``P_\\mathrm{rectangle}=2(w+h)``, where the radii, width and height are in \\[m\\].
-A sector, arc polygon, perforated shape or contour sums its curves:
-a segment contributes ``|Q-P|`` and an arc contributes ``ρ|θ_2-θ_1|``.
+A sector, an arc polygon and a [`PerforatedShape`](@ref) sum the curves of their contour.
 An ellipse has ``P=4aE(1-b²/a²)``, with ``E`` the complete elliptic integral of the
 second kind.
 
 The formula also holds for ``b>a``. Polygon perimeters sum their edges' lengths.
-An elliptic arc integrates ``√(a²sin²θ+b²cos²θ)`` over its parametric interval
-with QuadGK, the incomplete elliptic integral of the second kind.
-A normal offset ``d`` changes the signed length ``L`` to ``L+dΔα``,
-where ``Δα=span+[atan((a-b)sin θ cos θ,b cos²θ+a sin²θ)]``.
 A layer sums the perimeters of its parallel boundary and its hole.
 """
-function perimeter end
-
 perimeter(circle::Circle) = 2π * circle.r
 perimeter(annulus::Annulus) = 2π * (annulus.ri + annulus.ro)
 perimeter(rectangle::Rectangle) = 2 * (rectangle.w + rectangle.h)

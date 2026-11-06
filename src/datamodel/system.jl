@@ -141,3 +141,17 @@ function Base.map(f, system::CableSystem)
     return build(CableSystem, map.(f, system.designs), map.(f, system.placements);
         connections, id = system.id, line_length = f(system.line_length))
 end
+
+"""
+    draw(target, system)
+
+Draw the regions of a system or a design on `target`, each through the contour of its
+shape. The walk reads the system's or design's already placed regions, then
+`placed.shape` and its contour. A system or design returns a vector of results from its
+regions. A placed region returns the result for `placed.shape`. An `AbstractShape`
+returns the result for its contour.
+"""
+draw(target, system::CableSystem) = [draw(target, placed) for placed in system.regions]
+draw(target, design::CableDesign) = [draw(target, placed) for placed in design.regions]
+draw(target, placed::PlacedRegion) = draw(target, placed.shape)
+draw(target, shape::AbstractShape) = draw(target, Contour(shape))

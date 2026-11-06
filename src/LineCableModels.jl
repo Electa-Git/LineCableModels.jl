@@ -12,19 +12,20 @@ module LineCableModels
 include("commons/Commons.jl")
 include("materials/Materials.jl")
 include("earth/Earth.jl")
+include("cad/CAD.jl")
 include("datamodel/DataModel.jl")
 include("engine/Engine.jl")
-include("cad/CAD.jl")
 
 using .Commons: build, resolve, validate, compute, defaults, select, nominal,
                 AbstractFormulation,
                 AbstractBackend, FormulationOptions, ComputationOptions
 using .Materials: Material, material
 using .Earth: EarthLayer, EarthModel, homogeneous, @layers
-using .DataModel: Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle,
+using .CAD: Placement, area, perimeter, centroid, support, distance
+using .DataModel: AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle,
                   Offset, Sector, Ellipse, Polygon, AbstractLayoutPattern, CircularPattern,
                   LinearPattern, Helix,
-                  LayRatio, area, perimeter, centroid, support, distance, boundary, r_in,
+                  LayRatio, boundary, r_in,
                   r_ex,
                   placements, overlength, pitch, PerforatedShape, ArcPolygon,
                   AbstractCablePart, Region,

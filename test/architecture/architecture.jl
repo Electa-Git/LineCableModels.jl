@@ -19,7 +19,13 @@ end
     tree = Guards.PackageTree(LineCableModels, extensions, pkgdir(LineCableModels))
     files = Guards.source_files(pkgdir(LineCableModels))
     directory = pkgdir(LineCableModels)
-    curve_members = nameof.(Base.uniontypes(LineCableModels.DataModel.Curve{Float64}))
+    curve_members = nameof.(Base.uniontypes(LineCableModels.CAD.Curve{Float64}))
+    datamodel = LineCableModels.DataModel
+    shapes = [name
+              for name in names(datamodel; all = true)
+              if isdefined(datamodel, name) && getfield(datamodel, name) isa Type &&
+                 getfield(datamodel, name) <: datamodel.AbstractShape &&
+                 !isabstracttype(getfield(datamodel, name))]
     methods = Guards.package_methods(tree)
     homes = Guards.home_directories(tree)
 
@@ -86,14 +92,16 @@ end
         @test Guards.offset_reads(directory) == Dict{String, Int}()
     end
 
-    @testset "one distance across" begin
-        @test Guards.dimension_methods(directory, curve_members) == Dict{String, Int}()
+    @testset "no distance across on a concrete shape" begin
+        @test Guards.dimension_methods(directory, shapes) == Dict{String, Int}()
         planted = joinpath(@__DIR__, "probes", "sources", "planted")
-        @test Guards.dimension_methods(planted, curve_members) == Dict{String, Int}(
+        @test Guards.dimension_methods(planted, shapes) == Dict{String, Int}(
             "src/dimensions.jl:1 | dimension(shape::Rectangle) = 1" => 1,
-            "src/dimensions.jl:2 | dimension(curve::Clothoid) = 1" => 1)
+            "src/dimensions.jl:4 | dimension(::Sector) = 1" => 1,
+            "src/dimensions.jl:5 | dimension(shape::Circle{T}) where {T} = 1" => 1,
+            "src/dimensions.jl:6 | dimension(shape::Union{Annulus, Ellipse}) = 1" => 1)
         clean = joinpath(@__DIR__, "probes", "sources", "clean")
-        @test Guards.dimension_methods(clean, curve_members) == Dict{String, Int}()
+        @test Guards.dimension_methods(clean, shapes) == Dict{String, Int}()
     end
 
     @testset "no distance across outside dimension and section" begin

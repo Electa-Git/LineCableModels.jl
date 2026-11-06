@@ -44,6 +44,19 @@ Public = true
 Private = false
 ```
 
+## CAD
+
+```@autodocs
+Modules = [LineCableModels.CAD]
+Order = [:module, :constant, :type, :function, :macro]
+Public = true
+Private = false
+```
+
+```@docs
+Base.:*(parent::Placement, child::Placement)
+```
+
 ## DataModel
 
 ```@autodocs
@@ -56,7 +69,6 @@ Private = false
 ```@docs
 build(::Type{CableDesign}, id::AbstractString, parts::AbstractCablePart...)
 build(::Type{CableSystem}, designs::AbstractVector{<:CableDesign}, placements::AbstractVector{<:Placement})
-Base.:*(parent::Placement, child::Placement)
 ```
 
 ## Engine
@@ -78,15 +90,6 @@ validate(problem::LineParametersProblem, options::FormulationOptions{<:Union{Coa
 validate(problem::LineParametersProblem, formulation::CoaxialFormulation)
 validate(input::Engine.CoaxialInput, formulation::CoaxialFormulation)
 validate(earth::Tuple{Engine.EarthReturn.Formula{ID}, Engine.EarthReturn.Formula{ID}}, ::Type{CoaxialFormulation}) where {ID}
-```
-
-## CAD
-
-```@autodocs
-Modules = [LineCableModels.CAD]
-Order = [:module, :constant, :type, :function, :macro]
-Public = true
-Private = false
 ```
 
 ## Gmsh extension
