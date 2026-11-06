@@ -33,6 +33,7 @@ FEMLayerBoundaryRadii() = {};
 FEMLayerBoundaryThicknesses() = {};
 FEMLayerBoundaryFractions() = {};
 FEMAnnularPatches = 0;
+FEMAngularMatch = 1.4901161193847656e-08;
 FEMAirHoles() = {};
 FEMHole = newll; Curve Loop(FEMHole) = {-4,-3,-2,-1};
 FEMAirHoles() += {FEMHole};

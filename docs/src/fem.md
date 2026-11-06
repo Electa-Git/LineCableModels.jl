@@ -258,7 +258,8 @@ and ``\min(w, h_\square)/2`` for a rectangular strand. A sector of radii ``r_i``
 and angle ``\varphi`` takes the target of the rectangle of width ``r_o - r_i`` and height
 ``\varphi (r_o + r_i)/2``. A thin passive annulus is meshed as a
 strip of ``\max(2, \lceil 2/m_h \rceil)`` radial intervals, with the target of the region at
-least ``2\pi r_o/n_c``.
+least ``2\pi r_o/n_c``. Where a circle touches the inside of a larger one and either
+bounds a passive annulus, the larger circle's arc takes the smaller interval angle.
 
 The parallel of an ellipse enters the geometry as a spline through points at equal steps
 of the angle of its normal. The spline takes ``n_c`` intervals per turn and at least two in

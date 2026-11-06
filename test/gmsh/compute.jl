@@ -104,15 +104,18 @@
             end
         end
     end
-    # The frozen rows were produced on x86_64 Linux. Gmsh's meshing decisions depend on
-    # floating point. The same build on the same platform regenerates the same mesh and
-    # reproduces the rows to 1e-6 of the diagonal. On other platforms, the same geometry is
-    # meshed slightly differently. Pull request 67 measured deviations up to 6e-4 of the
-    # diagonal in Z and Y at most frequencies on Apple silicon, Intel macOS and Windows. There
-    # the rows hold within the FEM acceptance metric, 1e-2, as the coaxial cases do everywhere
-    # because their rows' mesh is older than today's. The comparison with the analytical rows
-    # and the known status holds on every platform and is the physics check.
-    wire_pair_tolerance = Sys.islinux() && Sys.ARCH === :x86_64 ? 1e-6 : 1e-2
+    # The frozen rows were produced on x86_64 Linux with Gmsh 4.15.2. Gmsh's meshing
+    # decisions depend on floating point. A build is the platform and the Gmsh version
+    # together. The same build regenerates the same mesh and reproduces the rows to 1e-6 of
+    # the diagonal. Another platform or another Gmsh version meshes the same geometry
+    # slightly differently. Pull request 67 measured deviations up to 6e-4 of the diagonal
+    # in Z and Y at most frequencies on Apple silicon, Intel macOS and Windows. With Gmsh
+    # 4.13.1 on x86_64 Linux, the deviations are up to 2.7e-4 of the diagonal. There the
+    # rows hold within the FEM acceptance metric, 1e-2, as the coaxial cases do everywhere
+    # because their rows' mesh is older than today's. The comparison with the analytical
+    # rows and the known status holds on every platform and is the physics check.
+    wire_pair_tolerance = Sys.islinux() && Sys.ARCH === :x86_64 &&
+                          gmsh.GMSH_API_VERSION == "4.15.2" ? 1e-6 : 1e-2
     facts = Dict(
         "two_bare_wires" => (wire_pair_tolerance, (Z = 0.00568, Y = 0.00798)),
         "two_insulated_wires" => (wire_pair_tolerance, (Z = 0.00407, Y = 0.000447)),

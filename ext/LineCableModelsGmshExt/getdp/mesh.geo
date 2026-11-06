@@ -246,20 +246,65 @@ For patch In {0:FEMAnnularPatches-1}
   EndFor
 EndFor
 // A chain cannot contain more annular layers than are present in the CAD.
-For pass In {0:FEMAnnularLayers-1}
-  For patch In {0:FEMAnnularPatches-1}
-    FEMOuter = FEMAnnularArcs~{patch}(0); FEMInner = FEMAnnularArcs~{patch}(1);
-    FEMSpacing = 2*Pi*Min(FEMAnnularRadius~{patch}/FEMCurveSegments~{FEMOuter},(FEMAnnularRadius~{patch}-FEMAnnularThickness~{patch})/FEMCurveSegments~{FEMInner});
-    FEMAnnularThin~{patch} = FEMAnnularThickness~{patch}/(FEMAnnularRadialNodes~{patch}-1) < FEMSpacing;
-    If(FEMAnnularThin~{patch})
-      FEMSegments = Max(FEMCurveSegments~{FEMOuter},FEMCurveSegments~{FEMInner});
-      FEMCurveSegments~{FEMOuter} = FEMSegments; FEMCurveSegments~{FEMInner} = FEMSegments;
-    Else
-      // Unaligned layers retain their independent boundary chord-sag bounds.
-      FEMCurveSegments~{FEMOuter} = Max(FEMCurveSegments~{FEMOuter},FEMAnnularGapSegments~{patch}(0));
-      FEMCurveSegments~{FEMInner} = Max(FEMCurveSegments~{FEMInner},FEMAnnularGapSegments~{patch}(1));
-    EndIf
+// The second sweep carries the raises at internal contacts along the chains.
+For sweep In {0:1}
+  For pass In {0:FEMAnnularLayers-1}
+    For patch In {0:FEMAnnularPatches-1}
+      FEMOuter = FEMAnnularArcs~{patch}(0); FEMInner = FEMAnnularArcs~{patch}(1);
+      FEMSpacing = 2*Pi*Min(FEMAnnularRadius~{patch}/FEMCurveSegments~{FEMOuter},(FEMAnnularRadius~{patch}-FEMAnnularThickness~{patch})/FEMCurveSegments~{FEMInner});
+      FEMAnnularThin~{patch} = FEMAnnularThickness~{patch}/(FEMAnnularRadialNodes~{patch}-1) < FEMSpacing;
+      If(FEMAnnularThin~{patch})
+        FEMSegments = Max(FEMCurveSegments~{FEMOuter},FEMCurveSegments~{FEMInner});
+        FEMCurveSegments~{FEMOuter} = FEMSegments; FEMCurveSegments~{FEMInner} = FEMSegments;
+      Else
+        // Unaligned layers retain their independent boundary chord-sag bounds.
+        FEMCurveSegments~{FEMOuter} = Max(FEMCurveSegments~{FEMOuter},FEMAnnularGapSegments~{patch}(0));
+        FEMCurveSegments~{FEMInner} = Max(FEMCurveSegments~{FEMInner},FEMAnnularGapSegments~{patch}(1));
+      EndIf
+    EndFor
   EndFor
+  If(sweep == 0)
+    // Where a circle touches the inside of a larger circle, the larger arc's first chord
+    // leaves the contact strictly inside the smaller arc's first chord.
+    For patch In {0:FEMAnnularPatches-1}
+      FEMPairs = #FEMAnnularContacts~{patch}()/2;
+      For pair In {0:FEMPairs-1}
+        FEMLarger = FEMAnnularContacts~{patch}(2*pair); FEMSmaller = FEMAnnularContacts~{patch}(2*pair+1);
+        FEMLargerFraction = FEMAnnularContactFractions~{patch}(2*pair);
+        FEMSmallerFraction = FEMAnnularContactFractions~{patch}(2*pair+1);
+        // The smaller arc's count: a patch arc's from its segments, else its declared count,
+        // else a circle's base count, declared here.
+        If(Exists(FEMAnnularCurve~{FEMSmaller}))
+          FEMIntervals = FEMCurveSegments~{FEMSmaller}*FEMSmallerFraction;
+          FEMSmallerIntervals = Ceil(FEMIntervals-64*2^(Floor(Log(FEMIntervals)/Log(2))-52));
+        Else
+          If(!Exists(FEMCurveNodes~{FEMSmaller}))
+            FEMIntervals = FEMCircleSegments*FEMSmallerFraction;
+            FEMCurveNodes~{FEMSmaller} = Ceil(FEMIntervals-64*2^(Floor(Log(FEMIntervals)/Log(2))-52))+1;
+            Transfinite Curve {FEMSmaller} = FEMCurveNodes~{FEMSmaller};
+          EndIf
+          FEMSmallerIntervals = FEMCurveNodes~{FEMSmaller}-1;
+        EndIf
+        FEMSmallerAngle = 2*Pi*FEMSmallerFraction/FEMSmallerIntervals;
+        FEMLeast = Floor(2*Pi*FEMLargerFraction/(FEMSmallerAngle-2*FEMAngularMatch))+1;
+        // The larger arc takes the least count that meets the order: a patch arc through its
+        // segments, any other arc through its declared count, a circle's base count first.
+        If(Exists(FEMAnnularCurve~{FEMLarger}))
+          FEMIntervals = FEMCurveSegments~{FEMLarger}*FEMLargerFraction;
+          If(Ceil(FEMIntervals-64*2^(Floor(Log(FEMIntervals)/Log(2))-52)) < FEMLeast)
+            FEMCurveSegments~{FEMLarger} = FEMLeast/FEMLargerFraction;
+          EndIf
+        Else
+          If(!Exists(FEMCurveNodes~{FEMLarger}))
+            FEMIntervals = FEMCircleSegments*FEMLargerFraction;
+            FEMCurveNodes~{FEMLarger} = Ceil(FEMIntervals-64*2^(Floor(Log(FEMIntervals)/Log(2))-52))+1;
+          EndIf
+          If(FEMCurveNodes~{FEMLarger}-1 < FEMLeast) FEMCurveNodes~{FEMLarger} = FEMLeast+1; EndIf
+          Transfinite Curve {FEMLarger} = FEMCurveNodes~{FEMLarger};
+        EndIf
+      EndFor
+    EndFor
+  EndIf
 EndFor
 For patch In {0:FEMAnnularPatches-1}
   For member In {0:1}
@@ -273,6 +318,18 @@ For patch In {0:FEMAnnularPatches-1}
     Transfinite Curve {FEMAnnularSpokes~{patch}()} = FEMAnnularRadialNodes~{patch};
     Transfinite Surface {FEMAnnularSurface~{patch}} = {FEMAnnularCorners~{patch}()} AlternateLeft;
   EndIf
+EndFor
+// Every recorded contact meets the order once every count is declared.
+For patch In {0:FEMAnnularPatches-1}
+  FEMPairs = #FEMAnnularContacts~{patch}()/2;
+  For pair In {0:FEMPairs-1}
+    FEMLarger = FEMAnnularContacts~{patch}(2*pair); FEMSmaller = FEMAnnularContacts~{patch}(2*pair+1);
+    FEMLargerAngle = 2*Pi*FEMAnnularContactFractions~{patch}(2*pair)/(FEMCurveNodes~{FEMLarger}-1);
+    FEMSmallerAngle = 2*Pi*FEMAnnularContactFractions~{patch}(2*pair+1)/(FEMCurveNodes~{FEMSmaller}-1);
+    If(FEMLargerAngle >= FEMSmallerAngle-2*FEMAngularMatch)
+      Error("Curve %g touches the inside of curve %g with intervals the mesh does not order", FEMSmaller, FEMLarger);
+    EndIf
+  EndFor
 EndFor
 EndIf
 If(ThinLayerStrips) Call FEMLayerBoundaryTargets; EndIf

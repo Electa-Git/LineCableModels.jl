@@ -846,13 +846,11 @@ function patches!(geometry::Geometry, annulus::Annulus, i::Int)
         stop_tag = only(draw(geometry, Segment(geometry.positions[iq], geometry.positions[q])))
         loop = gmsh.model.geo.addCurveLoop([oc, -stop_tag, -ic, start_tag])
         surface = gmsh.model.geo.addPlaneSurface([loop])
-        u = geometry.positions[p] .- (annulus.at.x, annulus.at.y)
-        v = geometry.positions[q] .- (annulus.at.x, annulus.at.y)
-        a = atan(abs(u[1] * v[2] - u[2] * v[1]), u[1] * v[1] + u[2] * v[2])
         push!(geometry.patches,
             (region = i, surface = surface,
                 arcs = (abs(oc), abs(ic)), spokes = (abs(start_tag), abs(stop_tag)),
-                corners = (p, q, iq, ip), fraction = a / (2π)))
+                corners = (p, q, iq, ip),
+                fraction = turn(geometry.curves[abs(oc)]).fraction))
         push!(surfaces, surface)
     end
     return surfaces
@@ -1148,7 +1146,9 @@ Write `geometry` to `path` as the frequency-independent physical CAD read by the
 sources. Write Gmsh's unrolled geometry to `path * "_unrolled"`, replace each point's size
 with `MeshFine`, append the native lists and physical groups, and remove the unrolled file.
 Coordinates, radii, thicknesses, arc lengths, and anchor dimensions are in \\[m\\].
-Angular fractions are dimensionless. Numbers use 17 significant digits.
+Angular fractions are dimensionless, and the angular match is in \\[rad\\].
+Numbers use 17 significant digits. Each patch lists the pairs of circular arcs that touch
+inside one another at its arcs' ends, the larger first, with both fractions.
 """
 function Base.write(path::AbstractString, geometry::Geometry)
     gmsh.model.geo.synchronize()
@@ -1181,6 +1181,29 @@ function Base.write(path::AbstractString, geometry::Geometry)
         cables = [k - 1 for (k, tags) in enumerate(cable_curves) if edge in tags]
         return (radius = radius, thickness = thickness, points = points,
             cables = cables, fraction = turn(geometry.curves[abs(edge)]).fraction)
+    end
+    incident = Dict{Int, Vector{Int}}()
+    for ((circle, (p, q)), tag) in geometry.arcs
+        push!(get!(incident, p, Int[]), tag)
+        push!(get!(incident, q, Int[]), tag)
+    end
+    tangencies = map(geometry.patches) do patch
+        entries = NTuple{4, Float64}[]
+        for A in patch.arcs, e in geometry.ends[A], N in get(incident, e, Int[])
+            N == A && continue
+            a = first(geometry.ends[A]) == e ? A : -A
+            n = first(geometry.ends[N]) == e ? N : -N
+            ds = turn(geometry.curves[A]).length
+            δa = direction(geometry, a, ds) - direction(geometry, a, 0)
+            δn = direction(geometry, n, ds) - direction(geometry, n, 0)
+            Δ = direction(geometry, n, 0) - direction(geometry, a, 0)
+            cos(Δ) > 0 && abs(sin(Δ)) <= sqrt(eps(float(one(sin(Δ))))) || continue
+            sign(δa) * sign(δn) > 0 || continue
+            L, S = abs(δa) < abs(δn) ? (A, N) : (N, A)
+            push!(entries, (L, S, turn(geometry.curves[L]).fraction,
+                turn(geometry.curves[S]).fraction))
+        end
+        return entries
     end
     raw = path * "_unrolled"
     gmsh.write(raw)
@@ -1230,8 +1253,17 @@ function Base.write(path::AbstractString, geometry::Geometry)
                 println(io, "FEMAnnular", name, "~{", i - 1, "} = ",
                     @sprintf("%.17g", Float64(number)), ";")
             end
+            for (name, entries) in (
+                ("Contacts", [number for pair in tangencies[i] for number in pair[1:2]]),
+                ("ContactFractions",
+                    [number for pair in tangencies[i] for number in pair[3:4]]))
+                numbers = [@sprintf("%.17g", Float64(number)) for number in entries]
+                println(io, "FEMAnnular", name, "~{", i - 1, "}() = {",
+                    join(numbers, ", "), "};")
+            end
         end
         println(io, "FEMAnnularPatches = ", length(geometry.patches), ";")
+        println(io, "FEMAngularMatch = ", @sprintf("%.17g", sqrt(eps(Float64))), ";")
         for (i, boundary) in enumerate(boundaries)
             lists = (("Points", boundary.points), ("Cables", boundary.cables))
             for (name, entries) in lists
