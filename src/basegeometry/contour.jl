@@ -148,23 +148,10 @@ function validate(arc::EllipticArc)
         throw(DomainError(arc.φ0, "EllipticArc.φ0 must be finite"))
     isfinite(nominal(arc.span)) && 0 < abs(nominal(arc.span)) <= 2π ||
         throw(DomainError(arc.span, "EllipticArc.span must be finite with 0 < |span| ≤ 2π"))
-    θ₁, θ₂ = minmax(arc.φ0, arc.φ0 + arc.span)
-    ρ_min = min(hypot(arc.a * sin(θ₁), arc.b * cos(θ₁))^3,
-        hypot(arc.a * sin(θ₂), arc.b * cos(θ₂))^3) / (arc.a * arc.b)
-    if nominal(arc.a) > nominal(arc.b)
-        if ceil(nominal(θ₁ / π)) <= floor(nominal(θ₂ / π))
-            ρ_min = arc.b^2 / arc.a
-        end
-    elseif nominal(arc.a) < nominal(arc.b)
-        if ceil(nominal((θ₁ - π / 2) / π)) <= floor(nominal((θ₂ - π / 2) / π))
-            ρ_min = arc.a^2 / arc.b
-        end
-    else
-        ρ_min = arc.a
-    end
-    isfinite(nominal(arc.offset)) && nominal(arc.offset) > -nominal(ρ_min) ||
+    isfinite(nominal(arc.offset)) &&
+    nominal(nominal(arc.span) > 0 ? dimension(arc) : dimension(reverse(arc))) > 0 ||
         throw(DomainError(arc.offset,
-            "EllipticArc.offset must be finite and above minus its smallest radius of curvature, $(ρ_min) m"))
+            "EllipticArc.offset must be finite and above minus its smallest radius of curvature"))
     return arc
 end
 
@@ -664,8 +651,9 @@ function clearance(curve::Segment, other::Segment)
     u, v = curve.q .- curve.p, other.q .- other.p
     w = other.p .- curve.p
     z = zero(u[1] + v[1])
-    candidates = [(s, t, hypot((curve(s) .- other(t))...))
-                  for s in (z, one(z)) for t in (z, one(z))]
+    best = argmin(candidate -> nominal(candidate[3]),
+        map(((s, t),) -> (s, t, hypot((curve(s) .- other(t))...)),
+            ((z, z), (z, one(z)), (one(z), z), (one(z), one(z)))))
     cross = u[1] * v[2] - u[2] * v[1]
     if iszero(nominal(cross))
         L = hypot(u...)
@@ -686,7 +674,8 @@ function clearance(curve::Segment, other::Segment)
         s = (w[1] * v[2] - w[2] * v[1]) / cross
         t = (w[1] * u[2] - w[2] * u[1]) / cross
         if 0 <= nominal(s) <= 1 && 0 <= nominal(t) <= 1
-            push!(candidates, (s, t, z))
+            d = z
+            best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
         end
     end
     for s in (z, one(z))
@@ -694,16 +683,18 @@ function clearance(curve::Segment, other::Segment)
         t = ((p[1] - other.p[1]) * v[1] + (p[2] - other.p[2]) * v[2]) /
             (v[1]^2 + v[2]^2)
         t = nominal(t) <= 0 ? z : nominal(t) >= 1 ? one(z) : t
-        push!(candidates, (s, t, hypot((p .- other(t))...)))
+        d = hypot((p .- other(t))...)
+        best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
     end
     for t in (z, one(z))
         q = other(t)
         s = ((q[1] - curve.p[1]) * u[1] + (q[2] - curve.p[2]) * u[2]) /
             (u[1]^2 + u[2]^2)
         s = nominal(s) <= 0 ? z : nominal(s) >= 1 ? one(z) : s
-        push!(candidates, (s, t, hypot((curve(s) .- q)...)))
+        d = hypot((curve(s) .- q)...)
+        best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
     end
-    s, t, d = argmin(candidate -> nominal(candidate[3]), candidates)
+    s, t, d = best
     return (curve(s), other(t), d, s, t)
 end
 
@@ -718,14 +709,16 @@ among the ends, the feet of the normals and the crossings.
 function clearance(curve::Segment, other::Arc)
     u = curve.q .- curve.p
     z = zero(u[1] + other.r)
-    candidates = [(s, t, hypot((curve(s) .- other(t))...))
-                  for s in (z, one(z)) for t in (z, one(z))]
+    best = argmin(candidate -> nominal(candidate[3]),
+        map(((s, t),) -> (s, t, hypot((curve(s) .- other(t))...)),
+            ((z, z), (z, one(z)), (one(z), z), (one(z), one(z)))))
     L = u[1]^2 + u[2]^2
     for t in (z, one(z))
         q = other(t)
         s = ((q[1] - curve.p[1]) * u[1] + (q[2] - curve.p[2]) * u[2]) / L
         s = nominal(s) <= 0 ? z : nominal(s) >= 1 ? one(z) : s
-        push!(candidates, (s, t, hypot((curve(s) .- q)...)))
+        d = hypot((curve(s) .- q)...)
+        best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
     end
     for s in (z, one(z))
         p = curve(s)
@@ -733,7 +726,8 @@ function clearance(curve::Segment, other::Arc)
         travel = mod(sign(other.span) * (φ - other.at.φ), 2π)
         if nominal(travel) <= abs(nominal(other.span))
             t = travel / abs(other.span)
-            push!(candidates, (s, t, hypot((p .- other(t))...)))
+            d = hypot((p .- other(t))...)
+            best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
         end
     end
     h = ((other.at.x - curve.p[1]) * u[1] +
@@ -745,7 +739,8 @@ function clearance(curve::Segment, other::Arc)
             travel = mod(sign(other.span) * (φ - other.at.φ), 2π)
             if nominal(travel) <= abs(nominal(other.span))
                 t = travel / abs(other.span)
-                push!(candidates, (s, t, hypot((p .- other(t))...)))
+                d = hypot((p .- other(t))...)
+                best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
             end
         end
     end
@@ -759,12 +754,13 @@ function clearance(curve::Segment, other::Arc)
                 travel = mod(sign(other.span) * (φ - other.at.φ), 2π)
                 if nominal(travel) <= abs(nominal(other.span))
                     t = travel / abs(other.span)
-                    push!(candidates, (s, t, z))
+                    d = z
+                    best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
                 end
             end
         end
     end
-    s, t, d = argmin(candidate -> nominal(candidate[3]), candidates)
+    s, t, d = best
     return (curve(s), other(t), d, s, t)
 end
 
@@ -790,8 +786,9 @@ centers, or else their nearest ends.
 """
 function clearance(curve::Arc, other::Arc)
     z = zero(curve.r + other.r)
-    candidates = [(s, t, hypot((curve(s) .- other(t))...))
-                  for s in (z, one(z)) for t in (z, one(z))]
+    best = argmin(candidate -> nominal(candidate[3]),
+        map(((s, t),) -> (s, t, hypot((curve(s) .- other(t))...)),
+            ((z, z), (z, one(z)), (one(z), z), (one(z), one(z)))))
     w = (other.at.x - curve.at.x, other.at.y - curve.at.y)
     L = hypot(w...)
     if nominal(curve.at.x) == nominal(other.at.x) &&
@@ -827,7 +824,8 @@ function clearance(curve::Arc, other::Arc)
             travel = mod(sign(other.span) * (φ - other.at.φ), 2π)
             if nominal(travel) <= abs(nominal(other.span))
                 t = travel / abs(other.span)
-                push!(candidates, (s, t, hypot((p .- other(t))...)))
+                d = hypot((p .- other(t))...)
+                best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
             end
         end
         for t in (z, one(z))
@@ -836,7 +834,8 @@ function clearance(curve::Arc, other::Arc)
             travel = mod(sign(curve.span) * (φ - curve.at.φ), 2π)
             if nominal(travel) <= abs(nominal(curve.span))
                 s = travel / abs(curve.span)
-                push!(candidates, (s, t, hypot((curve(s) .- q)...)))
+                d = hypot((curve(s) .- q)...)
+                best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
             end
         end
         for φ in (atan(w[2], w[1]), atan(w[2], w[1]) + π),
@@ -847,7 +846,8 @@ function clearance(curve::Arc, other::Arc)
             if nominal(travel₁) <= abs(nominal(curve.span)) &&
                nominal(travel₂) <= abs(nominal(other.span))
                 s, t = travel₁ / abs(curve.span), travel₂ / abs(other.span)
-                push!(candidates, (s, t, hypot((curve(s) .- other(t))...)))
+                d = hypot((curve(s) .- other(t))...)
+                best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
             end
         end
         h = (curve.r^2 - other.r^2 + L^2) / (2L)
@@ -864,12 +864,13 @@ function clearance(curve::Arc, other::Arc)
                 if nominal(travel₁) <= abs(nominal(curve.span)) &&
                    nominal(travel₂) <= abs(nominal(other.span))
                     s, t = travel₁ / abs(curve.span), travel₂ / abs(other.span)
-                    push!(candidates, (s, t, z))
+                    d = z
+                    best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
                 end
             end
         end
     end
-    s, t, d = argmin(candidate -> nominal(candidate[3]), candidates)
+    s, t, d = best
     return (curve(s), other(t), d, s, t)
 end
 
@@ -889,8 +890,9 @@ function clearance(curve::EllipticArc, other::EllipticArc)
         nominal(other.a), nominal(other.b)) ||
         throw(DomainError((curve, other), "the clearance of two elliptic arcs needs one ellipse"))
     z = zero(curve.a + other.a)
-    candidates = [(s, t, hypot((curve(s) .- other(t))...))
-                  for s in (z, one(z)) for t in (z, one(z))]
+    best = argmin(candidate -> nominal(candidate[3]),
+        map(((s, t),) -> (s, t, hypot((curve(s) .- other(t))...)),
+            ((z, z), (z, one(z)), (one(z), z), (one(z), one(z)))))
     α = mod(curve.φ0 + min(curve.span, zero(curve.span)), 2π)
     β = mod(other.φ0 + min(other.span, zero(other.span)), 2π)
     ranges = [(max(α, β + k * 2π),
@@ -915,7 +917,7 @@ function clearance(curve::EllipticArc, other::EllipticArc)
             (nominal(other.span) > 0 ? one(z) : z) : t
         return (curve(s), other(t), abs(curve.offset - other.offset), s, t)
     end
-    s, t, d = argmin(candidate -> nominal(candidate[3]), candidates)
+    s, t, d = best
     return (curve(s), other(t), d, s, t)
 end
 

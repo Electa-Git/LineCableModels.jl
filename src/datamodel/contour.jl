@@ -51,11 +51,12 @@ boundary(shape::ArcPolygon) = shape
 
 function Base.issubset(B::AbstractShape, A::Union{Rectangle, Polygon, Ellipse, ArcPolygon})
     T = promote_type(eltype(A), eltype(B))
-    paths = (Contour(A).outer, Contour(B).outer)
+    container = Contour(A)
+    paths = (container.outer, Contour(B).outer)
     for edge in [curve for path in paths for curve in path if curve isa Segment]
         dx, dy = edge.q .- edge.p
         φ = atan(-dx, dy)
-        radius = support(A, φ)
+        radius = support(container, φ)
         tolerance = sqrt(eps(float(nominal(radius)))) *
                     max(one(nominal(radius)), nominal(radius))
         nominal(support(B, φ)) <= nominal(radius) + tolerance || return false
@@ -79,7 +80,7 @@ function Base.issubset(B::AbstractShape, A::Union{Rectangle, Polygon, Ellipse, A
         low = start + (nominal(span) < 0 ? span : zero(T))
         high = start + (nominal(span) > 0 ? span : zero(T))
         for angle in (low, high)
-            radius = support(A, angle)
+            radius = support(container, angle)
             tolerance = sqrt(eps(float(nominal(radius)))) *
                         max(one(nominal(radius)), nominal(radius))
             nominal(support(B, angle)) <= nominal(radius) + tolerance || return false
@@ -89,16 +90,16 @@ function Base.issubset(B::AbstractShape, A::Union{Rectangle, Polygon, Ellipse, A
             right = high - (high - low) / 3
             (nominal(left) == nominal(low) || nominal(right) == nominal(high) ||
              nominal(left) == nominal(right)) && break
-            if nominal(support(A, left) - support(B, left)) <
-               nominal(support(A, right) - support(B, right))
+            if nominal(support(container, left) - support(B, left)) <
+               nominal(support(container, right) - support(B, right))
                 high = right
             else
                 low = left
             end
         end
-        φ = argmin(angle -> nominal(support(A, angle) - support(B, angle)),
+        φ = argmin(angle -> nominal(support(container, angle) - support(B, angle)),
             (low, (low + high) / 2, high))
-        radius = support(A, φ)
+        radius = support(container, φ)
         tolerance = sqrt(eps(float(nominal(radius)))) *
                     max(one(nominal(radius)), nominal(radius))
         nominal(support(B, φ)) <= nominal(radius) + tolerance || return false
