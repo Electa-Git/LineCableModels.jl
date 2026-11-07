@@ -46,6 +46,7 @@ using ForwardDiff
     include("measurements/propagation.jl")
     include("forwarddiff/extension.jl")
     include("forwarddiff/compute.jl")
+    include("intervals/extension.jl")
     include("gmsh/options.jl")
     include("gmsh/model.jl")
     include("gmsh/geometry.jl")

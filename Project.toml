@@ -16,22 +16,27 @@ SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 getdp_jll = {url = "https://github.com/amaurigmartins/getdp_jll.jl"}
 
 [weakdeps]
+Arblib = "fb37089c-8514-4489-9461-98f9c8763369"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
+IntervalArithmetic = "d1acc4aa-44c8-5952-acd4-ba5d80a2a253"
 Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
 getdp_jll = "748e3284-65fd-5b96-9e8f-f6d9cd1a6898"
 
 [extensions]
 LineCableModelsForwardDiffExt = "ForwardDiff"
 LineCableModelsGmshExt = ["Gmsh", "getdp_jll"]
+LineCableModelsIntervalArithmeticExt = ["IntervalArithmetic", "Arblib"]
 LineCableModelsMeasurementsExt = "Measurements"
 
 [compat]
 Aqua = "0.8"
+Arblib = "1"
 DocStringExtensions = "0.9.3, 0.10"
 ExplicitImports = "1.15"
 ForwardDiff = "1"
 Gmsh = "0.3.1"
+IntervalArithmetic = "1.0.10"
 IntervalSets = "0.7"
 JET = "0.12, 0.13"
 JuliaSyntax = "1"
@@ -47,9 +52,11 @@ julia = "1.12"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+Arblib = "fb37089c-8514-4489-9461-98f9c8763369"
 ExplicitImports = "7d51a73a-1435-4ff3-83d9-f097790105c7"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
+IntervalArithmetic = "d1acc4aa-44c8-5952-acd4-ba5d80a2a253"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 JuliaSyntax = "70703baa-626e-46a2-a12c-08ffd08c73b4"
 Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
@@ -58,4 +65,4 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 getdp_jll = "748e3284-65fd-5b96-9e8f-f6d9cd1a6898"
 
 [targets]
-test = ["Aqua", "ExplicitImports", "ForwardDiff", "Gmsh", "JET", "JuliaSyntax", "Measurements", "TOML", "Test", "getdp_jll"]
+test = ["Aqua", "Arblib", "ExplicitImports", "ForwardDiff", "Gmsh", "IntervalArithmetic", "JET", "JuliaSyntax", "Measurements", "TOML", "Test", "getdp_jll"]

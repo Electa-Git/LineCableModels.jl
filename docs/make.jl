@@ -1,10 +1,12 @@
 using Documenter, DocumenterCitations, Literate, LineCableModels, Measurements, ForwardDiff,
-      Gmsh, getdp_jll
+      Gmsh, getdp_jll, IntervalArithmetic, Arblib
 using TOML
 
 const GmshExt = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
 const MeasurementsExt = Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt)
 const ForwardDiffExt = Base.get_extension(LineCableModels, :LineCableModelsForwardDiffExt)
+const IntervalArithmeticExt = Base.get_extension(LineCableModels,
+    :LineCableModelsIntervalArithmeticExt)
 const REPOSITORY_URL = "https://github.com/Electa-Git/LineCableModels.jl"
 const SITE_URL = "https://electa-git.github.io/LineCableModels.jl"
 
@@ -31,7 +33,8 @@ bibliography = CitationBibliography(joinpath(@__DIR__, "src", "bibliography.bib"
     style = :numeric)
 
 makedocs(;
-    modules = [LineCableModels, GmshExt, MeasurementsExt, ForwardDiffExt],
+    modules = [
+        LineCableModels, GmshExt, MeasurementsExt, ForwardDiffExt, IntervalArithmeticExt],
     authors = join(project["authors"], ", "),
     sitename = "LineCableModels.jl",
     format = Documenter.HTML(;

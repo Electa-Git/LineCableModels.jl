@@ -31,6 +31,18 @@ such as a dimension, a material property or an earth property. The computation t
 Main.ForwardDiffExt
 ```
 
+## IntervalArithmetic extension
+
+The IntervalArithmetic extension encloses the Bessel functions on an interval argument, with
+the ball arithmetic of [Arblib.jl](https://github.com/kalmarek/Arblib.jl).
+`using IntervalArithmetic, Arblib` loads the extension. Kernel branches and integration
+breakpoints decide on the midpoint of an interval. A computation with interval inputs takes
+the branches and the breakpoints of its midpoints.
+
+```@docs
+Main.IntervalArithmeticExt
+```
+
 ## Uncertain inputs
 
 Uncertain values, of type `Measurement`, are accepted for any number of the data model and of

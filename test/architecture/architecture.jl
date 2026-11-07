@@ -15,7 +15,8 @@ end
     extensions = [E
                   for E in (Base.get_extension(LineCableModels, :LineCableModelsGmshExt),
                           Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt),
-                          Base.get_extension(LineCableModels, :LineCableModelsForwardDiffExt))
+                          Base.get_extension(LineCableModels, :LineCableModelsForwardDiffExt),
+                          Base.get_extension(LineCableModels, :LineCableModelsIntervalArithmeticExt))
                   if E isa Module]
     tree = Guards.PackageTree(LineCableModels, extensions, pkgdir(LineCableModels))
     files = Guards.source_files(pkgdir(LineCableModels))

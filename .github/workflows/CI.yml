@@ -79,12 +79,19 @@ jobs:
             @assert Base.get_extension(LineCableModels, :LineCableModelsGmshExt) === nothing
             @assert Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt) === nothing
             @assert Base.get_extension(LineCableModels, :LineCableModelsForwardDiffExt) === nothing
+            @assert Base.get_extension(LineCableModels, :LineCableModelsIntervalArithmeticExt) === nothing
             Pkg.add("Measurements")
             using Measurements
             @assert Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt) !== nothing
             Pkg.add("ForwardDiff")
             using ForwardDiff
             @assert Base.get_extension(LineCableModels, :LineCableModelsForwardDiffExt) !== nothing
+            Pkg.add("IntervalArithmetic")
+            using IntervalArithmetic
+            @assert Base.get_extension(LineCableModels, :LineCableModelsIntervalArithmeticExt) === nothing
+            Pkg.add("Arblib")
+            using Arblib
+            @assert Base.get_extension(LineCableModels, :LineCableModelsIntervalArithmeticExt) !== nothing
             @assert Base.get_extension(LineCableModels, :LineCableModelsGmshExt) === nothing
             Pkg.add("Gmsh")
             using Gmsh

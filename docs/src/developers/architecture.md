@@ -43,7 +43,7 @@ backend. A control belongs to whoever makes the approximation it controls.
 
 ## Modules and ownership
 
-The package is six modules in one load order, and three extensions.
+The package is six modules in one load order, and four extensions.
 
 | Module | Owns |
 | --- | --- |
@@ -56,6 +56,7 @@ The package is six modules in one load order, and three extensions.
 | `LineCableModelsGmshExt` | the finite-element backend, with its model, geometry, meshes, GetDP scan and result |
 | `LineCableModelsMeasurementsExt` | the propagation of input uncertainty: methods only |
 | `LineCableModelsForwardDiffExt` | the derivatives with respect to the inputs: methods only |
+| `LineCableModelsIntervalArithmeticExt` | the enclosures of the Bessel functions on an interval argument: methods only |
 
 The formula families are the eight child modules of `Engine`: `InternalImpedance`,
 `InsulationImpedance`, `InsulationAdmittance`, `SemiconAdmittance`, `EarthReturn`, `Shunt`,
@@ -416,6 +417,14 @@ a complex dual argument, with the derivative identities of the Measurements exte
 defines no name of its own. A real dual argument takes ForwardDiff's own rules. The test tree
 checks the partial derivatives of the Bessel functions and of the line parameters against
 central differences.
+
+### Rigorous enclosures
+
+`using IntervalArithmetic, Arblib` loads `LineCableModelsIntervalArithmeticExt`. The extension
+is methods only. It defines `nominal` on an `Interval`, its midpoint, and five methods of the
+SpecialFunctions Bessel functions on an interval argument. Each method goes through the
+conversions of IntervalArithmetic to and from Arb. It defines no name of its own. The test
+tree checks each enclosure against the definition in Arb at 256 bits.
 
 ## Register and lexicon
 

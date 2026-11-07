@@ -405,3 +405,6 @@ section = "the native section of a shape or region: its kind, 1 a Circle or an E
 
 # LineCableModelsForwardDiffExt defines no name: its methods extend Commons' nominal and SpecialFunctions' Bessel functions.
 [register.LineCableModelsForwardDiffExt]
+
+# LineCableModelsIntervalArithmeticExt defines no name: its methods extend Commons' nominal and SpecialFunctions' Bessel functions.
+[register.LineCableModelsIntervalArithmeticExt]
