@@ -107,6 +107,30 @@ end
         end
     end
 
+    @testset "a hole 1 µm inside a circle lies in its face" begin
+        reference = last(first(REFERENCES))
+        model = FieldModel(reference, FEM())
+        gmsh.initialize()
+        try
+            gmsh.model.add("walk")
+            geometry = Geometry(model, options)
+            # The hole passes 1 µm inside the circle at the angle 17π/64.
+            at = Placement(8.999e-3 * cos(17π / 64), 8.999e-3 * sin(17π / 64))
+            circle = draw(geometry, Contour(Circle(10e-3)).outer)
+            hole = draw(geometry, Contour(Circle(1e-3, at)).outer)
+            apart = draw(geometry, Contour(Circle(1e-3, Placement(20e-3, 0.0))).outer)
+            surfaces, outside = extension.walk!(geometry, (circle.curves, -hole.curves))
+            @test length(surfaces) == 1
+            @test isempty(outside)
+            surfaces, outside = extension.walk!(geometry, (circle.curves, -apart.curves))
+            @test length(surfaces) == 1
+            @test Set(only(outside)) == Set(-apart.curves)
+        finally
+            gmsh.model.remove()
+            gmsh.finalize()
+        end
+    end
+
     @testset "the parallel of an elliptical duct is drawn within the tolerance" begin
         copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
         air = Material(:insulator, Inf)

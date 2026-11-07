@@ -697,49 +697,14 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return whether `point` lies inside `polygon` by the even-odd rule. All coordinates are in
-\\[m\\]. The last vertex connects to the first.
-"""
-function isinside(polygon::Vector{NTuple{2, Float64}}, point::NTuple{2, Float64})
-    inside = false
-    for i in eachindex(polygon)
-        a, b = polygon[i], polygon[mod1(i + 1, length(polygon))]
-        (a[2] > point[2]) == (b[2] > point[2]) && continue
-        point[1] < a[1] + (point[2] - a[2]) * (b[1] - a[1]) / (b[2] - a[2]) &&
-            (inside = !inside)
-    end
-    return inside
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the signed area \\[m²\\] of the closed polyline `points` \\[m\\]:
-
-```math
-A = \\frac{1}{2} \\sum_i
-    [(x_i-x_0)(y_{i+1}-y_0) - (x_{i+1}-x_0)(y_i-y_0)],
-```
-
-where the last vertex connects to the first and ``(x_0,y_0)`` is the first vertex.
-Counterclockwise paths have positive area.
-"""
-function area(points::Vector{NTuple{2, Float64}})
-    origin = first(points)
-    return sum(eachindex(points)) do i
-        j = mod1(i + 1, length(points))
-        return (points[i][1] - origin[1]) * (points[j][2] - origin[2]) -
-               (points[j][1] - origin[1]) * (points[i][2] - origin[2])
-    end / 2
-end
-
-"""
-$(TYPEDSIGNATURES)
-
 Walk oriented `boundaries`, with material on the left, into cycles. Return the plane
 surface tags of positive cycles with their contained holes, and the curve lists of
 uncontained negative cycles. Stored coordinates are in \\[m\\]. Compare incident
 directions at a common distance from each contact.
+
+A cycle's path takes the stored curve of each edge, reversed where the edge is negative.
+The sign of the path's `area` is the cycle's orientation. A negative cycle lies in the
+smallest positive cycle whose region contains the middle of its first curve.
 """
 function walk!(geometry::Geometry, boundaries)
     multiplicities = Dict{Int, Int}()
@@ -750,22 +715,14 @@ function walk!(geometry::Geometry, boundaries)
     all(n -> abs(n) <= 1, values(multiplicities)) ||
         throw(ArgumentError("overlapping boundaries in a FEM material face"))
     edges = sort!([tag * n for (tag, n) in multiplicities if !iszero(n)]; by = abs)
-    samples = Dict{Int, Vector{NTuple{2, Float64}}}()
     outgoing = Dict{Int, Vector{Int}}()
     endpoints = Dict{Int, NTuple{2, Int}}()
     for edge in edges
         p, q = geometry.ends[abs(edge)]
-        curve = geometry.curves[abs(edge)]
-        coordinates = NTuple{2, Float64}[curve(t)
-                                         for t in
-                                             (0.0, 1e-6, ((1:15) ./ 16)..., 1 - 1e-6, 1.0)]
-        coordinates[1], coordinates[end] = geometry.positions[p], geometry.positions[q]
         if edge < 0
             p, q = q, p
-            reverse!(coordinates)
         end
         endpoints[edge] = (p, q)
-        samples[edge] = coordinates
         push!(get!(Vector{Int}, outgoing, p), edge)
     end
     distances = Dict{Int, Float64}()
@@ -789,33 +746,31 @@ function walk!(geometry::Geometry, boundaries)
     length(unique(values(successors))) == length(edges) ||
         throw(ArgumentError("ambiguous FEM material boundary at a contact"))
     cycles = Vector{Int}[]
-    polygons = Vector{NTuple{2, Float64}}[]
+    paths = Vector{Curve{Float64}}[]
     remaining = Set(edges)
     for initial in edges
         initial in remaining || continue
         cycle = Int[]
-        polygon = NTuple{2, Float64}[]
+        path = Curve{Float64}[]
         edge = initial
         while edge in remaining
             delete!(remaining, edge)
             push!(cycle, edge)
-            append!(polygon, samples[edge][1:(end - 1)])
+            push!(path, edge > 0 ? geometry.curves[edge] : reverse(geometry.curves[-edge]))
             edge = successors[edge]
         end
         edge == initial || throw(ArgumentError("nonclosing FEM material face"))
         push!(cycles, cycle)
-        push!(polygons, polygon)
+        push!(paths, path)
     end
-    areas = area.(polygons)
+    areas = area.(paths)
     outers = findall(>(0), areas)
+    contours = Dict(i => Contour(paths[i], Vector{Curve{Float64}}[]) for i in outers)
     interiors = Dict(i => Int[] for i in outers)
     outside = Int[]
     for i in findall(<(0), areas)
-        coordinates = samples[first(cycles[i])]
-        middle = length(coordinates) ÷ 2
-        probe = ((coordinates[middle][1] + coordinates[middle + 1][1]) / 2,
-            (coordinates[middle][2] + coordinates[middle + 1][2]) / 2)
-        parents = filter(owner -> isinside(polygons[owner], probe), outers)
+        probe = first(paths[i])(1 / 2)
+        parents = filter(owner -> probe ∈ contours[owner], outers)
         if isempty(parents)
             push!(outside, i)
             continue

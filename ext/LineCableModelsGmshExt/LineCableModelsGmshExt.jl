@@ -16,7 +16,7 @@ import LineCableModels.Commons: build, compute, defaults, validate
 using LineCableModels.Commons: ComputationOptions, resolve, nominal
 using LineCableModels.Materials: Material
 using LineCableModels.Earth: EarthLayer
-import LineCableModels.BaseGeometry: area, direction, draw
+import LineCableModels.BaseGeometry: direction, draw
 using LineCableModels.DataModel: AbstractShape, AbstractPrimitive, Circle, Annulus,
                                  Rectangle, Offset, Sector, Ellipse, Polygon, ArcPolygon,
                                  PerforatedShape,
@@ -24,7 +24,7 @@ using LineCableModels.DataModel: AbstractShape, AbstractPrimitive, Circle, Annul
 using LineCableModels.BaseGeometry: Placement, support, Segment, Arc, EllipticArc, Curve,
                                     Contour,
                                     turn, parallel,
-                                    dimension, lowest
+                                    dimension, lowest, area
 import LineCableModels.Engine: solve!
 using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem, LineParameters,
                               bundle!, eliminate!, transposition!, admittivity,

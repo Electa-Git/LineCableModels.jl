@@ -400,9 +400,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Check for at least three finite vertices, positive shoelace area
-``2A=\\sum_i(x_i y_{i+1}-y_i x_{i+1})`` \\[m²\\], and edges that meet only
-at adjacent shared ends. Segment intersections use the signs of
+Check for at least three finite vertices, a positive `area` \\[m²\\], and edges that
+meet only at adjacent shared ends. Segment intersections use the signs of
 ``(Q-P)\\times(R-P)``. Return `polygon`, or throw `DomainError`.
 """
 function validate(polygon::Polygon)
@@ -411,9 +410,7 @@ function validate(polygon::Polygon)
     n >= 3 || throw(DomainError(vertices, "Polygon needs at least three vertices"))
     all(isfinite(nominal(x)) for vertex in vertices for x in vertex) ||
         throw(DomainError(vertices, "Polygon coordinates must be finite"))
-    A = sum(vertices[i][1] * vertices[mod1(i + 1, n)][2] -
-            vertices[i][2] * vertices[mod1(i + 1, n)][1] for i in 1:n)
-    nominal(A) > zero(nominal(A)) ||
+    nominal(area(polygon)) > 0 ||
         throw(DomainError(vertices, "Polygon signed area must be positive"))
     for i in 1:n
         P, Q = vertices[i], vertices[mod1(i + 1, n)]
