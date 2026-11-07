@@ -489,23 +489,12 @@ For a circle or annulus `A`, translate `B` to the frame centered on `A` as
 `C = resolve(Placement(-A.at.x, -A.at.y), B)`. Compare ``support(C)≤r_ex(A)+tol``
 and ``distance(C)+tol≥r_in(A)``, with the tolerance computed from `r_ex(A)`.
 
-For a rectangle or polygon `A`, compare ``support(B,φ)≤support(A,φ)+tol``
-at the outward normals of every segment of both contours. This is exact for convex `A`.
-For an ellipse, sector or arc polygon `A`, compare those normals too.
-Also minimize ``g(φ)=support(A,φ)-support(B,φ)`` within each arc's outward normal range.
-Use circular and elliptic arcs of either contour.
-
-Newton's method starts from the direction of `centroid(B)` about `centroid(A)`.
-It stops when the nominal angle change is at most ``√eps(float(φ))max(1,|φ|)``,
-when the first derivative is zero, or when the second derivative is nonpositive.
-The limit of 100 iterations bounds the work when the angle change exceeds the criterion.
-
-The active supporting curve supplies closed derivatives.
-For ``h=√(a²cos²ψ+b²sin²ψ)``, use
-``h'=(b²-a²)sinψ cosψ/h`` and ``h''=(b²-a²)cos(2ψ)/h-(h')²/h``.
-Circular arcs have ``a=b=r``. An offset elliptic arc has value ``c⋅u+h+d``.
-The normal offset ``d`` leaves these derivatives unchanged.
-For a point, use its projection and its derivatives.
+For a rectangle, polygon, ellipse or arc polygon `A`, compare
+``support(B,φ)≤support(A,φ)+tol`` at the outward normal at each end of every curve of
+both contours. A sector takes this test through the arc polygon of its contour. Between
+two consecutive normals both supports are smooth. A ternary search finds the least
+``g(φ)=support(A,φ)-support(B,φ)`` between them, and the test compares it too. This is
+exact for convex `A`.
 
 The arithmetic uses the promoted coordinate type. Decisions and the stop criterion use
 `nominal` values. The support tolerance is ``√eps(float(x))max(1,x)`` for the

@@ -50,55 +50,34 @@ distance(shape::ArcPolygon) = distance(Contour(shape))
 boundary(shape::ArcPolygon) = shape
 
 function Base.issubset(B::AbstractShape, A::Union{Rectangle, Polygon, Ellipse, ArcPolygon})
-    T = promote_type(eltype(A), eltype(B))
     container = Contour(A)
-    paths = (container.outer, Contour(B).outer)
-    for edge in [curve for path in paths for curve in path if curve isa Segment]
-        dx, dy = edge.q .- edge.p
-        φ = atan(-dx, dy)
-        radius = support(container, φ)
-        tolerance = sqrt(eps(float(nominal(radius)))) *
-                    max(one(nominal(radius)), nominal(radius))
-        nominal(support(B, φ)) <= nominal(radius) + tolerance || return false
-    end
-    arcs = [[(at = curve.at, a = curve.r, b = curve.r,
-                 φ0 = zero(T), span = curve.span, offset = zero(T))
-             for curve in path if curve isa Arc] for path in paths]
-    for (i, path) in enumerate(paths)
-        append!(arcs[i],
-            [(at = curve.at, a = curve.a, b = curve.b,
-                 φ0 = curve.φ0, span = curve.span, offset = curve.offset)
-             for curve in path if curve isa EllipticArc])
-    end
-    for arc in Iterators.flatten(arcs)
-        start = arc.at.φ + atan(arc.a * sin(arc.φ0), arc.b * cos(arc.φ0))
-        finish = arc.at.φ + atan(arc.a * sin(arc.φ0 + arc.span),
-            arc.b * cos(arc.φ0 + arc.span))
-        span = sign(arc.span) * mod(sign(arc.span) * (finish - start), T(2π))
-        abs(nominal(arc.span)) >= 2π && (span = sign(arc.span) * T(2π))
-        nominal(arc.span) < 0 && (start += T(π))
-        low = start + (nominal(span) < 0 ? span : zero(T))
-        high = start + (nominal(span) > 0 ? span : zero(T))
-        for angle in (low, high)
-            radius = support(container, angle)
-            tolerance = sqrt(eps(float(nominal(radius)))) *
-                        max(one(nominal(radius)), nominal(radius))
-            nominal(support(B, angle)) <= nominal(radius) + tolerance || return false
-        end
-        while true
-            left = low + (high - low) / 3
-            right = high - (high - low) / 3
-            (nominal(left) == nominal(low) || nominal(right) == nominal(high) ||
-             nominal(left) == nominal(right)) && break
-            if nominal(support(container, left) - support(B, left)) <
-               nominal(support(container, right) - support(B, right))
-                high = right
-            else
-                low = left
+    normals = sort!(
+        reduce(vcat,
+            vec([map(curve -> mod(direction(curve, t) - π / 2, 2π), path)
+                 for t in (0, 1), path in (container.outer, Contour(B).outer)]));
+        by = nominal)
+    push!(normals, first(normals) + 2π)
+    for search in (false, true), k in 1:(length(normals) - 1)
+
+        low, high = normals[k], normals[k + 1]
+        φ = low
+        if search
+            nominal(high) > nominal(low) || continue
+            while true
+                left = low + (high - low) / 3
+                right = high - (high - low) / 3
+                (nominal(left) == nominal(low) || nominal(right) == nominal(high) ||
+                 nominal(left) == nominal(right)) && break
+                if nominal(support(container, left) - support(B, left)) <
+                   nominal(support(container, right) - support(B, right))
+                    high = right
+                else
+                    low = left
+                end
             end
+            φ = argmin(angle -> nominal(support(container, angle) - support(B, angle)),
+                (low, (low + high) / 2, high))
         end
-        φ = argmin(angle -> nominal(support(container, angle) - support(B, angle)),
-            (low, (low + high) / 2, high))
         radius = support(container, φ)
         tolerance = sqrt(eps(float(nominal(radius)))) *
                     max(one(nominal(radius)), nominal(radius))
@@ -110,39 +89,53 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return whether ``B⊆A.outer`` and `B` lies apart from every hole.
-A circular hole of radius ``r`` needs ``distance(B-c)+tol≥r``.
-Another hole needs ``support(hole,ψ)≤-support(B,ψ+π)+tol`` in the outward normal of a
-segment of the hole, or in the reversed normal of a segment of `B`.
-Lengths and tolerances are in \\[m\\], angles in \\[rad\\].
-The test is exact for polygonal outlines. Only segments give directions, so the method
-refuses a content beside an arc of a hole other than a circle.
+Return `true` when the interiors of `B` and of the circle `hole` are disjoint. The
+distance of `B` from the center of the circle is then at least its radius ``r`` less the
+tolerance ``√eps(float(r))max(1,r)``. Lengths are in \\[m\\]. A content that touches the
+hole lies apart from it, as a content that touches its container lies within it.
 """
-function Base.issubset(B::AbstractShape, A::PerforatedShape)
-    B ⊆ A.outer || return false
-    for hole in [hole for hole in A.holes if hole isa Circle]
-        radius = hole.r
+function Base.isdisjoint(B::AbstractShape, hole::Circle)
+    radius = hole.r
+    tolerance = sqrt(eps(float(nominal(radius)))) *
+                max(one(nominal(radius)), nominal(radius))
+    return nominal(distance(resolve(Placement(-hole.at.x, -hole.at.y), B))) + tolerance >=
+           nominal(radius)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `true` when the interiors of `B` and `hole` are disjoint, by a direction ``ψ``
+that separates them: ``support(hole,ψ)≤-support(B,ψ+π)+tol``. The directions are the
+outward normals of the segments of the hole and the reversed normals of the segments of
+`B`. The test is exact for polygonal outlines. Only segments give directions: beside an
+arc of a hole other than a circle, the method returns `false`.
+Lengths are in \\[m\\], angles in \\[rad\\], and the tolerance is that of a circular hole.
+"""
+function Base.isdisjoint(B::AbstractShape, hole::AbstractShape)
+    directions = [atan(-(edge.q[1] - edge.p[1]), edge.q[2] - edge.p[2])
+                  for edge in Contour(hole).outer if edge isa Segment]
+    append!(directions,
+        [atan(-(edge.q[1] - edge.p[1]), edge.q[2] - edge.p[2]) + π
+         for edge in Contour(B).outer if edge isa Segment])
+    apart = false
+    for ψ in directions
+        radius = support(B, ψ + π)
         tolerance = sqrt(eps(float(nominal(radius)))) *
                     max(one(nominal(radius)), nominal(radius))
-        nominal(distance(resolve(Placement(-hole.at.x, -hole.at.y), B))) + tolerance >=
-        nominal(radius) || return false
+        apart |= nominal(support(hole, ψ)) <= -nominal(radius) + tolerance
     end
-    for hole in [hole for hole in A.holes if !(hole isa Circle)]
-        directions = [atan(-(edge.q[1] - edge.p[1]), edge.q[2] - edge.p[2])
-                      for edge in Contour(hole).outer if edge isa Segment]
-        append!(directions,
-            [atan(-(edge.q[1] - edge.p[1]), edge.q[2] - edge.p[2]) + π
-             for edge in Contour(B).outer if edge isa Segment])
-        apart = false
-        for ψ in directions
-            radius = support(B, ψ + π)
-            tolerance = sqrt(eps(float(nominal(radius)))) *
-                        max(one(nominal(radius)), nominal(radius))
-            apart |= nominal(support(hole, ψ)) <= -nominal(radius) + tolerance
-        end
-        apart || return false
-    end
-    return true
+    return apart
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return whether ``B⊆A.outer`` and `B` lies apart from every hole of `A`, by `isdisjoint`.
+Lengths are in \\[m\\].
+"""
+function Base.issubset(B::AbstractShape, A::PerforatedShape)
+    return B ⊆ A.outer && all(hole -> isdisjoint(B, hole), A.holes)
 end
 
 """

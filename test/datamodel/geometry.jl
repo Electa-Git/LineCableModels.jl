@@ -917,6 +917,13 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test @inferred((31.5e-3, 0.0) ∈ Contour(duct))
     end
 
+    @testset "a content apart from a hole" begin
+        @test isdisjoint(Circle(0.5e-3, Placement(5e-3, 0.0)), Circle(2e-3))
+        @test !isdisjoint(Circle(0.5e-3, Placement(2e-3, 0.0)), Circle(2e-3))
+        @test isdisjoint(Circle(0.5e-3, Placement(5e-3, 0.0)), Rectangle(2e-3, 2e-3))
+        @test !isdisjoint(Circle(0.5e-3, Placement(1e-3, 0.0)), Rectangle(2e-3, 2e-3))
+    end
+
     @testset "a curve reversed twice is itself" begin
         for curve in (Segment((0.0, 0.0), (1.0e-3, 2.0e-3)),
             Arc(Placement(1.0e-3, 0, 0.25), 2.0e-3, 0.5),

@@ -17,7 +17,7 @@ using ..Commons: nominal
 using SpecialFunctions: ellipe
 import ..BaseGeometry: Contour, area, perimeter, centroid, support, distance, dimension,
                        draw
-using ..BaseGeometry: Placement, Segment, Arc, EllipticArc, Curve, parallel
+using ..BaseGeometry: Placement, Segment, Arc, EllipticArc, Curve, parallel, direction
 
 export AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
 export Sector, Ellipse, Polygon
