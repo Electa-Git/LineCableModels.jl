@@ -327,283 +327,6 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
-`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
-both points lie at the distance `d` from ``j`` along the outward normal. Where the two
-parallels converge, both points are their intersection nearest ``j``. Where they diverge,
-each point is the end of its own parallel.
-"""
-function parallel(a::Segment, b::Segment, d::Real)
-    j = a(1)
-    θa, θb = direction(a, 1), direction(b, 0)
-    τ = π - mod(π - (θb - θa), 2π)
-    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
-    sine = nominal(u[1] * v[2] - u[2] * v[1])
-    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
-       abs(sine) <= sqrt(eps(float(one(sine))))
-        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
-        return (p, p)
-    elseif nominal(sin(τ) * d) < 0
-        A, B = parallel(a, d), parallel(b, d)
-        U, V = A.q .- A.p, B.q .- B.p
-        w = B.p .- A.p
-        t = (w[1] * V[2] - w[2] * V[1]) / (U[1] * V[2] - U[2] * V[1])
-        p = A.p .+ t .* U
-        return (p, p)
-    else
-        return (parallel(a, d)(1), parallel(b, d)(0))
-    end
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
-`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
-both points lie at the distance `d` from ``j`` along the outward normal. Where the two
-parallels converge, both points are their intersection nearest ``j``. Where they diverge,
-each point is the end of its own parallel.
-"""
-function parallel(a::Segment, b::Arc, d::Real)
-    j = a(1)
-    θa, θb = direction(a, 1), direction(b, 0)
-    τ = π - mod(π - (θb - θa), 2π)
-    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
-    sine = nominal(u[1] * v[2] - u[2] * v[1])
-    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
-       abs(sine) <= sqrt(eps(float(one(sine))))
-        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
-        return (p, p)
-    elseif nominal(sin(τ) * d) < 0
-        A, B = parallel(a, d), parallel(b, d)
-        U = A.q .- A.p
-        w = A.p .- (B.at.x, B.at.y)
-        L = U[1]^2 + U[2]^2
-        h = -(w[1] * U[1] + w[2] * U[2]) / L
-        Δ = h^2 - (w[1]^2 + w[2]^2 - B.r^2) / L
-        δ = sqrt(max(Δ, zero(Δ)))
-        points = (A.p .+ (h - δ) .* U, A.p .+ (h + δ) .* U)
-        p = argmin(xy -> nominal(hypot((xy .- j)...)), points)
-        return (p, p)
-    else
-        return (parallel(a, d)(1), parallel(b, d)(0))
-    end
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
-`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
-both points lie at the distance `d` from ``j`` along the outward normal. Where the two
-parallels converge, both points are their intersection nearest ``j``. Where they diverge,
-each point is the end of its own parallel.
-"""
-function parallel(a::Arc, b::Segment, d::Real)
-    j = a(1)
-    θa, θb = direction(a, 1), direction(b, 0)
-    τ = π - mod(π - (θb - θa), 2π)
-    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
-    sine = nominal(u[1] * v[2] - u[2] * v[1])
-    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
-       abs(sine) <= sqrt(eps(float(one(sine))))
-        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
-        return (p, p)
-    elseif nominal(sin(τ) * d) < 0
-        A, B = parallel(b, d), parallel(a, d)
-        U = A.q .- A.p
-        w = A.p .- (B.at.x, B.at.y)
-        L = U[1]^2 + U[2]^2
-        h = -(w[1] * U[1] + w[2] * U[2]) / L
-        Δ = h^2 - (w[1]^2 + w[2]^2 - B.r^2) / L
-        δ = sqrt(max(Δ, zero(Δ)))
-        points = (A.p .+ (h - δ) .* U, A.p .+ (h + δ) .* U)
-        p = argmin(xy -> nominal(hypot((xy .- j)...)), points)
-        return (p, p)
-    else
-        return (parallel(a, d)(1), parallel(b, d)(0))
-    end
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
-`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
-both points lie at the distance `d` from ``j`` along the outward normal. Where the two
-parallels converge, both points are their intersection nearest ``j``. Where they diverge,
-each point is the end of its own parallel.
-"""
-function parallel(a::Arc, b::Arc, d::Real)
-    j = a(1)
-    θa, θb = direction(a, 1), direction(b, 0)
-    τ = π - mod(π - (θb - θa), 2π)
-    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
-    sine = nominal(u[1] * v[2] - u[2] * v[1])
-    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
-       abs(sine) <= sqrt(eps(float(one(sine))))
-        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
-        return (p, p)
-    elseif nominal(sin(τ) * d) < 0
-        A, B = parallel(a, d), parallel(b, d)
-        w = (B.at.x - A.at.x, B.at.y - A.at.y)
-        L = hypot(w...)
-        U = w ./ L
-        h = (A.r^2 - B.r^2 + L^2) / (2L)
-        Δ = A.r^2 - h^2
-        δ = sqrt(max(Δ, zero(Δ)))
-        center = (A.at.x, A.at.y) .+ h .* U
-        points = (center .+ δ .* (-U[2], U[1]), center .- δ .* (-U[2], U[1]))
-        p = argmin(xy -> nominal(hypot((xy .- j)...)), points)
-        return (p, p)
-    else
-        return (parallel(a, d)(1), parallel(b, d)(0))
-    end
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
-`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
-both points lie at the distance `d` from ``j`` along the outward normal. Where the two
-parallels diverge, each point is the end of its own parallel. Where they converge, the
-method throws `DomainError`: the parallels of an elliptic arc and its neighbour meet at no
-point of a conic.
-"""
-function parallel(a::EllipticArc, b::Segment, d::Real)
-    j = a(1)
-    θa, θb = direction(a, 1), direction(b, 0)
-    τ = π - mod(π - (θb - θa), 2π)
-    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
-    sine = nominal(u[1] * v[2] - u[2] * v[1])
-    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
-       abs(sine) <= sqrt(eps(float(one(sine))))
-        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
-        return (p, p)
-    elseif nominal(sin(τ) * d) < 0
-        throw(DomainError(j,
-            "the parallels of an elliptic arc and its neighbour meet at no point of a conic at $(j) m"))
-    else
-        return (parallel(a, d)(1), parallel(b, d)(0))
-    end
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
-`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
-both points lie at the distance `d` from ``j`` along the outward normal. Where the two
-parallels diverge, each point is the end of its own parallel. Where they converge, the
-method throws `DomainError`: the parallels of an elliptic arc and its neighbour meet at no
-point of a conic.
-"""
-function parallel(a::EllipticArc, b::Arc, d::Real)
-    j = a(1)
-    θa, θb = direction(a, 1), direction(b, 0)
-    τ = π - mod(π - (θb - θa), 2π)
-    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
-    sine = nominal(u[1] * v[2] - u[2] * v[1])
-    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
-       abs(sine) <= sqrt(eps(float(one(sine))))
-        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
-        return (p, p)
-    elseif nominal(sin(τ) * d) < 0
-        throw(DomainError(j,
-            "the parallels of an elliptic arc and its neighbour meet at no point of a conic at $(j) m"))
-    else
-        return (parallel(a, d)(1), parallel(b, d)(0))
-    end
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
-`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
-both points lie at the distance `d` from ``j`` along the outward normal. Where the two
-parallels diverge, each point is the end of its own parallel. Where they converge, the
-method throws `DomainError`: the parallels of an elliptic arc and its neighbour meet at no
-point of a conic.
-"""
-function parallel(a::EllipticArc, b::EllipticArc, d::Real)
-    j = a(1)
-    θa, θb = direction(a, 1), direction(b, 0)
-    τ = π - mod(π - (θb - θa), 2π)
-    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
-    sine = nominal(u[1] * v[2] - u[2] * v[1])
-    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
-       abs(sine) <= sqrt(eps(float(one(sine))))
-        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
-        return (p, p)
-    elseif nominal(sin(τ) * d) < 0
-        throw(DomainError(j,
-            "the parallels of an elliptic arc and its neighbour meet at no point of a conic at $(j) m"))
-    else
-        return (parallel(a, d)(1), parallel(b, d)(0))
-    end
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
-`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
-both points lie at the distance `d` from ``j`` along the outward normal. Where the two
-parallels diverge, each point is the end of its own parallel. Where they converge, the
-method throws `DomainError`: the parallels of an elliptic arc and its neighbour meet at no
-point of a conic.
-"""
-function parallel(a::Segment, b::EllipticArc, d::Real)
-    j = a(1)
-    θa, θb = direction(a, 1), direction(b, 0)
-    τ = π - mod(π - (θb - θa), 2π)
-    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
-    sine = nominal(u[1] * v[2] - u[2] * v[1])
-    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
-       abs(sine) <= sqrt(eps(float(one(sine))))
-        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
-        return (p, p)
-    elseif nominal(sin(τ) * d) < 0
-        throw(DomainError(j,
-            "the parallels of an elliptic arc and its neighbour meet at no point of a conic at $(j) m"))
-    else
-        return (parallel(a, d)(1), parallel(b, d)(0))
-    end
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
-`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
-both points lie at the distance `d` from ``j`` along the outward normal. Where the two
-parallels diverge, each point is the end of its own parallel. Where they converge, the
-method throws `DomainError`: the parallels of an elliptic arc and its neighbour meet at no
-point of a conic.
-"""
-function parallel(a::Arc, b::EllipticArc, d::Real)
-    j = a(1)
-    θa, θb = direction(a, 1), direction(b, 0)
-    τ = π - mod(π - (θb - θa), 2π)
-    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
-    sine = nominal(u[1] * v[2] - u[2] * v[1])
-    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
-       abs(sine) <= sqrt(eps(float(one(sine))))
-        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
-        return (p, p)
-    elseif nominal(sin(τ) * d) < 0
-        throw(DomainError(j,
-            "the parallels of an elliptic arc and its neighbour meet at no point of a conic at $(j) m"))
-    else
-        return (parallel(a, d)(1), parallel(b, d)(0))
-    end
-end
-
-"""
-$(TYPEDSIGNATURES)
-
 Return the turn of the parallel of `face` at the distance `d` \\[m\\] between the points `p`
 and `q`. The fraction is zero, and the signed length \\[m\\] is ``(q-p)⋅u`` for the unit
 direction ``u`` of `face`.
@@ -1266,6 +989,83 @@ function resolve(at::Placement, contour::Contour{T}) where {T}
     return Contour(Curve{S}[resolve(at, curve) for curve in contour.outer],
         Vector{Curve{S}}[Curve{S}[resolve(at, curve) for curve in path]
                          for path in contour.holes])
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
+`d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
+both points lie at the distance `d` from ``j`` along the outward normal. Where the two
+parallels converge, both points are their `vertex` nearest ``j``, which an elliptic arc
+refuses. Where they diverge, each point is the end of its own parallel.
+"""
+function parallel(a::Curve, b::Curve, d::Real)
+    j = a(1)
+    θa, θb = direction(a, 1), direction(b, 0)
+    τ = π - mod(π - (θb - θa), 2π)
+    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
+    sine = nominal(u[1] * v[2] - u[2] * v[1])
+    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
+       abs(sine) <= sqrt(eps(float(one(sine))))
+        p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
+        return (p, p)
+    elseif nominal(sin(τ) * d) < 0
+        p = vertex(parallel(a, d), parallel(b, d), j)
+        return (p, p)
+    else
+        return (parallel(a, d)(1), parallel(b, d)(0))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the crossing of the curves `A` and `B` nearest the point `j`, in \\[m\\]. Segments
+cross where their lines meet. A segment and an arc cross where the line meets the circle,
+and two arcs cross where their circles meet. Of the two crossings of a circle, the result is
+the one nearest `j`.
+
+A line and a circle that have ceased to meet give the foot of the normal from the center to
+the line. Circles that have ceased to meet give the point where their radical axis crosses
+the line of their centers. An elliptic arc's parallel is no conic, and the method throws
+`DomainError` for it.
+"""
+function vertex(A::Segment, B::Segment, j)
+    U, V = A.q .- A.p, B.q .- B.p
+    w = B.p .- A.p
+    t = (w[1] * V[2] - w[2] * V[1]) / (U[1] * V[2] - U[2] * V[1])
+    return A.p .+ t .* U
+end
+
+function vertex(A::Segment, B::Arc, j)
+    U = A.q .- A.p
+    w = A.p .- (B.at.x, B.at.y)
+    L = U[1]^2 + U[2]^2
+    h = -(w[1] * U[1] + w[2] * U[2]) / L
+    Δ = h^2 - (w[1]^2 + w[2]^2 - B.r^2) / L
+    δ = sqrt(max(Δ, zero(Δ)))
+    points = (A.p .+ (h - δ) .* U, A.p .+ (h + δ) .* U)
+    return argmin(xy -> nominal(hypot((xy .- j)...)), points)
+end
+
+vertex(A::Arc, B::Segment, j) = vertex(B, A, j)
+
+function vertex(A::Arc, B::Arc, j)
+    w = (B.at.x - A.at.x, B.at.y - A.at.y)
+    L = hypot(w...)
+    U = w ./ L
+    h = (A.r^2 - B.r^2 + L^2) / (2L)
+    Δ = A.r^2 - h^2
+    δ = sqrt(max(Δ, zero(Δ)))
+    center = (A.at.x, A.at.y) .+ h .* U
+    points = (center .+ δ .* (-U[2], U[1]), center .- δ .* (-U[2], U[1]))
+    return argmin(xy -> nominal(hypot((xy .- j)...)), points)
+end
+
+function vertex(A::Curve, B::Curve, j)
+    throw(DomainError(j,
+        "the parallels of an elliptic arc and its neighbour meet at no point of a conic at $(j) m"))
 end
 
 """

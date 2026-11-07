@@ -1,7 +1,7 @@
 using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon
 using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, parallel,
                                     clearance,
-                                    dimension, turn, lowest
+                                    dimension, turn, lowest, vertex
 
 @testset "DataModel geometry" begin
     @testset "mapping scales real fields" begin
@@ -554,10 +554,13 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
             p1 = (s * cos(π / 4) + e * cos(π / 4), -s * sin(π / 4) + e * sin(π / 4))
             p2 = (s * cos(π / 4) + e * cos(π / 4), s * sin(π / 4) - e * sin(π / 4))
             p3 = (e * sqrt(2), 0.0)
-            for (junction, point) in ((parallel(outward, outer, -e), p1),
-                (parallel(outer, inward, -e), p2), (parallel(inward, outward, -e), p3))
+            for (before, after, point) in ((outward, outer, p1), (outer, inward, p2),
+                (inward, outward, p3))
+                junction = parallel(before, after, -e)
                 @test collect(junction[1]) ≈ collect(point) rtol = 1e-12
                 @test junction[1] == junction[2]
+                p = vertex(parallel(before, -e), parallel(after, -e), before(1))
+                @test collect(p) ≈ collect(point) rtol = 1e-12
             end
             @test turn(outward, -e, p3, p1).length ≈ s - e rtol = 1e-12
             @test turn(outer, -e, p1, p2).length ≈ (r - e) * (π / 2 - 2atan(e / s)) rtol = 1e-12
@@ -570,11 +573,13 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
             p2 = (so * cos(0.15) + e * sin(0.15), so * sin(0.15) - e * cos(0.15))
             p3 = (si * cos(0.15) + e * sin(0.15), si * sin(0.15) - e * cos(0.15))
             p4 = (si * cos(0.15) + e * sin(0.15), -si * sin(0.15) + e * cos(0.15))
-            for (junction, point) in ((parallel(outward, outer, -e), p1),
-                (parallel(outer, inward, -e), p2), (parallel(inward, inner, -e), p3),
-                (parallel(inner, outward, -e), p4))
+            for (before, after, point) in ((outward, outer, p1), (outer, inward, p2),
+                (inward, inner, p3), (inner, outward, p4))
+                junction = parallel(before, after, -e)
                 @test collect(junction[1]) ≈ collect(point) rtol = 1e-12
                 @test junction[1] == junction[2]
+                p = vertex(parallel(before, -e), parallel(after, -e), before(1))
+                @test collect(p) ≈ collect(point) rtol = 1e-12
             end
             @test turn(outward, -e, p4, p1).length ≈ so - si rtol = 1e-12
             @test turn(inward, -e, p2, p3).length ≈ so - si rtol = 1e-12
@@ -607,6 +612,14 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
             @test collect(p) ≈ [2.0e-3, -1.5e-3] rtol = 1e-12
             @test collect(q) ≈ [2.5e-3, -1.0e-3] rtol = 1e-12
         end
+        @testset "two arcs at a corner" begin
+            e = 0.5e-3
+            a = Arc(Placement(-1.0e-3, 0, -π / 3), 2.0e-3, 2π / 3)
+            b = Arc(Placement(1.0e-3, 0, 2π / 3), 2.0e-3, 2π / 3)
+            p = vertex(parallel(a, -e), parallel(b, -e), a(1))
+            @test collect(p) ≈ [0, sqrt(1.25) * 1.0e-3] atol = 1e-15
+            @test parallel(a, b, -e) == (p, p)
+        end
         @testset "an elliptic arc at a corner" begin
             arc = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π)
             chord = Segment((-3.0e-3, 0.0), (3.0e-3, 0.0))
@@ -614,6 +627,9 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
             @test collect(p) ≈ [-3.5e-3, 0] atol = 1e-15
             @test collect(q) ≈ [-3.0e-3, -0.5e-3] atol = 1e-15
             @test_throws DomainError parallel(arc, chord, -0.5e-3)
+            @test_throws DomainError vertex(
+                parallel(arc, -0.5e-3), parallel(chord, -0.5e-3),
+                arc(1))
         end
     end
 
@@ -646,6 +662,18 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test all(arc -> arc.r ≈ 1.5e-3, only(annulus.holes))
         reflex = Contour(Sector(0, 10.0e-3, 4π / 3, 0, 0, Placement(0, 0)))
         @test length(parallel(reflex, -1.0e-3).outer) == length(reflex.outer) + 1
+    end
+
+    @testset "the inward parallel of a sector wider than π" begin
+        r = 10.0e-3
+        sector = Sector(0, r, 4π / 3, 0, 0, Placement(0, 0))
+        @test dimension(sector) ≈ r rtol = 1e-12
+        for e in (1.0e-3, 2.5e-3, 4.5e-3)
+            R, s = r - e, sqrt((r - e)^2 - e^2)
+            outline = parallel(Contour(sector), -e)
+            @test length(outline.outer) == 4
+            @test area(outline) ≈ R^2 * (4π / 3 - 2atan(e, s)) / 2 - e * s - π / 6 * e^2 rtol = 1e-12
+        end
     end
 
     @testset "the clearance of two curves" begin
