@@ -1,7 +1,7 @@
 using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon
 using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, parallel,
                                     clearance,
-                                    dimension, turn, lowest, vertex
+                                    dimension, turn, lowest, vertex, apsides
 
 @testset "DataModel geometry" begin
     @testset "mapping scales real fields" begin
@@ -886,6 +886,12 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         e = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2)
         f = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, π / 3, π / 2)
         @test extrema(LineCableModels.BaseGeometry.overlap(e, f)) == (π / 3, π / 2)
+    end
+
+    @testset "the apsides of a curve about a point" begin
+        @test apsides(Segment((1.0, -1.0), (1.0, 2.0)), (0.0, 0.0)) ==
+              (near = 1 / 3, far = 1.0)
+        @test apsides(Arc(Placement(3.0, 0.0, π / 2), 1.0, π), (0.0, 0.0)).near == 0.5
     end
 
     @testset "a curve reversed twice is itself" begin

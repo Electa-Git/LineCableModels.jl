@@ -17,7 +17,7 @@ using IntervalSets: ClosedInterval, leftendpoint, rightendpoint
 
 export Placement, area, perimeter, centroid, support, distance
 public Segment, Arc, EllipticArc, Curve, Contour, turn, parallel, clearance, dimension,
-       direction, lowest, draw, overlap, vertex
+       direction, lowest, draw, overlap, vertex, apsides
 
 include("placement.jl")
 include("contour.jl")

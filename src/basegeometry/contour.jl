@@ -805,6 +805,82 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Return the parameters `(near, far)` of the points of `curve` nearest to and farthest from
+the point `m` \\[m\\], its ends included. A segment's nearest point is the foot of `m`,
+clamped to the segment. An arc's lie in the directions from its center toward `m` and away
+from it, each clamped to the span, or at an end.
+
+The points of an elliptic arc lie where its distance from `m` is stationary. In the
+ellipse's frame, with ``(x, y)`` the center less `m`, the condition
+``(b^2-a^2)\\sin θ\\cos θ-a x\\sin θ+b y\\cos θ=0`` holds there. Bracket its roots between
+the quadrant ends and the angles of ``\\tan^3 θ=-b y/(a x)``, bisect each bracket, and
+compare the roots in the arc with its ends. A regular normal offset keeps the stationary
+parameters.
+"""
+function apsides(curve::Segment{T}, m) where {T}
+    P = curve.p .- m
+    dx, dy = curve.q .- curve.p
+    t = clamp(-(P[1] * dx + P[2] * dy) / (dx^2 + dy^2), zero(T), one(T))
+    return (
+        near = t, far = argmax(t -> nominal(hypot((curve(t) .- m)...)), (zero(T), one(T))))
+end
+
+function apsides(curve::Arc{T}, m) where {T}
+    φ = atan(m[2] - curve.at.y, m[1] - curve.at.x)
+    toward = clamp(mod(sign(curve.span) * (φ - curve.at.φ), 2π) / abs(curve.span), zero(T),
+        one(T))
+    away = clamp(
+        mod(sign(curve.span) * (φ + π - curve.at.φ), 2π) / abs(curve.span), zero(T),
+        one(T))
+    return (
+        near = argmin(t -> nominal(hypot((curve(t) .- m)...)), (zero(T), one(T), toward)),
+        far = argmax(t -> nominal(hypot((curve(t) .- m)...)), (zero(T), one(T), away)))
+end
+
+function apsides(curve::EllipticArc{T}, m) where {T}
+    c, s = cos(curve.at.φ), sin(curve.at.φ)
+    X, Y = curve.at.x - m[1], curve.at.y - m[2]
+    x = X * c + Y * s
+    y = -X * s + Y * c
+    a, b = curve.a, curve.b
+    θ = !iszero(nominal(x)) && !iszero(nominal(y)) ? mod(atan(cbrt(-b * y / (a * x))), π) :
+        T(π / 2)
+    angles = nominal(θ) < π / 2 ?
+             (zero(T), θ, T(π / 2), T(π), θ + π, T(3π / 2), T(2π)) :
+             (zero(T), T(π / 2), θ, T(π), T(3π / 2), θ + π, T(2π))
+    near = argmin(t -> nominal(hypot((curve(t) .- m)...)), (zero(T), one(T)))
+    far = argmax(t -> nominal(hypot((curve(t) .- m)...)), (zero(T), one(T)))
+    for k in 1:6
+        lo, hi = angles[k], angles[k + 1]
+        left = (b^2 - a^2) * sin(lo) * cos(lo) - a * x * sin(lo) + b * y * cos(lo)
+        right = (b^2 - a^2) * sin(hi) * cos(hi) - a * x * sin(hi) + b * y * cos(hi)
+        nominal(left) * nominal(right) > 0 && continue
+        while true
+            mid = (lo + hi) / 2
+            (nominal(mid) == nominal(lo) || nominal(mid) == nominal(hi)) && break
+            value = (b^2 - a^2) * sin(mid) * cos(mid) - a * x * sin(mid) + b * y * cos(mid)
+            if nominal(sign(value)) == nominal(sign(left))
+                lo = mid
+                left = value
+            else
+                hi = mid
+            end
+        end
+        for ϑ in (lo, hi)
+            travel = mod(sign(curve.span) * (ϑ - curve.φ0), 2π)
+            if nominal(travel) <= abs(nominal(curve.span))
+                t = travel / abs(curve.span)
+                near = argmin(t -> nominal(hypot((curve(t) .- m)...)), (near, t))
+                far = argmax(t -> nominal(hypot((curve(t) .- m)...)), (far, t))
+            end
+        end
+    end
+    return (near = near, far = far)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Return the distance \\[m\\] of the farther endpoint of `curve` from the origin.
 """
 function support(curve::Segment)
@@ -830,52 +906,11 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the distance of the farthest point of `curve` from the origin, at its normal offset.
-Coordinates, semi-axes and offset are in \\[m\\], and the parametric angle is in \\[rad\\].
-
-In the ellipse's frame, the condition ``(b^2-a^2)sin θ cos θ-a x sin θ+b y cos θ=0`` holds
-at the radial stationary points. Divide it by ``sin θ cos θ`` between quadrant ends. The
-derivative of the quotient vanishes only where ``tan^3 θ=-b y/(a x)`` holds. Bisect each
-root bracket to its precision and compare the stationary points in the arc with its
-endpoints. A regular normal offset keeps the stationary parameters.
+Return the distance of the farthest point of `curve` from the origin, at its normal offset,
+in \\[m\\]: the far point of its `apsides` about the origin.
 """
-function support(curve::EllipticArc)
-    c, s = cos(curve.at.φ), sin(curve.at.φ)
-    x = curve.at.x * c + curve.at.y * s
-    y = -curve.at.x * s + curve.at.y * c
-    a, b = curve.a, curve.b
-    angles = [zero(curve.φ0), π / 2, π, 3π / 2, 2π]
-    if !iszero(nominal(x)) && !iszero(nominal(y))
-        θ = mod(atan(cbrt(-b * y / (a * x))), π)
-        append!(angles, (θ, θ + π))
-    end
-    sort!(angles; by = nominal)
-    result = max(hypot(curve(0)...), hypot(curve(1)...))
-    for k in 1:(length(angles) - 1)
-        lo, hi = angles[k], angles[k + 1]
-        left = (b^2 - a^2) * sin(lo) * cos(lo) - a * x * sin(lo) + b * y * cos(lo)
-        right = (b^2 - a^2) * sin(hi) * cos(hi) - a * x * sin(hi) + b * y * cos(hi)
-        nominal(left) * nominal(right) > 0 && continue
-        while true
-            mid = (lo + hi) / 2
-            (nominal(mid) == nominal(lo) || nominal(mid) == nominal(hi)) && break
-            value = (b^2 - a^2) * sin(mid) * cos(mid) -
-                    a * x * sin(mid) + b * y * cos(mid)
-            if nominal(sign(value)) == nominal(sign(left))
-                lo = mid
-                left = value
-            else
-                hi = mid
-            end
-        end
-        for θ in (lo, hi)
-            travel = mod(sign(curve.span) * (θ - curve.φ0), 2π)
-            if nominal(travel) <= abs(nominal(curve.span))
-                result = max(result, hypot(curve(travel / abs(curve.span))...))
-            end
-        end
-    end
-    return result
+function support(curve::EllipticArc{T}) where {T}
+    return hypot(curve(apsides(curve, (zero(T), zero(T))).far)...)
 end
 
 """
@@ -1452,7 +1487,7 @@ its outer curves' supports.
 function support end
 
 function support(contour::Contour)
-    return maximum(support(curve) for curve in contour.outer)
+    return maximum(support, contour.outer)
 end
 
 function support(contour::Contour, φ::Real)
