@@ -121,7 +121,7 @@ symbols = ["i0m1"]
 [modules.BaseGeometry]
 nouns = ["placement", "segment", "curve", "contour", "area", "centroid", "perimeter", "support",
     "distance", "dimension", "parallel", "clearance", "turn", "direction", "overlap", "vertex",
-    "apsides", "winding"]
+    "apsides", "winding", "moment"]
 qualifiers = ["elliptic", "lowest"]
 symbols = ["p"]
 
@@ -365,13 +365,14 @@ vertex = "the vertex where two curves cross, nearest a point: the crossing of th
 clearance = "the clearance between two curves: their two nearest points, its width and the parameters of the two points on their curves, for two arcs of one center the difference of their radii less the distance of their centers, for two arcs of one ellipse the difference of their offsets; the middle of the common range when the two points are not unique"
 overlap = "the widest common angular range of two arcs of one center or of one ellipse, an interval of the first arc's counterclockwise angle; empty when they share none, its endpoints then the two ends that bound the gap"
 lowest = "the lowest point: of a segment its lower end; of an arc or an elliptic arc the bottom of the curve when the arc passes it, else its lower end; of a contour the lowest of its outer path's curves, least y then least x"
-area = "the cross-sectional area of a shape, or the signed area of a closed polyline, positive counterclockwise"
+area = "the cross-sectional area of a shape, or the signed area of a closed polyline, positive counterclockwise; of a closed path the signed area it bounds, of a curve about a point the signed area that the segments from the point to the curve sweep"
+moment = "the first moment of area: of a curve about a point, that of the region the segments from the point to the curve sweep; of a closed path, that of the region it bounds, about the origin"
 centroid = "the centroid of a shape in the cable cross-section"
 perimeter = "the length of the outline of a shape"
 apsides = "the apsides of a curve about a point: the parameters of its point nearest to and of its point farthest from that point, its ends included"
 winding = "the winding about a point: of a closed path its winding number, of a curve the signed fraction of a revolution that its direction from the point sweeps"
 support = "the radius of a circle about the origin that contains a shape, or the support function of a shape in a direction: its largest projection on that direction"
-distance = "the radius of a circle about the origin that a shape does not enter"
+distance = "the radius of a circle about the origin that a shape does not enter; of a curve, the distance of its nearest point from the origin; of a point or a placement, its distance from the origin"
 dimension = "the distance across the metal of a shape: twice the depth at which the inward parallel of its outline first degenerates; a circle's diameter, an annulus's thickness, a rectangle's smaller side; of a curve, the metal on its left, twice the depth at which its inward parallel degenerates: twice its smallest convex radius, infinite for a segment or a curve that turns away from its left"
 draw = "draw a system, a design, a placed region, a shape, a contour or a path on a target as the curves the target draws, returning what the target made"
 

@@ -43,19 +43,29 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return, in \\[m\\], the distance of the position of `at` from the origin of its parent
-frame:
+Return, in \\[m\\], the distance of `point` from the origin:
 
 ```math
 d = \\sqrt{x^2 + y^2},
 ```
 
-where ``x`` and ``y`` are the horizontal and vertical translations of `at`, in \\[m\\]. When
-`iszero` is true for both, the translation is exactly zero and the result is an exact zero,
-`zero(at.x)`. A number type with derivatives, such as a dual number, then has zero
-derivatives there, where those of `hypot` are undefined.
+where ``x`` and ``y`` are the coordinates of `point`, in \\[m\\]. When `iszero` is true for
+both coordinates, the result is the exact zero `zero(x)`. A number type with derivatives,
+such as a dual number, then has zero derivatives there, where those of `hypot` are
+undefined.
 """
-distance(at::Placement) = iszero(at.x) && iszero(at.y) ? zero(at.x) : hypot(at.x, at.y)
+function distance(point::Tuple{Real, Real})
+    iszero(point[1]) && iszero(point[2]) ? zero(point[1]) : hypot(point...)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return, in \\[m\\], the distance of the position of `at` from the origin of its parent
+frame. It is the distance of the point ``(x, y)``, the horizontal and vertical translations
+of `at`.
+"""
+distance(at::Placement) = distance((at.x, at.y))
 
 Base.eltype(::Placement{T}) where {T} = T
 

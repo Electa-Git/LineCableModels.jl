@@ -620,10 +620,9 @@ S = \\sqrt{x_c^2 + y_c^2} + r_o,
 ```
 
 where ``(x_c, y_c)`` is the center of `shape` and ``r_o`` its outer radius \\[m\\]. The
-support of a [`PerforatedShape`](@ref) is that of its outer cross-section. Of a rectangle,
-it is the farthest corner, and of a polygon the farthest vertex. A sector or an arc
-polygon takes the support of its contour. An ellipse takes the point of its curve farthest
-from the origin.
+support of a [`PerforatedShape`](@ref) is that of its outer cross-section. Of a polygon,
+it is the farthest vertex. A rectangle, a sector or an arc polygon takes the support of its
+contour. An ellipse takes the point of its curve farthest from the origin.
 
 `support(shape, φ)` returns the support function ``\\max(x\\cos φ+y\\sin φ)`` \\[m\\]
 of `shape` in the direction `φ` \\[rad\\]. For a circle or an annulus, it is the
@@ -655,9 +654,8 @@ a sector is its center of curvature. For a sector, ``r_i`` is the nearest point 
 inner side: `ri` for an inner arc, `apex` for a sharp tip and
 ``apex+fillet/\\sin(span/2)-fillet`` for a rounded tip.
 
-A rectangle, a polygon or an arc polygon takes the distance of its contour. An ellipse
-uses ``max(0,hypot(c_x,c_y)-max(a,b))``, the circumscribed circle's bound, exact for a
-centered ellipse. A layer keeps its outer boundary's distance bound.
+A rectangle, a polygon, an arc polygon or an ellipse takes the distance of its contour. A
+layer keeps its outer boundary's distance bound.
 """
 distance(circle::Circle) = max(zero(circle.r), distance(circle.at) - circle.r)
 
@@ -756,10 +754,7 @@ function Base.map(f, shape::PerforatedShape)
 end
 
 centroid(rectangle::Rectangle) = (rectangle.at.x, rectangle.at.y)
-function support(rectangle::Rectangle)
-    return maximum(hypot(point...) for curve in Contour(rectangle).outer
-    for point in (curve(0), curve(1)))
-end
+support(rectangle::Rectangle) = support(Contour(rectangle))
 boundary(rectangle::Rectangle) = rectangle
 distance(rectangle::Rectangle) = distance(Contour(rectangle))
 
@@ -882,10 +877,7 @@ function support(polygon::Polygon, φ::Real)
     return maximum(point[1] * cos(φ) + point[2] * sin(φ)
     for point in (polygon.at(vertex) for vertex in polygon.vertices))
 end
-function distance(ellipse::Ellipse)
-    return max(zero(ellipse.a), hypot(ellipse.at.x, ellipse.at.y) -
-                                max(ellipse.a, ellipse.b))
-end
+distance(ellipse::Ellipse) = distance(Contour(ellipse))
 distance(polygon::Polygon) = distance(Contour(polygon))
 perimeter(ellipse::Ellipse) = 4ellipse.a * ellipe(1 - ellipse.b^2 / ellipse.a^2)
 function perimeter(polygon::Polygon)

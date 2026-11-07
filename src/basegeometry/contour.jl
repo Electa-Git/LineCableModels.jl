@@ -884,7 +884,7 @@ $(TYPEDSIGNATURES)
 Return the distance \\[m\\] of the farther endpoint of `curve` from the origin.
 """
 function support(curve::Segment)
-    return max(hypot(curve.p...), hypot(curve.q...))
+    return max(distance(curve.p), distance(curve.q))
 end
 
 """
@@ -895,12 +895,12 @@ distance plus its radius when that direction lies in its span, otherwise an endp
 For a center at the origin, every point lies at the radius.
 """
 function support(curve::Arc)
-    iszero(nominal(curve.at.x)) && iszero(nominal(curve.at.y)) && return curve.r
+    iszero(distance(curve.at)) && return curve.r
     φ = atan(curve.at.y, curve.at.x)
     if nominal(mod(sign(curve.span) * (φ - curve.at.φ), 2π)) <= abs(nominal(curve.span))
-        return hypot(curve.at.x, curve.at.y) + curve.r
+        return distance(curve.at) + curve.r
     end
-    return max(hypot(curve(0)...), hypot(curve(1)...))
+    return max(distance(curve(0)), distance(curve(1)))
 end
 
 """
@@ -910,7 +910,7 @@ Return the distance of the farthest point of `curve` from the origin, at its nor
 in \\[m\\]: the far point of its `apsides` about the origin.
 """
 function support(curve::EllipticArc{T}) where {T}
-    return hypot(curve(apsides(curve, (zero(T), zero(T))).far)...)
+    return distance(curve(apsides(curve, (zero(T), zero(T))).far))
 end
 
 """
@@ -1329,14 +1329,21 @@ end
 
 """
     area(contour)
+    area(path)
+    area(curve, o)
 
 Return the signed area of the region that `contour` bounds \\[m²\\], positive
-counterclockwise, by Green's theorem, ``A = \\frac12 \\oint (x\\,dy-y\\,dx)``. A segment
-from ``P`` to ``Q`` adds ``(P \\times Q)/2``. An arc of radius ``ρ`` about ``c`` from
-``θ_1`` to ``θ_2`` adds ``ρ^2(θ_2-θ_1)/2 + c\\times(Q-P)/2``. Each hole subtracts its own
-area.
+counterclockwise: the area of its outer path less the area of each hole. The area of a
+closed `path` is Green's integral about its first point ``\\mathbf o``,
+``A = \\frac12 \\oint (\\mathbf x-\\mathbf o)\\times d\\mathbf x``, the sum of
+`area(curve, o)` over its curves.
 
-An elliptic arc adds ``ab\\,span/2+c\\times(Q-P)/2``.
+`area(curve, o)` is the signed area that the segments from the point `o` \\[m\\] to `curve`
+sweep. The formulas below measure every point and center from ``\\mathbf o``. A segment
+from ``P`` to ``Q`` sweeps ``(P \\times Q)/2``. An arc of radius ``ρ`` about ``c`` from
+``θ_1`` to ``θ_2`` sweeps ``ρ^2(θ_2-θ_1)/2 + c\\times(Q-P)/2``.
+
+An elliptic arc sweeps ``ab\\,span/2+c\\times(Q-P)/2``.
 Its normal offset ``d`` adds ``dL-d[p⋅τ̂]/2+d²Δα/2``, where
 ``L=∫ρ\\,dθ``, ``ρ=hypot(b cos θ,a sin θ)``, and
 ``Δα=span+[atan((a-b)sin θ cos θ,b cos²θ+a sin²θ)]``.
@@ -1344,52 +1351,63 @@ Here ``p`` is the base point and ``τ̂`` its unit tangent.
 """
 function area end
 
+function area(curve::Segment, o)
+    P, Q = curve.p .- o, curve.q .- o
+    return (P[1] * Q[2] - P[2] * Q[1]) / 2
+end
+
+function area(curve::Arc, o)
+    P, Q = curve(0) .- o, curve(1) .- o
+    X, Y = curve.at.x - o[1], curve.at.y - o[2]
+    return (curve.r^2 * curve.span +
+            X * (Q[2] - P[2]) - Y * (Q[1] - P[1])) / 2
+end
+
+function area(curve::EllipticArc, o)
+    θ₁, θ₂ = curve.φ0, curve.φ0 + curve.span
+    P = curve.at((curve.a * cos(θ₁), curve.b * sin(θ₁))) .- o
+    Q = curve.at((curve.a * cos(θ₂), curve.b * sin(θ₂))) .- o
+    X, Y = curve.at.x - o[1], curve.at.y - o[2]
+    a, b, d = curve.a, curve.b, curve.offset
+    measure = turn(curve)
+    Δα = sign(curve.span) * 2π * measure.fraction
+    c, s = cos(curve.at.φ), sin(curve.at.φ)
+    τ₁ = ((-a * sin(θ₁) * c - b * cos(θ₁) * s),
+        (-a * sin(θ₁) * s + b * cos(θ₁) * c)) ./ hypot(b * cos(θ₁), a * sin(θ₁))
+    τ₂ = ((-a * sin(θ₂) * c - b * cos(θ₂) * s),
+        (-a * sin(θ₂) * s + b * cos(θ₂) * c)) ./ hypot(b * cos(θ₂), a * sin(θ₂))
+    return (curve.a * curve.b * curve.span +
+            X * (Q[2] - P[2]) - Y * (Q[1] - P[1])) / 2 +
+           (d * sign(curve.span) * measure.length -
+            d / 2 *
+            (Q[1] * τ₂[1] + Q[2] * τ₂[2] -
+             P[1] * τ₁[1] - P[2] * τ₁[2]) - d^2 / 2 * Δα)
+end
+
+function area(path::AbstractVector{<:Curve})
+    o = first(path)(0)
+    return sum(curve -> area(curve, o), path)
+end
+
 function area(contour::Contour{T}) where {T}
-    result = zero(T)
-    for (k, path) in enumerate((contour.outer, contour.holes...))
-        orientation = k == 1 ? 1 : -1
-        for curve in [curve for curve in path if curve isa Segment]
-            P, Q = curve.p, curve.q
-            result += orientation * (P[1] * Q[2] - P[2] * Q[1]) / 2
-        end
-        for curve in [curve for curve in path if curve isa Arc]
-            P, Q = curve(0), curve(1)
-            result += orientation * (curve.r^2 * curve.span +
-                       curve.at.x * (Q[2] - P[2]) - curve.at.y * (Q[1] - P[1])) / 2
-        end
-        for curve in [curve for curve in path if curve isa EllipticArc]
-            θ₁, θ₂ = curve.φ0, curve.φ0 + curve.span
-            P = curve.at((curve.a * cos(θ₁), curve.b * sin(θ₁)))
-            Q = curve.at((curve.a * cos(θ₂), curve.b * sin(θ₂)))
-            result += orientation * (curve.a * curve.b * curve.span +
-                       curve.at.x * (Q[2] - P[2]) - curve.at.y * (Q[1] - P[1])) / 2
-            a, b, d = curve.a, curve.b, curve.offset
-            measure = turn(curve)
-            Δα = sign(curve.span) * 2π * measure.fraction
-            c, s = cos(curve.at.φ), sin(curve.at.φ)
-            τ₁ = ((-a * sin(θ₁) * c - b * cos(θ₁) * s),
-                (-a * sin(θ₁) * s + b * cos(θ₁) * c)) ./ hypot(b * cos(θ₁), a * sin(θ₁))
-            τ₂ = ((-a * sin(θ₂) * c - b * cos(θ₂) * s),
-                (-a * sin(θ₂) * s + b * cos(θ₂) * c)) ./ hypot(b * cos(θ₂), a * sin(θ₂))
-            result += orientation * (d * sign(curve.span) * measure.length -
-                       d / 2 *
-                       (Q[1] * τ₂[1] + Q[2] * τ₂[2] -
-                        P[1] * τ₁[1] - P[2] * τ₁[2]) - d^2 / 2 * Δα)
-        end
-    end
-    return result
+    area(contour.outer) - sum(area, contour.holes; init = zero(T))
 end
 
 """
-    centroid(contour)
+    moment(path)
+    moment(curve, o)
 
-Return the centroid `(x, y)` of the region that `contour` bounds \\[m\\],
-``\\mathbf c = \\mathbf M/A``, its first moment of area over its area.
-A segment contributes ``(P+Q)(P\\times Q)/6`` to ``\\mathbf M``. An arc adds that
-chord moment and the circular segment's moment:
+Return the first moment of area \\[m³\\] of the region that the closed `path` bounds, about
+the origin, as a coordinate pair: ``\\mathbf M = \\mathbf M_o + A\\,\\mathbf o``. Here
+``\\mathbf M_o`` is the sum of `moment(curve, o)` over the curves of `path` about its first
+point ``\\mathbf o``, and ``A`` is the area of `path`.
+
+`moment(curve, o)` is the first moment about the point `o` \\[m\\] of the region that the
+segments from `o` to `curve` sweep. The formulas below measure every point and center
+from ``\\mathbf o``. A segment from ``P`` to ``Q`` contributes ``(P+Q)(P\\times Q)/6``. An
+arc adds that chord moment and the circular segment's moment:
 ``c ρ^2(Δ-\\sin Δ)/2 + ρ^3(\\sin θ_2-\\sin θ_1,\\cos θ_1-\\cos θ_2)/3
 -ρ^2\\sin Δ(P+Q-2c)/6``, where ``Δ=θ_2-θ_1``.
-Each hole subtracts its own moment.
 
 For an elliptic arc, let ``L=R(at.φ)diag(a,b)``, ``u_i=(cos θ_i,sin θ_i)``,
 and ``B=ab(Δ-sin Δ)/2``. Its Green moment is the chord moment plus
@@ -1404,96 +1422,113 @@ The integrals use ``∫p ds=cL+R(a[G(sin θ)],-b[H(cos θ)])`` and
 These primitives use inverse hyperbolic and trigonometric functions that depend on
 the order of the semi-axes, and polynomials for equal axes.
 """
+function moment end
+
+function moment(curve::Segment, o)
+    P, Q = curve.p .- o, curve.q .- o
+    cross = P[1] * Q[2] - P[2] * Q[1]
+    x = (P[1] + Q[1]) * cross / 6
+    y = (P[2] + Q[2]) * cross / 6
+    return (x, y)
+end
+
+function moment(curve::Arc, o)
+    P, Q = curve(0) .- o, curve(1) .- o
+    X, Y = curve.at.x - o[1], curve.at.y - o[2]
+    cross = P[1] * Q[2] - P[2] * Q[1]
+    θ₁, θ₂ = curve.at.φ, curve.at.φ + curve.span
+    ρ = curve.r
+    A = ρ^2 * (curve.span - sin(curve.span)) / 2
+    x = ((P[1] + Q[1]) * cross / 6 + X * A +
+         ρ^3 * (sin(θ₂) - sin(θ₁)) / 3 -
+         ρ^2 * sin(curve.span) * (P[1] + Q[1] - 2X) / 6)
+    y = ((P[2] + Q[2]) * cross / 6 + Y * A +
+         ρ^3 * (cos(θ₁) - cos(θ₂)) / 3 -
+         ρ^2 * sin(curve.span) * (P[2] + Q[2] - 2Y) / 6)
+    return (x, y)
+end
+
+function moment(curve::EllipticArc, o)
+    θ₁, θ₂ = curve.φ0, curve.φ0 + curve.span
+    P = curve.at((curve.a * cos(θ₁), curve.b * sin(θ₁))) .- o
+    Q = curve.at((curve.a * cos(θ₂), curve.b * sin(θ₂))) .- o
+    X, Y = curve.at.x - o[1], curve.at.y - o[2]
+    cross = P[1] * Q[2] - P[2] * Q[1]
+    A = curve.a * curve.b * (curve.span - sin(curve.span)) / 2
+    u = (sin(θ₂) - sin(θ₁)) / 3 -
+        sin(curve.span) * (cos(θ₁) + cos(θ₂)) / 6
+    v = (cos(θ₁) - cos(θ₂)) / 3 -
+        sin(curve.span) * (sin(θ₁) + sin(θ₂)) / 6
+    c, s = cos(curve.at.φ), sin(curve.at.φ)
+    x = ((P[1] + Q[1]) * cross / 6 + X * A +
+         curve.a * curve.b * (curve.a * c * u - curve.b * s * v))
+    y = ((P[2] + Q[2]) * cross / 6 + Y * A +
+         curve.a * curve.b * (curve.a * s * u + curve.b * c * v))
+    a, b, d = curve.a, curve.b, curve.offset
+    measure = turn(curve)
+    Δα = sign(curve.span) * 2π * measure.fraction
+    integrals = map((θ₁, θ₂)) do θ
+        ξ, η = sin(θ), cos(θ)
+        if nominal(a) > nominal(b)
+            e = sqrt(a^2 - b^2)
+            G = (ξ * hypot(b, e * ξ) + b^2 / e * asinh(e * ξ / b)) / 2
+            H = (η * sqrt(a^2 - e^2 * η^2) + a^2 / e * asin(e * η / a)) / 2
+            J = atan(e * ξ / b) / (b * e)
+            K = atanh(e * η / a) / (a * e)
+        elseif nominal(a) < nominal(b)
+            e = sqrt(b^2 - a^2)
+            G = (ξ * sqrt(b^2 - e^2 * ξ^2) + b^2 / e * asin(e * ξ / b)) / 2
+            H = (η * hypot(a, e * η) + a^2 / e * asinh(e * η / a)) / 2
+            J = atanh(e * ξ / b) / (b * e)
+            K = atan(e * η / a) / (a * e)
+        else
+            G, H, J, K = b * ξ, a * η, ξ / b^2, η / a^2
+        end
+        (a * G, -b * H, a^2 * b * J, -a * b^2 * K)
+    end
+    I = last(integrals) .- first(integrals)
+    x += (d * (X * sign(curve.span) * measure.length + c * I[1] -
+               s * I[2]) +
+          d^2 / 2 * (-X * Δα + c * I[3] - s * I[4]) +
+          d^2 / 2 * (Q[2] - P[2]))
+    y += (d * (Y * sign(curve.span) * measure.length + s * I[1] +
+               c * I[2]) +
+          d^2 / 2 * (-Y * Δα + s * I[3] + c * I[4]) -
+          d^2 / 2 * (Q[1] - P[1]))
+    n₁ = ((b * cos(θ₁) * c - a * sin(θ₁) * s),
+        (b * cos(θ₁) * s + a * sin(θ₁) * c)) ./
+         hypot(b * cos(θ₁), a * sin(θ₁))
+    n₂ = ((b * cos(θ₂) * c - a * sin(θ₂) * s),
+        (b * cos(θ₂) * s + a * sin(θ₂) * c)) ./
+         hypot(b * cos(θ₂), a * sin(θ₂))
+    x += d^3 / 3 * (n₂[2] - n₁[2])
+    y -= d^3 / 3 * (n₂[1] - n₁[1])
+    for (U, V) in ((Q, Q .+ d .* n₂), (P .+ d .* n₁, P))
+        cross = U[1] * V[2] - U[2] * V[1]
+        x += (U[1] + V[1]) * cross / 6
+        y += (U[2] + V[2]) * cross / 6
+    end
+    return (x, y)
+end
+
+function moment(path::AbstractVector{<:Curve})
+    o = first(path)(0)
+    return mapreduce(curve -> moment(curve, o), .+, path) .+ o .* area(path)
+end
+
+"""
+    centroid(contour)
+
+Return the centroid `(x, y)` of the region that `contour` bounds \\[m\\],
+``\\mathbf c = \\mathbf M/A``. The first moment of area ``\\mathbf M`` is that of its outer
+path less that of each hole, by `moment`, and ``A`` is its area.
+"""
 function centroid end
 
 function centroid(contour::Contour{T}) where {T}
-    x, y = zero(T), zero(T)
-    for (k, path) in enumerate((contour.outer, contour.holes...))
-        orientation = k == 1 ? 1 : -1
-        for curve in [curve for curve in path if curve isa Segment]
-            P, Q = curve.p, curve.q
-            cross = P[1] * Q[2] - P[2] * Q[1]
-            x += orientation * (P[1] + Q[1]) * cross / 6
-            y += orientation * (P[2] + Q[2]) * cross / 6
-        end
-        for curve in [curve for curve in path if curve isa Arc]
-            P, Q = curve(0), curve(1)
-            cross = P[1] * Q[2] - P[2] * Q[1]
-            θ₁, θ₂ = curve.at.φ, curve.at.φ + curve.span
-            ρ = curve.r
-            A = ρ^2 * (curve.span - sin(curve.span)) / 2
-            x += orientation * ((P[1] + Q[1]) * cross / 6 + curve.at.x * A +
-                  ρ^3 * (sin(θ₂) - sin(θ₁)) / 3 -
-                  ρ^2 * sin(curve.span) * (P[1] + Q[1] - 2curve.at.x) / 6)
-            y += orientation * ((P[2] + Q[2]) * cross / 6 + curve.at.y * A +
-                  ρ^3 * (cos(θ₁) - cos(θ₂)) / 3 -
-                  ρ^2 * sin(curve.span) * (P[2] + Q[2] - 2curve.at.y) / 6)
-        end
-        for curve in [curve for curve in path if curve isa EllipticArc]
-            θ₁, θ₂ = curve.φ0, curve.φ0 + curve.span
-            P = curve.at((curve.a * cos(θ₁), curve.b * sin(θ₁)))
-            Q = curve.at((curve.a * cos(θ₂), curve.b * sin(θ₂)))
-            cross = P[1] * Q[2] - P[2] * Q[1]
-            A = curve.a * curve.b * (curve.span - sin(curve.span)) / 2
-            u = (sin(θ₂) - sin(θ₁)) / 3 -
-                sin(curve.span) * (cos(θ₁) + cos(θ₂)) / 6
-            v = (cos(θ₁) - cos(θ₂)) / 3 -
-                sin(curve.span) * (sin(θ₁) + sin(θ₂)) / 6
-            c, s = cos(curve.at.φ), sin(curve.at.φ)
-            x += orientation * ((P[1] + Q[1]) * cross / 6 + curve.at.x * A +
-                  curve.a * curve.b * (curve.a * c * u - curve.b * s * v))
-            y += orientation * ((P[2] + Q[2]) * cross / 6 + curve.at.y * A +
-                  curve.a * curve.b * (curve.a * s * u + curve.b * c * v))
-            a, b, d = curve.a, curve.b, curve.offset
-            measure = turn(curve)
-            Δα = sign(curve.span) * 2π * measure.fraction
-            integrals = Tuple{T, T, T, T}[]
-            for θ in (θ₁, θ₂)
-                ξ, η = sin(θ), cos(θ)
-                if nominal(a) > nominal(b)
-                    e = sqrt(a^2 - b^2)
-                    G = (ξ * hypot(b, e * ξ) + b^2 / e * asinh(e * ξ / b)) / 2
-                    H = (η * sqrt(a^2 - e^2 * η^2) + a^2 / e * asin(e * η / a)) / 2
-                    J = atan(e * ξ / b) / (b * e)
-                    K = atanh(e * η / a) / (a * e)
-                elseif nominal(a) < nominal(b)
-                    e = sqrt(b^2 - a^2)
-                    G = (ξ * sqrt(b^2 - e^2 * ξ^2) + b^2 / e * asin(e * ξ / b)) / 2
-                    H = (η * hypot(a, e * η) + a^2 / e * asinh(e * η / a)) / 2
-                    J = atanh(e * ξ / b) / (b * e)
-                    K = atan(e * η / a) / (a * e)
-                else
-                    G, H, J, K = b * ξ, a * η, ξ / b^2, η / a^2
-                end
-                push!(integrals, (a * G, -b * H, a^2 * b * J, -a * b^2 * K))
-            end
-            I = last(integrals) .- first(integrals)
-            x += orientation *
-                 (d * (curve.at.x * sign(curve.span) * measure.length + c * I[1] -
-                   s * I[2]) +
-                  d^2 / 2 * (-curve.at.x * Δα + c * I[3] - s * I[4]) +
-                  d^2 / 2 * (Q[2] - P[2]))
-            y += orientation *
-                 (d * (curve.at.y * sign(curve.span) * measure.length + s * I[1] +
-                   c * I[2]) +
-                  d^2 / 2 * (-curve.at.y * Δα + s * I[3] + c * I[4]) -
-                  d^2 / 2 * (Q[1] - P[1]))
-            n₁ = ((b * cos(θ₁) * c - a * sin(θ₁) * s),
-                (b * cos(θ₁) * s + a * sin(θ₁) * c)) ./
-                 hypot(b * cos(θ₁), a * sin(θ₁))
-            n₂ = ((b * cos(θ₂) * c - a * sin(θ₂) * s),
-                (b * cos(θ₂) * s + a * sin(θ₂) * c)) ./
-                 hypot(b * cos(θ₂), a * sin(θ₂))
-            x += orientation * d^3 / 3 * (n₂[2] - n₁[2])
-            y -= orientation * d^3 / 3 * (n₂[1] - n₁[1])
-            for (U, V) in ((Q, Q .+ d .* n₂), (P .+ d .* n₁, P))
-                cross = U[1] * V[2] - U[2] * V[1]
-                x += orientation * (U[1] + V[1]) * cross / 6
-                y += orientation * (U[2] + V[2]) * cross / 6
-            end
-        end
-    end
-    return (x, y) ./ area(contour)
+    return (moment(contour.outer) .-
+            mapreduce(moment, .+, contour.holes; init = (zero(T), zero(T)))) ./
+           area(contour)
 end
 
 """
@@ -1609,62 +1644,36 @@ end
 
 """
     distance(contour)
+    distance(curve)
 
 Return the radius of a circle about the origin that the region `contour` bounds does not
-enter \\[m\\]: the nearest point of its curves. It is zero when the origin lies inside the
-outer path and outside every hole, by the winding number. On a segment
-``P+t(Q-P)``, the nearest point has
-``t=\\operatorname{clamp}(-P\\cdot(Q-P)/|Q-P|^2,0,1)``. On an arc, it lies toward the
-origin when that direction falls within the arc, else at an end.
+enter \\[m\\]. It is zero when the origin lies in the region, by `in`, else the least
+distance of the curves of its paths.
 
-An elliptic arc uses ``max(0,hypot(c_x,c_y)-max(a,b))``, the bound of the circle that
-circumscribes its ellipse. An offset elliptic arc uses the radius ``max(a,b)+d``.
+`distance(curve)` is the distance \\[m\\] of the nearest point of `curve` from the origin.
+A segment or an elliptic arc takes the near point of its `apsides` about the origin. On an
+arc about the origin, every point lies at the radius ``ρ``. For another arc, of center
+``c``, the distance is ``\\lvert |c|-ρ \\rvert`` when the direction from ``c`` toward the
+origin falls within the arc, else that of its nearer end.
 """
 function distance end
 
-function distance(contour::Contour{T}) where {T}
-    result = hypot(first(contour.outer)(0)...)
-    inside = true
-    for (k, path) in enumerate((contour.outer, contour.holes...))
-        winding = 0
-        for curve in [curve for curve in path if curve isa Segment]
-            P, Q = curve.p, curve.q
-            dx, dy = Q .- P
-            t = clamp(-(P[1] * dx + P[2] * dy) / (dx^2 + dy^2), zero(T), one(T))
-            result = min(result, hypot(curve(t)...))
-            cross = P[1] * Q[2] - P[2] * Q[1]
-            if P[2] <= zero(T) < Q[2] && cross > zero(T)
-                winding += 1
-            elseif Q[2] <= zero(T) < P[2] && cross < zero(T)
-                winding -= 1
-            end
-        end
-        for curve in [curve for curve in path if curve isa Arc]
-            φ = atan(-curve.at.y, -curve.at.x)
-            result = min(result, hypot(curve(0)...), hypot(curve(1)...))
-            if mod(sign(curve.span) * (φ - curve.at.φ), 2π) <= abs(curve.span)
-                result = min(result, abs(hypot(curve.at.x, curve.at.y) - curve.r))
-            end
-            if abs(curve.at.y) < curve.r
-                θ = asin(-curve.at.y / curve.r)
-                for angle in (θ, π - θ)
-                    travel = mod(sign(curve.span) * (angle - curve.at.φ), 2π)
-                    direction = sign(curve.span) * cos(angle)
-                    if curve.at.x + curve.r * cos(angle) > zero(T) &&
-                       ((direction > zero(T) && travel < abs(curve.span)) ||
-                        (direction < zero(T) && zero(T) < travel <= abs(curve.span)))
-                        winding += direction > zero(T) ? 1 : -1
-                    end
-                end
-            end
-        end
-        for curve in [curve for curve in path if curve isa EllipticArc]
-            radius = max(curve.a, curve.b) + curve.offset
-            result = min(result, max(zero(T), hypot(curve.at.x, curve.at.y) - radius))
-        end
-        inside &= k == 1 ? !iszero(winding) : iszero(winding)
+function distance(curve::Arc)
+    iszero(distance(curve.at)) && return curve.r
+    φ = atan(-curve.at.y, -curve.at.x)
+    if nominal(mod(sign(curve.span) * (φ - curve.at.φ), 2π)) <= abs(nominal(curve.span))
+        return abs(distance(curve.at) - curve.r)
     end
-    return inside ? zero(result) : result
+    return min(distance(curve(0)), distance(curve(1)))
+end
+
+function distance(curve::Union{Segment{T}, EllipticArc{T}}) where {T}
+    distance(curve(apsides(curve, (zero(T), zero(T))).near))
+end
+
+function distance(contour::Contour{T}) where {T}
+    (zero(T), zero(T)) ∈ contour && return zero(T)
+    return minimum((minimum(distance, path) for path in contour.holes); init = minimum(distance, contour.outer))
 end
 
 """

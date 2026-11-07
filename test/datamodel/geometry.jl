@@ -1,7 +1,8 @@
 using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon
 using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, parallel,
                                     clearance,
-                                    dimension, turn, lowest, vertex, apsides, winding
+                                    dimension, turn, lowest, vertex, apsides, winding,
+                                    moment
 
 @testset "DataModel geometry" begin
     @testset "mapping scales real fields" begin
@@ -75,6 +76,8 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test distance(Annulus(2.0e-3, 3.0e-3)) == 2.0e-3
         sector = placements(CircularPattern(18; r = 9.0e-3), Rectangle(3.0e-3, 3.0e-3)).shape
         @test distance(sector) ≈ 7.5e-3
+        @test distance(Ellipse(3e-3, 2e-3, Placement(0, 10e-3))) ≈ 8e-3 rtol = 1e-12
+        @test distance(Ellipse(3e-3, 2e-3, Placement(0, 10e-3, π / 2))) ≈ 7e-3 rtol = 1e-12
     end
 
     @testset "a cross-section with holes" begin
@@ -892,6 +895,10 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test apsides(Segment((1.0, -1.0), (1.0, 2.0)), (0.0, 0.0)) ==
               (near = 1 / 3, far = 1.0)
         @test apsides(Arc(Placement(3.0, 0.0, π / 2), 1.0, π), (0.0, 0.0)).near == 0.5
+        @test @inferred(distance(Arc(Placement(3.0, 0.0, π / 2), 1.0, π))) == 2.0
+        @test @inferred(distance(Segment((1.0, -1.0), (1.0, 2.0)))) ≈ 1.0
+        @test @inferred(distance(EllipticArc(Placement(0, 10e-3), 3e-3, 2e-3, 0, 2π))) ≈
+              8e-3 rtol = 1e-12
     end
 
     @testset "the winding about a point and a point in a contour" begin
@@ -922,6 +929,33 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test !isdisjoint(Circle(0.5e-3, Placement(2e-3, 0.0)), Circle(2e-3))
         @test isdisjoint(Circle(0.5e-3, Placement(5e-3, 0.0)), Rectangle(2e-3, 2e-3))
         @test !isdisjoint(Circle(0.5e-3, Placement(1e-3, 0.0)), Rectangle(2e-3, 2e-3))
+    end
+
+    @testset "the area and moment of a curve about a point and of a path" begin
+        segment = Segment((1.0, 0.0), (0.0, 1.0))
+        @test @inferred(area(segment, (0.0, 0.0))) == 0.5
+        @test collect(@inferred(moment(segment, (0.0, 0.0)))) ≈ [1 / 6, 1 / 6] rtol = 1e-12
+        circle = Arc(Placement(0, 0), 1.0, 2π)
+        @test @inferred(area(circle, (1.0, 0.0))) ≈ π rtol = 1e-12
+        @test collect(@inferred(moment(circle, (1.0, 0.0)))) ≈ [-π, 0.0] rtol = 1e-12
+        ellipse = EllipticArc(Placement(0, 0), 3.0, 2.0, 0, 2π, 0.5)
+        A = 6π + 0.5 * perimeter(Ellipse(3.0, 2.0)) + 0.25π
+        @test @inferred(area(ellipse, (3.5, 0.0))) ≈ A rtol = 1e-12
+        @test collect(@inferred(moment(ellipse, (3.5, 0.0)))) ≈ [-3.5A, 0.0] rtol = 1e-12
+        path = Contour(Rectangle(4.0e-3, 2.0e-3, Placement(0.01, 0.02))).outer
+        @test @inferred(area(path)) ≈ 8.0e-6 rtol = 1e-12
+        @test collect(@inferred(moment(path))) ≈ [0.01, 0.02] .* 8.0e-6 rtol = 1e-12
+    end
+
+    @testset "a wedge far from the origin keeps its area and centroid" begin
+        S0 = Sector(0, 10e-3, 2π / 3, 1e-3 / sin(π / 3), 1.5e-3, Placement(0.0, 0.0))
+        S10 = Sector(0, 10e-3, 2π / 3, 1e-3 / sin(π / 3), 1.5e-3, Placement(0.0, 10.0))
+        @test area(S10) ≈ area(S0) rtol = 1e-12
+        @test all(abs.(centroid(S10) .- (0.0, 10.0) .- centroid(S0)) .<= 1e-14)
+        C0 = Contour(LineCableModels.resolve(S0, Offset(0.5e-3)))
+        C10 = Contour(LineCableModels.resolve(S10, Offset(0.5e-3)))
+        @test area(C10) ≈ area(C0) rtol = 1e-12
+        @test all(abs.(centroid(C10) .- (0.0, 10.0) .- centroid(C0)) .<= 1e-14)
     end
 
     @testset "a curve reversed twice is itself" begin
