@@ -18,7 +18,10 @@
         end
     end
 
-    @testset "a center moving through the origin has no derivative of its distance" begin
-        @test isnan(ForwardDiff.derivative(s -> distance(Placement(s, 0.0)), 0.0))
+    # ForwardDiff 1 reads the partials of a dual in iszero.
+    if pkgversion(ForwardDiff) >= v"1"
+        @testset "a center moving through the origin has no derivative of its distance" begin
+            @test isnan(ForwardDiff.derivative(s -> distance(Placement(s, 0.0)), 0.0))
+        end
     end
 end
