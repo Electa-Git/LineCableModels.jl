@@ -120,7 +120,8 @@ $(TYPEDSIGNATURES)
 
 Return a real number unchanged or a complex number with nominal real and imaginary parts.
 Kernel branches and integration breakpoints use nominal values to exclude uncertainty
-from their decisions. The Measurements extension gives a `Measurement` its nominal value.
+from their decisions. The Measurements extension gives a `Measurement` its nominal value,
+and the ForwardDiff extension gives a `Dual` its value, the innermost value of a nested dual.
 
 # Arguments
 

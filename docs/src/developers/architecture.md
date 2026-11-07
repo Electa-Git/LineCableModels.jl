@@ -43,7 +43,7 @@ backend. A control belongs to whoever makes the approximation it controls.
 
 ## Modules and ownership
 
-The package is six modules in one load order, and two extensions.
+The package is six modules in one load order, and three extensions.
 
 | Module | Owns |
 | --- | --- |
@@ -55,6 +55,7 @@ The package is six modules in one load order, and two extensions.
 | `Engine` | the problem, the formulations, the backends, the formula families, the numerical input, the buffers, the loop, the reductions, the spectral tools and the result |
 | `LineCableModelsGmshExt` | the finite-element backend, with its model, geometry, meshes, GetDP scan and result |
 | `LineCableModelsMeasurementsExt` | the propagation of input uncertainty: methods only |
+| `LineCableModelsForwardDiffExt` | the derivatives with respect to the inputs: methods only |
 
 The formula families are the eight child modules of `Engine`: `InternalImpedance`,
 `InsulationImpedance`, `InsulationAdmittance`, `SemiconAdmittance`, `EarthReturn`, `Shunt`,
@@ -406,6 +407,15 @@ name of its own. Everything else is the parametric `T` of the package. Γ and ev
 refuse a `Measurement`, because a control is not a physical input. The test tree checks the
 nominal parts against the deterministic engine and the sensitivities against finite
 differences.
+
+### Derivatives
+
+`using ForwardDiff` loads `LineCableModelsForwardDiffExt`. The extension is methods only.
+It defines `nominal` on a `Dual` and four methods of the SpecialFunctions Bessel functions on
+a complex dual argument, with the derivative identities of the Measurements extension. It
+defines no name of its own. A real dual argument takes ForwardDiff's own rules. The test tree
+checks the partial derivatives of the Bessel functions and of the line parameters against
+central differences.
 
 ## Register and lexicon
 

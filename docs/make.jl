@@ -1,9 +1,10 @@
-using Documenter, DocumenterCitations, Literate, LineCableModels, Measurements, Gmsh,
-      getdp_jll
+using Documenter, DocumenterCitations, Literate, LineCableModels, Measurements, ForwardDiff,
+      Gmsh, getdp_jll
 using TOML
 
 const GmshExt = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
 const MeasurementsExt = Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt)
+const ForwardDiffExt = Base.get_extension(LineCableModels, :LineCableModelsForwardDiffExt)
 const REPOSITORY_URL = "https://github.com/Electa-Git/LineCableModels.jl"
 const SITE_URL = "https://electa-git.github.io/LineCableModels.jl"
 
@@ -30,7 +31,7 @@ bibliography = CitationBibliography(joinpath(@__DIR__, "src", "bibliography.bib"
     style = :numeric)
 
 makedocs(;
-    modules = [LineCableModels, GmshExt, MeasurementsExt],
+    modules = [LineCableModels, GmshExt, MeasurementsExt, ForwardDiffExt],
     authors = join(project["authors"], ", "),
     sitename = "LineCableModels.jl",
     format = Documenter.HTML(;

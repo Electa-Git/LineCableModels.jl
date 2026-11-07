@@ -19,6 +19,18 @@ Mathematical Functions [NIST:DLMF](@cite).
 Main.MeasurementsExt
 ```
 
+## ForwardDiff extension
+
+The ForwardDiff extension gives the derivatives of the line parameters with respect to the
+inputs, by the dual numbers of [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl).
+`using ForwardDiff` loads the extension. The data model and the problem take dual numbers,
+such as a dimension, a material property or an earth property. The computation then returns
+`Z` and `Y` with dual real and imaginary parts.
+
+```@docs
+Main.ForwardDiffExt
+```
+
 ## Uncertain inputs
 
 Uncertain values, of type `Measurement`, are accepted for any number of the data model and of

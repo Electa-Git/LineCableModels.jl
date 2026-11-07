@@ -3,9 +3,9 @@
 
 Compute the series impedances and shunt admittances of cables per unit length. The data
 model declares the parts of a cable, and a problem places cables above or in the earth. A
-formulation selects the formulas, and a backend executes the computation. The Gmsh and
-Measurements extensions add the finite-element backend and the propagation of input
-uncertainty.
+formulation selects the formulas, and a backend executes the computation. The Gmsh,
+Measurements and ForwardDiff extensions add the finite-element backend, the propagation of
+input uncertainty and the derivatives with respect to the inputs.
 """
 module LineCableModels
 
