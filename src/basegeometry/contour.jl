@@ -641,6 +641,33 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Return the widest common angular range \\[rad\\] of two arcs of one center, or of two
+elliptic arcs of one ellipse. The range is an interval of the angle of `a`, read
+counterclockwise. With ``α`` the start of `a` in that sense and ``β`` the start of `b`, it
+is the widest of ``[α, α+|span_a|] ∩ [β+2πk, β+2πk+|span_b|]`` for ``k ∈ \\{-1, 0, 1\\}``. An
+elliptic arc reads its parametric angle. For two disjoint arcs the interval is empty, and
+its endpoints are the two ends that bound the gap. The caller checks that the arcs have one
+center or one ellipse.
+"""
+function overlap(a::Arc, b::Arc)
+    α = mod(a.at.φ + min(a.span, zero(a.span)), 2π)
+    β = mod(b.at.φ + min(b.span, zero(b.span)), 2π)
+    A = ClosedInterval(α, α + abs(a.span))
+    return argmax(I -> nominal(rightendpoint(I) - leftendpoint(I)),
+        (A ∩ ClosedInterval(β + k * 2π, β + k * 2π + abs(b.span)) for k in (-1, 0, 1)))
+end
+
+function overlap(a::EllipticArc, b::EllipticArc)
+    α = mod(a.φ0 + min(a.span, zero(a.span)), 2π)
+    β = mod(b.φ0 + min(b.span, zero(b.span)), 2π)
+    A = ClosedInterval(α, α + abs(a.span))
+    return argmax(I -> nominal(rightendpoint(I) - leftendpoint(I)),
+        (A ∩ ClosedInterval(β + k * 2π, β + k * 2π + abs(b.span)) for k in (-1, 0, 1)))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Return `(p, q, d, s, t)` for the nearest points `p` of `curve` and `q` of `other`. Their
 distance is `d` \\[m\\], and their parameters give ``p = curve(s)`` and ``q = other(t)``.
 Each parameter lies in ``[0, 1]`` and is exactly 0 or 1 at an end. Parallel segments take
@@ -795,25 +822,21 @@ function clearance(curve::Arc, other::Arc)
        nominal(curve.at.y) == nominal(other.at.y)
         α = mod(curve.at.φ + min(curve.span, zero(curve.span)), 2π)
         β = mod(other.at.φ + min(other.span, zero(other.span)), 2π)
-        ranges = [(max(α, β + k * 2π),
-                      min(α + abs(curve.span), β + k * 2π + abs(other.span)), k)
-                  for k in (-1, 0, 1)
-                  if nominal(max(α, β + k * 2π)) <=
-                     nominal(min(α + abs(curve.span), β + k * 2π + abs(other.span)))]
-        if !isempty(ranges)
-            lo, hi, k = argmax(interval -> nominal(interval[2] - interval[1]), ranges)
-            φ = (lo + hi) / 2
+        interval = overlap(curve, other)
+        if !isempty(interval)
+            φ = (leftendpoint(interval) + rightendpoint(interval)) / 2
             s = nominal(curve.span) > 0 ? (φ - α) / abs(curve.span) :
                 (α + abs(curve.span) - φ) / abs(curve.span)
-            t = nominal(other.span) > 0 ? (φ - β - k * 2π) / abs(other.span) :
-                (β + k * 2π + abs(other.span) - φ) / abs(other.span)
+            ψ = mod(φ - β, 2π)
+            t = nominal(other.span) > 0 ? ψ / abs(other.span) :
+                (abs(other.span) - ψ) / abs(other.span)
             s = nominal(φ) == nominal(α) ?
                 (nominal(curve.span) > 0 ? z : one(z)) :
                 nominal(φ) == nominal(α + abs(curve.span)) ?
                 (nominal(curve.span) > 0 ? one(z) : z) : s
-            t = nominal(φ) == nominal(β + k * 2π) ?
+            t = nominal(ψ) == 0 ?
                 (nominal(other.span) > 0 ? z : one(z)) :
-                nominal(φ) == nominal(β + k * 2π + abs(other.span)) ?
+                nominal(ψ) == nominal(abs(other.span)) ?
                 (nominal(other.span) > 0 ? one(z) : z) : t
             return (curve(s), other(t), abs(curve.r - other.r) - L, s, t)
         end
@@ -895,25 +918,21 @@ function clearance(curve::EllipticArc, other::EllipticArc)
             ((z, z), (z, one(z)), (one(z), z), (one(z), one(z)))))
     α = mod(curve.φ0 + min(curve.span, zero(curve.span)), 2π)
     β = mod(other.φ0 + min(other.span, zero(other.span)), 2π)
-    ranges = [(max(α, β + k * 2π),
-                  min(α + abs(curve.span), β + k * 2π + abs(other.span)), k)
-              for k in (-1, 0, 1)
-              if nominal(max(α, β + k * 2π)) <=
-                 nominal(min(α + abs(curve.span), β + k * 2π + abs(other.span)))]
-    if !isempty(ranges)
-        lo, hi, k = argmax(interval -> nominal(interval[2] - interval[1]), ranges)
-        φ = (lo + hi) / 2
+    interval = overlap(curve, other)
+    if !isempty(interval)
+        φ = (leftendpoint(interval) + rightendpoint(interval)) / 2
         s = nominal(curve.span) > 0 ? (φ - α) / abs(curve.span) :
             (α + abs(curve.span) - φ) / abs(curve.span)
-        t = nominal(other.span) > 0 ? (φ - β - k * 2π) / abs(other.span) :
-            (β + k * 2π + abs(other.span) - φ) / abs(other.span)
+        ψ = mod(φ - β, 2π)
+        t = nominal(other.span) > 0 ? ψ / abs(other.span) :
+            (abs(other.span) - ψ) / abs(other.span)
         s = nominal(φ) == nominal(α) ?
             (nominal(curve.span) > 0 ? z : one(z)) :
             nominal(φ) == nominal(α + abs(curve.span)) ?
             (nominal(curve.span) > 0 ? one(z) : z) : s
-        t = nominal(φ) == nominal(β + k * 2π) ?
+        t = nominal(ψ) == 0 ?
             (nominal(other.span) > 0 ? z : one(z)) :
-            nominal(φ) == nominal(β + k * 2π + abs(other.span)) ?
+            nominal(ψ) == nominal(abs(other.span)) ?
             (nominal(other.span) > 0 ? one(z) : z) : t
         return (curve(s), other(t), abs(curve.offset - other.offset), s, t)
     end

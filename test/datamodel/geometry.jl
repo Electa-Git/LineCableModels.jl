@@ -847,6 +847,19 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test support(placed, 0.3) == support(moved, 0.3)
     end
 
+    @testset "the common angular range of two arcs" begin
+        a = Arc(Placement(0, 0), 2.0e-3, π / 2)
+        b = Arc(Placement(0, 0, π / 4), 3.0e-3, π / 2)
+        @test extrema(LineCableModels.BaseGeometry.overlap(a, b)) == (π / 4, π / 2)
+        c = Arc(Placement(0, 0, π / 2), 3.0e-3, π / 4)
+        @test isempty(LineCableModels.BaseGeometry.overlap(
+            Arc(Placement(0, 0), 2.0e-3, π /
+                                         4), c))
+        e = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2)
+        f = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, π / 3, π / 2)
+        @test extrema(LineCableModels.BaseGeometry.overlap(e, f)) == (π / 3, π / 2)
+    end
+
     @testset "a curve reversed twice is itself" begin
         for curve in (Segment((0.0, 0.0), (1.0e-3, 2.0e-3)),
             Arc(Placement(1.0e-3, 0, 0.25), 2.0e-3, 0.5),

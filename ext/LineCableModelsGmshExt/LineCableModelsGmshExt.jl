@@ -8,6 +8,7 @@ module LineCableModelsGmshExt
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using Gmsh: Gmsh, gmsh
+using IntervalSets: Interval
 using Printf: @sprintf
 using LinearAlgebra: I, ldiv!, lu!
 using getdp_jll: getdp_jll

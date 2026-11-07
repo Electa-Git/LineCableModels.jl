@@ -120,7 +120,7 @@ symbols = ["i0m1"]
 
 [modules.BaseGeometry]
 nouns = ["placement", "segment", "curve", "contour", "area", "centroid", "perimeter", "support",
-    "distance", "dimension", "parallel", "clearance", "turn", "direction"]
+    "distance", "dimension", "parallel", "clearance", "turn", "direction", "overlap"]
 qualifiers = ["elliptic", "lowest"]
 symbols = ["p"]
 
@@ -128,11 +128,10 @@ symbols = ["p"]
 draw = "draw a system, a design, a placed region, a shape, a contour, a path or a curve on a target, in the target's own primitives"
 
 [modules.LineCableModelsGmshExt]
-nouns = ["overrides", "interval", "field", "tags", "strand", "air", "scale",
+nouns = ["overrides", "field", "tags", "strand", "air", "scale",
     "geometry", "key", "point", "points", "buckets", "lines", "arcs", "ends", "curves", "breaks",
     "contacts", "loops", "surfaces", "patches", "strips", "outlines", "pockets", "anchors", "faces",
     "compartments", "inside", "anchor", "section", "directory", "segments"]
-qualifiers = ["low", "high", "closed"]
 symbols = ["gamma"]
 
 [modules.LineCableModelsGmshExt.verbs]
@@ -362,6 +361,7 @@ direction = "the direction of the tangent of a curve at a parameter; of an orien
 turn = "the turn of a curve: the turn of its tangent as a fraction of a revolution and its length, zero for a segment, the span over a revolution for an arc, the turn of its normal for an elliptic arc; of the parallel of a face at a signed distance between two points, the signed fraction and length of that piece, negative once the face has vanished"
 parallel = "the parallel at a distance signed along the outward normal: of a curve, a segment moved along its normal, an arc of its radius plus the distance in its sense, an elliptic arc of its offset plus the distance; of the piece of a curve's parallel between two points; of the junction of two consecutive curves, the end of the first parallel and the start of the second, one point where they meet and each end moved along its own normal where they diverge; of a contour, curve for curve, trimmed at its junctions, with an arc about each corner where the parallels diverge"
 clearance = "the clearance between two curves: their two nearest points, its width and the parameters of the two points on their curves, for two arcs of one center the difference of their radii less the distance of their centers, for two arcs of one ellipse the difference of their offsets; the middle of the common range when the two points are not unique"
+overlap = "the widest common angular range of two arcs of one center or of one ellipse, an interval of the first arc's counterclockwise angle; empty when they share none, its endpoints then the two ends that bound the gap"
 lowest = "the lowest point: of a segment its lower end; of an arc or an elliptic arc the bottom of the curve when the arc passes it, else its lower end; of a contour the lowest of its outer path's curves, least y then least x"
 area = "the cross-sectional area of a shape, or the signed area of a closed polyline, positive counterclockwise"
 centroid = "the centroid of a shape in the cable cross-section"
@@ -378,7 +378,6 @@ directory = "the run directory of a computation under .linecablemodels/fem"
 mesh = "write the validated meshes of the cross-section at every frequency with Gmsh, each with its gauge tree, at most workers processes at once"
 "gauge!" = "write the gauge tree and the sampling nodes into a mesh"
 OVERRIDES = "the table of the native expert controls: each native name with its default and its range"
-Interval = "a real interval in the ranges of the native controls, the one range Base has no type for; its low bound is inside when it is closed, its high bound never"
 segments = "the segments per turn of the circle rule at a tolerance: the fewest of 12 times a power of 2 whose inscribed polygon bounds the relative error of a circle's area by the tolerance"
 FieldModel = "the finite-element model of a problem under a formulation: the material groups and the region, terminal and cable data that the later steps read"
 TAGS = "the tags of the physical groups that the native sources expect, by role"

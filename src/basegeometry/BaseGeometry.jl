@@ -13,10 +13,11 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..Commons: resolve, validate
 using ..Commons: nominal
 using QuadGK: quadgk
+using IntervalSets: ClosedInterval, leftendpoint, rightendpoint
 
 export Placement, area, perimeter, centroid, support, distance
 public Segment, Arc, EllipticArc, Curve, Contour, turn, parallel, clearance, dimension,
-       direction, lowest, draw
+       direction, lowest, draw, overlap
 
 include("placement.jl")
 include("contour.jl")

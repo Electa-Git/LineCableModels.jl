@@ -1,50 +1,21 @@
-"""
-$(TYPEDEF)
-
-Represent a real interval for a native control. The low bound is inside when `closed`
-is true. The high bound is always outside.
-
-$(TYPEDFIELDS)
-"""
-struct Interval{T <: Real}
-    "Low bound."
-    low::T
-    "High bound."
-    high::T
-    "Whether the low bound is inside."
-    closed::Bool
-    function Interval(low::T, high::T, closed::Bool) where {T <: Real}
-        return new{T}(low, high, closed)
-    end
-end
-
-function Base.in(x::Real, interval::Interval)
-    return (interval.closed ? interval.low <= x : interval.low < x) && x < interval.high
-end
-
-function Base.show(io::IO, interval::Interval)
-    print(io, interval.closed ? '[' : '(',
-        interval.low, ", ",
-        isinf(interval.high) ? "∞" : interval.high, ')')
-end
-
 "Native expert controls, each with its default and allowed range."
 const OVERRIDES = (
-    PmlSideThicknessFactor = (default = 1.0, range = Interval(0.0, Inf, false)),
-    PmlTopThicknessFactor = (default = 1.0, range = Interval(0.0, Inf, false)),
-    PmlBottomThicknessFactor = (default = 1.0, range = Interval(0.0, Inf, false)),
+    PmlSideThicknessFactor = (default = 1.0, range = Interval{:open, :open}(0.0, Inf)),
+    PmlTopThicknessFactor = (default = 1.0, range = Interval{:open, :open}(0.0, Inf)),
+    PmlBottomThicknessFactor = (default = 1.0, range = Interval{:open, :open}(0.0, Inf)),
     PmlSideLayers = (default = 16, range = 1:(typemax(Cint) - 1)),
     PmlTopLayers = (default = 16, range = 1:(typemax(Cint) - 1)),
     PmlBottomLayers = (default = 16, range = 1:(typemax(Cint) - 1)),
-    PmlSideGrading = (default = log(20), range = Interval(0.0, Inf, true)),
-    PmlTopGrading = (default = log(20), range = Interval(0.0, Inf, true)),
-    PmlBottomGrading = (default = log(20), range = Interval(0.0, Inf, true)),
-    ExteriorMeshSizeFactor = (default = 1.0, range = Interval(1.0, Inf, true)),
-    InterfaceRefinementFactor = (default = 1.0, range = Interval(1.0, Inf, true)),
-    ConductorGeometryTolerance = (default = 1e-3, range = Interval(0.0, Inf, false)),
-    ConductorSkinDepthElements = (default = 6.0, range = Interval(0.0, Inf, false)),
-    ConductorMeshGrowth = (default = sqrt(1.25), range = Interval(1.0, Inf, true)),
-    ConductorSkinDepths = (default = 5.0, range = Interval(0.0, Inf, false)),
+    PmlSideGrading = (default = log(20), range = Interval{:closed, :open}(0.0, Inf)),
+    PmlTopGrading = (default = log(20), range = Interval{:closed, :open}(0.0, Inf)),
+    PmlBottomGrading = (default = log(20), range = Interval{:closed, :open}(0.0, Inf)),
+    ExteriorMeshSizeFactor = (default = 1.0, range = Interval{:closed, :open}(1.0, Inf)),
+    InterfaceRefinementFactor = (default = 1.0, range = Interval{:closed, :open}(1.0, Inf)),
+    ConductorGeometryTolerance = (default = 1e-3, range = Interval{:open, :open}(0.0, Inf)),
+    ConductorSkinDepthElements = (default = 6.0, range = Interval{:open, :open}(0.0, Inf)),
+    ConductorMeshGrowth = (
+        default = sqrt(1.25), range = Interval{:closed, :open}(1.0, Inf)),
+    ConductorSkinDepths = (default = 5.0, range = Interval{:open, :open}(0.0, Inf)),
     ConductorThicknessElements = (default = 4, range = 1:typemax(Cint)),
     VolumeQuadrature = (default = 12, range = (4, 7, 12, 13)),
     PhysicalVolumeQuadrature = (default = 3, range = (3, 4, 7, 12, 13)),
@@ -54,7 +25,8 @@ const OVERRIDES = (
     PetscPrealloc = (default = 0, range = 0:typemax(Cint)),
     MumpsErrorAnalysis = (default = 2, range = (0, 1, 2)),
     MumpsRefinementMax = (default = 2, range = 0:typemax(Cint)),
-    MumpsBackwardErrorTolerance = (default = 1e-12, range = Interval(0.0, Inf, false)),
+    MumpsBackwardErrorTolerance = (
+        default = 1e-12, range = Interval{:open, :open}(0.0, Inf)),
     ThinLayerStrips = (default = 1, range = (0, 1)))
 
 """
