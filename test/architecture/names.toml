@@ -121,7 +121,7 @@ symbols = ["i0m1"]
 [modules.BaseGeometry]
 nouns = ["placement", "segment", "curve", "contour", "area", "centroid", "perimeter", "support",
     "distance", "dimension", "parallel", "clearance", "turn", "direction", "overlap", "vertex",
-    "apsides"]
+    "apsides", "winding"]
 qualifiers = ["elliptic", "lowest"]
 symbols = ["p"]
 
@@ -369,6 +369,7 @@ area = "the cross-sectional area of a shape, or the signed area of a closed poly
 centroid = "the centroid of a shape in the cable cross-section"
 perimeter = "the length of the outline of a shape"
 apsides = "the apsides of a curve about a point: the parameters of its point nearest to and of its point farthest from that point, its ends included"
+winding = "the winding about a point: of a closed path its winding number, of a curve the signed fraction of a revolution that its direction from the point sweeps"
 support = "the radius of a circle about the origin that contains a shape, or the support function of a shape in a direction: its largest projection on that direction"
 distance = "the radius of a circle about the origin that a shape does not enter"
 dimension = "the distance across the metal of a shape: twice the depth at which the inward parallel of its outline first degenerates; a circle's diameter, an annulus's thickness, a rectangle's smaller side; of a curve, the metal on its left, twice the depth at which its inward parallel degenerates: twice its smallest convex radius, infinite for a segment or a curve that turns away from its left"

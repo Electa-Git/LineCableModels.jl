@@ -1,7 +1,7 @@
 using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon
 using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, parallel,
                                     clearance,
-                                    dimension, turn, lowest, vertex, apsides
+                                    dimension, turn, lowest, vertex, apsides, winding
 
 @testset "DataModel geometry" begin
     @testset "mapping scales real fields" begin
@@ -892,6 +892,29 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test apsides(Segment((1.0, -1.0), (1.0, 2.0)), (0.0, 0.0)) ==
               (near = 1 / 3, far = 1.0)
         @test apsides(Arc(Placement(3.0, 0.0, π / 2), 1.0, π), (0.0, 0.0)).near == 0.5
+    end
+
+    @testset "the winding about a point and a point in a contour" begin
+        @test winding(Segment((1.0, 0.0), (0.0, 1.0)), (0.0, 0.0)) ≈ 0.25
+        @test winding(Arc(Placement(0, 0), 1e-3, π), (0, 0.5e-3)) ≈
+              (atan(-1, -0.75) + 2π) / 2π
+        @test winding(Arc(Placement(0, 0), 1e-3, 2π), (0, 0)) ≈ 1
+        @test winding(Arc(Placement(0, 0), 1e-3, 2π), (2e-3, 0)) ≈ 0 atol = 1e-15
+        @test (0.0, 0.0) ∈ Contour(Circle(1e-3))
+        @test (2e-3, 0.0) ∉ Contour(Circle(1e-3))
+        @test (0.0, 0.0) ∉ Contour(Annulus(1e-3, 2e-3))
+        @test (1.5e-3, 0.0) ∈ Contour(Annulus(1e-3, 2e-3))
+        arc = EllipticArc(Placement(0, 0), 10e-3, 1e-3, π / 2 - 0.1, 0.2, -1.5e-3)
+        m = (arc(1 / 2) .+ (arc(0) .+ arc(1)) ./ 2) ./ 2
+        u, v = arc(0) .- m, arc(1) .- m
+        @test winding(arc, m) ≈
+              (atan(u[1] * v[2] - u[2] * v[1], u[1] * v[1] + u[2] * v[2]) + 2π) / 2π
+        duct = LineCableModels.resolve(Ellipse(30e-3, 20e-3), Offset(3e-3))
+        @test (31.5e-3, 0.0) ∈ Contour(duct)
+        @test (0.0, 0.0) ∉ Contour(duct)
+        @test (34e-3, 0.0) ∉ Contour(duct)
+        @test @inferred((0.0, 0.0) ∈ Contour(Circle(1e-3)))
+        @test @inferred((31.5e-3, 0.0) ∈ Contour(duct))
     end
 
     @testset "a curve reversed twice is itself" begin

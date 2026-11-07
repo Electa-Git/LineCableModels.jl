@@ -1149,6 +1149,61 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Return the winding of `curve` about the point `m` \\[m\\]: the signed fraction of a
+revolution that the direction from `m` to the curve sweeps along it. For a segment, that is
+the angle between its two ends as seen from `m`.
+
+An arc or an elliptic arc sweeps the angle of its chord. When `m` lies in the bulge between
+the curve and its chord, it sweeps one revolution more, in the sense of its span. There `m`
+lies strictly on the inner side of the tangents at both ends and at the point of the curve
+nearest it. It also lies strictly on the side of the chord where the middle of the curve
+lies, unless the curve makes a full turn. The points of the curve itself count as outside.
+
+For a closed path, return the sum of the `winding` of its curves about `m`, rounded to an
+integer: the number of turns the path makes about `m`.
+"""
+function winding(curve::Segment, m)
+    u, v = curve.p .- m, curve.q .- m
+    return atan(u[1] * v[2] - u[2] * v[1], u[1] * v[1] + u[2] * v[2]) / 2π
+end
+
+function winding(curve::Union{Arc, EllipticArc}, m)
+    P, Q = curve(0), curve(1)
+    u, v = P .- m, Q .- m
+    σ = sign(curve.span)
+    inside = all((0, 1, apsides(curve, m).near)) do t
+        ν = direction(curve, t) - σ * π / 2
+        point = curve(t)
+        nominal((m[1] - point[1]) * cos(ν) + (m[2] - point[2]) * sin(ν)) < 0
+    end
+    if abs(nominal(curve.span)) < 2π
+        chord, middle = Q .- P, curve(1 / 2)
+        inside &= nominal((chord[1] * (middle[2] - P[2]) - chord[2] * (middle[1] - P[1])) *
+                          (chord[1] * (m[2] - P[2]) - chord[2] * (m[1] - P[1]))) > 0
+    end
+    return (atan(u[1] * v[2] - u[2] * v[1], u[1] * v[1] + u[2] * v[2]) + 2π * σ * inside) /
+           2π
+end
+
+function winding(path::AbstractVector{<:Curve}, m)
+    return round(Int, nominal(sum(curve -> winding(curve, m), path)))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `true` when the point `m` \\[m\\] lies in the region that `contour` bounds. The
+`winding` of its outer path about `m` is then nonzero, and that of each hole is zero. The
+points of its curves count as outside.
+"""
+function Base.in(m::Tuple{Real, Real}, contour::Contour)
+    return winding(contour.outer, m) != 0 &&
+           all(path -> winding(path, m) == 0, contour.holes)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Return the distance across the region that `contour` bounds \\[m\\]: twice the depth at
 which its inward parallel first degenerates. The distance is the least of three bounds:
 
@@ -1223,7 +1278,7 @@ function dimension(contour::Contour{T}) where {T}
             end
             if counts
                 m = (p .+ q) ./ 2
-                if iszero(nominal(distance(resolve(Placement(-m[1], -m[2]), contour))))
+                if m ∈ contour
                     push!(bounds, w)
                 end
             end
