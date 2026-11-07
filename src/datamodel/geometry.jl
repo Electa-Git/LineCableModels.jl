@@ -646,8 +646,8 @@ parallel boundary.
 Holes leave the support unchanged, so for an annulus or a sector it is the support of the
 convex hull.
 """
-support(circle::Circle) = hypot(circle.at.x, circle.at.y) + circle.r
-support(annulus::Annulus) = hypot(annulus.at.x, annulus.at.y) + annulus.ro
+support(circle::Circle) = distance(circle.at) + circle.r
+support(annulus::Annulus) = distance(annulus.at) + annulus.ro
 support(sector::Sector) = support(Contour(sector))
 support(shape::PerforatedShape) = support(shape.outer)
 
@@ -670,10 +670,10 @@ A rectangle, a polygon or an arc polygon takes the distance of its contour. An e
 uses ``max(0,hypot(c_x,c_y)-max(a,b))``, the circumscribed circle's bound, exact for a
 centered ellipse. A layer keeps its outer boundary's distance bound.
 """
-distance(circle::Circle) = max(zero(circle.r), hypot(circle.at.x, circle.at.y) - circle.r)
+distance(circle::Circle) = max(zero(circle.r), distance(circle.at) - circle.r)
 
 function distance(shape::Annulus)
-    offset = hypot(shape.at.x, shape.at.y)
+    offset = distance(shape.at)
     return max(zero(offset), offset - shape.ro, shape.ri - offset)
 end
 

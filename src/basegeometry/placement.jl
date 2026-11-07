@@ -40,6 +40,23 @@ function validate(placement::Placement)
     return placement
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return, in \\[m\\], the distance of the position of `at` from the origin of its parent
+frame:
+
+```math
+d = \\sqrt{x^2 + y^2},
+```
+
+where ``x`` and ``y`` are the horizontal and vertical translations of `at`, in \\[m\\]. When
+`iszero` is true for both, the translation is exactly zero and the result is an exact zero,
+`zero(at.x)`. A number type with derivatives, such as a dual number, then has zero
+derivatives there, where those of `hypot` are undefined.
+"""
+distance(at::Placement) = iszero(at.x) && iszero(at.y) ? zero(at.x) : hypot(at.x, at.y)
+
 Base.eltype(::Placement{T}) where {T} = T
 
 function Base.map(f, placement::Placement)

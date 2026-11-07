@@ -2,6 +2,7 @@ using Test
 using Aqua
 using LineCableModels
 using Measurements
+using ForwardDiff
 
 @testset "LineCableModels" begin
     @testset "Aqua" begin
@@ -11,6 +12,7 @@ using Measurements
     include("materials/materials.jl")
     include("earth/earth.jl")
     include("datamodel/geometry.jl")
+    include("datamodel/derivatives.jl")
     include("datamodel/design.jl")
     include("datamodel/system.jl")
     include("datamodel/blueprint.jl")
