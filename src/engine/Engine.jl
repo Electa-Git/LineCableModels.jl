@@ -90,16 +90,21 @@ equivalent earth.
 abstract type AbstractEarthProperties <: AbstractFormulation end
 
 """
-    admittivity(formulation, material, f)
+    admittivity(formulation, material, f, θ)
 
-Return the admittivity of a dielectric layer at a frequency, by the law of its class in the
-formulation.
+Return the admittivity of a material at a frequency and a temperature, by the law of its class
+in the formulation. A conductor takes its resistivity at the temperature by the resistivity
+law, with its relative permittivity. An insulator or a semicon takes the admittivity law of its
+class, which does not depend on the temperature. The medium's forms, `admittivity(layer, s)`
+for an earth layer and `admittivity(rho, eps_r, s)` for a resistivity and a relative
+permittivity, return the conductivity plus the complex frequency times the permittivity.
 
 # Arguments
 
-- `formulation`: formulation that holds the admittivity laws.
-- `material`: material of the dielectric layer.
+- `formulation`: formulation that holds the material laws.
+- `material`: material of a conductor or a dielectric layer.
 - `f`: frequency \\[Hz\\].
+- `θ`: temperature \\[°C\\].
 
 # Returns
 

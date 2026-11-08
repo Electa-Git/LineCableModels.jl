@@ -214,7 +214,8 @@ from_buffer
 initialize_buffers(::AbstractFormulation, input, buffers)
 initialize_buffers(formulation::CoaxialFormulation, problem::LineParametersProblem, input::CoaxialInput{T}) where {T <: Real}
 admittivity
-admittivity(formulation::Union{CoaxialFormulation, FEM}, material::Material{T, :insulator}, f) where {T <: Real}
+admittivity(rho::Real, eps_r::Real, s::Complex)
+admittivity(formulation::Union{CoaxialFormulation, FEM}, material::Material{T, :insulator}, f, θ) where {T <: Real}
 ```
 
 [Back to Contents](contents.md)

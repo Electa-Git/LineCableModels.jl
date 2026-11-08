@@ -99,19 +99,10 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
         label = reductions(problem.system, formulation.options).label
         sources = [convert(Material{T}, region.source.material)
                    for region in problem.system.regions]
-        κ = Vector{Vector{Complex{T}}}(undef, length(sources))
-        conductor = fill(false, length(sources))
-        for r in findall(source -> source isa Material{T, :conductor}, sources)
-            source = sources[r]
-            ρ = formulation.resistivity(source, problem.temperature)
-            κ[r] = Complex{T}[complex(inv(ρ), 2π * f * ε₀ * source.eps_r)
-                              for f in problem.frequencies]
-            conductor[r] = true
-        end
-        for r in findall(source -> !(source isa Material{T, :conductor}), sources)
-            κ[r] = Complex{T}[admittivity(formulation, sources[r], f)
-                              for f in problem.frequencies]
-        end
+        κ = [Complex{T}[admittivity(formulation, source, f, problem.temperature)
+                        for f in problem.frequencies]
+             for source in sources]
+        conductive = findall(source -> source isa Material{T, :conductor}, sources)
         class = map(function (material::Material{<:Real, K}) where {K}
                 return string(K)
             end, sources)
@@ -129,7 +120,7 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
             if found === nothing
                 g = length(materials) + 1
                 push!(materials,
-                    (conductor = conductor[r], mu_r = mu_r,
+                    (conductor = r in conductive, mu_r = mu_r,
                         admittivity = κ[r], tag = TAGS.material_base + g,
                         name = "LCM/material/$(lpad(g, 4, '0'))/$(class[r])"))
                 push!(first_region, r)

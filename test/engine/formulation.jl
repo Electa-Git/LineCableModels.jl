@@ -182,13 +182,52 @@ end
         @test FEM(; equivalent_earth = :bottommost) === fem
         @test_throws "reduces no earth model" FEM(; equivalent_earth = :constant)
         for material in
-            (Material(:insulator, 1.0e14, 2.3), Material(:semicon, 1000.0, 1000.0))
-            @test Engine.admittivity(FEM(), material, 50.0) ==
-                  Engine.admittivity(CoaxialFormulation(), material, 50.0)
+            (Material(:insulator, 1.0e14, 2.3), Material(:semicon, 1000.0, 1000.0),
+            Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393))
+            @test Engine.admittivity(FEM(), material, 50.0, 70.0) ==
+                  Engine.admittivity(CoaxialFormulation(), material, 50.0, 70.0)
         end
         @test FEM(; Γ = [complex(0.0, 1.0)]).options.Γ == [complex(0.0, 1.0)]
         @test_throws DomainError FEM(; Γ = complex(NaN))
         @test_throws DomainError FEM(; Γ = ComplexF64[])
+    end
+
+    @testset "the admittivity of a medium in one home" begin
+        copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+        polymer = Material(:insulator, 1.0e14, 2.3; tan_delta = 1.0e-3)
+        semicon = Material(:semicon, 1000.0, 1000.0)
+        s = complex(0.0, 2π * 50.0)
+        # The air, an earth layer, an equivalent earth of negative permittivity and a metal.
+        for (rho, eps_r) in
+            ((Inf, 1.0), (100.0, 10.0), (62.05, -48961.76), (1.7241e-8, 1.0))
+            @test Engine.admittivity(rho, eps_r, s) === inv(rho) + s * (Engine.ε₀ * eps_r)
+        end
+        layer = EarthLayer(100.0, 10.0, 1.0, 5.0)
+        @test Engine.admittivity(layer, s) === Engine.admittivity(layer.rho, layer.eps_r, s)
+        for formulation in (CoaxialFormulation(), FEM())
+            ρ = formulation.resistivity(copper, 70.0)
+            for f in (0.0, 50.0, 1.0e6)
+                κ = Engine.admittivity(formulation, copper, f, 70.0)
+                @test κ === Engine.admittivity(ρ, copper.eps_r, complex(0.0, 2π * f))
+                @test real(κ) === inv(ρ)
+                for θ in (20.0, 90.0)
+                    @test Engine.admittivity(formulation, polymer, f, θ) ===
+                          formulation.insulation_admittance(polymer, f)
+                    @test Engine.admittivity(formulation, semicon, f, θ) ===
+                          formulation.semicon_admittance(semicon, f)
+                end
+            end
+            @test Engine.admittivity(formulation, copper, 0.0, 70.0) === complex(inv(ρ))
+            @test real(Engine.admittivity(formulation, copper, 50.0, 20.0)) >
+                  real(Engine.admittivity(formulation, copper, 50.0, 70.0))
+        end
+        @test @inferred(Engine.admittivity(100.0, 10.0, s)) isa ComplexF64
+        @test @inferred(Engine.admittivity(layer, s)) isa ComplexF64
+        @test @inferred(Engine.admittivity(FEM(), copper, 50.0, 70.0)) isa ComplexF64
+        @test only(map((g, l, z) -> @allocated(g(l, z)), (Engine.admittivity,), (layer,), (s,))) ==
+              0
+        @test only(map((g, m, c, f, θ) -> @allocated(g(m, c, f, θ)),
+            (Engine.admittivity,), (FEM(),), (copper,), (50.0,), (70.0,))) == 0
     end
 
     @testset "a block lowers to the constructor" begin

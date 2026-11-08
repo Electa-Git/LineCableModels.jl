@@ -7,7 +7,7 @@ function (::Formula{:xue2021})(layers::Tuple{Vararg{EarthLayer{T}}}, f::T) where
     ε = convert(T, ε₀)
     ω = convert(T, 2) * convert(T, π) * f
     s = complex(zero(T), ω)
-    γ = map(layer -> sqrt(s * μ * (inv(layer.rho) + s * ε * layer.eps_r) - s * s * μ * ε), layers)
+    γ = map(layer -> sqrt(s * μ * admittivity(layer, s) - s * s * μ * ε), layers)
     γ_eq = last(γ)
     for k in (length(layers) - 1):-1:1
         γ_k = γ[k]

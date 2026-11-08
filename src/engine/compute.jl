@@ -1,28 +1,70 @@
 """
 $(TYPEDSIGNATURES)
 
-Evaluate the insulator admittivity law selected by the formulation.
+Return the admittivity of a medium from its resistivity and its relative permittivity at a
+complex frequency:
+
+```math
+\\tilde{\\sigma} = \\frac{1}{\\rho} + s \\varepsilon_0 \\varepsilon_r,
+```
+
+where ``\\tilde{\\sigma}`` is the admittivity \\[S/m\\], ``\\rho`` the resistivity
+\\[Ω·m\\], ``\\varepsilon_r`` the relative permittivity \\[dimensionless\\] and
+``\\varepsilon_0`` the vacuum permittivity \\[F/m\\]. The complex frequency is
+``s = \\mathrm{j} 2 \\pi f`` \\[1/s\\] at the frequency ``f`` \\[Hz\\].
+
+# Arguments
+
+- `rho`: resistivity \\[Ω·m\\].
+- `eps_r`: relative permittivity \\[dimensionless\\].
+- `s`: complex frequency \\[1/s\\].
+
+# Returns
+
+- Admittivity \\[S/m\\].
+"""
+function admittivity(rho::Real, eps_r::Real, s::Complex)
+    return inv(rho) + s * (ε₀ * eps_r)
+end
+
+# An earth layer takes the admittivity of its resistivity and its relative permittivity.
+function admittivity(layer::EarthLayer, s::Complex)
+    return admittivity(layer.rho, layer.eps_r, s)
+end
+
+# A conductor takes its resistivity at the temperature by the resistivity law of the
+# formulation.
+function admittivity(formulation::Union{CoaxialFormulation, FEM},
+        material::Material{T, :conductor}, f, θ) where {T <: Real}
+    return admittivity(formulation.resistivity(material, θ), material.eps_r,
+        Complex{T}(im * (2 * π * f)))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate the insulator admittivity law selected by the formulation, which reads the frequency
+and not the temperature.
 
 # Arguments
 
 - `formulation`: coaxial or finite-element formulation with the material laws.
 - `material`: insulator material.
 - `f`: frequency \\[Hz\\].
+- `θ`: temperature \\[°C\\].
 
 # Returns
 
 - Admittivity \\[S/m\\].
 """
-function admittivity(
-        formulation::Union{CoaxialFormulation, FEM}, material::Material{
-            T, :insulator}, f) where {T <: Real}
+function admittivity(formulation::Union{CoaxialFormulation, FEM},
+        material::Material{T, :insulator}, f, θ) where {T <: Real}
     return formulation.insulation_admittance(material, f)
 end
 
-# A semicon layer takes the semicon admittivity law.
-function admittivity(
-        formulation::Union{CoaxialFormulation, FEM}, material::Material{
-            T, :semicon}, f) where {T <: Real}
+# A semicon layer takes the semicon admittivity law, which does not depend on the temperature.
+function admittivity(formulation::Union{CoaxialFormulation, FEM},
+        material::Material{T, :semicon}, f, θ) where {T <: Real}
     return formulation.semicon_admittance(material, f)
 end
 
@@ -75,7 +117,7 @@ A formula reads these terms and derives everything else itself:
 | `κ_l`, the admittivity of dielectric layer `l`, by its law | `buffers.kappa[l]` | per frequency, in `solve!` |
 | `Γ_k` | `buffers.gamma[k]` | once, from the options |
 | media as the law describes them and the model reduces them | `media[t]`, with `rho`, `eps_r`, `mu_r`, `thickness` | per frequency, in `solve!` |
-| `σ̃_t = 1/ρ_t + s ε₀ ε_r,t` and `μ_t = μ₀ μ_r,t` | `buffers.σ̃[t]`, `buffers.μ[t]` | per frequency, by `to_buffer!` of the formulation |
+| `σ̃_t = 1/ρ_t + s ε₀ ε_r,t`, the [`admittivity`](@ref) of medium `t`, and `μ_t = μ₀ μ_r,t` | `buffers.σ̃[t]`, `buffers.μ[t]` | per frequency, by `to_buffer!` of the formulation |
 """
 function initialize_buffers(
         formulation::CoaxialFormulation, problem::LineParametersProblem,
@@ -130,7 +172,7 @@ relative permittivity and permeability \\[dimensionless\\] of medium ``t``.
 """
 function to_buffer!(::CoaxialFormulation, buffers, input::CoaxialInput, media, s, k)
     for t in eachindex(media)
-        buffers.σ̃[t] = inv(media[t].rho) + s * (ε₀ * media[t].eps_r)
+        buffers.σ̃[t] = admittivity(media[t], s)
         buffers.μ[t] = μ₀ * media[t].mu_r
     end
     return buffers
@@ -192,7 +234,8 @@ function solve!(
         Yk = view(Y,:,:,k)
         s = Complex{T}(im * (2 * π * f))
         for l in eachindex(kappa)
-            kappa[l] = admittivity(formulation, input.dielectric_material[l], f)
+            kappa[l] = admittivity(
+                formulation, input.dielectric_material[l], f, problem.temperature)
         end
         air = first(problem.earth.layers)
         described = map(layer -> formulation.earth_properties(layer, f),

@@ -322,7 +322,7 @@ module EarthProperties
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults, validate
 using ...Commons: FormulationOptions
-using ..Engine: AbstractEarthProperties, LineParametersProblem, ε₀, μ₀
+using ..Engine: AbstractEarthProperties, LineParametersProblem, admittivity, ε₀, μ₀
 using ...Earth: EarthLayer, EarthModel
 
 export Formula, FORMULAS

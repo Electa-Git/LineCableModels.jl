@@ -35,16 +35,9 @@ using LineCableModels.Engine: admittivity, reductions
         for (r, region) in enumerate(problem.system.regions)
             material = region.source.material
             group = model.materials[model.material[r]]
-            if material isa Material{<:Real, :conductor}
-                @test real.(group.admittivity) ==
-                      fill(
-                    inv(formulation.resistivity(material, problem.temperature)),
-                    length(problem.frequencies))
-            else
-                expected = [admittivity(CoaxialFormulation(), material, f)
-                            for f in problem.frequencies]
-                @test all(isapprox.(group.admittivity, expected; rtol = 1e-14))
-            end
+            @test group.admittivity ==
+                  [admittivity(formulation, material, f, problem.temperature)
+                   for f in problem.frequencies]
         end
         if startswith(case, "coaxial")
             core = findall(
