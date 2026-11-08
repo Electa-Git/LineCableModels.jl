@@ -618,22 +618,20 @@ S = \\sqrt{x_c^2 + y_c^2} + r_o,
 
 where ``(x_c, y_c)`` is the center of `shape` and ``r_o`` its outer radius \\[m\\]. The
 support of a [`PerforatedShape`](@ref) is that of its outer cross-section. Of a polygon,
-it is the farthest vertex. A rectangle, a sector or an arc polygon takes the support of its
-contour. An ellipse takes the point of its curve farthest from the origin.
+it is the farthest vertex. A rectangle, a sector, an ellipse or an arc polygon takes the
+support of its contour.
 
 `support(shape, φ)` returns the support function ``\\max(x\\cos φ+y\\sin φ)`` \\[m\\]
-of `shape` in the direction `φ` \\[rad\\]. For a circle or an annulus, it is the
-projection of the center plus the outer radius. A rectangle takes its farthest corner. A
-sector or an arc polygon takes the support of its contour. The ellipse's directional
-support is ``c⋅u+√(a²cos²ψ+b²sin²ψ)``, ``ψ=φ-at.φ``. A layer has the support of its
-parallel boundary.
+of `shape` in the direction `φ` \\[rad\\]: the support of its contour in that direction. A
+perforated shape takes that of its outer cross-section, and a layer that of its parallel
+boundary.
 
 Holes leave the support unchanged, so for an annulus or a sector it is the support of the
 convex hull.
 """
 support(circle::Circle) = distance(circle.at) + circle.r
 support(annulus::Annulus) = distance(annulus.at) + annulus.ro
-support(sector::Sector) = support(Contour(sector))
+support(shape::AbstractShape) = support(Contour(shape))
 support(shape::PerforatedShape) = support(shape.outer)
 
 """
@@ -751,7 +749,6 @@ function Base.map(f, shape::PerforatedShape)
 end
 
 centroid(rectangle::Rectangle) = (rectangle.at.x, rectangle.at.y)
-support(rectangle::Rectangle) = support(Contour(rectangle))
 boundary(rectangle::Rectangle) = rectangle
 distance(rectangle::Rectangle) = distance(Contour(rectangle))
 
@@ -768,12 +765,7 @@ function distance(sector::Sector)
     return max(zero(offset), offset - sector.ro, inner - offset)
 end
 
-support(circle::Circle, φ::Real) = circle.at.x * cos(φ) + circle.at.y * sin(φ) + circle.r
-function support(annulus::Annulus, φ::Real)
-    annulus.at.x * cos(φ) + annulus.at.y * sin(φ) + annulus.ro
-end
-support(sector::Sector, φ::Real) = support(Contour(sector), φ)
-support(rectangle::Rectangle, φ::Real) = support(Contour(rectangle), φ)
+support(shape::AbstractShape, φ::Real) = support(Contour(shape), φ)
 support(shape::PerforatedShape, φ::Real) = support(shape.outer, φ)
 
 """
@@ -861,18 +853,8 @@ function centroid(polygon::Polygon{T}) where {T}
     end
     return polygon.at((x, y) ./ (6area(polygon)))
 end
-support(ellipse::Ellipse) = support(EllipticArc(ellipse.at, ellipse.a, ellipse.b, 0, 2π))
-function support(ellipse::Ellipse, φ::Real)
-    ψ = φ - ellipse.at.φ
-    return ellipse.at.x * cos(φ) + ellipse.at.y * sin(φ) +
-           sqrt(ellipse.a^2 * cos(ψ)^2 + ellipse.b^2 * sin(ψ)^2)
-end
 function support(polygon::Polygon)
     return maximum(hypot(polygon.at(vertex)...) for vertex in polygon.vertices)
-end
-function support(polygon::Polygon, φ::Real)
-    return maximum(point[1] * cos(φ) + point[2] * sin(φ)
-    for point in (polygon.at(vertex) for vertex in polygon.vertices))
 end
 distance(ellipse::Ellipse) = distance(Contour(ellipse))
 distance(polygon::Polygon) = distance(Contour(polygon))

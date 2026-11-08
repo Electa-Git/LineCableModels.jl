@@ -44,17 +44,16 @@ end
 area(shape::ArcPolygon) = area(Contour(shape))
 centroid(shape::ArcPolygon) = centroid(Contour(shape))
 perimeter(shape::ArcPolygon) = perimeter(Contour(shape))
-support(shape::ArcPolygon) = support(Contour(shape))
-support(shape::ArcPolygon, φ::Real) = support(Contour(shape), φ)
 distance(shape::ArcPolygon) = distance(Contour(shape))
 boundary(shape::ArcPolygon) = shape
 
 function Base.issubset(B::AbstractShape, A::Union{Rectangle, Polygon, Ellipse, ArcPolygon})
     container = Contour(A)
+    content = Contour(B)
     normals = sort!(
         reduce(vcat,
             vec([map(curve -> mod(direction(curve, t) - π / 2, 2π), path)
-                 for t in (0, 1), path in (container.outer, Contour(B).outer)]));
+                 for t in (0, 1), path in (container.outer, content.outer)]));
         by = nominal)
     push!(normals, first(normals) + 2π)
     for search in (false, true), k in 1:(length(normals) - 1)
@@ -68,20 +67,21 @@ function Base.issubset(B::AbstractShape, A::Union{Rectangle, Polygon, Ellipse, A
                 right = high - (high - low) / 3
                 (nominal(left) == nominal(low) || nominal(right) == nominal(high) ||
                  nominal(left) == nominal(right)) && break
-                if nominal(support(container, left) - support(B, left)) <
-                   nominal(support(container, right) - support(B, right))
+                if nominal(support(container, left) - support(content, left)) <
+                   nominal(support(container, right) - support(content, right))
                     high = right
                 else
                     low = left
                 end
             end
-            φ = argmin(angle -> nominal(support(container, angle) - support(B, angle)),
+            φ = argmin(
+                angle -> nominal(support(container, angle) - support(content, angle)),
                 (low, (low + high) / 2, high))
         end
         radius = support(container, φ)
         tolerance = sqrt(eps(float(nominal(radius)))) *
                     max(one(nominal(radius)), nominal(radius))
-        nominal(support(B, φ)) <= nominal(radius) + tolerance || return false
+        nominal(support(content, φ)) <= nominal(radius) + tolerance || return false
     end
     return true
 end
@@ -113,14 +113,15 @@ arc of a hole other than a circle, the method returns `false`.
 Lengths are in \\[m\\], angles in \\[rad\\], and the tolerance is that of a circular hole.
 """
 function Base.isdisjoint(B::AbstractShape, hole::AbstractShape)
+    content = Contour(B)
     directions = [atan(-(edge.q[1] - edge.p[1]), edge.q[2] - edge.p[2])
                   for edge in Contour(hole).outer if edge isa Segment]
     append!(directions,
         [atan(-(edge.q[1] - edge.p[1]), edge.q[2] - edge.p[2]) + π
-         for edge in Contour(B).outer if edge isa Segment])
+         for edge in content.outer if edge isa Segment])
     apart = false
     for ψ in directions
-        radius = support(B, ψ + π)
+        radius = support(content, ψ + π)
         tolerance = sqrt(eps(float(nominal(radius)))) *
                     max(one(nominal(radius)), nominal(radius))
         apart |= nominal(support(hole, ψ)) <= -nominal(radius) + tolerance

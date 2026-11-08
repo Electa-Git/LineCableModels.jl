@@ -1,4 +1,5 @@
-using LineCableModels.BaseGeometry: Segment, Arc, EllipticArc, Curve, Contour, draw
+using LineCableModels.BaseGeometry: Segment, Arc, EllipticArc, Curve, Contour, draw,
+                                    clearance, apsides, lowest
 
 struct RecordingTarget
     curves::Vector{Union{Segment, Arc}}
@@ -218,5 +219,90 @@ end
                 @test entry.holes == contour.holes
             end
         end
+    end
+
+    @testset "the apsides, support and lowest point of a curve along a direction" begin
+        ellipse = EllipticArc(Placement(0, 0), 2.0e-3, 1.0e-3, 0, 2π)
+        @test @inferred(apsides(ellipse, 0)) == (near = 0.0, far = 0.5)
+        @test @inferred(apsides(ellipse, π / 2)) == (near = 0.25, far = 0.75)
+        @test @inferred(apsides(Arc(Placement(0, 0), 1.0e-3, π / 2), π / 4)).near ≈ 0.5
+        @test @inferred(apsides(Segment((0.0, 0.0), (1.0e-3, 1.0e-3)), π)) ==
+              (near = 0.0, far = 1.0)
+        segment = Segment((1.0e-3, -2.0e-3), (-3.0e-3, 4.0e-3))
+        arc = Arc(Placement(1.0e-3, 2.0e-3, 0.0), 3.0e-3, π)
+        elliptic = EllipticArc(
+            Placement(1.0e-3, -2.0e-3, 0.3), 4.0e-3, 2.0e-3, 0, 2π, 0.5e-3)
+        for φ in (0.4, 1.0, 2.5)
+            c, s = cos(φ), sin(φ)
+            h = hypot(4.0e-3 * cos(φ - 0.3), 2.0e-3 * sin(φ - 0.3))
+            @test @inferred(support(segment, φ)) ≈
+                  max(1.0e-3 * c - 2.0e-3 * s, -3.0e-3 * c + 4.0e-3 * s) rtol = 1e-12
+            @test @inferred(support(arc, φ)) ≈ 1.0e-3 * c + 2.0e-3 * s + 3.0e-3 rtol = 1e-12
+            @test @inferred(support(elliptic, φ)) ≈
+                  1.0e-3 * c - 2.0e-3 * s + h + 0.5e-3 rtol = 1e-12
+        end
+        @test @inferred(lowest(segment)) == (1.0e-3, -2.0e-3)
+        @test collect(@inferred(lowest(Arc(Placement(1.0e-3, 2.0e-3, π), 3.0e-3, π)))) ≈
+              [1.0e-3, -1.0e-3] atol = 1e-15
+        h = hypot(4.0e-3 * cos(3π / 2 - 0.3), 2.0e-3 * sin(3π / 2 - 0.3))
+        @test @inferred(lowest(elliptic))[2] ≈ -2.0e-3 - h - 0.5e-3 atol = 1e-15
+    end
+
+    @testset "the clearance of a segment or an arc and an elliptic arc" begin
+        upper = EllipticArc(Placement(0, 0), 20e-3, 5e-3, 0, π)
+        p, q, d, s, t = @inferred clearance(Segment((-30e-3, 0.0), (30e-3, 0.0)), upper)
+        @test d == 0
+        @test t ∈ (0.0, 1.0)
+        p, q, d = clearance(Segment((0.0, 0.0), (0.0, 10e-3)), upper)
+        @test d == 0
+        @test all(abs.(p .- (0.0, 5e-3)) .<= 1e-15)
+        @test all(abs.(q .- (0.0, 5e-3)) .<= 1e-15)
+        above = Segment((-10e-3, 6e-3), (10e-3, 6e-3))
+        p, q, d, s, t = clearance(above, upper)
+        @test d ≈ 1e-3 rtol = 1e-12
+        @test t ≈ 0.5
+        @test @inferred(clearance(upper, above)) == (q, p, d, t, s)
+        half = Arc(Placement(0, 12e-3, -π), 4e-3, π)
+        p, q, d, s, t = @inferred clearance(half, upper)
+        @test d ≈ 3e-3 rtol = 1e-12
+        @test all(abs.(q .- (0.0, 5e-3)) .<= 1e-15)
+        @test @inferred(clearance(upper, half)) == (q, p, d, t, s)
+        @test clearance(Arc(Placement(0, 12e-3, -π), 8e-3, π), upper)[3] == 0
+    end
+
+    @testset "the clearance of two elliptic arcs of one ellipse" begin
+        at = Placement(-0.00059794295776892294, -0.00069360917295612293, -1.8835078656211701)
+        a, b = 0.025493804607145745, 0.0034161657108289691
+        e = EllipticArc(at, a, b, -1.3060388229981847, 0.29299243356178317,
+            0.00035255212983780062)
+        f = EllipticArc(at, a, b, -3.1025237020383027, -2.933366926794454,
+            0.0004067968507438287)
+        p, q, d, s, t = @inferred clearance(e, f)
+        @test d ≈ 0.006529847843022441 rtol = 1e-12
+        @test (p, q) == (e(s), f(t))
+        @test hypot((p .- q)...) ≈ d rtol = 1e-12
+        deep = EllipticArc(Placement(0, 0), 20e-3, 5e-3, 0.2, π - 0.4, -2e-3)
+        other = EllipticArc(Placement(0, 0), 20e-3, 5e-3, π + 0.2, π - 0.4, 0.0)
+        @test_throws DomainError clearance(deep, other)
+        @test_throws "least radius of curvature" clearance(deep, other)
+        @test_throws "needs one ellipse" clearance(other,
+            EllipticArc(Placement(1e-3, 0), 20e-3, 5e-3, 0.2, π - 0.4))
+    end
+
+    @testset "the clearance of every pair of curves" begin
+        curves = (
+            Segment((-30e-3, 9e-3), (30e-3, 9e-3)), Arc(Placement(0, 12e-3, -π), 4e-3, π),
+            EllipticArc(Placement(0, 0), 20e-3, 5e-3, 0, π))
+        widths = [0 0 4e-3; 0 0 3e-3; 4e-3 3e-3 0]
+        for (i, a) in enumerate(curves), (j, b) in enumerate(curves)
+
+            @test clearance(a, b)[3] ≈ widths[i, j] atol = 1e-15
+        end
+    end
+
+    @testset "a bracket halved to adjacent parameters" begin
+        lo, hi = @inferred LineCableModels.BaseGeometry.bisect(x -> x < 0.3, 0.0, 1.0)
+        @test lo < 0.3 <= hi
+        @test nextfloat(lo) == hi
     end
 end

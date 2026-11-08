@@ -127,6 +127,7 @@ symbols = ["p"]
 
 [modules.BaseGeometry.verbs]
 draw = "draw a system, a design, a placed region, a shape, a contour, a path or a curve on a target, in the target's own primitives"
+bisect = "halve a bracket of a parameter where a predicate changes, to two parameters adjacent in nominal value"
 
 [modules.LineCableModelsGmshExt]
 nouns = ["overrides", "field", "tags", "strand", "air", "scale",
@@ -362,19 +363,22 @@ direction = "the direction of the tangent of a curve at a parameter; of an orien
 turn = "the turn of a curve: the turn of its tangent as a fraction of a revolution and its length, zero for a segment, the span over a revolution for an arc, the turn of its normal for an elliptic arc; of the parallel of a face at a signed distance between two points, the signed fraction and length of that piece, negative once the face has vanished"
 parallel = "the parallel at a distance signed along the outward normal: of a curve, a segment moved along its normal, an arc of its radius plus the distance in its sense, an elliptic arc of its offset plus the distance; of the piece of a curve's parallel between two points; of the junction of two consecutive curves, the end of the first parallel and the start of the second, one point where they meet and each end moved along its own normal where they diverge; of a contour, curve for curve, trimmed at its junctions, with an arc about each corner where the parallels diverge"
 vertex = "the vertex where two curves cross, nearest a point: the crossing of the lines or circles that carry them; where a line and a circle no longer meet, the foot of the circle's center on the line, and where two circles no longer meet, the point of their line of centers on their radical axis; refused for an elliptic arc. The one `parallel(a, b, d)` reads it with the two parallels and their junction"
-clearance = "the clearance between two curves: their two nearest points, its width and the parameters of the two points on their curves, for two arcs of one center the difference of their radii less the distance of their centers, for two arcs of one ellipse the difference of their offsets; the middle of the common range when the two points are not unique"
+clearance = "the clearance between two curves: their two nearest points, its width and the parameters of the two points on their curves, for two arcs of one center the difference of their radii less the distance of their centers, for two arcs of one ellipse the difference of their offsets; the middle of the common range when the two points are not unique; refused for two ellipses, or past one ellipse's inner reach"
 overlap = "the widest common angular range of two arcs of one center or of one ellipse, an interval of the first arc's counterclockwise angle; empty when they share none, its endpoints then the two ends that bound the gap"
-lowest = "the lowest point: of a segment its lower end; of an arc or an elliptic arc the bottom of the curve when the arc passes it, else its lower end; of a contour the lowest of its outer path's curves, least y then least x"
+lowest = "the lowest point: of a curve, the lowest of its ends and of its near apsis along `3π/2`, least y then least x; of a contour the lowest of its outer path's curves"
 area = "the cross-sectional area of a shape; of a closed path the signed area it bounds, positive counterclockwise; of a curve about a point the signed area that the segments from the point to the curve sweep"
 moment = "the first moment of area: of a curve about a point, that of the region the segments from the point to the curve sweep; of a closed path, that of the region it bounds, about the origin"
 centroid = "the centroid of a shape in the cable cross-section"
 perimeter = "the length of the outline of a shape"
-apsides = "the apsides of a curve about a point: the parameters of its point nearest to and of its point farthest from that point, its ends included"
+apsides = "the apsides of a curve about a point: the parameters of its point nearest to and of its point farthest from that point, its ends included; about the point at infinity along a direction, its points of greatest and of least projection on it"
 winding = "the winding about a point: of a closed path its winding number, of a curve the signed fraction of a revolution that its direction from the point sweeps"
 support = "the radius of a circle about the origin that contains a shape, or the support function of a shape in a direction: its largest projection on that direction"
 distance = "the radius of a circle about the origin that a shape does not enter; of a curve, the distance of its nearest point from the origin; of a point or a placement, its distance from the origin"
 dimension = "the distance across the metal of a shape: twice the depth at which the inward parallel of its outline first degenerates; a circle's diameter, an annulus's thickness, a rectangle's smaller side; of a curve, the metal on its left, twice the depth at which its inward parallel degenerates: twice its smallest convex radius, infinite for a segment or a curve that turns away from its left"
 draw = "draw a system, a design, a placed region, a shape, a contour or a path on a target as the curves the target draws, returning what the target made"
+
+[register.BaseGeometry.private]
+bisect = "the two parameters, adjacent in nominal value, between which a predicate changes from true to false, by halving their bracket; read by the apsides of an elliptic arc, the depth of `dimension` and the crossings of `clearance`"
 
 [register.LineCableModelsGmshExt.public]
 

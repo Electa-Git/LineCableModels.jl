@@ -623,11 +623,169 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Return `(p, q, d, s, t)` for the nearest points `p` of `curve` and `q` of `other`, as
+`clearance(::Segment, ::Segment)`. The candidates are the four end pairs and each end with its
+nearest point on the other curve. They also include the apsides of `other` along the
+segment's normal, with their feet on the segment. Between those parameters and
+the ends, the signed distance of `other` from the segment's line is monotone, and `bisect`
+finds each change of its sign. A change whose point projects onto the segment is a crossing,
+at ``d=0``.
+"""
+function clearance(curve::Segment, other::EllipticArc)
+    u = curve.q .- curve.p
+    L = u[1]^2 + u[2]^2
+    z = zero(u[1] + other.a)
+    best = argmin(candidate -> nominal(candidate[3]),
+        map(((s, t),) -> (s, t, hypot((curve(s) .- other(t))...)),
+            ((z, z), (z, one(z)), (one(z), z), (one(z), one(z)))))
+    for s in (z, one(z))
+        t = apsides(other, curve(s)).near
+        best = argmin(candidate -> nominal(candidate[3]),
+            (best, (s, t, hypot((curve(s) .- other(t))...))))
+    end
+    near, far = apsides(other, atan(u[2], u[1]) + π / 2)
+    for t in (z, one(z), near, far)
+        s = apsides(curve, other(t)).near
+        best = argmin(candidate -> nominal(candidate[3]),
+            (best, (s, t, hypot((curve(s) .- other(t))...))))
+    end
+    knots = nominal(near) <= nominal(far) ? (z, near, far, one(z)) : (z, far, near, one(z))
+    for k in 1:3
+        q₁, q₂ = other(knots[k]), other(knots[k + 1])
+        g₁ = u[1] * (q₁[2] - curve.p[2]) - u[2] * (q₁[1] - curve.p[1])
+        g₂ = u[1] * (q₂[2] - curve.p[2]) - u[2] * (q₂[1] - curve.p[1])
+        nominal(g₁) * nominal(g₂) > 0 && continue
+        t = iszero(nominal(g₁)) ? knots[k] :
+            iszero(nominal(g₂)) ? knots[k + 1] :
+            argmin(
+            t -> (xy = other(t);
+                abs(nominal(u[1] * (xy[2] - curve.p[2]) - u[2] * (xy[1] - curve.p[1])))),
+            bisect(
+                t -> (xy = other(t);
+                    nominal(sign(u[1] * (xy[2] - curve.p[2]) -
+                                 u[2] * (xy[1] - curve.p[1]))) ==
+                    nominal(sign(g₁))),
+                knots[k], knots[k + 1]))
+        q = other(t)
+        s = ((q[1] - curve.p[1]) * u[1] + (q[2] - curve.p[2]) * u[2]) / L
+        if 0 <= nominal(s) <= 1
+            best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, z)))
+        end
+    end
+    s, t, d = best
+    return (curve(s), other(t), d, s, t)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `(p, q, d, s, t)` for the nearest points `p` of `curve` and `q` of `other`, as
+`clearance(::Segment, ::Segment)`. The candidates start with the end pairs and each end's
+nearest point on the other curve. The method then cuts `other` where it crosses the rays from
+the arc's center ``O`` through the arc's ends.
+
+On a piece inside the arc's angle, the distance to the arc is
+``\\lvert\\lvert q-O\\rvert-r\\rvert``. There, the piece's nearest apsis about ``O`` gives it
+outside the circle and its farthest apsis inside. Otherwise `bisect` finds a crossing
+between them, at ``d=0``. Outside the angle, the arc's ends are nearest.
+"""
+function clearance(curve::Arc, other::EllipticArc)
+    z = zero(curve.r + other.a)
+    O = (curve.at.x, curve.at.y)
+    best = argmin(candidate -> nominal(candidate[3]),
+        map(((s, t),) -> (s, t, hypot((curve(s) .- other(t))...)),
+            ((z, z), (z, one(z)), (one(z), z), (one(z), one(z)))))
+    for s in (z, one(z))
+        t = apsides(other, curve(s)).near
+        best = argmin(candidate -> nominal(candidate[3]),
+            (best, (s, t, hypot((curve(s) .- other(t))...))))
+    end
+    for t in (z, one(z))
+        s = apsides(curve, other(t)).near
+        best = argmin(candidate -> nominal(candidate[3]),
+            (best, (s, t, hypot((curve(s) .- other(t))...))))
+    end
+    cuts = [z, one(z)]
+    for α in (curve.at.φ, curve.at.φ + curve.span)
+        near, far = apsides(other, α + π / 2)
+        knots = nominal(near) <= nominal(far) ? (z, near, far, one(z)) :
+                (z, far, near, one(z))
+        for k in 1:3
+            q₁, q₂ = other(knots[k]), other(knots[k + 1])
+            g₁ = cos(α) * (q₁[2] - O[2]) - sin(α) * (q₁[1] - O[1])
+            g₂ = cos(α) * (q₂[2] - O[2]) - sin(α) * (q₂[1] - O[1])
+            nominal(g₁) * nominal(g₂) > 0 && continue
+            t = iszero(nominal(g₁)) ? knots[k] :
+                iszero(nominal(g₂)) ? knots[k + 1] :
+                argmin(
+                t -> (xy = other(t);
+                    abs(nominal(cos(α) * (xy[2] - O[2]) - sin(α) * (xy[1] - O[1])))),
+                bisect(
+                    t -> (xy = other(t);
+                        nominal(sign(cos(α) * (xy[2] - O[2]) - sin(α) * (xy[1] - O[1]))) ==
+                        nominal(sign(g₁))),
+                    knots[k], knots[k + 1]))
+            q = other(t)
+            nominal(cos(α) * (q[1] - O[1]) + sin(α) * (q[2] - O[2])) > 0 && push!(cuts, t)
+        end
+    end
+    sort!(cuts; by = nominal)
+    for k in 1:(length(cuts) - 1)
+        t₁, t₂ = cuts[k], cuts[k + 1]
+        nominal(t₂) > nominal(t₁) || continue
+        q = other((t₁ + t₂) / 2)
+        travel = mod(sign(curve.span) * (atan(q[2] - O[2], q[1] - O[1]) - curve.at.φ), 2π)
+        nominal(travel) <= abs(nominal(curve.span)) || continue
+        piece = EllipticArc(other.at, other.a, other.b, other.φ0 + t₁ * other.span,
+            (t₂ - t₁) * other.span, other.offset)
+        near, far = apsides(piece, O)
+        near, far = t₁ + near * (t₂ - t₁), t₁ + far * (t₂ - t₁)
+        if nominal(hypot((other(near) .- O)...)) > nominal(curve.r)
+            s = apsides(curve, other(near)).near
+            best = argmin(candidate -> nominal(candidate[3]),
+                (best, (s, near, hypot((curve(s) .- other(near))...))))
+        elseif nominal(hypot((other(far) .- O)...)) < nominal(curve.r)
+            s = apsides(curve, other(far)).near
+            best = argmin(candidate -> nominal(candidate[3]),
+                (best, (s, far, hypot((curve(s) .- other(far))...))))
+        else
+            t = nominal(hypot((other(near) .- O)...)) == nominal(curve.r) ? near :
+                nominal(hypot((other(far) .- O)...)) == nominal(curve.r) ? far :
+                argmin(t -> abs(nominal(hypot((other(t) .- O)...) - curve.r)),
+                bisect(t -> nominal(hypot((other(t) .- O)...)) < nominal(curve.r), near, far))
+            best = argmin(candidate -> nominal(candidate[3]),
+                (best, (apsides(curve, other(t)).near, t, z)))
+        end
+    end
+    s, t, d = best
+    return (curve(s), other(t), d, s, t)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `clearance(other, curve)` with its two points and its two parameters swapped,
+`(q, p, d, t, s)`.
+"""
+function clearance(curve::EllipticArc, other::Union{Segment, Arc})
+    q, p, d, t, s = clearance(other, curve)
+    return (p, q, d, s, t)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Return `(p, q, d, s, t)` for the nearest points `p` of `curve` and `q` of `other`. Their
 distance is `d` \\[m\\], and their parameters give ``p = curve(s)`` and ``q = other(t)``.
-Each parameter lies in ``[0, 1]`` and is exactly 0 or 1 at an end. Arcs of one ellipse take
-the middle of their widest common interval, at ``|o_1-o_2|`` for their offsets ``o_1`` and
-``o_2``, or else their nearest ends. Arcs of different ellipses throw `DomainError`.
+Each parameter lies in ``[0, 1]`` and is exactly 0 or 1 at an end.
+
+Arcs of one ellipse take the middle of their widest common interval, at ``|o_1-o_2|`` for
+their offsets ``o_1`` and ``o_2``. Without one, the candidates are the end pairs, each end
+with its nearest point on the other arc, and the pairs along the two axes.
+
+Arcs of different ellipses throw `DomainError`. So do arcs of one ellipse with an offset at or below minus its least radius
+of curvature, ``\\min(b^2/a,a^2/b)``. There its parallels are no longer level sets of the
+distance from it.
 """
 function clearance(curve::EllipticArc, other::EllipticArc)
     (nominal(curve.at.x), nominal(curve.at.y), nominal(curve.at.φ),
@@ -635,6 +793,10 @@ function clearance(curve::EllipticArc, other::EllipticArc)
     (nominal(other.at.x), nominal(other.at.y), nominal(other.at.φ),
         nominal(other.a), nominal(other.b)) ||
         throw(DomainError((curve, other), "the clearance of two elliptic arcs needs one ellipse"))
+    reach = min(curve.b^2 / curve.a, curve.a^2 / curve.b)
+    nominal(min(curve.offset, other.offset)) > -nominal(reach) ||
+        throw(DomainError((curve, other),
+            "the clearance of two elliptic arcs of one ellipse needs their offsets above minus its least radius of curvature"))
     z = zero(curve.a + other.a)
     best = argmin(candidate -> nominal(candidate[3]),
         map(((s, t),) -> (s, t, hypot((curve(s) .- other(t))...)),
@@ -658,6 +820,25 @@ function clearance(curve::EllipticArc, other::EllipticArc)
             nominal(ψ) == nominal(abs(other.span)) ?
             (nominal(other.span) > 0 ? one(z) : z) : t
         return (curve(s), other(t), abs(curve.offset - other.offset), s, t)
+    end
+    for s in (z, one(z))
+        t = apsides(other, curve(s)).near
+        best = argmin(candidate -> nominal(candidate[3]),
+            (best, (s, t, hypot((curve(s) .- other(t))...))))
+    end
+    for t in (z, one(z))
+        s = apsides(curve, other(t)).near
+        best = argmin(candidate -> nominal(candidate[3]),
+            (best, (s, t, hypot((curve(s) .- other(t))...))))
+    end
+    for θ in (z, z + π / 2, z + π, z + 3π / 2)
+        s = mod(sign(curve.span) * (θ - curve.φ0), 2π)
+        t = mod(sign(other.span) * (θ + π - other.φ0), 2π)
+        if nominal(s) <= abs(nominal(curve.span)) && nominal(t) <= abs(nominal(other.span))
+            s, t = s / abs(curve.span), t / abs(other.span)
+            best = argmin(candidate -> nominal(candidate[3]),
+                (best, (s, t, hypot((curve(s) .- other(t))...))))
+        end
     end
     s, t, d = best
     return (curve(s), other(t), d, s, t)
@@ -805,6 +986,28 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Return the parameters `(lo, hi)`, adjacent in nominal value, between which `predicate`
+changes from true to false. The bracket starts where `predicate` holds at `lo` and fails at
+`hi`. Each step halves it at its midpoint, and `predicate` decides which half keeps the
+change.
+"""
+function bisect(predicate, lo::Real, hi::Real)
+    lo, hi = promote(lo, hi)
+    while true
+        mid = (lo + hi) / 2
+        (nominal(mid) == nominal(lo) || nominal(mid) == nominal(hi)) && break
+        if predicate(mid)
+            lo = mid
+        else
+            hi = mid
+        end
+    end
+    return (lo, hi)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Return the parameters `(near, far)` of the points of `curve` nearest to and farthest from
 the point `m` \\[m\\], its ends included. A segment's nearest point is the foot of `m`,
 clamped to the segment. An arc's lie in the directions from its center toward `m` and away
@@ -851,22 +1054,15 @@ function apsides(curve::EllipticArc{T}, m) where {T}
     near = argmin(t -> nominal(hypot((curve(t) .- m)...)), (zero(T), one(T)))
     far = argmax(t -> nominal(hypot((curve(t) .- m)...)), (zero(T), one(T)))
     for k in 1:6
-        lo, hi = angles[k], angles[k + 1]
-        left = (b^2 - a^2) * sin(lo) * cos(lo) - a * x * sin(lo) + b * y * cos(lo)
-        right = (b^2 - a^2) * sin(hi) * cos(hi) - a * x * sin(hi) + b * y * cos(hi)
+        left = (b^2 - a^2) * sin(angles[k]) * cos(angles[k]) - a * x * sin(angles[k]) +
+               b * y * cos(angles[k])
+        right = (b^2 - a^2) * sin(angles[k + 1]) * cos(angles[k + 1]) -
+                a * x * sin(angles[k + 1]) + b * y * cos(angles[k + 1])
         nominal(left) * nominal(right) > 0 && continue
-        while true
-            mid = (lo + hi) / 2
-            (nominal(mid) == nominal(lo) || nominal(mid) == nominal(hi)) && break
-            value = (b^2 - a^2) * sin(mid) * cos(mid) - a * x * sin(mid) + b * y * cos(mid)
-            if nominal(sign(value)) == nominal(sign(left))
-                lo = mid
-                left = value
-            else
-                hi = mid
-            end
-        end
-        for ϑ in (lo, hi)
+        for ϑ in bisect(
+            ϑ -> nominal(sign((b^2 - a^2) * sin(ϑ) * cos(ϑ) - a * x * sin(ϑ) +
+                              b * y * cos(ϑ))) == nominal(sign(left)),
+            angles[k], angles[k + 1])
             travel = mod(sign(curve.span) * (ϑ - curve.φ0), 2π)
             if nominal(travel) <= abs(nominal(curve.span))
                 t = travel / abs(curve.span)
@@ -876,6 +1072,57 @@ function apsides(curve::EllipticArc{T}, m) where {T}
         end
     end
     return (near = near, far = far)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the parameters `(near, far)` of the points of `curve` with the greatest and the least
+projection on the direction `φ` \\[rad\\]. Its ends are candidates. They are its apsides about the
+point at infinity along `φ`.
+
+At the distance ``R`` along `φ`, a point's distance from the curve is ``R`` less the
+projection, to order ``1/R``. A segment's are its ends. An arc's lie
+in the directions `φ` and ``φ+π`` from its center, each clamped to the span, or at an end. An
+elliptic arc's lie at the parametric angles ``θ=\\operatorname{atan}(b\\sin ψ,a\\cos ψ)`` and
+``θ+π``, with ``ψ=φ-at.φ``, where its outward normal points along `φ` and against it. A
+regular normal offset keeps them.
+"""
+function apsides(curve::Segment{T}, φ::Real) where {T}
+    c, s = cos(φ), sin(φ)
+    return (
+        near = argmax(t -> (xy = curve(t); nominal(xy[1] * c + xy[2] * s)), (
+            zero(T), one(T))),
+        far = argmin(t -> (xy = curve(t); nominal(xy[1] * c + xy[2] * s)), (
+            zero(T), one(T))))
+end
+
+function apsides(curve::Arc{T}, φ::Real) where {T}
+    c, s = cos(φ), sin(φ)
+    toward = clamp(mod(sign(curve.span) * (φ - curve.at.φ), 2π) / abs(curve.span), zero(T),
+        one(T))
+    away = clamp(mod(sign(curve.span) * (φ + π - curve.at.φ), 2π) / abs(curve.span),
+        zero(T), one(T))
+    return (
+        near = argmax(t -> (xy = curve(t); nominal(xy[1] * c + xy[2] * s)),
+            (zero(T), one(T), toward)),
+        far = argmin(t -> (xy = curve(t); nominal(xy[1] * c + xy[2] * s)),
+            (zero(T), one(T), away)))
+end
+
+function apsides(curve::EllipticArc{T}, φ::Real) where {T}
+    c, s = cos(φ), sin(φ)
+    ψ = φ - curve.at.φ
+    θ = atan(curve.b * sin(ψ), curve.a * cos(ψ))
+    toward = clamp(mod(sign(curve.span) * (θ - curve.φ0), 2π) / abs(curve.span), zero(T),
+        one(T))
+    away = clamp(mod(sign(curve.span) * (θ + π - curve.φ0), 2π) / abs(curve.span),
+        zero(T), one(T))
+    return (
+        near = argmax(t -> (xy = curve(t); nominal(xy[1] * c + xy[2] * s)),
+            (zero(T), one(T), toward)),
+        far = argmin(t -> (xy = curve(t); nominal(xy[1] * c + xy[2] * s)),
+            (zero(T), one(T), away)))
 end
 
 """
@@ -914,54 +1161,20 @@ function support(curve::EllipticArc{T}) where {T}
 end
 
 """
-$(TYPEDSIGNATURES)
-
-Return the largest projection of the endpoints of `curve` along `φ` \\[rad\\], in \\[m\\].
-"""
-function support(curve::Segment, φ::Real)
-    return maximum(point[1] * cos(φ) + point[2] * sin(φ) for point in (curve.p, curve.q))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the largest projection of `curve` along `φ` \\[rad\\], in \\[m\\].
-Compare its endpoints and, when `φ` lies in its span, the center's projection plus radius.
-"""
-function support(curve::Arc, φ::Real)
-    result = maximum(point[1] * cos(φ) + point[2] * sin(φ)
-    for point in (curve(0), curve(1)))
-    if nominal(mod(sign(curve.span) * (φ - curve.at.φ), 2π)) <= abs(nominal(curve.span))
-        result = max(result, curve.at.x * cos(φ) + curve.at.y * sin(φ) + curve.r)
-    end
-    return result
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the largest projection of `curve` along `φ` \\[rad\\], in \\[m\\].
-Compare its endpoints and its interior maximum at ``θ=atan(b sin ψ,a cos ψ)``,
-``ψ=φ-at.φ``, when that parameter lies in its span. The normal offset adds to the
-interior maximum.
-"""
-function support(curve::EllipticArc, φ::Real)
-    result = maximum(point[1] * cos(φ) + point[2] * sin(φ)
-    for point in (curve(0), curve(1)))
-    ψ = φ - curve.at.φ
-    θ = atan(curve.b * sin(ψ), curve.a * cos(ψ))
-    if nominal(mod(sign(curve.span) * (θ - curve.φ0), 2π)) <= abs(nominal(curve.span))
-        result = max(result,
-            curve.at.x * cos(φ) + curve.at.y * sin(φ) +
-            hypot(curve.a * cos(ψ), curve.b * sin(ψ)) + curve.offset)
-    end
-    return result
-end
-
-"""
 A curve of a contour is a [`Segment`](@ref) an [`Arc`](@ref) or an [`EllipticArc`](@ref) in the floating type `T`.
 """
 const Curve{T} = Union{Segment{T}, Arc{T}, EllipticArc{T}}
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the largest projection of `curve` on the direction `φ` \\[rad\\], in \\[m\\]: the
+projection of its point at the near parameter of `apsides(curve, φ)`.
+"""
+function support(curve::Curve, φ::Real)
+    x, y = curve(apsides(curve, φ).near)
+    return x * cos(φ) + y * sin(φ)
+end
 
 """
 $(TYPEDEF)
@@ -1309,18 +1522,11 @@ function dimension(contour::Contour{T}) where {T}
                              abs(sine) <= sqrt(eps(float(one(sine)))))
             end
             corners || continue
-            lo, hi = zero(limit), limit
-            while true
-                mid = (lo + hi) / 2
-                (nominal(mid) == nominal(lo) || nominal(mid) == nominal(hi)) && break
-                if nominal(turn(c, -side * mid,
-                    parallel(a, c, -side * mid)[2],
-                    parallel(c, b, -side * mid)[1]).length) > 0
-                    lo = mid
-                else
-                    hi = mid
-                end
-            end
+            lo,
+            hi = bisect(
+                e -> nominal(turn(c, -side * e, parallel(a, c, -side * e)[2],
+                    parallel(c, b, -side * e)[1]).length) > 0,
+                zero(limit), limit)
             nominal(hi) == nominal(limit) || push!(bounds, 2 * hi)
         end
     end
@@ -1565,10 +1771,8 @@ the origin lies at its radius. An elliptic arc takes the point of its curve fart
 the origin, at its normal offset.
 
 `support(contour, φ)` returns the support function ``\\max(x\\cos φ+y\\sin φ)`` \\[m\\]
-of the region in the direction `φ` \\[rad\\]. On an arc, it is the point at the radius
-from the center along `φ` when `φ` falls within the arc, else an end. On an elliptic arc,
-its maximizer ``θ=atan(b sin ψ,a cos ψ)``, ``ψ=φ-at.φ``, contributes when it lies in the
-parametric interval. Otherwise an endpoint gives the largest projection.
+of the region in the direction `φ` \\[rad\\]. It is the largest projection of the outer
+curves, each at the near parameter of its `apsides` along `φ`.
 
 A normal offset ``d`` adds ``d`` to the elliptic arc's interior directional maximum. Its
 ends use ``p+dn``. Each curve has the supports of its points, and a contour the largest of
@@ -1598,48 +1802,12 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the lower endpoint of `segment`, ordered by least `y`, then least `x`.
-The endpoints and returned coordinate pair are in \\[m\\].
+Return the lowest point of `curve` \\[m\\], ordered by least `y`, then least `x`, among its
+ends and its point at the near parameter of `apsides(curve, 3π / 2)`.
 """
-function lowest(segment::Segment)
-    return argmin(xy -> (xy[2], xy[1]), (segment(0), segment(1)))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the lowest point of `arc`: the bottom of its circle when its signed span passes
-that point, otherwise its lower endpoint. Order ties by least `x`. The center, radius,
-and returned coordinates are in \\[m\\], and the first angle and span in \\[rad\\].
-"""
-function lowest(arc::Arc)
-    endpoints = (arc(0), arc(1))
-    if nominal(mod(sign(arc.span) * (3π / 2 - arc.at.φ), 2π)) <= abs(nominal(arc.span))
-        return argmin(xy -> (xy[2], xy[1]),
-            (endpoints..., (arc.at.x, arc.at.y - arc.r)))
-    end
-    return argmin(xy -> (xy[2], xy[1]), endpoints)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the lowest point of `arc`: the bottom of its curve when its signed parametric span
-passes that point, otherwise its lower endpoint. The bottom is the point where the outward
-normal of the curve points down. Order ties by least `x`. The center, semi-axes, normal
-offset, and returned coordinates are in \\[m\\], and the first parametric angle and span in
-\\[rad\\].
-"""
-function lowest(arc::EllipticArc)
-    endpoints = (arc(0), arc(1))
-    ψ = 3π / 2 - arc.at.φ
-    θ = atan(arc.b * sin(ψ), arc.a * cos(ψ))
-    travel = mod(sign(arc.span) * (θ - arc.φ0), 2π)
-    if nominal(travel) <= abs(nominal(arc.span))
-        return argmin(xy -> (xy[2], xy[1]),
-            (endpoints..., arc(travel / abs(arc.span))))
-    end
-    return argmin(xy -> (xy[2], xy[1]), endpoints)
+function lowest(curve::Curve)
+    argmin(xy -> (xy[2], xy[1]),
+        (curve(0), curve(1), curve(apsides(curve, 3π / 2).near)))
 end
 
 """

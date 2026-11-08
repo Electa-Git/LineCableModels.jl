@@ -901,6 +901,39 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
               8e-3 rtol = 1e-12
     end
 
+    @testset "the distance across shapes with elliptic arcs" begin
+        D = Contour(
+            Curve{Float64}[EllipticArc(Placement(0, 0), 20e-3, 5e-3, 0, π),
+            Segment((-20e-3, 0.0), (-20e-3, -1e-3)),
+            Segment((-20e-3, -1e-3), (20e-3, -1e-3)),
+            Segment((20e-3, -1e-3), (20e-3, 0.0))],
+            Vector{Curve{Float64}}[])
+        @test dimension(D) == 0.002
+        @test dimension(LineCableModels.PerforatedShape(Rectangle(40e-3, 20e-3),
+            [Ellipse(8e-3, 4e-3)])) == 0.006
+        @test dimension(LineCableModels.PerforatedShape(Ellipse(30e-3, 20e-3),
+            [Circle(10e-3)])) == 0.01
+        for shape in (
+            LineCableModels.PerforatedShape(Ellipse(30e-3, 20e-3), [Ellipse(10e-3, 15e-3)]),
+            LineCableModels.PerforatedShape(Rectangle(80e-3, 20e-3),
+                [Ellipse(8e-3, 4e-3, Placement(-20e-3, 0)),
+                    Ellipse(8e-3, 4e-3, Placement(20e-3, 0))]))
+            @test_throws DomainError dimension(shape)
+            @test_throws "needs one ellipse" dimension(shape)
+        end
+    end
+
+    @testset "the directional support of a shape is its contour's" begin
+        for shape in (Circle(3e-3, Placement(1e-3, 2e-3)),
+            Annulus(1e-3, 3e-3, Placement(-2e-3, 1e-3)),
+            Ellipse(4e-3, 2e-3, Placement(1e-3, -2e-3, 0.3)),
+            Polygon([(0.0, 0.0), (4e-3, 0.0), (0.0, 3e-3)], Placement(1e-3, 1e-3, 0.2)))
+            for φ in (0, π / 2, π, 3π / 2, 0.7)
+                @test support(shape, φ) == support(Contour(shape), φ)
+            end
+        end
+    end
+
     @testset "the winding about a point and a point in a contour" begin
         @test winding(Segment((1.0, 0.0), (0.0, 1.0)), (0.0, 0.0)) ≈ 0.25
         @test winding(Arc(Placement(0, 0), 1e-3, π), (0, 0.5e-3)) ≈
