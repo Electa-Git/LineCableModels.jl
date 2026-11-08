@@ -19,6 +19,8 @@ struct Geometry{M <: FieldModel}
     lines::Dict{NTuple{2, Int}, Int}
     "Circle centers and radii \\[m\\], sorted endpoint tags, and Gmsh arc tags."
     arcs::Dict{Tuple{NTuple{3, Float64}, NTuple{2, Int}}, Int}
+    "Ellipse centers \\[m\\], rotations \\[rad\\], semi-axes and normal offsets \\[m\\], sorted endpoint tags, and the Gmsh tags of the elliptic arcs and their offset splines."
+    elliptic_arcs::Dict{Tuple{NTuple{6, Float64}, NTuple{2, Int}}, Int}
     "First and last point tags of each stored curve."
     ends::Dict{Int, NTuple{2, Int}}
     "CAD curve of each Gmsh curve: coordinates and radii \\[m\\], angles \\[rad\\]."
@@ -63,6 +65,7 @@ function Geometry(model::FieldModel, options::ComputationOptions{GmshBackend})
         Dict{NTuple{2, Int}, Vector{NTuple{2, Float64}}}(),
         Dict{NTuple{2, Int}, Int}(),
         Dict{Tuple{NTuple{3, Float64}, NTuple{2, Int}}, Int}(),
+        Dict{Tuple{NTuple{6, Float64}, NTuple{2, Int}}, Int}(),
         Dict{Int, NTuple{2, Int}}(),
         Dict{Int, Curve{Float64}}(),
         Dict{NTuple{3, Float64}, Vector{Float64}}(),
@@ -1383,9 +1386,9 @@ end
 $(TYPEDSIGNATURES)
 
 Draw the elliptic curve ``at(a cos θ,b sin θ)`` in \\[m\\] with Gmsh ellipse arcs.
-Split its parametric span \\[rad\\] into intervals at most ``π/2``. Reuse an elliptic
-arc with the same ellipse, endpoints and midpoint from `curves` and `ends`. Return
-its stored tag with the requested orientation.
+Split its parametric span \\[rad\\] into intervals at most ``π/2``. Reuse the elliptic
+arc of the same ellipse and endpoints from `elliptic_arcs`. Return its stored tag with
+the requested orientation.
 
 For a nonzero normal offset ``d``, draw a spline through ``p(θ)+dn(θ)``.
 Use ``m=max(2,⌈segments⋅|Δα|/(2π)⌉)`` intervals at equal normal angles
@@ -1402,19 +1405,12 @@ function draw(geometry::Geometry, arc::EllipticArc)
         curve = EllipticArc(
             arc.at, arc.a, arc.b, arc.φ0 + k * arc.span / n, arc.span / n, arc.offset)
         p, q = point!(geometry, curve(0)), point!(geometry, curve(1))
-        stored = [tag
-                  for (tag, candidate) in geometry.curves
-                  if candidate isa EllipticArc &&
-                     key(candidate.at.x, candidate.at.y,
-                         candidate.at.φ, candidate.a, candidate.b, candidate.offset) ==
-                     key(curve.at.x, curve.at.y, curve.at.φ,
-                         curve.a, curve.b, curve.offset) &&
-                     minmax(geometry.ends[tag]...) == minmax(p, q) &&
-                     key(geometry, candidate(1 / 2)) == key(geometry, curve(1 / 2))]
-        if isempty(stored)
+        tag = get!(geometry.elliptic_arcs,
+            (key(curve.at.x, curve.at.y, curve.at.φ, curve.a, curve.b, curve.offset),
+                minmax(p, q))) do
             start_tag, stop_tag = curve.span > 0 ? (p, q) : (q, p)
             if iszero(curve.offset)
-                tag = gmsh.model.geo.addEllipseArc(start_tag, center, major, stop_tag)
+                native = gmsh.model.geo.addEllipseArc(start_tag, center, major, stop_tag)
             else
                 θ₁, θ₂ = curve.φ0, curve.φ0 + curve.span
                 a, b = curve.a, curve.b
@@ -1431,16 +1427,14 @@ function draw(geometry::Geometry, arc::EllipticArc)
                     push!(points, point!(geometry, curve((θ - θ₁) / curve.span)))
                 end
                 push!(points, q)
-                tag = gmsh.model.geo.addSpline(curve.span > 0 ? points : reverse(points))
+                native = gmsh.model.geo.addSpline(curve.span > 0 ? points : reverse(points))
             end
-            geometry.ends[tag] = (start_tag, stop_tag)
-            geometry.curves[tag] = EllipticArc(curve.at, curve.a, curve.b,
+            geometry.ends[native] = (start_tag, stop_tag)
+            geometry.curves[native] = EllipticArc(curve.at, curve.a, curve.b,
                 curve.span > 0 ? curve.φ0 : curve.φ0 + curve.span, abs(curve.span), curve.offset)
-            push!(tags, curve.span > 0 ? tag : -tag)
-        else
-            tag = only(stored)
-            push!(tags, geometry.ends[tag] == (p, q) ? tag : -tag)
+            return native
         end
+        push!(tags, geometry.ends[tag] == (p, q) ? tag : -tag)
     end
     return tags
 end

@@ -131,9 +131,9 @@ bisect = "halve a bracket of a parameter where a predicate changes, to two param
 
 [modules.LineCableModelsGmshExt]
 nouns = ["overrides", "field", "tags", "strand", "air", "scale",
-    "geometry", "key", "point", "points", "buckets", "lines", "arcs", "ends", "curves", "breaks",
-    "contacts", "loops", "surfaces", "patches", "strips", "outlines", "pockets", "anchors", "faces",
-    "compartments", "anchor", "section", "directory", "segments"]
+    "geometry", "key", "point", "points", "buckets", "lines", "arcs", "elliptic_arcs", "ends",
+    "curves", "breaks", "contacts", "loops", "surfaces", "patches", "strips", "outlines", "pockets",
+    "anchors", "faces", "compartments", "anchor", "section", "directory", "segments"]
 symbols = ["gamma"]
 
 [modules.LineCableModelsGmshExt.verbs]

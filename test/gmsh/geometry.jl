@@ -131,6 +131,30 @@ end
         end
     end
 
+    @testset "an elliptic arc is drawn once and reused in either sense" begin
+        reference = last(first(REFERENCES))
+        model = FieldModel(reference, FEM())
+        gmsh.initialize()
+        try
+            gmsh.model.add("elliptic")
+            geometry = Geometry(model, options)
+            for offset in (0.0, 0.5e-3)
+                arc = LineCableModels.BaseGeometry.EllipticArc(
+                    Placement(0.1, 0.2, π / 6), 3.0e-3, 2.0e-3, π / 8, 3π / 4, offset)
+                reversed = LineCableModels.BaseGeometry.EllipticArc(
+                    arc.at, arc.a, arc.b, arc.φ0 + arc.span, -arc.span, offset)
+                drawn = draw(geometry, arc)
+                stored = length(geometry.curves)
+                @test draw(geometry, reversed) == -reverse(drawn)
+                @test draw(geometry, arc) == drawn
+                @test length(geometry.curves) == stored
+            end
+        finally
+            gmsh.model.remove()
+            gmsh.finalize()
+        end
+    end
+
     @testset "the parallel of an elliptical duct is drawn within the tolerance" begin
         copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
         air = Material(:insulator, Inf)
