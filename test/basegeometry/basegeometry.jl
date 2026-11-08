@@ -305,4 +305,15 @@ end
         @test lo < 0.3 <= hi
         @test nextfloat(lo) == hi
     end
+
+    # A fresh process reads the inference before any other call has compiled the curves.
+    @testset "the directional support of a contour infers in a fresh process" begin
+        script = "using LineCableModels; " *
+                 "using LineCableModels.BaseGeometry: Contour, support; " *
+                 "using LineCableModels.DataModel: Sector; " *
+                 "println(only(Base.return_types(support, (Contour{Float64}, Float64)))); " *
+                 "println(only(Base.return_types(support, (Sector{Float64}, Float64))))"
+        command = `$(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) -e $script`
+        @test readlines(command) == ["Float64", "Float64"]
+    end
 end

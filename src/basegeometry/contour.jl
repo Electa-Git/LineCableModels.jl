@@ -1838,7 +1838,7 @@ function support(contour::Contour)
 end
 
 function support(contour::Contour, φ::Real)
-    return maximum(support(curve, φ) for curve in contour.outer)
+    return maximum(curve -> support(curve, φ), contour.outer)
 end
 
 """
