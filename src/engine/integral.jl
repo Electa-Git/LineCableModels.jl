@@ -181,8 +181,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Build an integration section from method defaults and supplied controls, then replace
-its method identifier with a `Val` tag.
+Build an integration section from method defaults and supplied controls, replace its
+method identifier with a `Val` tag, and check the section for its method.
 
 # Arguments
 
@@ -196,10 +196,13 @@ its method identifier with a `Val` tag.
 # Errors
 
 - Throws `ArgumentError` for an unknown method or an unknown control key.
+- Throws `ArgumentError` for a negative or nonfinite tolerance, two zero tolerances, or a
+  nonpositive evaluation limit.
 """
 function select(default::Pair{typeof(integrate), Symbol}, given::NamedTuple)
     tag = Val(merge((method = last(default),), given).method)
-    return merge(select(defaults(integrate, tag), given), (method = tag,))
+    section = merge(select(defaults(integrate, tag), given), (method = tag,))
+    return validate(section, integrate, tag)
 end
 
 # The declared default stands for a section that the user did not give.

@@ -1,4 +1,4 @@
-using LinearAlgebra: I, diag, lu!
+using LinearAlgebra: diag
 using SpecialFunctions: besseli, besselk
 
 # The targets come from the martins2026 formula of commit 989af96c of this repository: the state
@@ -355,7 +355,7 @@ using SpecialFunctions: besseli, besselk
     @test_throws DimensionMismatch Engine.validate(buried,
         CoaxialFormulation(; Γ = [0.1im, 0.2im]))
     # The formula computes cables in contact, with no guard between them. After the first call,
-    # the preparation allocates only the pivot vector of its LU decomposition.
+    # the preparation does not allocate: its LU decomposition writes into the block's pivots.
     contact = LineCableModels.Engine.EarthReturn.Formula(Val(:martins2026))
     input = LineCableModels.Engine.CoaxialInput(buried, reductions)
     buffers = LineCableModels.initialize_buffers(contact, input,
@@ -365,11 +365,8 @@ using SpecialFunctions: besseli, besselk
     LineCableModels.to_buffer!(CoaxialFormulation(), buffers, input, media, s, 1)
     LineCableModels.to_buffer!(contact, buffers, input, media, s, 1)
     @test all(isfinite, buffers.martins2026.Zg) && all(isfinite, buffers.martins2026.Pg)
-    block = Matrix{ComplexF64}(I, 2, 2)
-    lu!(copy(block))
-    pivots = @allocated lu!(block)
     # The arguments pass through an anonymous function, where their types are concrete.
     @test only(map(
         (f, b, c, m, z) -> @allocated(LineCableModels.to_buffer!(f, b, c, m, z, 1)),
-        (contact,), (buffers,), (input,), (media,), (s,))) == pivots
+        (contact,), (buffers,), (input,), (media,), (s,))) == 0
 end

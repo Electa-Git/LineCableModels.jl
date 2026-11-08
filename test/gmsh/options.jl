@@ -52,3 +52,11 @@ using LineCableModels.Engine: GmshBackend
         @test_throws name ComputationOptions(GmshBackend; overrides)
     end
 end
+
+# With the extension loaded, the generic computation builds the options and refuses a
+# formulation that the Gmsh backend does not compute.
+@testset "the Gmsh backend refuses the coaxial formulation" begin
+    problem = Dict(REFERENCES)["two_bare_wires"]
+    @test_throws ArgumentError("GmshBackend does not implement CoaxialFormulation") compute(
+        GmshBackend(), problem, CoaxialFormulation())
+end

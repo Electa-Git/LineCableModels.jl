@@ -78,7 +78,7 @@ Modules = [LineCableModels.Engine]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true
 Private = false
-Filter = t -> !(t in (LineCableModels.Engine.impedance!, LineCableModels.Engine.potential!, LineCableModels.Engine.to_buffer!, LineCableModels.Engine.from_buffer, LineCableModels.Engine.Λ, LineCableModels.Engine.initialize_buffers, LineCableModels.Engine.admittivity, LineCableModels.Engine.reductions, LineCableModels.Engine.bundle!, LineCableModels.Engine.eliminate!, LineCableModels.Engine.transposition!, LineCableModels.Engine.solve!, LineCableModels.Engine.SpectralIntegral, LineCableModels.Engine.integrate))
+Filter = t -> !(t in (LineCableModels.Engine.impedance!, LineCableModels.Engine.potential!, LineCableModels.Engine.to_buffer!, LineCableModels.Engine.from_buffer, LineCableModels.Engine.Λ, LineCableModels.Engine.initialize_buffers, LineCableModels.Engine.admittivity, LineCableModels.Engine.reductions, LineCableModels.Engine.bundle!, LineCableModels.Engine.eliminate!, LineCableModels.Engine.factorize!, LineCableModels.Engine.transposition!, LineCableModels.Engine.solve!, LineCableModels.Engine.SpectralIntegral, LineCableModels.Engine.integrate))
 ```
 
 ```@docs
@@ -103,7 +103,6 @@ Private = false
 
 ```@docs
 defaults(::Type{GmshBackend})
-compute(backend::GmshBackend, problem::LineParametersProblem, formulation::FEM)
 compute(::GmshBackend, problem::LineParametersProblem, formulation::FEM, options::ComputationOptions{GmshBackend})
 ```
 

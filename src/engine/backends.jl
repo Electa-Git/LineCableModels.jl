@@ -94,8 +94,7 @@ function compute(backend::AbstractBackend, ::LineParametersProblem,
     throw(ArgumentError("$(nameof(typeof(backend))) does not implement $(nameof(typeof(formulation)))"))
 end
 
-# The Gmsh extension defines the finite-element computation.
-function compute(::GmshBackend, ::LineParametersProblem, ::AbstractFormulation; kw...)
-    throw(ArgumentError(
-        "the Gmsh backend implements only FEM, in the Gmsh extension, which `using Gmsh, getdp_jll` loads"))
+# The Gmsh extension declares the options on Type{GmshBackend}, more specific than this method.
+function defaults(::Type{<:GmshBackend})
+    throw(ArgumentError("the Gmsh backend runs in the Gmsh extension, which `using Gmsh, getdp_jll` loads"))
 end

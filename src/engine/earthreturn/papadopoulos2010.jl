@@ -1,10 +1,5 @@
 defaults(::Type{Formula{:papadopoulos2010}}) = (integral = integrate => :quad,)
 
-function validate(options::FormulationOptions{Formula{:papadopoulos2010}})
-    validate(options.integral, integrate, options.integral.method)
-    return options
-end
-
 validate(formula::Formula{:papadopoulos2010}, ::typeof(impedance!)) = formula
 validate(formula::Formula{:papadopoulos2010}, ::typeof(potential!)) = formula
 function validate(formula::Formula{:papadopoulos2010}, t::Int, s::Int)

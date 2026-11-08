@@ -41,7 +41,8 @@ using .Engine: ε₀, μ₀, AbstractInternalImpedance,
                AbstractResistivity, AbstractEarthProperties, admittivity,
                impedance!, potential!, to_buffer!, from_buffer, initialize_buffers,
                LineParametersProblem, CoaxialFormulation, FEM, LCMBackend,
-               GmshBackend, backend, LineParameters, bundle!, eliminate!, transposition!,
+               GmshBackend, backend, LineParameters, bundle!, eliminate!, factorize!,
+               transposition!,
                SpectralIntegral, integrate, Λ, reductions,
                @formulation, @air, @earth, @mixed
 
@@ -69,7 +70,7 @@ public AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulatio
        AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt, AbstractResistivity,
        AbstractEarthProperties
 public admittivity, impedance!, potential!, to_buffer!, from_buffer,
-       initialize_buffers, bundle!, eliminate!, transposition!, SpectralIntegral, integrate,
-       nominal, Λ, reductions
+       initialize_buffers, bundle!, eliminate!, factorize!, transposition!,
+       SpectralIntegral, integrate, nominal, Λ, reductions
 
 end

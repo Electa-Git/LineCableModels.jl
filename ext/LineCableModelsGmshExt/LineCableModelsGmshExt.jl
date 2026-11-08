@@ -10,7 +10,7 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using Gmsh: Gmsh, gmsh
 using IntervalSets: Interval
 using Printf: @sprintf
-using LinearAlgebra: I, ldiv!, lu!
+using LinearAlgebra: ldiv!
 using getdp_jll: getdp_jll
 import LineCableModels.Commons: build, compute, defaults, validate
 using LineCableModels.Commons: ComputationOptions, resolve, nominal
@@ -26,8 +26,8 @@ using LineCableModels.BaseGeometry: Placement, support, Segment, Arc, EllipticAr
                                     dimension, lowest, area, apsides
 import LineCableModels.Engine: solve!
 using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem, LineParameters,
-                              bundle!, eliminate!, transposition!, admittivity,
-                              reductions,
+                              bundle!, eliminate!, factorize!, transposition!, admittivity,
+                              initialize_buffers, reductions,
                               ε₀,
                               μ₀
 
@@ -78,33 +78,6 @@ function defaults(::Type{GmshBackend})
         gmsh_verbosity = 2,
         getdp_verbosity = 2,
         overrides = map(entry -> entry.default, OVERRIDES))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Build and validate the computation options once, then pass them with the problem and
-formulation to the backend's computation method.
-
-# Arguments
-
-- `backend`: Gmsh backend singleton.
-- `problem`: cable system, earth, temperature, and frequencies.
-- `formulation`: finite-element formulation and its material laws.
-
-# Keywords
-
-- `kw...`: computation options declared by [`defaults`](@ref).
-
-# Errors
-
-- Throws `ArgumentError` for an unknown or invalid computation option or an unsupported
-  formulation.
-"""
-function compute(backend::GmshBackend, problem::LineParametersProblem,
-        formulation::FEM; kw...)
-    options = ComputationOptions(GmshBackend; kw...)
-    return compute(backend, problem, formulation, options)
 end
 
 """
@@ -170,7 +143,6 @@ function compute(::GmshBackend, problem::LineParametersProblem, formulation::FEM
         plan = reductions(mapped.system, formulation.options)
         n = length(model.label)
         m = length(plan.kept)
-        e = length(plan.eliminated)
         nf = length(mapped.frequencies)
         Z = Array{ComplexF64, 3}(undef, m, m, nf)
         Y = Array{ComplexF64, 3}(undef, m, m, nf)
@@ -179,11 +151,7 @@ function compute(::GmshBackend, problem::LineParametersProblem, formulation::FEM
             P = Array{ComplexF64, 3}(undef, n, n, nf)) :
                 (Z = Array{ComplexF64, 3}(undef, 0, 0, 0),
             P = Array{ComplexF64, 3}(undef, 0, 0, 0))
-        buffers = (factor = Matrix{ComplexF64}(undef, e, e),
-            coupling = Matrix{ComplexF64}(undef, m, e),
-            rhs = Matrix{ComplexF64}(undef, e, m),
-            reduced = Matrix{ComplexF64}(undef, m, m),
-            identity = Matrix{ComplexF64}(I, m, m))
+        buffers = initialize_buffers(eliminate!, Float64, plan.kept, plan.eliminated)
         solve!(Z, Y, trace, path, model, formulation, buffers, options)
         LineParameters{Float64}(Z, Y, mapped.frequencies, plan.terminals,
             mapped.system.line_length, formulation, trace)

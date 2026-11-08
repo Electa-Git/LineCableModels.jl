@@ -288,19 +288,20 @@ of the field solve belongs to the Gmsh backend.
 
 ### Backends and dispatch
 
-The backends are singletons of `AbstractBackend`. `compute` has four methods in `Engine`.
+The backends are singletons of `AbstractBackend`. `compute` has three methods in `Engine`.
 
 ```julia
 compute(problem, formulation; kw...)                       # the default backend of the formulation type
 compute(backend, problem, formulation; kw...)              # a chosen backend, the options built once
 compute(backend, problem, formulation, options)            # the fallback: "does not implement"
-compute(::GmshBackend, problem, formulation; kw...)        # without Gmsh: "run `using Gmsh` first"
 ```
 
-`LCMBackend` computes a `CoaxialFormulation` in process. The Gmsh extension adds the methods
-of `GmshBackend` for `FEM`. Loading Gmsh replaces an error by a computation without
-overwriting a method. A later backend adds a singleton, a `defaults` method, `compute`
-methods and refusals. The formulation types stay as they are.
+`LCMBackend` computes a `CoaxialFormulation` in process. Without Gmsh, the options of
+`GmshBackend` refuse the computation: `defaults(::Type{<:GmshBackend})` throws in `Engine`.
+The Gmsh extension adds `defaults(::Type{GmshBackend})`, more specific than the refusal, and
+the `compute` method of `GmshBackend` for `FEM`. Loading Gmsh replaces an error by a computation
+without overwriting a method. A later backend adds a singleton, a `defaults` method, a
+`compute` method and its refusals. The formulation types stay as they are.
 
 ### One computation
 
@@ -329,8 +330,9 @@ At each frequency the loop runs these steps in order.
 7. `Y = s P⁻¹` from the reduced potential matrix.
 8. The ideal transposition, when selected.
 
-After the first call, the loop allocates only the pivot vectors of `lu!`. The test of the
-loop measures that number exactly.
+After the first call, the loop of a computation in `Float64` does not allocate. Each LU
+decomposition writes its row interchanges into the pivots of the buffers, and the test of
+the loop measures zero bytes.
 
 ### Buffers and tool levels
 
@@ -373,7 +375,7 @@ unsupported: SpecialFunctions has no Bessel methods for it, and the honest error
 `using Gmsh` loads `LineCableModelsGmshExt`. The extension reads the engine's problem, the
 laws of `FEM` and the reduction plan of `reductions`. From the data model it reads the
 placed regions, their cross-sections and the curves of their outlines. It defines
-`defaults(::Type{GmshBackend})` and the `compute` methods of `GmshBackend`.
+`defaults(::Type{GmshBackend})` and the `compute` method of `GmshBackend` for `FEM`.
 
 Its files follow the computation. `options.jl` validates the record and defines
 the table of native controls. `model.jl` builds the field model of a

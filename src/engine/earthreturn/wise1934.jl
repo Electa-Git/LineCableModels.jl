@@ -1,10 +1,5 @@
 defaults(::Type{Formula{:wise1934}}) = (integral = integrate => :quad,)
 
-function validate(options::FormulationOptions{Formula{:wise1934}})
-    validate(options.integral, integrate, options.integral.method)
-    return options
-end
-
 validate(formula::Formula{:wise1934}, ::typeof(impedance!)) = formula
 function validate(formula::Formula{:wise1934}, t::Int, s::Int)
     t == 1 && s == 1 || invoke(validate, Tuple{Formula, Int, Int}, formula, t, s)

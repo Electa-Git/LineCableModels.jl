@@ -18,29 +18,6 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Check the integration controls of the earth-return formula `Formula{:martins2026}`.
-
-# Arguments
-
-- `options`: formula options with an integration section.
-
-# Returns
-
-- `options`, unchanged.
-
-# Errors
-
-- Throws `ArgumentError` for a negative or nonfinite tolerance, two zero tolerances, or a
-  nonpositive evaluation limit.
-"""
-function validate(options::FormulationOptions{Formula{:martins2026}})
-    validate(options.integral, integrate, options.integral.method)
-    return options
-end
-
-"""
-$(TYPEDSIGNATURES)
-
 Check that each outer cable circumference lies strictly within one medium. The
 circumference-current formula requires an outer radius smaller than the distance from the
 cable center to the interface.
@@ -104,6 +81,7 @@ function initialize_buffers(formula::Formula{:martins2026}, input::CoaxialInput{
         Pg = Matrix{Complex{T}}(undef, c, c),
         factor = Matrix{Complex{T}}(undef, c, c),
         rhs = Matrix{Complex{T}}(undef, c, c),
+        pivots = Vector{BlasInt}(undef, c),
         ξ = Vector{Complex{T}}(undef, c),
         W = Vector{Complex{T}}(undef, c),
         F = Vector{Complex{T}}(undef, c),
@@ -297,7 +275,7 @@ function to_buffer!(f::Formula{:martins2026}, buffers, input::CoaxialInput, medi
     end
     # The currents close on the circumferences.
     copyto!(block.factor, transpose(block.T))
-    factor = lu!(block.factor)
+    factor = factorize!(block.factor, block.pivots)
     copyto!(block.rhs, transpose(block.P̃))
     ldiv!(factor, block.rhs)
     copyto!(block.Pg, transpose(block.rhs))

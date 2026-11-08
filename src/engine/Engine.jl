@@ -19,7 +19,8 @@ using ..Materials: Material
 using ..Earth: EarthLayer, EarthModel
 using ..BaseGeometry: Placement, support
 using ..DataModel: CableSystem, flatten
-using LinearAlgebra: I, checksquare, ldiv!, lu!, mul!
+using LinearAlgebra: BlasFloat, BlasInt, I, LAPACK, LU, SingularException, checksquare,
+                     ldiv!, lu!, mul!
 using QuadGK: alloc_segbuf, quadgk
 
 export ε₀, μ₀
@@ -31,7 +32,7 @@ export admittivity, impedance!, potential!, to_buffer!, from_buffer,
 export LineParametersProblem, CoaxialFormulation, FEM, LCMBackend, GmshBackend,
        backend, LineParameters
 export @formulation, @air, @earth, @mixed
-export bundle!, eliminate!, transposition!, reductions
+export bundle!, eliminate!, factorize!, transposition!, reductions
 export SpectralIntegral, integrate
 public CoaxialInput, solve!, Λ
 public InternalImpedance, InsulationImpedance, InsulationAdmittance, SemiconAdmittance,
@@ -245,6 +246,7 @@ include("constants/constants.jl")
 include("problem.jl")
 include("input.jl")
 include("integral.jl")
+include("reductions/reductions.jl")
 include("internalimpedance/InternalImpedance.jl")
 include("insulationimpedance/InsulationImpedance.jl")
 include("insulationadmittance/InsulationAdmittance.jl")
@@ -257,7 +259,6 @@ include("formulation.jl")
 include("backends.jl")
 include("result.jl")
 include("assembly.jl")
-include("reductions/reductions.jl")
 include("compute.jl")
 
 end

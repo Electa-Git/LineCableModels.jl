@@ -97,6 +97,40 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Factor the square matrix `A` in place into ``P A = L U``. ``L`` is unit lower triangular and
+``U`` upper triangular. ``P`` holds the row interchanges that move the largest entry of each
+column to the diagonal. For a BLAS element type, LAPACK's `getrf!` writes the interchanges
+into the first `size(A, 1)` entries of `pivots`, and the factorization does not allocate.
+Any other element type takes Julia's generic LU of `lu!`, which allocates its own
+interchanges.
+
+# Arguments
+
+- `A`: square matrix, overwritten by its factors.
+- `pivots`: integer vector of at least `size(A, 1)` entries that receives the row
+  interchanges.
+
+# Returns
+
+- The `LU` factorization, its factors in `A`.
+
+# Errors
+
+- Throws `SingularException` for an exactly singular matrix, as `lu!` does.
+"""
+function factorize!(
+        A::StridedMatrix{T}, pivots::AbstractVector{BlasInt}) where {T <: BlasFloat}
+    ipiv = view(pivots, 1:checksquare(A))
+    _, _, info = LAPACK.getrf!(A, ipiv)
+    info > 0 && throw(SingularException(info))
+    return LU{T, typeof(A), typeof(ipiv)}(A, ipiv, info)
+end
+
+factorize!(A::AbstractMatrix, ::AbstractVector{BlasInt}) = lu!(A)
+
+"""
+$(TYPEDSIGNATURES)
+
 Write into `reduced` the Kron elimination of `matrix`, the Schur complement of the block of
 eliminated rows and columns, retained on the kept rows and columns:
 
@@ -107,7 +141,8 @@ M_{\\mathrm{r}} = M_{kk} - M_{ke} M_{ee}^{-1} M_{ek},
 where ``k`` indexes the kept rows and columns in the order of `kept`, and ``e`` the
 eliminated ones in the order of `eliminated`. An eliminated conductor is at zero voltage:
 grounded, or merged into a bundle by [`bundle!`](@ref). The LU decomposition of ``M_{ee}``
-solves for ``M_{ee}^{-1} M_{ek}``. Without an eliminated row, ``M_{\\mathrm{r}} = M_{kk}``.
+by [`factorize!`](@ref) solves for ``M_{ee}^{-1} M_{ek}``. Without an eliminated row,
+``M_{\\mathrm{r}} = M_{kk}``.
 
 # Arguments
 
@@ -122,6 +157,8 @@ solves for ``M_{ee}^{-1} M_{ek}``. Without an eliminated row, ``M_{\\mathrm{r}} 
   ``M_{ke}`` \\[Ω/m or m/F\\].
 - `rhs`: matrix of `length(eliminated)` rows and `length(kept)` columns that receives
   ``M_{ee}^{-1} M_{ek}`` \\[dimensionless\\].
+- `pivots`: integer vector of at least `length(eliminated)` entries that receives the row
+  interchanges of the LU decomposition.
 
 # Returns
 
@@ -131,7 +168,7 @@ function eliminate!(
         reduced::AbstractMatrix{Complex{T}}, matrix::AbstractMatrix{Complex{T}},
         kept::AbstractVector{Int}, eliminated::AbstractVector{Int},
         factor::AbstractMatrix{Complex{T}}, coupling::AbstractMatrix{Complex{T}},
-        rhs::AbstractMatrix{Complex{T}}) where {T <: Real}
+        rhs::AbstractMatrix{Complex{T}}, pivots::AbstractVector{BlasInt}) where {T <: Real}
     retained = length(kept)
     removed = length(eliminated)
     for column in 1:retained, row in 1:retained
@@ -151,8 +188,42 @@ function eliminate!(
 
         rhs[row, column] = matrix[eliminated[row], kept[column]]
     end
-    ldiv!(lu!(factor), rhs)
+    ldiv!(factorize!(factor, pivots), rhs)
     return mul!(reduced, coupling, rhs, -one(Complex{T}), one(Complex{T}))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Allocate the arrays of the reductions of a computation: the Kron elimination by
+[`eliminate!`](@ref) and the inversion of the reduced potential coefficients after it. With
+`m = length(kept)` and `e = length(eliminated)`, `reduced` has `m` rows and columns,
+`factor` `e`, `coupling` `m` rows and `e` columns, `rhs` `e` rows and `m` columns, and
+`identity` is the identity matrix of order `m`, each of `Complex{T}`. The integer vector
+`pivots` of `max(m, e)` entries serves each LU decomposition of a frequency, one after the
+other.
+
+# Arguments
+
+- `eliminate!`: the reduction whose arrays these are.
+- `T`: real number type of the computation.
+- `kept`: conductors that the reductions keep.
+- `eliminated`: conductors that the Kron elimination removes.
+
+# Returns
+
+- A named tuple of `reduced`, `factor`, `coupling`, `rhs`, `identity` and `pivots`.
+"""
+function initialize_buffers(::typeof(eliminate!), ::Type{T}, kept::AbstractVector{Int},
+        eliminated::AbstractVector{Int}) where {T <: Real}
+    m = length(kept)
+    e = length(eliminated)
+    return (reduced = Matrix{Complex{T}}(undef, m, m),
+        factor = Matrix{Complex{T}}(undef, e, e),
+        coupling = Matrix{Complex{T}}(undef, m, e),
+        rhs = Matrix{Complex{T}}(undef, e, m),
+        identity = Matrix{Complex{T}}(I, m, m),
+        pivots = Vector{BlasInt}(undef, max(m, e)))
 end
 
 """

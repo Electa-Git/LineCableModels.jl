@@ -8,8 +8,17 @@
           (method = Val(:quad), rtol = 1e-10, atol = 0.0, maxevals = 10^7)
     @test_throws ArgumentError select(integrate => :quad, (method = :simpson,))
     @test_throws ArgumentError select(integrate => :quad, (tolerance = 1e-6,))
-    untargeted = select(integrate => :quad, (rtol = 0.0,))
+    # The lift checks the section it builds: two zero tolerances target nothing.
+    @test_throws ArgumentError("at least one integration tolerance must be positive") select(
+        integrate => :quad, (rtol = 0.0,))
+    untargeted = (method = Val(:quad), rtol = 0.0, atol = 0.0, maxevals = 10^7)
     @test_throws ArgumentError LineCableModels.validate(untargeted, integrate, Val(:quad))
+    # A formula with an integration section has no check of its own: its lift checks it.
+    @testset "the integration section of $id" for id in (:carson1926, :pollaczek1926,
+        :papadopoulos2010, :wise1934, :wise1948, :xue2018, :martins2026)
+        @test_throws ArgumentError("at least one integration tolerance must be positive") Engine.EarthReturn.Formula(
+            Val(id); integral = (rtol = 0.0,))
+    end
     buffers = Engine.initialize_buffers(Engine.SpectralIntegral, Val(:quad), Float64, (;))
     # On the real axis the path is the identity, and the test gives the breakpoints.
     decay = Engine.SpectralIntegral(λ -> exp(-λ), complex(1.0))

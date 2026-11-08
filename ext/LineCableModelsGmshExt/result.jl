@@ -34,7 +34,8 @@ transposition to both result matrices when selected.
 - `directory`: run directory with inputs and meshes.
 - `model`: field model with the problem and terminal order.
 - `formulation`: material laws and reduction controls.
-- `buffers`: preallocated `factor`, `coupling`, `rhs`, `reduced`, and `identity` arrays.
+- `buffers`: preallocated `reduced`, `factor`, `coupling`, `rhs`, `identity`, and `pivots`
+  arrays.
 - `options`: native solver controls and the selection of the trace.
 
 # Returns
@@ -50,7 +51,7 @@ function solve!(Z::AbstractArray{Complex{T}, 3}, Y::AbstractArray{Complex{T}, 3}
         copyto!(trace.P, primitives.P)
     end
     (; bundles, kept, eliminated) = reductions(model.problem.system, formulation.options)
-    (; factor, coupling, rhs, reduced, identity) = buffers
+    (; factor, coupling, rhs, reduced, identity, pivots) = buffers
     for k in eachindex(model.problem.frequencies)
         Zk = view(Z,:,:,k)
         Yk = view(Y,:,:,k)
@@ -58,9 +59,9 @@ function solve!(Z::AbstractArray{Complex{T}, 3}, Y::AbstractArray{Complex{T}, 3}
         primitive_P = view(primitives.P,:,:,k)
         bundle!(primitive_Z, bundles)
         bundle!(primitive_P, bundles)
-        eliminate!(Zk, primitive_Z, kept, eliminated, factor, coupling, rhs)
-        eliminate!(reduced, primitive_P, kept, eliminated, factor, coupling, rhs)
-        ldiv!(Yk, lu!(reduced), identity)
+        eliminate!(Zk, primitive_Z, kept, eliminated, factor, coupling, rhs, pivots)
+        eliminate!(reduced, primitive_P, kept, eliminated, factor, coupling, rhs, pivots)
+        ldiv!(Yk, factorize!(reduced, pivots), identity)
         if formulation.options.transposition
             transposition!(Zk)
             transposition!(Yk)

@@ -547,9 +547,9 @@ import ...Commons: defaults, validate
 using ...Commons: FormulationOptions, nominal
 using ...BaseGeometry: support
 using ..Engine: AbstractEarthReturn, CoaxialInput, LineParametersProblem, SpectralIntegral,
-                integrate, ε₀, μ₀
+                factorize!, integrate, ε₀, μ₀
 import ..Engine: impedance!, potential!, to_buffer!, from_buffer, initialize_buffers, Λ
-using LinearAlgebra: ldiv!, lu!
+using LinearAlgebra: BlasInt, ldiv!
 using SpecialFunctions: besselix, besselkx, besseljx, besselk
 
 export Formula, FORMULAS

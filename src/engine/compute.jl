@@ -83,23 +83,18 @@ function initialize_buffers(
     n = length(input.cable)
     l = length(input.dielectric_material)
     c = length(input.radius)
-    m = length(input.kept)
-    e = length(input.eliminated)
     nf = length(problem.frequencies)
-    base = (rho = Vector{T}(undef, n),
-        kappa = Vector{Complex{T}}(undef, l),
-        gamma = Vector{Complex{T}}(undef, nf),
-        σ̃ = Vector{Complex{T}}(undef, 2),
-        μ = Vector{T}(undef, 2),
-        Zin = Matrix{Complex{T}}(undef, n, n),
-        Pin = Matrix{Complex{T}}(undef, n, n),
-        Zg = Matrix{Complex{T}}(undef, c, c),
-        Pg = Matrix{Complex{T}}(undef, c, c),
-        reduced = Matrix{Complex{T}}(undef, m, m),
-        factor = Matrix{Complex{T}}(undef, e, e),
-        coupling = Matrix{Complex{T}}(undef, m, e),
-        rhs = Matrix{Complex{T}}(undef, e, m),
-        identity = Matrix{Complex{T}}(I, m, m))
+    base = merge(
+        (rho = Vector{T}(undef, n),
+            kappa = Vector{Complex{T}}(undef, l),
+            gamma = Vector{Complex{T}}(undef, nf),
+            σ̃ = Vector{Complex{T}}(undef, 2),
+            μ = Vector{T}(undef, 2),
+            Zin = Matrix{Complex{T}}(undef, n, n),
+            Pin = Matrix{Complex{T}}(undef, n, n),
+            Zg = Matrix{Complex{T}}(undef, c, c),
+            Pg = Matrix{Complex{T}}(undef, c, c)),
+        initialize_buffers(eliminate!, T, input.kept, input.eliminated))
     base.gamma .= formulation.options.Γ
     return foldl(
         (buffers, formula) -> initialize_buffers(formula, input, buffers),
@@ -187,7 +182,8 @@ function solve!(
         formulation::CoaxialFormulation, buffers,
         options::ComputationOptions
 ) where {T <: Real}
-    (; rho, kappa, Zin, Pin, Zg, Pg, reduced, factor, coupling, rhs, identity) = buffers
+    (; rho, kappa, Zin, Pin, Zg, Pg, reduced, factor,
+        coupling, rhs, identity, pivots) = buffers
     for i in eachindex(rho)
         rho[i] = formulation.resistivity(input.material[i], problem.temperature)
     end
@@ -226,9 +222,10 @@ function solve!(
         end
         bundle!(Zin, input.bundles)
         bundle!(Pin, input.bundles)
-        eliminate!(Zk, Zin, input.kept, input.eliminated, factor, coupling, rhs)
-        eliminate!(reduced, Pin, input.kept, input.eliminated, factor, coupling, rhs)
-        ldiv!(Yk, lu!(reduced), identity)
+        eliminate!(Zk, Zin, input.kept, input.eliminated, factor, coupling, rhs, pivots)
+        eliminate!(
+            reduced, Pin, input.kept, input.eliminated, factor, coupling, rhs, pivots)
+        ldiv!(Yk, factorize!(reduced, pivots), identity)
         Yk .*= s
         if formulation.options.transposition
             transposition!(Zk)

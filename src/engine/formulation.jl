@@ -418,11 +418,6 @@ function validate(problem::LineParametersProblem,
     return problem
 end
 
-function validate(problem::LineParametersProblem, formulation::FEM)
-    validate(problem, formulation.options)
-    return problem
-end
-
 """
 $(TYPEDSIGNATURES)
 
@@ -431,7 +426,7 @@ Check the options of the formulation against the frequencies.
 # Arguments
 
 - `problem`: line-parameters problem.
-- `formulation`: coaxial formulation.
+- `formulation`: coaxial or finite-element formulation.
 
 # Returns
 
@@ -441,7 +436,8 @@ Check the options of the formulation against the frequencies.
 
 - Throws `DimensionMismatch` when a `Γ` vector and the frequency vector have different lengths.
 """
-function validate(problem::LineParametersProblem, formulation::CoaxialFormulation)
+function validate(problem::LineParametersProblem,
+        formulation::Union{CoaxialFormulation, FEM})
     validate(problem, formulation.options)
     return problem
 end

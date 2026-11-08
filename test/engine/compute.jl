@@ -1,4 +1,4 @@
-using LinearAlgebra: I, lu!, norm
+using LinearAlgebra: norm
 using JET
 
 # An earth-return identifier that the test declares for the mixed pairs, so that one slot holds
@@ -77,14 +77,14 @@ end
     JET.@test_opt target_modules=(LineCableModels,) Engine.solve!(
         Z, Y, trace, problem, input, formulation, buffers, options)
 
-    # The loop allocates only the pivot vectors of its four LU decompositions.
+    # After the first call, the loop does not allocate: each LU decomposition writes its
+    # row interchanges into the pivots of the buffers.
     for nf in (11, 101)
         problem = LineParametersProblem(system, earth;
             frequencies = 10.0 .^ range(1, 6; length = nf))
         input = Engine.CoaxialInput(problem, formulation.options)
         buffers = Engine.initialize_buffers(formulation, problem, input)
         m = length(input.kept)
-        c = length(input.radius)
         Z = Array{ComplexF64, 3}(undef, m, m, nf)
         Y = Array{ComplexF64, 3}(undef, m, m, nf)
         trace = (Zin = Array{ComplexF64, 3}(undef, 0, 0, 0),
@@ -93,25 +93,34 @@ end
             Pg = Array{ComplexF64, 3}(undef, 0, 0, 0))
         options = LineCableModels.ComputationOptions(Engine.LCMBackend; trace = false)
         Engine.solve!(Z, Y, trace, problem, input, formulation, buffers, options)
-        factor = Matrix{ComplexF64}(I, size(buffers.factor)...)
-        reduced = Matrix{ComplexF64}(I, size(buffers.reduced)...)
-        earth_factor = Matrix{ComplexF64}(I, c, c)
-        lu!(factor)
-        lu!(reduced)
-        lu!(earth_factor)
-        pivots = (@allocated lu!(factor)) + (@allocated lu!(factor)) +
-                 (@allocated lu!(reduced)) + (@allocated lu!(earth_factor))
         # The arguments pass through an anonymous function, where their types are concrete.
         @test only(map(
             (z, y, t, p, i, f, b,
                 o) -> @allocated(LineCableModels.Engine.solve!(
                 z, y, t, p, i, f, b, o)),
             (Z,), (Y,), (trace,), (problem,), (input,), (formulation,), (buffers,),
-            (options,))) == nf * pivots
+            (options,))) == 0
     end
 
     @test_throws ArgumentError("LCMBackend does not implement FEM") compute(
         Engine.LCMBackend(), problem, FEM())
+
+    # Without the Gmsh extension, the options of the Gmsh backend refuse the computation.
+    @testset "the Gmsh backend refused in a process without Gmsh" begin
+        script = "using LineCableModels; " *
+                 "copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393); " *
+                 "wire = build(CableDesign, \"wire\", " *
+                 "Terminal(:core, Region(:core_metal, Circle(0.01), copper))); " *
+                 "system = build(CableSystem, [wire], [Placement(0.0, 10.0)]; " *
+                 "connections = [(core = 1,)], id = \"wire\", line_length = 1.0); " *
+                 "problem = LineParametersProblem(system, homogeneous(rho = 100.0); " *
+                 "frequencies = [50.0]); " *
+                 "try compute(problem, FEM()) catch err; println(sprint(showerror, err)) end"
+        command = `$(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) -e $script`
+        message = "ArgumentError: the Gmsh backend runs in the Gmsh extension, " *
+                  "which `using Gmsh, getdp_jll` loads"
+        @test readlines(command) == [message]
+    end
 
     @testset "a layered earth under the bottommost model" begin
         reference = Dict(REFERENCES)["two_bare_wires"]

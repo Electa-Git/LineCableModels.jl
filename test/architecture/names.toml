@@ -112,6 +112,7 @@ from_buffer = "the block of the buffers that holds a formula's terms, keyed by i
 initialize = "build the arrays of a computation once, before its loop"
 bundle = "merge each other conductor of a bundle into the first conductor of its index, in the rows and columns of a matrix"
 eliminate = "remove the eliminated rows and columns of a matrix by the Kron elimination, the Schur complement of the kept ones"
+factorize = "decompose a square matrix in place into its lower and upper triangular factors, with the row interchanges of partial pivoting"
 integrate = "evaluate an integral by the method that its tag selects, with the controls of its section"
 solve = "find the line parameters of a problem at each of its frequencies"
 
@@ -258,6 +259,7 @@ initialize_buffers = "build the preallocated arrays of a computation once, befor
 CoaxialInput = "the numerical input of a computation in the coaxial model: each cable's equivalent tubular conductors and dielectric layers, the cables' centers and radii, and the reduction plan for the formulation's bundle and kron"
 "bundle!" = "merge each other conductor of a bundle into the first conductor of its index, in the rows and columns of a matrix"
 "eliminate!" = "the Kron elimination: the Schur complement of the kept rows and columns of a matrix, written into a matrix the caller gives"
+"factorize!" = "the LU factorization of a square matrix, written over it, its row interchanges into the pivots the caller gives"
 "transposition!" = "the ideal transposition: the mean of a matrix over the cyclic permutations of its rows and columns"
 SpectralIntegral = "the integral of a kernel in λ over [0, ∞) along the path ζ its constructor chooses, which integrate evaluates by the method its tag selects"
 integrate = "evaluate an integral by the method that its tag selects, with the controls of its section"

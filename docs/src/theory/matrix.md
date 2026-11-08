@@ -181,12 +181,15 @@ potential!(shunt::Shunt.Formula{:series}, Pin::AbstractMatrix{Complex{T}}, input
 The reductions act on the assembled matrices in order. The bundle first merges the conductors
 that share a connection index, and the Kron elimination then removes the conductors at zero
 voltage. When selected, the ideal transposition acts on `Z` and `Y` after the admittance is
-computed.
+computed. The elimination and the inversion of the reduced potential coefficients factor
+their matrices by `factorize!`.
 
 ```@docs
 reductions
 bundle!
 eliminate!
+factorize!
+initialize_buffers(::typeof(eliminate!), ::Type{T}, kept::AbstractVector{Int}, eliminated::AbstractVector{Int}) where {T <: Real}
 transposition!
 ```
 
