@@ -315,6 +315,23 @@ end
         end
     end
 
+    @testset "the overlap of two angular intervals, and of two curves of two kinds" begin
+        overlap = LineCableModels.BaseGeometry.overlap
+        interval = LineCableModels.BaseGeometry.ClosedInterval
+        gap = overlap(interval(0.0, 1.0), interval(2.0, 3.0))
+        @test isempty(gap)
+        @test (LineCableModels.BaseGeometry.leftendpoint(gap),
+            LineCableModels.BaseGeometry.rightendpoint(gap)) == (2.0, 1.0)
+        @test extrema(overlap(interval(0.0, 2.0), interval(0.5, 1.0))) == (0.5, 1.0)
+        @test extrema(overlap(interval(5.5, 7.0), interval(0.2, 0.6))) ==
+              (0.2 + 2π, 0.6 + 2π)
+        arc = Arc(Placement(0, 0), 2.0e-3, π / 2)
+        elliptic = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2)
+        @test_throws DomainError overlap(arc, elliptic)
+        @test_throws "of one center or of one ellipse" overlap(
+            Segment((0.0, 0.0), (1.0e-3, 0.0)), arc)
+    end
+
     @testset "a bracket halved to adjacent parameters" begin
         lo, hi = @inferred LineCableModels.BaseGeometry.bisect(x -> x < 0.3, 0.0, 1.0)
         @test lo < 0.3 <= hi

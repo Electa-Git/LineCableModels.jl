@@ -78,6 +78,11 @@ end
         @test Guards.symbol_switches(files, directory, curve_members) == Dict{String, Int}()
     end
 
+    @testset "the method-table closure over the curves" begin
+        @test Guards.closure(methods, tree, LineCableModels.BaseGeometry.Curve{Float64}) ==
+              Dict{String, Int}()
+    end
+
     @testset "decisions by absence" begin
         @test Guards.absences(files, directory) == Dict{String, Int}()
     end
@@ -248,12 +253,13 @@ end
               Dict{String, Int}("src/repeats.jl" => 3)
         @test Guards.symbol_switches(
             filter(file -> basename(file) == "curves.jl", files), directory, curve_members) ==
-              Dict{String, Int}("src/curves.jl | type test" => 1)
+              Dict{String, Int}("src/curves.jl | type test" => 6, "src/curves.jl | negation" => 1)
         @test Guards.symbol_switches(
             filter(file -> basename(file) != "curves.jl", files), directory, curve_members) ==
               Dict{String, Int}(
             "src/switches.jl | applicable" => 2,
             "src/switches.jl | eval" => 2,
+            "src/switches.jl | negation" => 1,
             "src/switches.jl | symbol" => 9,
             "src/switches.jl | type test" => 9)
         @test Guards.absences(files, directory) == Dict{String, Int}(
@@ -282,6 +288,26 @@ end
               Dict{String, Int}()
         @test Guards.absences(files, directory) == Dict{String, Int}()
         @test Guards.file_hygiene(files, directory) == Dict{String, Int}()
+
+        planted, _ = probe("closure/planted", "ClosureProbePlanted")
+        planted_methods = Base.invokelatest(Guards.package_methods, planted)
+        curves = Base.invokelatest(getproperty, planted.root, :Curve){Float64}
+        @test Base.invokelatest(Guards.closure, planted_methods, planted, curves) ==
+              Dict{String, Int}(
+            "src/ClosureProbePlanted.jl | extent | 1 | EllipticArc" => 1,
+            "src/ClosureProbePlanted.jl | measure | 1 | Arc" => 1,
+            "src/ClosureProbePlanted.jl | measure | 1 | EllipticArc" => 1,
+            "src/ClosureProbePlanted.jl | pair | 1 | EllipticArc" => 1,
+            "src/ClosureProbePlanted.jl | pair | 1 | Segment" => 1,
+            "src/ClosureProbePlanted.jl | pair | 2 | EllipticArc" => 1,
+            "src/ClosureProbePlanted.jl | pair | 2 | Segment" => 1,
+            "src/ClosureProbePlanted.jl | reverse | 1 | EllipticArc" => 2)
+
+        clean, _ = probe("closure/clean", "ClosureProbeClean")
+        clean_methods = Base.invokelatest(Guards.package_methods, clean)
+        curves = Base.invokelatest(getproperty, clean.root, :Curve){Float64}
+        @test Base.invokelatest(Guards.closure, clean_methods, clean, curves) ==
+              Dict{String, Int}()
 
         vocabulary = Dict{Symbol, Pair{String, Regex}}(
             :ideal_transposition! => "src/commons" => r"transpos",

@@ -186,9 +186,14 @@ Anonymous functions appear only as arguments.
 The code does not use `applicable` or `@eval`, and it compares nothing against a `Symbol`
 literal. A type test appears only in a `catch` clause, or as the condition of a selection
 from a collection. Such a selection is a comprehension filter, or the predicate of `filter`,
-`findall`, `findfirst` or `findlast`. The guard admits a filter on a member of `Curve` only
-where the same function filters every member. A new curve type then fails the guard, and no
-function skips it. A choice known at construction is lifted once to a
+`findall`, `findfirst` or `findlast`.
+
+The guard admits a type test on a member of `Curve` only in a method that tests no other
+member, and never beside its negation. Every generic with a method on one member of `Curve`
+has a method applicable to every other member, or one on `Curve`. A new curve type then
+fails the guard, and no function skips it.
+
+A choice known at construction is lifted once to a
 type or a type parameter and dispatched after that.
 
 ```julia

@@ -700,6 +700,35 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Return the direction \\[rad\\] of the chord from the first point of oriented `edge` to
+distance `ds` \\[m\\] along its stored elliptic `arc`. With sense ``s`` and curvature ``κ``
+\\[1/m\\], the chord direction is the tangent direction, in ``[-π, π]``, plus ``s\\,ds\\,κ/2``.
+The curvature is that of the offset arc at the first point,
+
+```math
+κ = \\frac{κ_0}{1 + o κ_0}, \\qquad κ_0 = \\frac{ab}{(a^2 \\sin^2 θ + b^2 \\cos^2 θ)^{3/2}},
+```
+
+where ``a`` and ``b`` \\[m\\] are the semi-axes, ``o`` \\[m\\] the offset and ``θ`` \\[rad\\]
+the parametric angle of the point.
+"""
+function direction(geometry::Geometry, arc::EllipticArc, edge::Int, ds::Real)
+    p, q = geometry.ends[abs(edge)]
+    xy = geometry.positions[edge > 0 ? p : q]
+    start, finish = arc(0), arc(1)
+    forward = hypot(xy[1] - start[1], xy[2] - start[2]) <=
+              hypot(xy[1] - finish[1], xy[2] - finish[2])
+    t = forward ? 0 : 1
+    θ = arc.φ0 + t * arc.span
+    κ₀ = arc.a * arc.b / (arc.a^2 * sin(θ)^2 + arc.b^2 * cos(θ)^2)^(3 / 2)
+    κ = κ₀ / (1 + arc.offset * κ₀)
+    sense = forward ? sign(arc.span) : -sign(arc.span)
+    return rem2pi(direction(arc, t) + (forward ? 0 : π), RoundNearest) + sense * ds * κ / 2
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Walk oriented `boundaries`, with material on the left, into cycles. Return the plane
 surface tags of positive cycles with their contained holes, and the curve lists of
 uncontained negative cycles. Stored coordinates are in \\[m\\]. Compare incident

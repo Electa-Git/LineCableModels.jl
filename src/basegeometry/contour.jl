@@ -373,28 +373,43 @@ turn(face::EllipticArc, d::Real, p, q) = turn(parallel(face, d))
 """
 $(TYPEDSIGNATURES)
 
-Return the widest common angular range \\[rad\\] of two arcs of one center, or of two
-elliptic arcs of one ellipse. The range is an interval of the angle of `a`, read
-counterclockwise. With ``α`` the start of `a` in that sense and ``β`` the start of `b`, it
-is the widest of ``[α, α+|span_a|] ∩ [β+2πk, β+2πk+|span_b|]`` for ``k ∈ \\{-1, 0, 1\\}``. An
-elliptic arc reads its parametric angle. For two disjoint arcs the interval is empty, and
-its endpoints are the two ends that bound the gap. The caller checks that the arcs have one
-center or one ellipse.
+Return the widest common range \\[rad\\] of the angular intervals `A` and `B`, with `B`
+shifted by whole turns. With ``[β_1, β_2]`` the interval `B`, the range is the widest of
+``A ∩ [β_1+2πk, β_2+2πk]`` for ``k ∈ \\{-1, 0, 1\\}``. For two disjoint intervals the range
+is empty, and its endpoints are the two ends that bound the gap.
+"""
+function overlap(A::ClosedInterval, B::ClosedInterval)
+    return argmax(I -> nominal(rightendpoint(I) - leftendpoint(I)),
+        (A ∩ ClosedInterval(leftendpoint(B) + k * 2π, rightendpoint(B) + k * 2π)
+        for k in (-1, 0, 1)))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the widest common angular range \\[rad\\] of two arcs of one center, an interval of the
+angle of `a`. Each arc gives the range ``[α, α+|span|]`` of its angle, with ``α`` its
+counterclockwise start: `at.φ` or, for a negative span, `at.φ + span`, modulo ``2π``. The
+caller checks that the arcs have one center.
 """
 function overlap(a::Arc, b::Arc)
     α = mod(a.at.φ + min(a.span, zero(a.span)), 2π)
     β = mod(b.at.φ + min(b.span, zero(b.span)), 2π)
-    A = ClosedInterval(α, α + abs(a.span))
-    return argmax(I -> nominal(rightendpoint(I) - leftendpoint(I)),
-        (A ∩ ClosedInterval(β + k * 2π, β + k * 2π + abs(b.span)) for k in (-1, 0, 1)))
+    return overlap(ClosedInterval(α, α + abs(a.span)), ClosedInterval(β, β + abs(b.span)))
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the widest common range \\[rad\\] of two elliptic arcs of one ellipse, an interval of
+the parametric angle of `a`. Each arc gives the range ``[α, α+|span|]`` of its parametric
+angle, with ``α`` its counterclockwise start: `φ0` or, for a negative span, `φ0 + span`,
+modulo ``2π``. The caller checks that the arcs have one ellipse.
+"""
 function overlap(a::EllipticArc, b::EllipticArc)
     α = mod(a.φ0 + min(a.span, zero(a.span)), 2π)
     β = mod(b.φ0 + min(b.span, zero(b.span)), 2π)
-    A = ClosedInterval(α, α + abs(a.span))
-    return argmax(I -> nominal(rightendpoint(I) - leftendpoint(I)),
-        (A ∩ ClosedInterval(β + k * 2π, β + k * 2π + abs(b.span)) for k in (-1, 0, 1)))
+    return overlap(ClosedInterval(α, α + abs(a.span)), ClosedInterval(β, β + abs(b.span)))
 end
 
 """
@@ -1323,6 +1338,11 @@ end
 function vertex(A::Curve, B::Curve, j)
     throw(DomainError(j,
         "the parallels of an elliptic arc and its neighbour meet at no point of a conic at $(j) m"))
+end
+
+# An angular range common to two curves exists for two arcs of one kind alone.
+function overlap(a::Curve, b::Curve)
+    throw(DomainError((a, b), "the overlap of two arcs needs two arcs of one center or of one ellipse"))
 end
 
 """

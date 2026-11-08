@@ -795,73 +795,98 @@ function type_test(node)
            (calls(left, (:typeof,)) || calls(right, (:typeof,)))
 end
 
+# Whether `node` defines a method: a `function` with a body, or a short form `f(x) = …`.
+function is_method(node)
+    kind(node) == K"function" && numchildren(node) == 2 && return true
+    kind(node) == K"=" && numchildren(node) == 2 || return false
+    signature = node[1]
+    while kind(signature) in (K"where", K"::") && numchildren(signature) == 2
+        signature = signature[1]
+    end
+    return kind(signature) == K"call"
+end
+
+# The innermost method that holds `node`, or `nothing` at the top level.
+function owner(node)
+    parent = node.parent
+    while parent !== nothing && !is_method(parent)
+        parent = parent.parent
+    end
+    return parent
+end
+
+# The members of the closed union `curve_members` that the type tests in `node` name,
+# outside the methods that `node` holds.
+function tested_members(node, curve_members)
+    found = Set{Symbol}()
+    visit(node) do candidate
+        candidate !== node && is_method(candidate) && return false
+        type_test(candidate) && visit(candidate) do identifier
+            kind(identifier) == K"Identifier" && identifier.val in curve_members &&
+                push!(found, identifier.val)
+            return true
+        end
+        return true
+    end
+    return found
+end
+
 # Whether a type test is admitted: inside a `catch` clause, in the condition of a
 # comprehension or generator, or in the predicate of a selection call, given as an
-# anonymous function or a `do` block.
+# anonymous function or a `do` block. The guard admits a selection on a member of the
+# closed union `curve_members` only where its method tests no other member.
 function admitted(node, curve_members)
     child, parent = node, node.parent
     while parent !== nothing
         k = kind(parent)
         k == K"catch" && return true
-        if k == K"filter" && child === last_child(parent)
-            members = Set{Symbol}()
-            visit(node) do candidate
-                kind(candidate) == K"Identifier" && candidate.val in curve_members &&
-                    push!(members, candidate.val)
-                return true
-            end
-            isempty(members) && return true
-            owner = node.parent
-            while owner !== nothing
-                kind(owner) == K"function" && break
-                if kind(owner) == K"=" && numchildren(owner) == 2
-                    signature = owner[1]
-                    while kind(signature) in (K"where", K"::") &&
-                        numchildren(signature) == 2
-                        signature = signature[1]
-                    end
-                    kind(signature) == K"call" && break
-                end
-                owner = owner.parent
-            end
-            owner === nothing && return true
-            filters = Set{Symbol}()
-            visit(owner) do selection
-                selection !== owner && kind(selection) == K"function" && return false
-                if selection !== owner && kind(selection) == K"=" &&
-                   numchildren(selection) == 2
-                    signature = selection[1]
-                    while kind(signature) in (K"where", K"::") &&
-                        numchildren(signature) == 2
-                        signature = signature[1]
-                    end
-                    kind(signature) == K"call" && return false
-                end
-                if kind(selection) == K"filter"
-                    visit(last_child(selection)) do candidate
-                        if type_test(candidate)
-                            visit(candidate) do identifier
-                                kind(identifier) == K"Identifier" &&
-                                    identifier.val in curve_members &&
-                                    push!(filters, identifier.val)
-                                return true
-                            end
-                        end
-                        return true
-                    end
-                end
-                return true
-            end
-            return length(filters) < 2 || all(member -> member in filters, curve_members)
+        if (k == K"filter" && child === last_child(parent)) ||
+           (k in (K"->", K"do") && calls(parent.parent, SELECTIONS))
+            method = owner(node)
+            return method === nothing || isempty(tested_members(node, curve_members)) ||
+                   length(tested_members(method, curve_members)) < 2
         end
-        k in (K"->", K"do") && calls(parent.parent, SELECTIONS) && return true
         child, parent = parent, parent.parent
     end
     return false
 end
 
+# The type of a type test as written, and whether its own form negates the test:
+# `typeof(x) != T` or `typeof(x) !== T`.
+function tested_type(node)
+    kind(node) == K"<:" && return (JuliaSyntax.sourcetext(node[2]), false)
+    operator, left, right = binary(node)
+    name = syntax_name(operator)
+    name in ISA && return (JuliaSyntax.sourcetext(right), false)
+    type = calls(left, (:typeof,)) ? right : left
+    return (JuliaSyntax.sourcetext(type), name in ((:(!==),), (:(!=),)))
+end
+
+# Whether `method` holds a type test beside its negation, `x isa T` beside `!(x isa T)` or
+# `typeof(x) == T` beside `typeof(x) != T`: a switch between two branches, which belongs to
+# dispatch.
+function negates(method)
+    plain, negated = Set{String}(), Set{String}()
+    visit(method) do node
+        node !== method && is_method(node) && return false
+        if kind(node) == K"call" && numchildren(node) == 2 &&
+           syntax_name(node[1]) == (:!,) && type_test(node[2])
+            type, flipped = tested_type(node[2])
+            push!(flipped ? plain : negated, type)
+            return false
+        end
+        if type_test(node)
+            type, flipped = tested_type(node)
+            push!(flipped ? negated : plain, type)
+        end
+        return true
+    end
+    return !isdisjoint(plain, negated)
+end
+
 # Symbol switches and probes. Per file and form: calls to `applicable`, `@eval` calls,
-# comparisons against a Symbol literal, and type tests that are not admitted.
+# comparisons against a Symbol literal, and type tests that are not admitted. A method that
+# holds a type test beside its negation counts once, as a negation.
 function symbol_switches(files, directory, curve_members)
     found = Dict{String, Int}()
     for file in files
@@ -874,7 +899,82 @@ function symbol_switches(files, directory, curve_members)
             symbol_comparison(node) && count!(found, string(path, " | symbol"))
             type_test(node) && !admitted(node, curve_members) &&
                 count!(found, string(path, " | type test"))
+            is_method(node) && negates(node) && count!(found, string(path, " | negation"))
             return true
+        end
+    end
+    return found
+end
+
+# A signature with each type variable at Float64 where its bounds admit it, else at its
+# upper bound: the package's numbers are Float64 or wider.
+function instantiate(signature)
+    while signature isa UnionAll
+        v = signature.var
+        signature = signature{(v.lb <: Float64 <: v.ub) ? Float64 : v.ub}
+    end
+    return signature
+end
+
+# The indices in `wrappers` of the members that a position of a signature names: one
+# member, or a union of members. Any other type names none.
+function member_indices(position, wrappers)
+    type = Base.unwrap_unionall(position isa TypeVar ? position.ub : position)
+    indices = Int[]
+    for part in Base.uniontypes(type)
+        part = Base.unwrap_unionall(part)
+        part isa DataType || return Int[]
+        i = findfirst(wrapper -> Base.unwrap_unionall(wrapper).name === part.name, wrappers)
+        i === nothing && return Int[]
+        push!(indices, i)
+    end
+    return indices
+end
+
+# The type at a position of a signature with its members replaced by `wrapper`, the
+# parameters of the first kept.
+function substitute(position, wrapper)
+    type = Base.unwrap_unionall(position isa TypeVar ? position.ub : position)
+    parameters = Base.unwrap_unionall(first(Base.uniontypes(type))).parameters
+    return isempty(parameters) || !all(parameter -> parameter isa Type, parameters) ?
+           wrapper : wrapper{parameters...}
+end
+
+# The method-table closure over a closed owned union. A generic with a method on one member
+# has a method applicable to every other member, or one on the union. For each package
+# method that takes some members of `union` at a position, the guard puts each other member
+# there. It then asks for an applicable method of the same function. The type variables go
+# to Float64 where their bounds admit it, and a union argument splits into its members. A
+# member that the method table skips fails here, whatever syntax skips it.
+function closure(methods, tree::PackageTree, union)
+    wrappers = [Base.typename(Base.unwrap_unionall(u)).wrapper
+                for u in Base.uniontypes(union)]
+    found = Dict{String, Int}()
+    for m in methods
+        positions = collect(Base.unwrap_unionall(m.sig).parameters)
+        any(position -> !isempty(member_indices(position, wrappers)), positions[2:end]) ||
+            continue
+        signature = instantiate(m.sig)
+        F = signature.parameters[1]
+        isdefined(F, :instance) && F.instance isa Function || continue
+        f = F.instance
+        parameters = collect(signature.parameters)
+        for i in 2:length(parameters)
+            parameters[i] isa Core.TypeofVararg && continue
+            named = member_indices(parameters[i], wrappers)
+            isempty(named) && continue
+            for (k, wrapper) in enumerate(wrappers)
+                k in named && continue
+                substituted = copy(parameters)
+                substituted[i] = substitute(parameters[i], wrapper)
+                parts = [p isa Union ? Base.uniontypes(p) : [p] for p in substituted]
+                all(Iterators.product(parts...)) do combination
+                    return any(n -> Tuple{combination...} <: n.sig, Base.methods(f))
+                end && continue
+                count!(found,
+                    string(source_name(tree, m), " | ", nameof(f), " | ", i - 1,
+                        " | ", nameof(wrapper)))
+            end
         end
     end
     return found

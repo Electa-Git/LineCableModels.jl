@@ -197,6 +197,66 @@ end
         end
     end
 
+    @testset "the chord of an elliptic arc of equal axes is the circular arc's" begin
+        reference = last(first(REFERENCES))
+        model = FieldModel(reference, FEM())
+        chord = LineCableModels.BaseGeometry.direction
+        gmsh.initialize()
+        try
+            for offset in (0.0, 0.4e-3), (φ0, span) in ((π / 8, π / 4), (3π / 8, -π / 4))
+
+                gmsh.model.add("chord")
+                geometry = Geometry(model, options)
+                elliptic = only(draw(geometry,
+                    LineCableModels.BaseGeometry.EllipticArc(
+                        Placement(0.1, 0.2), 3.0e-3, 3.0e-3, φ0, span, offset)))
+                radius = 3.0e-3 + offset
+                circular = only(draw(geometry,
+                    LineCableModels.BaseGeometry.Arc(Placement(0.1, 0.2, φ0), radius, span)))
+                for sense in (1, -1), ds in (1e-5, 1e-4)
+
+                    @test chord(geometry, sense * elliptic, ds) ≈
+                          chord(geometry, sense * circular, ds) atol = 1e-12
+                end
+                gmsh.model.remove()
+            end
+        finally
+            gmsh.finalize()
+        end
+    end
+
+    @testset "the boundary walk turns at the elliptic arcs of the D and the duct" begin
+        reference = last(first(REFERENCES))
+        model = FieldModel(reference, FEM())
+        D = Contour(
+            LineCableModels.BaseGeometry.Curve{Float64}[
+            LineCableModels.BaseGeometry.EllipticArc(Placement(0, 0), 20e-3, 5e-3, 0, π),
+            LineCableModels.BaseGeometry.Segment((-20e-3, 0.0), (-20e-3, -1e-3)),
+            LineCableModels.BaseGeometry.Segment((-20e-3, -1e-3), (20e-3, -1e-3)),
+            LineCableModels.BaseGeometry.Segment((20e-3, -1e-3), (20e-3, 0.0))],
+            Vector{LineCableModels.BaseGeometry.Curve{Float64}}[])
+        gmsh.initialize()
+        try
+            gmsh.model.add("D")
+            geometry = Geometry(model, options)
+            outline = draw(geometry, D.outer)
+            surfaces, outside = extension.walk!(geometry, (outline.curves,))
+            @test length(surfaces) == 1
+            @test isempty(outside)
+            gmsh.model.remove()
+            gmsh.model.add("duct")
+            geometry = Geometry(model, options)
+            duct = draw(geometry, Contour(LineCableModels.Ellipse(30e-3, 20e-3)).outer)
+            core = draw(geometry, Contour(Circle(10e-3)).outer)
+            surfaces, outside = extension.walk!(geometry, (duct.curves, -core.curves))
+            @test length(surfaces) == 1
+            @test isempty(outside)
+        finally
+            gmsh.model.remove()
+            gmsh.finalize()
+        end
+    end
+
     @testset "the parallel of an elliptical duct is drawn within the tolerance" begin
         copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
         air = Material(:insulator, Inf)
