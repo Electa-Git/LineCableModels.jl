@@ -29,43 +29,85 @@ end
             @test extension.segments(τ) == count
         end
     end
-    @testset "section records of an ellipse polygon and contour offset" begin
-        ellipse = LineCableModels.Ellipse(3.0e-3, 2.0e-3)
+    @testset "the mesh parameters of round, annular and strip sections" begin
+        dimension = LineCableModels.BaseGeometry.dimension
+        controls = merge(options.overrides, (ConductorThicknessElements = 3,))
+        for (x, radius) in ((LineCableModels.Ellipse(3.0e-3, 2.0e-3), 2.0e-3^2 / 3.0e-3),
+            (LineCableModels.Ellipse(9.0e-3, 3.0e-3), 1.0e-3),
+            (LineCableModels.Ellipse(3.0e-3, 3.0e-3), 3.0e-3), (Circle(2.0e-3), 2.0e-3))
+            for (strand, target) in ((false, radius / 5), (true, radius))
+                s = extension.section(x, x, strand, false, controls)
+                @test s.target ≈ target atol = 1e-15
+                @test s.width ≈ radius atol = 1e-15
+                @test (s.divisions, s.fraction, s.depth) == (5, 0.5, 0)
+            end
+        end
+        annulus = Annulus(1.0e-3, 3.0e-3)
+        for layer in (false, true)
+            s = extension.section(annulus, annulus, false, layer, controls)
+            @test s.target ≈ 1.0e-3 rtol = 1e-12
+            @test s.width ≈ 2.0e-3 rtol = 1e-12
+            @test (s.divisions, s.fraction, s.depth) == (3, 0.45, 0)
+        end
+        # The insulated wire's layer, 1 mm thick at the radius 43.5 mm, region 2 of its model.
+        insulated = FieldModel(Dict(REFERENCES)["two_insulated_wires"], FEM())
+        for (patches, τ, target) in ((0, 1e-3, 0.5e-3), (1, 1e-3, 2π * 43.5e-3 / 96),
+            (1, 1e-2, 2π * 43.5e-3 / 48))
+            override = (ThinLayerStrips = patches, ConductorGeometryTolerance = τ)
+            s = extension.section(insulated, 2, merge(controls, override))
+            @test s.target ≈ target rtol = 1e-12
+            @test s.width ≈ 1.0e-3 rtol = 1e-12
+            @test (s.divisions, s.fraction, s.depth) == (3, 0.45, 0)
+        end
+        band = LineCableModels.resolve(Rectangle(4.0e-3, 2.0e-3), Offset(0.5e-3))
+        fill = LineCableModels.PerforatedShape(band,
+            LineCableModels.AbstractShape{Float64}[Circle(0.2e-3, Placement(0, 1.25e-3))])
+        for shape in (band, fill)
+            s = extension.section(Offset(0.5e-3), shape, false, false, controls)
+            @test s.target ≈ 0.25e-3 rtol = 1e-12
+            @test s.width ≈ 0.5e-3 rtol = 1e-12
+            @test (s.divisions, s.fraction, s.depth) == (3, 0.45, 0)
+        end
+        # A strip's target reads its declared sides, and its width the `dimension` of its
+        # resolved shape. The band's outer is 1 mm across, the band 0.5 mm thick. At the
+        # placement 1.2 m away, the rectangle's `dimension` is 2.9e-15 m off its 2 mm.
+        sector = LineCableModels.Sector(2.0e-3, 5.0e-3, π / 3, 0, 0, Placement(0, 0))
         polygon = LineCableModels.Polygon([
             (0.0, 0.0), (0.004, 0.0), (0.005, 0.003), (0.002, 0.005), (-0.001, 0.003)])
-        offset = LineCableModels.resolve(Rectangle(4.0e-3, 2.0e-3), Offset(0.5e-3))
-        for (shape, radius) in ((ellipse, 2.0e-3^2 / 3.0e-3),
-            (LineCableModels.Ellipse(9.0e-3, 3.0e-3), 1.0e-3),
-            (LineCableModels.Ellipse(3.0e-3, 3.0e-3), 3.0e-3))
-            record = extension.section(shape)
-            @test (record.kind, record.b) == (1, 0)
-            @test record.a ≈ radius atol = 1e-15
-        end
-        @test extension.section(polygon).kind == 3
-        @test extension.section(polygon).a == extension.section(polygon).b ==
-              LineCableModels.BaseGeometry.dimension(polygon)
         square = LineCableModels.Polygon(
-            [(-5.0e-3, -5.0e-3), (5.0e-3, -5.0e-3), (5.0e-3, 5.0e-3), (-5.0e-3, 5.0e-3)],
-            Placement(0, 0, π / 4))
-        @test collect(extension.section(square))[2:3] ≈ [10.0e-3, 10.0e-3] rtol = 1e-12
-        @test extension.section(offset).kind == 3
-        @test collect(extension.section(offset))[2:3] ≈ [1.0e-3, 1.0e-3] rtol = 1e-12
-        @test extension.section(Offset(0.5e-3), offset).kind == 2
-        @test collect(extension.section(Offset(0.5e-3), offset))[2:3] ≈ [0.5e-3, 0] rtol = 1e-12
-        fill = LineCableModels.PerforatedShape(offset,
-            LineCableModels.AbstractShape{Float64}[Circle(0.2e-3, Placement(0, 1.25e-3))])
-        @test extension.section(Offset(0.5e-3), fill).kind == 2
-        @test collect(extension.section(Offset(0.5e-3), fill))[2:3] ≈ [0.5e-3, 0] rtol = 1e-12
+            [(-5.0e-3, -5.0e-3), (5.0e-3, -5.0e-3), (5.0e-3, 5.0e-3), (-5.0e-3, 5.0e-3)])
+        for (x, side, width) in ((Rectangle(4.0e-3, 2.0e-3), 2.0e-3, 2.0e-3),
+            (sector, 3.0e-3, dimension(sector)), (square, 10.0e-3, 10.0e-3),
+            (polygon, dimension(polygon), dimension(polygon)), (band, 1.0e-3, 0.5e-3))
+            for at in (Placement(0, 0), Placement(0, 10.0), Placement(0.3, -1.2, 0.7))
+                shape = LineCableModels.resolve(at, x)
+                for (strand, n) in ((false, 5), (true, 2))
+                    s = extension.section(x, shape, strand, false, controls)
+                    @test s.target ≈ side / n rtol = 1e-12
+                    @test s.width === dimension(shape)
+                    @test s.width ≈ width atol = 1e-14
+                    @test s.depth === 0.45 * dimension(shape)
+                    @test (s.divisions, s.fraction) == (5, 0.45)
+                end
+            end
+        end
     end
 
-    # The record of a band takes its thickness from the band itself, the same at every
-    # placement of the band.
-    @testset "a band's record is its thickness at every placement" begin
-        band = LineCableModels.resolve(Rectangle(10.0e-3, 4.0e-3), Offset(1.0e-3))
-        for place in (Placement(0, 0), Placement(0, 10.0), Placement(0.3, -1.2, 0.7))
-            record = extension.section(Offset(1.0e-3), LineCableModels.resolve(place, band))
-            @test record.kind == 2
-            @test record.a - record.b ≈ 1.0e-3 rtol = 1e-12
+    @testset "the model data carries each region's mesh parameters" begin
+        model = FieldModel(Dict(REFERENCES)["two_insulated_wires"], FEM())
+        mktempdir() do directory
+            path = write(joinpath(directory, "model_data.pro"), model, options)
+            lines = readlines(path)
+            for i in eachindex(model.problem.system.regions)
+                s = extension.section(model, i, options.overrides)
+                for (name, number) in
+                    (("RegionTarget", s.target), ("RegionWidth", s.width),
+                    ("RegionDivisions", s.divisions), ("RegionFraction", s.fraction))
+                    line = only(filter(startswith("$name~{$(i - 1)} = "), lines))
+                    @test parse(Float64, chop(last(split(line, " = ")))) === Float64(number)
+                end
+            end
+            @test !any(contains(r"^Region(Dimension|Repeated)"), lines)
         end
     end
 
@@ -166,9 +208,6 @@ end
                 Region(:wall, Offset(3e-3), pvc)))
         system = build(CableSystem, [design], [Placement(0, -1)];
             connections = [(core = 1,)], id = "duct_wall", line_length = 1.0)
-        record = extension.section(last(system.regions))
-        @test record.kind == 2
-        @test record.a - record.b ≈ 3e-3 rtol = 1e-12
         arc = LineCableModels.BaseGeometry.EllipticArc(
             Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, 0.5e-3)
         @test LineCableModels.BaseGeometry.turn(arc).fraction ≈ 1 / 4 rtol = 1e-12
@@ -179,6 +218,10 @@ end
               0.003 * 1.3221199657742158 rtol = 1e-12
         problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
             frequencies = [0.1])
+        wall = extension.section(FieldModel(problem, FEM()), length(system.regions),
+            options.overrides)
+        @test wall.target ≈ 1.5e-3 rtol = 1e-12
+        @test wall.width ≈ 3e-3 rtol = 1e-12
         gmsh.initialize()
         try
             geometry = build(Geometry, FieldModel(problem, FEM()), options)
@@ -232,8 +275,12 @@ end
         @test length(plan.outer_spans) == 3
         @test first.(plan.outer_spans) ≈ [2 / 13 + k * 2π / 3 for k in 0:2]
         @test last.(plan.outer_spans) ≈ fill(2π / 3 - 4 / 13, 3)
-        @test extension.section(system.regions[8]) == (kind = 3, a = 0.004, b = 0.002)
-        @test extension.section(last(system.regions)) == (kind = 2, a = 0.014, b = 0.01)
+        model = FieldModel(problem, FEM())
+        strand = extension.section(model, 8, options.overrides)
+        @test (strand.target, strand.width, strand.depth) == (0.001, 0.002, 0.45 * 0.002)
+        container = extension.section(model, length(system.regions), options.overrides)
+        @test container.target ≈ 0.002 rtol = 1e-12
+        @test container.width ≈ 0.004 rtol = 1e-12
         gmsh.initialize()
         try
             geometry = build(Geometry, FieldModel(problem, FEM()), options)

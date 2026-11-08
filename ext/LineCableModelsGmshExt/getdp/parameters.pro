@@ -270,25 +270,7 @@ MeshRemoteMax = Max[MeshBulk,Max[MeshRemoteAir,MeshRemoteEarth]];
 FEMAnnularLayers = 0; MeshFine = 1e300;
 For region In {0:NumPhysicalRegions-1}
   FEMAnnularLayers += RegionAnnularPassive~{region};
-  FEMRegionTarget = 1e300; FEMRegionWidth = 1e300;
-  // Several source sections may form one coalesced material region. Native
-  // sizing retains the smallest source target and width without altering its topology.
-  For member In {0:#RegionDimensionKinds~{region}()-1}
-    FEMKind = RegionDimensionKinds~{region}(member);
-    FEMD1 = RegionDimension1~{region}(member); FEMD2 = RegionDimension2~{region}(member);
-    FEMRepeated = RegionRepeated~{region}(member);
-    If(FEMKind == 1)
-      FEMSize = FEMD1/(FEMRepeated ? 1 : 5); FEMRegionWidth = Min[FEMRegionWidth,FEMD1];
-    ElseIf(FEMKind == 2)
-      FEMSize = (FEMD1-FEMD2)/2; FEMRegionWidth = Min[FEMRegionWidth,FEMD1-FEMD2];
-      If(ThinLayerStrips && RegionAnnularPassive~{region}) FEMSize = Max[FEMSize,2*Pi*FEMD1/FEMCircleSegments]; EndIf
-    ElseIf(FEMKind == 3)
-      FEMSize = Min[FEMD1,FEMD2]/(FEMRepeated ? 2 : 5); FEMRegionWidth = Min[FEMRegionWidth,Min[FEMD1,FEMD2]];
-    EndIf
-    FEMRegionTarget = Min[FEMRegionTarget,FEMSize];
-  EndFor
-  RegionSize~{region} = MeshSizeFactor*FEMRegionTarget;
-  RegionWidth~{region} = FEMRegionWidth;
+  RegionSize~{region} = MeshSizeFactor*RegionTarget~{region};
   MeshFine = Min[MeshFine,RegionSize~{region}];
 EndFor
 MeshInterface = MeshBulk;

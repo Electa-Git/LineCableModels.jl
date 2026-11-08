@@ -52,10 +52,10 @@ gmsh_jll 4.15.2. Their FEM rows match `matrices.csv` within 5.4e-9 of the larges
 diagonal entry.
 
 Each `physical.geo` is the retained file of its case's run of 2026-10-25. It holds the lines
-that the extension has written since then, without the lines `FEMConductorWidth` and
-`FEMConductorSector`, which the extension no longer writes. The file of
-`coaxial_rectangular_strands` is the retained file of its run `20261106-131133`. The geometry
-tests compare against these files.
+that the extension has written since then, without the lines `FEMConductorWidth`,
+`FEMConductorSector`, `FEMConductorKind` and `FEMConductorDimension`, which the extension no
+longer writes. The file of `coaxial_rectangular_strands` is the retained file of its run
+`20261106-131133`. The geometry tests compare against these files.
 
 Running a script again gives analytical values identical to the bit and FEM values within about
 1e-8 of the largest diagonal entry. FEM meshes depend on incidental state such as the length of

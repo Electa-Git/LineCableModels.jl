@@ -19,7 +19,7 @@ struct Geometry{M <: FieldModel}
     lines::Dict{NTuple{2, Int}, Int}
     "Circle centers and radii \\[m\\], sorted endpoint tags, and Gmsh arc tags."
     arcs::Dict{Tuple{NTuple{3, Float64}, NTuple{2, Int}}, Int}
-    "Ellipse centers \\[m\\], rotations \\[rad\\], semi-axes and normal offsets \\[m\\], sorted endpoint tags, and the Gmsh tags of the elliptic arcs and their offset splines."
+    "Ellipse centers and rotations \\[m, rad\\], semi-axes and normal offsets \\[m\\], sorted endpoint tags, and Gmsh tags of elliptic arcs and their offset splines."
     elliptic_arcs::Dict{Tuple{NTuple{6, Float64}, NTuple{2, Int}}, Int}
     "First and last point tags of each stored curve."
     ends::Dict{Int, NTuple{2, Int}}
@@ -823,8 +823,8 @@ end
 $(TYPEDSIGNATURES)
 
 Partition the conducting region `i` of `shape` into four-sided strips and a core. The strips
-lie between the contour and its `parallel` at the depth ``e = 0.45 d`` \\[m\\] inside the
-metal, where ``d`` is `dimension(shape)`. Each curve of each path of the contour bounds one
+lie between the contour and its `parallel` at the depth ``e`` \\[m\\] inside the metal, the
+depth of its region's [`section`](@ref). Each curve of each path of the contour bounds one
 strip. Its outer side is the curve's drawn pieces, and its inner side the drawn pieces of
 its parallel. A spoke joins each junction of the contour to the junction of the parallels.
 
@@ -837,9 +837,8 @@ and of the core.
 - Throws `DomainError` at a corner whose interior angle exceeds π, where a path of the
   parallel gains a curve.
 """
-function strips!(geometry::Geometry, shape::AbstractShape, i::Int)
+function strips!(geometry::Geometry, shape::AbstractShape, i::Int, depth::Real)
     contour = Contour(shape)
-    depth = 0.45 * dimension(shape)
     inner = parallel(contour, -depth)
     for (path, innerpath) in
         zip((contour.outer, contour.holes...), (inner.outer, inner.holes...))
@@ -911,10 +910,11 @@ function build(::Type{Geometry}, model::FieldModel, options::ComputationOptions{
     end
     conductor = [model.materials[g].conductor for g in model.material]
     for (i, region) in enumerate(system.regions)
+        depth = section(model, i, options.overrides).depth
         geometry.surfaces[i] = strips && model.layer[i] ?
                                patches!(geometry, region.shape, i) :
-                               conductor[i] && section(region).kind == 3 ?
-                               strips!(geometry, region.shape, i) :
+                               conductor[i] && depth > 0 ?
+                               strips!(geometry, region.shape, i, depth) :
                                faces!(geometry, region.shape)
     end
     for contour in contours
@@ -999,136 +999,193 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the native section record of `shape`, a circle with center and radius in \\[m\\].
-The record holds `kind = 1`, `a = shape.r` \\[m\\], and `b = 0` \\[m\\].
+Return the mesh parameters of region `i` of `model` under the native `controls`. The
+parameters are a named tuple of five numbers:
+
+- `target`, the target of the element size in the region \\[m\\], before `MeshSizeFactor`.
+- `width`, the width of the law of its conductor \\[m\\].
+- `divisions`, the number of parts of that width in the bulk cap.
+- `fraction`, the part of that width that the graded layer can take.
+- `depth`, the depth of its strips \\[m\\], zero without strips.
+
+The strand flag of the region selects the target of a strand. Its passive-annulus flag and
+`ThinLayerStrips` select the bound of a patched annulus. `ConductorThicknessElements` gives
+the divisions of an annular region.
 """
-function section(shape::Circle)
-    return (kind = 1, a = shape.r, b = zero(shape.r))
+function section(model::FieldModel, i::Integer, controls::NamedTuple)
+    region = model.problem.system.regions[i]
+    return section(
+        region.source.primitive, region.shape, model.strand[i], model.layer[i], controls)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return the native section record of `shape`, an annulus with center and radii in \\[m\\].
-The record holds `kind = 2`, outer radius `a` \\[m\\], and inner radius `b` \\[m\\].
+Return the mesh parameters of the perforated primitive `x`: the parameters of its outer,
+with the resolved `shape`.
 """
-function section(shape::Annulus)
-    return (kind = 2, a = shape.ro, b = shape.ri)
+function section(x::PerforatedShape, shape::AbstractShape, strand::Bool, layer::Bool,
+        controls::NamedTuple)
+    return section(x.outer, shape, strand, layer, controls)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return the native section record of `shape`, a rectangle with center, width, and height in
-\\[m\\] and rotation in \\[rad\\]. The record holds `kind = 3`, width `a` \\[m\\],
-and height `b` \\[m\\].
+Return the mesh parameters of an offset by its resolved `shape`.
 """
-function section(shape::Rectangle)
-    return (kind = 3, a = shape.w, b = shape.h)
+function section(::Offset, shape::AbstractShape, strand::Bool, layer::Bool,
+        controls::NamedTuple)
+    return section(shape, shape, strand, layer, controls)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return the native section record of `shape`, a sector with center and radii in \\[m\\]
-and angular span and rotation in \\[rad\\]. The record is the rectangle's, `kind = 3`,
-with the sides of the rectangle that the sector bends:
+Return the mesh parameters of `offset` with the perforated resolved `shape`, through the
+outer of `shape`.
+"""
+function section(offset::Offset, shape::PerforatedShape, strand::Bool, layer::Bool,
+        controls::NamedTuple)
+    return section(offset, shape, shape.outer, strand, layer, controls)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the mesh parameters of an offset fill whose container is the annulus `outer`: the
+parameters of the annulus.
+"""
+function section(::Offset, ::PerforatedShape, outer::Annulus, strand::Bool, layer::Bool,
+        controls::NamedTuple)
+    return section(outer, outer, strand, layer, controls)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the mesh parameters of an offset fill whose container is the layer `outer`: the
+parameters of the layer.
+"""
+function section(offset::Offset, ::PerforatedShape, outer::PerforatedShape, strand::Bool,
+        layer::Bool, controls::NamedTuple)
+    return section(offset, outer, strand, layer, controls)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the mesh parameters of the round region `x`, a circle of radius ``r`` \\[m\\]. The
+target is ``r`` for a strand and ``r/5`` otherwise, with the width ``r``, five divisions,
+the fraction ``0.5`` and no strips.
+"""
+function section(x::Circle, ::AbstractShape, strand::Bool, ::Bool, ::NamedTuple)
+    return (target = x.r / (strand ? 1 : 5), width = x.r,
+        divisions = 5, fraction = 0.5, depth = zero(x.r))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the mesh parameters of the round region `x`, an ellipse of radius ``r`` \\[m\\]. The
+target is ``r`` for a strand and ``r/5`` otherwise, with the width ``r``, five divisions,
+the fraction ``0.5`` and no strips. The radius ``r`` is half the `dimension` of the
+ellipse: the depth at which its inward parallel first degenerates, as for a circle.
+"""
+function section(x::Ellipse, ::AbstractShape, strand::Bool, ::Bool, ::NamedTuple)
+    r = dimension(x) / 2
+    return (target = r / (strand ? 1 : 5), width = r,
+        divisions = 5, fraction = 0.5, depth = zero(r))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the mesh parameters of the annular region `x`, with the radii ``r_i`` and ``r_o``
+\\[m\\] and the thickness ``w = r_o - r_i``. The target is ``w/2``, with the width ``w``,
+`ConductorThicknessElements` divisions, the fraction ``0.45`` and no strips. A patched
+passive annulus, a `layer` under `ThinLayerStrips` 1, takes at least the target
+``2π r_o/n`` \\[m\\]. That is the arc of one of its ``n = segments(τ)`` segments, for ``τ``
+the `ConductorGeometryTolerance` \\[m\\].
+"""
+function section(x::Annulus, ::AbstractShape, ::Bool, layer::Bool, controls::NamedTuple)
+    w = x.ro - x.ri
+    target = w / 2
+    if layer && controls.ThinLayerStrips == 1
+        target = max(target, 2π * x.ro / segments(controls.ConductorGeometryTolerance))
+    end
+    return (target = target, width = w,
+        divisions = controls.ConductorThicknessElements, fraction = 0.45, depth = zero(w))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the mesh parameters of the layer `shape`, whose thickness ``w = dimension(shape)``
+\\[m\\] is the same at every placement. The target is ``w/2``, with the width ``w``,
+`ConductorThicknessElements` divisions, the fraction ``0.45`` and no strips.
+"""
+function section(::Offset, shape::PerforatedShape, ::AbstractShape, ::Bool, ::Bool,
+        controls::NamedTuple)
+    w = dimension(shape)
+    return (target = w / 2, width = w,
+        divisions = controls.ConductorThicknessElements, fraction = 0.45, depth = zero(w))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the mesh parameters of the strip region `x`, a rectangle of sides ``w`` and ``h``
+\\[m\\]. The target is ``\\min(w, h)/2`` for a strand and ``\\min(w, h)/5`` otherwise. Its
+resolved `shape` gives the width ``d = dimension(shape)`` \\[m\\], with five divisions, the
+fraction ``0.45`` and strips at the depth ``0.45 d``.
+"""
+function section(x::Rectangle, shape::AbstractShape, strand::Bool, ::Bool, ::NamedTuple)
+    width = dimension(shape)
+    fraction = 0.45
+    return (target = min(x.w, x.h) / (strand ? 2 : 5), width = width,
+        divisions = 5, fraction = fraction, depth = fraction * width)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the mesh parameters of the strip region `x`, a sector with the sides ``a`` and ``b``
+\\[m\\] of the rectangle that it bends. The target is ``\\min(a, b)/2`` for a strand and
+``\\min(a, b)/5`` otherwise. Its resolved `shape` gives the width ``d = dimension(shape)``
+\\[m\\], with five divisions, the fraction ``0.45`` and strips at the depth ``0.45 d``. The
+sides are
 
 ```math
 a = r_o - r_i, \\qquad b = \\varphi (r_o + r_i) / 2,
 ```
 
-where ``r_o`` and ``r_i`` are the outer and inner radii \\[m\\], ``\\varphi`` is the
-angular span \\[rad\\], and ``a`` and ``b`` are lengths \\[m\\].
+where ``r_o`` and ``r_i`` are the outer and inner radii \\[m\\] and ``\\varphi`` is the
+angular span \\[rad\\].
 """
-function section(shape::Sector)
-    return (kind = 3, a = shape.ro - shape.ri,
-        b = shape.span * (shape.ro + shape.ri) / 2)
+function section(x::Sector, shape::AbstractShape, strand::Bool, ::Bool, ::NamedTuple)
+    a, b = x.ro - x.ri, x.span * (x.ro + x.ri) / 2
+    width = dimension(shape)
+    fraction = 0.45
+    return (target = min(a, b) / (strand ? 2 : 5), width = width,
+        divisions = 5, fraction = fraction, depth = fraction * width)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return the native section record of `shape`'s outer shape. Coordinates and the returned
-lengths `a` and `b` are in \\[m\\], and angles are in \\[rad\\].
+Return the mesh parameters of the strip region `x`, a polygon or an arc polygon of
+`dimension` ``d_x`` \\[m\\]. The target is ``d_x/2`` for a strand and ``d_x/5`` otherwise.
+Its resolved `shape` gives the width ``d = dimension(shape)`` \\[m\\], with five divisions,
+the fraction ``0.45`` and strips at the depth ``0.45 d``.
 """
-function section(shape::PerforatedShape)
-    return section(shape.outer)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the native section record of `region` from its declared primitive and resolved shape.
-Coordinates and the returned lengths `a` and `b` are in \\[m\\], and angles are in
-\\[rad\\].
-"""
-function section(region::PlacedRegion)
-    return section(region.source.primitive, region.shape)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the native section record of `primitive` for its resolved `shape`. Coordinates and
-the returned lengths `a` and `b` are in \\[m\\], and angles are in \\[rad\\].
-"""
-function section(primitive::AbstractPrimitive, ::AbstractShape)
-    return section(primitive)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the native section record of the resolved `shape` of an offset. The offset's
-thickness, resolved coordinates, and returned lengths `a` and `b` are in \\[m\\], and angles
-are in \\[rad\\].
-"""
-function section(::Offset, shape::AbstractShape)
-    return section(shape)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the native section record of the resolved `shape` of `offset` through its outer.
-The offset's thickness, coordinates, and returned lengths `a` and `b` are in \\[m\\],
-and angles are in \\[rad\\].
-"""
-function section(offset::Offset, shape::PerforatedShape)
-    return section(offset, shape, shape.outer)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the native section record of an offset fill whose container is the annulus `outer`.
-The record holds `kind = 2`, its outer radius `a` \\[m\\], and inner radius `b` \\[m\\].
-"""
-function section(::Offset, ::PerforatedShape, outer::Annulus)
-    return section(outer)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the native section record of an offset fill whose container is the layer `outer`.
-The offset's thickness, coordinates, and returned lengths `a` and `b` are in \\[m\\],
-and angles are in \\[rad\\].
-"""
-function section(offset::Offset, ::PerforatedShape, outer::PerforatedShape)
-    return section(offset, outer)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the native section record of the layer `shape`, with `kind = 2`, its thickness
-``a = dimension(shape)`` \\[m\\] and ``b = 0`` \\[m\\]. The difference ``a-b`` is the
-thickness of the layer at every placement \\[m\\].
-"""
-function section(::Offset, shape::PerforatedShape, ::AbstractShape)
-    return (kind = 2, a = dimension(shape), b = zero(dimension(shape)))
+function section(x::Union{Polygon, ArcPolygon}, shape::AbstractShape, strand::Bool, ::Bool,
+        ::NamedTuple)
+    d = dimension(x)
+    width = dimension(shape)
+    fraction = 0.45
+    return (target = d / (strand ? 2 : 5), width = width,
+        divisions = 5, fraction = fraction, depth = fraction * width)
 end
 
 """
@@ -1306,18 +1363,13 @@ function Base.write(path::AbstractString, geometry::Geometry)
                 println(io, "FEMRegion", name, "~{", i - 1, "}() = {",
                     join(numbers, ", "), "};")
             end
-            shape = system.regions[i].shape
             material = model.material[i]
             conductor = model.materials[material].conductor
             println(io, "FEMPassive~{", i - 1, "} = ", Int(!conductor), ";")
             println(io, "FEMConductor~{", i - 1, "} = ", Int(conductor), ";")
             conductor || continue
             println(io, "FEMConductorMaterial~{", i - 1, "} = ", material, ";")
-            println(io, "FEMConductorKind~{", i - 1, "} = ",
-                section(system.regions[i]).kind, ";")
             owned = [strip for strip in geometry.strips if strip.region == i]
-            println(io, "FEMConductorDimension~{", i - 1, "} = ",
-                @sprintf("%.17g", dimension(shape)), ";")
             println(io, "FEMConductorStrips~{", i - 1, "} = ", length(owned), ";")
             if !isempty(owned)
                 println(io, "FEMStripDepth~{", i - 1, "} = ",
@@ -1392,9 +1444,9 @@ the requested orientation.
 
 For a nonzero normal offset ``d``, draw a spline through ``p(θ)+dn(θ)``.
 Use ``m=max(2,⌈segments⋅|Δα|/(2π)⌉)`` intervals at equal normal angles
-``α_j=α_1+jΔα/m``, inverted by ``θ=atan(b sin ψ,a cos ψ)``,
-where ``ψ=α_j-at.φ``. Shift ``θ`` by a multiple of ``2π`` into the piece.
-Angles are in \\[rad\\] and the offset in \\[m\\].
+``α_j=α_1+jΔα/m`` from the normal ``α_1`` at the piece's start, each the point of greatest
+projection on ``α_j``, by [`apsides`](@ref). Angles are in \\[rad\\] and the offset in
+\\[m\\].
 """
 function draw(geometry::Geometry, arc::EllipticArc)
     tags = Int[]
@@ -1412,19 +1464,12 @@ function draw(geometry::Geometry, arc::EllipticArc)
             if iszero(curve.offset)
                 native = gmsh.model.geo.addEllipseArc(start_tag, center, major, stop_tag)
             else
-                θ₁, θ₂ = curve.φ0, curve.φ0 + curve.span
-                a, b = curve.a, curve.b
-                α₁ = curve.at.φ + θ₁ +
-                     atan((a - b) * sin(θ₁) * cos(θ₁),
-                         b * cos(θ₁)^2 + a * sin(θ₁)^2)
+                α₁ = direction(curve, 0) - sign(curve.span) * π / 2
                 Δα = sign(curve.span) * 2π * turn(curve).fraction
                 m = max(2, ceil(Int, geometry.segments * turn(curve).fraction))
                 points = [p]
                 for j in 1:(m - 1)
-                    ψ = α₁ + j * Δα / m - curve.at.φ
-                    θ = atan(b * sin(ψ), a * cos(ψ))
-                    θ += 2π * round(((θ₁ + θ₂) / 2 - θ) / (2π))
-                    push!(points, point!(geometry, curve((θ - θ₁) / curve.span)))
+                    push!(points, point!(geometry, curve(apsides(curve, α₁ + j * Δα / m).near)))
                 end
                 push!(points, q)
                 native = gmsh.model.geo.addSpline(curve.span > 0 ? points : reverse(points))
@@ -1446,36 +1491,4 @@ Return `geometry` unchanged for an elliptic arc.
 """
 function cut!(geometry::Geometry, ::EllipticArc)
     return geometry
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the native section record of `shape`, an ellipse with center and semi-axes in
-\\[m\\]. The record holds `kind = 1`, `a = dimension(shape) / 2` \\[m\\], and `b = 0`
-\\[m\\]. The length `a` is half the ellipse's `dimension`, the depth at which its inward
-parallel first degenerates, as a circle's radius is.
-"""
-function section(shape::Ellipse)
-    return (kind = 1, a = dimension(shape) / 2, b = zero(dimension(shape)))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the polygon's native section record, ``kind=3``, with ``a=b=dimension(shape)``
-\\[m\\]: its distance across, the same at every placement.
-"""
-function section(shape::Polygon)
-    return (kind = 3, a = dimension(shape), b = dimension(shape))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the arc polygon's native section record, ``kind=3``, with ``a=b=dimension(shape)``
-\\[m\\]: its distance across, the same at every placement.
-"""
-function section(shape::ArcPolygon)
-    return (kind = 3, a = dimension(shape), b = dimension(shape))
 end

@@ -3,9 +3,9 @@ $(TYPEDSIGNATURES)
 
 Write the native model data of `model` to `path`, with the mesh controls in `options`.
 Write ``FEMCircleSegments=segments(τ)``, where ``τ=ConductorGeometryTolerance``.
-Use 17 significant digits for numbers and braces for numerical lists. Region dimensions
-come from [`section`](@ref), repeated regions from `model.strand`, passive annuli from
-`model.layer`, and terminal names from the model's labels.
+Use 17 significant digits for numbers and braces for numerical lists. Each region's mesh
+parameters come from [`section`](@ref), passive annuli from `model.layer`, and terminal
+names from the model's labels.
 
 The material data evaluates
 
@@ -80,14 +80,13 @@ function Base.write(path::AbstractString, model::FieldModel,
             println(io, name, "() = {", join(numbers, ", "), "};")
         end
         println(io, "NumPhysicalRegions = ", @sprintf("%.17g", length(system.regions)), ";")
-        for (i, region) in enumerate(system.regions)
-            s = section(region)
+        for i in eachindex(system.regions)
+            s = section(model, i, controls)
             println(io, "RegionAnnularPassive~{", i - 1, "} = ", Int(model.layer[i]), ";")
-            for (name, number) in (("RegionDimensionKinds", s.kind),
-                ("RegionDimension1", s.a), ("RegionDimension2", s.b),
-                ("RegionRepeated", model.strand[i]))
-                println(io, name, "~{", i - 1, "}() = {",
-                    @sprintf("%.17g", Float64(number)), "};")
+            for (name, number) in (("RegionTarget", s.target), ("RegionWidth", s.width),
+                ("RegionDivisions", s.divisions), ("RegionFraction", s.fraction))
+                println(
+                    io, name, "~{", i - 1, "} = ", @sprintf("%.17g", Float64(number)), ";")
             end
         end
         offset = 0

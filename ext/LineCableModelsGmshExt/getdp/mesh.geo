@@ -170,10 +170,10 @@ For region In {0:NumPhysicalRegions-1}
     Else FEMDecay = Sqrt(FEMOmega*FEMMu*(FEMH-FEMB)/2); EndIf
     FEMPhase = Sqrt(FEMOmega*FEMMu*(FEMH+FEMB)/2);
     FEMDelta = 1e300; If(FEMDecay > 0) FEMDelta = 1/FEMDecay; EndIf
-    FEMWidth = FEMConductorKind~{region} == 3 ? FEMConductorDimension~{region} : RegionWidth~{region};
+    FEMWidth = RegionWidth~{region};
     FEMContourSize = RegionSize~{region};
-    FEMDivisions = FEMConductorKind~{region} == 2 ? ConductorThicknessElements : 5;
-    FEMFraction = FEMConductorKind~{region} == 1 ? .5 : .45;
+    FEMDivisions = RegionDivisions~{region};
+    FEMFraction = RegionFraction~{region};
     FEMCap = MeshSizeFactor*FEMWidth/FEMDivisions; FEMBulk = Min(RegionSize~{region},FEMCap);
     If(FEMDecay*FEMWidth <= ConductorSkinDepths && FEMPhase > 0) FEMBulk = Min(FEMBulk,MeshSizeFactor*2*Pi/(12*FEMPhase)); EndIf
     FEMExtent = Min(ConductorSkinDepths*FEMDelta,FEMFraction*FEMWidth);
@@ -218,7 +218,7 @@ For region In {0:NumPhysicalRegions-1}
     Field[FEMLayer].Thickness = FEMExtent*(1+1e-8); Field[FEMLayer].Quads = 0;
     If(!#FEMAllSurfaces()) FEMAllSurfaces() = Surface{:}; EndIf
     FEMExcluded() = {FEMAllSurfaces()};
-    If(FEMDelta < FEMWidth && FEMConductorKind~{region} < 3)
+    If(FEMDelta < FEMWidth && !FEMConductorStrips~{region})
       FEMExcluded() -= {FEMRegionSurfaces~{region}()};
       Field[FEMLayer].ExcludedSurfacesList = {FEMExcluded()}; BoundaryLayer Field = FEMLayer;
     Else Field[FEMLayer].ExcludedSurfacesList = {FEMExcluded()}; EndIf
