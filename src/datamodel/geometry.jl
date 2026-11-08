@@ -698,10 +698,10 @@ r_ex(sector::Sector) = sector.ro
 # The first part of a cable keeps its declared cross-section.
 resolve(::EmptyBoundary, primitive::AbstractPrimitive) = primitive
 
-# An offset around a circle or an annulus is the annulus of its thickness at the same
-# placement.
+# An offset around a circle or an annulus is an annulus: its outer radius is the parallel's.
 function resolve(inner::Union{Circle, Annulus}, offset::Offset)
-    return Annulus(r_ex(inner), r_ex(inner) + offset.t, inner.at)
+    arc = first(parallel(Contour(boundary(inner)), offset.t).outer)::Arc
+    return Annulus(r_ex(inner), arc.r, inner.at)
 end
 
 # A declared annulus keeps its radii and takes the placement of the part inside it.
@@ -861,10 +861,10 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Resolve a distance ``t`` \\[m\\] outward over the outer contour of `shape`.
+Resolve a distance ``t`` \\[m\\] outward over the outer boundary of `shape`.
 Return the layer of thickness `t`, ``PerforatedShape(parallel,[boundary(shape)])``.
-The layer rests on the parallel of the contour.
-Its `boundary` is the parallel.
+The layer rests on the parallel of the contour of `boundary(shape)`. A hole of `shape` is
+not on the layer. Its `boundary` is the parallel.
 
 # Errors
 
@@ -873,6 +873,6 @@ Throws `DomainError` where the outward parallel of the contour self-intersects, 
 """
 function resolve(shape::AbstractShape, offset::Offset)
     T = promote_type(eltype(shape), typeof(offset.t))
-    return PerforatedShape(ArcPolygon(parallel(Contour(shape), offset.t).outer),
+    return PerforatedShape(ArcPolygon(parallel(Contour(boundary(shape)), offset.t).outer),
         AbstractShape{T}[boundary(shape)])
 end

@@ -199,6 +199,21 @@ end
         @test_throws DomainError Arc(Placement(0.0, 0.0), 1.0, 2π + 0.1)
     end
 
+    @testset "a circular layer of a reference adds its thickness to the radius inside" begin
+        layers = [(name, placed.source.tag, placed.shape, placed.source.primitive.t)
+                  for (name, problem) in REFERENCES
+                  for placed in problem.system.regions
+                  if placed.source.primitive isa Offset && placed.shape isa Annulus]
+        coaxial = (:core_semicon_inner, :core_insulation, :core_semicon_outer,
+            :sheath_bedding, :armour_jacket)
+        @test [(name, tag) for (name, tag, _, _) in layers] ==
+              [("two_insulated_wires", :core_insulation),
+            ("two_insulated_wires", :core_insulation),
+            (("coaxial_circular_strands", tag) for tag in coaxial)...,
+            (("coaxial_rectangular_strands", tag) for tag in coaxial)...]
+        @test all(r_ex(shape) === r_in(shape) + t for (_, _, shape, t) in layers)
+    end
+
     @testset "draw a design and a system" begin
         problem = only(problem
         for (name, problem) in REFERENCES

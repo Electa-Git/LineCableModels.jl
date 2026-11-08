@@ -27,6 +27,56 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test_throws DomainError LineCableModels.resolve(insulation, Annulus(2.0e-3, 3.0e-3))
     end
 
+    @testset "a circular layer has the outline of the generic offset" begin
+        place = Placement(0.013, -0.7, 0.4)
+        probed = (Circle(2.0e-3), Circle(2.0e-3, place), Annulus(1.0e-3, 3.0e-3, place))
+        for inner in probed, t in (1.0e-4, 7.0e-4, 2.5e-3)
+
+            layer = LineCableModels.resolve(inner, Offset(t))
+            general = invoke(LineCableModels.resolve,
+                Tuple{LineCableModels.AbstractShape, Offset}, inner, Offset(t))
+            @test layer isa Annulus
+            a, b = Contour(layer), Contour(general)
+            @test length.([a.outer, a.holes...]) == length.([b.outer, b.holes...]) == [4, 4]
+            curves = [(c, d)
+                      for (p, q) in zip([a.outer, a.holes...], [b.outer, b.holes...])
+                      for (c, d) in zip(p, q)]
+            @test all((c.at.x, c.at.y, c.r) === (d.at.x, d.at.y, d.r) for (c, d) in curves)
+            # The parallel takes its angles from `atan`. Its fourth arc starts at -π/2, and
+            # the circle's fourth arc at 3π/2. At the origin, the parallel's first arc starts
+            # at -2.4e-16 rad, and its span is one ulp above π/2.
+            @test all(isapprox(rem2pi(c.at.φ - d.at.φ, RoundNearest), 0; atol = eps(2π)) &&
+                      isapprox(c.span, d.span; atol = eps(2π)) for (c, d) in curves)
+            # The general layer's area comes from Green's integrals, the annulus's from its
+            # closed form. They differ by 1.6e-15 relative at most, at 0.1 mm on the placed
+            # circle.
+            @test area(layer) ≈ area(general) rtol = 4.0e-15
+            @test dimension(layer) === dimension(general)
+        end
+        # Every typed offset method other than the generic one takes a probed type first.
+        typed = [Base.unwrap_unionall(m.sig).parameters[2]
+                 for m in methods(LineCableModels.resolve)
+                 if length(Base.unwrap_unionall(m.sig).parameters) == 3 &&
+                    Base.unwrap_unionall(m.sig).parameters[3] <: Offset &&
+                    Base.unwrap_unionall(m.sig).parameters[2] !=
+                    LineCableModels.AbstractShape]
+        @test typed ==
+              [Union{(Base.typename(typeof(inner)).wrapper for inner in probed)...}]
+    end
+
+    @testset "the generic offset rests on the outer boundary" begin
+        layer = invoke(
+            LineCableModels.resolve, Tuple{LineCableModels.AbstractShape, Offset},
+            Annulus(1.0e-3, 3.0e-3), Offset(2.5e-3))
+        @test area(layer) ≈ π * ((3.0e-3 + 2.5e-3)^2 - (3.0e-3)^2) rtol = 1.0e-12
+        bar = LineCableModels.PerforatedShape(Rectangle(12.0e-3, 6.0e-3),
+            [Circle(0.5e-3, Placement(2.0e-3, 0))])
+        for t in (0.4e-3, 1.0e-3)
+            layer = LineCableModels.resolve(bar, Offset(t))
+            @test area(layer) ≈ 36.0e-3 * t + π * t^2 rtol = 1.0e-12
+        end
+    end
+
     @testset "a circular pattern lays round wires on its circle" begin
         course = placements(CircularPattern(6; r = 3.0e-3), Circle(1.5e-3))
         @test length(course.placements) == 6
