@@ -159,6 +159,30 @@
             end
         end
     end
+    # A layer of insulation on the parallel of its contour surrounds each sector conductor.
+    @testset "a $id with a layer meshes and solves" for (id, shape, t) in (
+        ("bent-strand-layer",
+            LineCableModels.Sector(8.5e-3, 11.5e-3, 0.3, 0, 0, Placement(0, 0)), 0.5e-3),
+        ("milliken-segment-layer",
+            LineCableModels.Sector(0, 31.15e-3, π / 3, 0, 1.25e-3, Placement(0, 0)), 0.1e-3),
+        ("bent-tape-layer",
+            LineCableModels.Sector(10.0e-3, 10.2e-3, π, 0, 0, Placement(0, 0)), 0.5e-3))
+        copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+        design = build(CableDesign, id, Terminal(:core, Region(:core, shape, copper)),
+            Region(:layer, Offset(t), Material(:insulator, Inf, 3)))
+        system = build(CableSystem, [design], [Placement(0, -1)];
+            connections = [(core = 1,)], id = id, line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+            frequencies = [0.1])
+        mktempdir() do folder
+            cd(folder) do
+                result = compute(problem, FEM())
+                @test size(result.Z) == (1, 1, 1)
+                resistance = 1.7241e-8 / area(shape) + 2π * 0.1 * LineCableModels.μ₀ / 8
+                @test abs(real(result.Z[1, 1, 1]) / resistance - 1) <= 2e-3
+            end
+        end
+    end
     @testset "three coaxials in a pipe mesh and solve" begin
         copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
         polymer = Material(:insulator, 1.0e14, 2.3)

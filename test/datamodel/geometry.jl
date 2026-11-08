@@ -80,6 +80,23 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test distance(Ellipse(3e-3, 2e-3, Placement(0, 10e-3, π / 2))) ≈ 7e-3 rtol = 1e-12
     end
 
+    @testset "the distance of a sector is its contour's nearest point" begin
+        at = Placement(0, 0)
+        for shape in (Sector(8.5e-3, 11.5e-3, 0.3, 0, 0, at),
+                Sector(0, 31.15e-3, π / 3, 0, 1.25e-3, at),
+                Sector(10.0e-3, 10.2e-3, π, 0, 0, at),
+                Sector(0, 10.0e-3, 2π / 3, 1.0e-3 / sin(π / 3), 1.5e-3, at),
+                Sector(0, 10.0e-3, 2π / 3, 1.0e-3, 0, at)),
+            place in (Placement(0, 10.0), Placement(0.02, -0.01, π / 5))
+
+            placed = LineCableModels.resolve(place, shape)
+            curves, parameters = Contour(placed).outer, range(0, 1; length = 20_001)
+            sample = minimum(hypot(curve(s)...) for curve in curves, s in parameters)
+            @test distance(placed) <= sample
+            @test distance(placed) ≈ sample rtol = 1e-10
+        end
+    end
+
     @testset "a cross-section with holes" begin
         hole = Circle(1.0e-3, Placement(2.0e-3, 0))
         shape = LineCableModels.PerforatedShape(Circle(4.0e-3), [hole])
@@ -139,8 +156,10 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
                 sector.apex, sector.ro, at)
             @test_throws DomainError Sector(0, sector.ro, sector.span,
                 0, 1.01sector.ro / (csc(sector.span / 2) + 1), at)
-            @test_throws DomainError LineCableModels.resolve(sector,
-                Offset(sector.apex * sin(sector.span / 2) + 1.0e-3))
+            t = sector.apex * sin(sector.span / 2) + 1.0e-3
+            layer = LineCableModels.resolve(sector, Offset(t))
+            @test area(layer) ≈ perimeter(sector) * t + π * t^2 rtol = 1e-12
+            @test perimeter(boundary(layer)) ≈ perimeter(sector) + 2π * t rtol = 1e-12
         end
     end
 
@@ -165,12 +184,13 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test collect(centroid(S5)) ≈ [M / A, 0] rtol = 1e-12
         @test perimeter(S5) ≈ 2r * (α - asin(g / r)) +
                               2(sqrt(r^2 - g^2) - a * cos(α)) rtol = 1e-12
+        # Off the origin, each is nearest at a corner: the end of the inner arc, and the apex.
         placed = Placement(0.02, -0.01)
-        d = hypot(placed.x, placed.y)
+        corner = (S1.ri * cos(S1.span / 2), S1.ri * sin(S1.span / 2))
         @test distance(LineCableModels.resolve(placed, S1)) ≈
-              max(0, d - S1.ro, S1.ri - d) rtol = 1e-12
+              hypot(placed.x + corner[1], placed.y + corner[2]) rtol = 1e-12
         @test distance(LineCableModels.resolve(placed, S5)) ≈
-              max(0, d - S5.ro, S5.apex - d) rtol = 1e-12
+              hypot(placed.x + S5.apex, placed.y) rtol = 1e-12
     end
 
     @testset "rounded sectors agree with independent chords" begin
@@ -238,13 +258,36 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         S3 = Sector(0, 10.0e-3, 2π / 3, 1.0e-3 / sin(π / 3), 1.5e-3, Placement(0, 0))
         t = 0.5e-3
         layer = LineCableModels.resolve(S3, Offset(t))
-        expected = Sector(max(S3.ri - t, 0), S3.ro + t, S3.span,
-            S3.apex - t / sin(S3.span / 2), S3.fillet + t, S3.at)
-        for name in fieldnames(typeof(expected))
-            @test getfield(layer.outer, name) == getfield(expected, name)
-        end
+        @test layer.outer isa ArcPolygon
         @test area(layer) ≈ perimeter(S3) * t + π * t^2 rtol = 1e-12
         @test perimeter(boundary(layer)) ≈ perimeter(S3) + 2π * t rtol = 1e-12
+    end
+
+    @testset "a layer around a sector rests on its contour's parallel" begin
+        at = Placement(0, 0)
+        for (shape, t) in ((Sector(8.5e-3, 11.5e-3, 0.3, 0, 0, at), 0.5e-3),
+            (Sector(0, 31.15e-3, π / 3, 0, 1.25e-3, at), 0.1e-3),
+            (Sector(10.0e-3, 10.2e-3, π, 0, 0, at), 0.5e-3),
+            (Sector(10.0e-3, 10.2e-3, 2π - 0.1, 0, 0, at), 0.3e-3))
+            layer = LineCableModels.resolve(shape, Offset(t))
+            @test layer.outer isa ArcPolygon
+            @test area(layer) ≈ perimeter(shape) * t + π * t^2 rtol = 1e-12
+            @test perimeter(boundary(layer)) ≈ perimeter(shape) + 2π * t rtol = 1e-12
+            @test @inferred(parallel(Contour(shape), t)) isa Contour{Float64}
+        end
+        strand = Sector(8.5e-3, 11.5e-3, 0.3, 0, 0, at)
+        @test LineCableModels.resolve(strand, Offset(0.99 * 8.5e-3)) isa
+              LineCableModels.PerforatedShape
+        @test_throws DomainError LineCableModels.resolve(strand, Offset(8.5e-3))
+        @test_throws "the outward parallel at distance 0.0085 m self-intersects at curve 3 of path 1" LineCableModels.resolve(
+            strand, Offset(8.5e-3))
+        tape = Sector(10.0e-3, 10.2e-3, 2π - 0.1, 0, 0, at)
+        @test_throws DomainError LineCableModels.resolve(tape, Offset(1.0e-3))
+        @test_throws "self-intersects at curve 1 of path 1 and curve 4 of path 1" LineCableModels.resolve(
+            tape, Offset(1.0e-3))
+        face = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0.3, 2.0, 0.0)
+        @test @inferred(turn(face, 0.5e-3, face(0), face(1))) ==
+              turn(parallel(face, 0.5e-3))
     end
 
     @testset "a placement preserves rounded sector moments" begin
@@ -367,16 +410,25 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
             second = LineCableModels.resolve(boundary(layer), Offset(0.25e-3))
             @test area(boundary(second)) ≈ A + P * 0.75e-3 + π * 0.75e-3^2 rtol = 1e-12
         end
+        # Each of the five convex right corners of the L adds π t² / 4, and its reflex corner
+        # removes t² tan(π / 4).
         L = Polygon([(0.0, 0.0), (0.004, 0.0), (0.004, 0.001),
             (0.001, 0.001), (0.001, 0.003), (0.0, 0.003)])
-        refusal = ArgumentError("an offset follows a circle, an annulus, a sector, a rectangle, an ellipse or a convex polygon")
-        @test_throws refusal LineCableModels.resolve(L, Offset(0.5e-3))
+        t = 0.5e-3
+        layer = LineCableModels.resolve(L, Offset(t))
+        @test area(boundary(layer)) ≈ 6.0e-6 + 0.014 * t + (5π / 4 - 1) * t^2 rtol = 1e-12
+        # The rectangle less the upper half of an ellipse has cusps at its two lower corners.
+        # Its parallel is simple, and a count of 400 000 random points gives the area of the
+        # dilation as 1.932462e-5 ± 2.0e-8 m².
         clockwise = ArcPolygon(Curve{Float64}[
         Segment((3.0e-3, 0.0), (3.0e-3, 3.0e-3)),
         Segment((3.0e-3, 3.0e-3), (-3.0e-3, 3.0e-3)),
         Segment((-3.0e-3, 3.0e-3), (-3.0e-3, 0.0)),
         EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, π, -π)])
-        @test_throws refusal LineCableModels.resolve(clockwise, Offset(0.5e-3))
+        layer = LineCableModels.resolve(clockwise, Offset(t))
+        P = 12.0e-3 + perimeter(Ellipse(3.0e-3, 2.0e-3)) / 2
+        @test area(boundary(layer)) ≈ (18 - 3π) * 1.0e-6 + P * t + π * t^2 rtol = 1e-12
+        @test abs(area(boundary(layer)) - 1.932462e-5) <= 3 * 2.0e-8
     end
     @testset "an elliptic arc carries its normal offset" begin
         t = 0.5e-3
@@ -677,6 +729,23 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
             @test length(outline.outer) == 4
             @test area(outline) ≈ R^2 * (4π / 3 - 2atan(e, s)) / 2 - e * s - π / 6 * e^2 rtol = 1e-12
         end
+    end
+
+    @testset "the inward parallel refuses a piece that vanishes" begin
+        r = 10.0e-3
+        reflex = Contour(Sector(0, r, 4π / 3, 0, 0, Placement(0, 0)))
+        @test parallel(reflex, -0.4999r) isa Contour{Float64}
+        for e in (0.5001r, 0.51r)
+            @test_throws DomainError parallel(reflex, -e)
+            @test_throws "has degenerated at curve 2 of path 1: the distance across is $(dimension(reflex)) m" parallel(
+                reflex, -e)
+        end
+        L = Contour(Polygon([(0.0, 0.0), (0.004, 0.0), (0.004, 0.001),
+            (0.001, 0.001), (0.001, 0.003), (0.0, 0.003)]))
+        @test parallel(L, -0.4e-3) isa Contour{Float64}
+        @test_throws DomainError parallel(L, -0.6e-3)
+        @test_throws "has degenerated at curve 2 of path 1: the distance across is 0.001 m" parallel(
+            L, -0.6e-3)
     end
 
     @testset "the clearance of two curves" begin

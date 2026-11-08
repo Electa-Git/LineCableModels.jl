@@ -280,11 +280,11 @@ $(TYPEDSIGNATURES)
 
 Return the parallel of `curve` at outward distance `d` in \\[m\\].
 
-``offset_d=offset+d``.
+``offset_d=offset+sign(span)d``.
 """
 function parallel(curve::EllipticArc, d::Real)
     return EllipticArc(curve.at, curve.a, curve.b, curve.φ0, curve.span,
-        curve.offset + d)
+        curve.offset + sign(curve.span) * d)
 end
 
 """
@@ -318,7 +318,7 @@ $(TYPEDSIGNATURES)
 
 Return the piece of the parallel of `curve` between `p` and `q` in \\[m\\].
 
-``offset_d=offset+d``.
+``offset_d=offset+sign(span)d``.
 """
 function parallel(curve::EllipticArc, d::Real, p, q)
     return parallel(curve, d)
@@ -360,6 +360,15 @@ function turn(face::Arc, d::Real, p, q)
     θ = abs(face.span) - m₀ + m₁
     return (fraction = θ / (2π), length = θ * (face.r + sign(face.span) * d))
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the turn of the parallel of `face` at the distance `d` \\[m\\] between the points `p`
+and `q`: the turn of its whole parallel. The junctions of an elliptic arc are tangent or
+diverge. Its piece runs from the start of its parallel to its end.
+"""
+turn(face::EllipticArc, d::Real, p, q) = turn(parallel(face, d))
 
 """
 $(TYPEDSIGNATURES)
@@ -1326,25 +1335,56 @@ path runs counterclockwise about the hole.
 
 Each curve ends at its junction with the next, given by `parallel(a, b, d)`. Where the two
 parallels meet, both end at that point. Where they diverge, an arc of radius ``|d|`` about
-the corner joins the two ends. Outward on a convex outline, the result is the offset
-outline.
+the corner joins the two ends. The result is the offset outline.
+
+# Errors
+
+Throws `DomainError` where the parallel fails, and names the curve and its path. Inward, the
+message gives the `dimension` of `contour`. The tests read nominal values against the
+tolerance ``\\sqrt{ε}\\,s``, for the `support` ``s`` of `contour`:
+
+- A curve whose own parallel degenerates: ``|d|`` reaches half its `dimension` on the side
+  the parallel moves to.
+- A piece of a curve's parallel whose signed length is not above the tolerance.
+- Curves of the parallel closer to each other than the tolerance, except neighbours and the
+  two pieces at one corner.
 """
 function parallel(contour::Contour, d::Real)
     T = promote_type(typeof(first(contour.outer)(0)[1]), typeof(d))
+    scale = support(contour)
+    tolerance = sqrt(eps(float(typeof(nominal(scale))))) * nominal(scale)
     paths = Vector{Curve{T}}[]
+    corners = NTuple{3, Int}[]
     for (i, path) in enumerate((contour.outer, contour.holes...))
         d′ = i == 1 ? d : -d
+        for (k, curve) in enumerate(path)
+            nominal(abs(d′)) < nominal(dimension(d′ < 0 ? curve : reverse(curve))) / 2 ||
+                throw(DomainError(d,
+                    nominal(d) < 0 ?
+                    "the inward parallel at depth $(abs(d)) m has degenerated at curve $k of path $i: the distance across is $(dimension(contour)) m" :
+                    "the outward parallel at distance $d m self-intersects at curve $k of path $i"))
+        end
         if length(path) == 1
             push!(paths, Curve{T}[parallel(only(path), d′)])
+            push!(corners, (i, 1, 1))
             continue
         end
         junctions = [parallel(path[k], path[mod1(k + 1, length(path))], d′)
                      for k in eachindex(path)]
+        for k in eachindex(path)
+            start, p = junctions[mod1(k - 1, length(path))][2], junctions[k][1]
+            nominal(turn(path[k], d′, start, p).length) > tolerance ||
+                throw(DomainError(d,
+                    nominal(d) < 0 ?
+                    "the inward parallel at depth $(abs(d)) m has degenerated at curve $k of path $i: the distance across is $(dimension(contour)) m" :
+                    "the outward parallel at distance $d m self-intersects at curve $k of path $i"))
+        end
         outline = Curve{T}[]
         for k in eachindex(path)
             p, q = junctions[k]
             push!(outline, parallel(path[k], d′,
                 junctions[mod1(k - 1, length(path))][2], p))
+            push!(corners, (i, mod1(k - 1, length(path)), k))
             if nominal.(p) != nominal.(q)
                 j = path[k](1)
                 θa = direction(path[k], 1)
@@ -1352,9 +1392,22 @@ function parallel(contour::Contour, d::Real)
                 τ = π - mod(π - (θb - θa), 2π)
                 push!(outline, Arc(Placement(j..., atan(p[2] - j[2], p[1] - j[1])),
                     abs(d′), τ))
+                push!(corners, (i, k, k))
             end
         end
         push!(paths, outline)
+    end
+    curves = reduce(vcat, paths)
+    for (k, A) in enumerate(curves), (k′, B) in enumerate(curves)
+
+        k < k′ || continue
+        first(corners[k]) == first(corners[k′]) &&
+            !isdisjoint(corners[k][2:3], corners[k′][2:3]) && continue
+        nominal(clearance(A, B)[3]) > tolerance ||
+            throw(DomainError(d,
+                nominal(d) < 0 ?
+                "the inward parallel at depth $(abs(d)) m has degenerated at curve $(corners[k][3]) of path $(corners[k][1]) and curve $(corners[k′][3]) of path $(corners[k′][1]): the distance across is $(dimension(contour)) m" :
+                "the outward parallel at distance $d m self-intersects at curve $(corners[k][3]) of path $(corners[k][1]) and curve $(corners[k′][3]) of path $(corners[k′][1])"))
     end
     return Contour(first(paths), paths[2:end])
 end

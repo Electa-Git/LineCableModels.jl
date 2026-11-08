@@ -28,6 +28,11 @@ using LineCableModels.DataModel: Sector
             r -> distance(Contour(Sector(0, r, π / 3, 0, 0, Placement(0, 0)))), 10e-3) == 0
     end
 
+    @testset "a sector with its apex on the origin has a finite derivative of its distance" begin
+        @test isfinite(ForwardDiff.derivative(
+            r -> distance(Sector(0, r, 2π / 3, 0, 0, Placement(0, 0))), 10e-3))
+    end
+
     # ForwardDiff 1 reads the partials of a dual in iszero.
     if pkgversion(ForwardDiff) >= v"1"
         @testset "a center moving through the origin has no derivative of its distance" begin

@@ -644,13 +644,10 @@ Return the radius of a circle about the origin that `shape` does not enter \\[m\
 ```
 
 where ``d`` is the distance from the origin to the center of `shape`, and ``r_i`` and
-``r_o`` are its inner and outer radii. The inner radius of a circle is zero, and the center of
-a sector is its center of curvature. For a sector, ``r_i`` is the nearest point of its
-inner side: `ri` for an inner arc, `apex` for a sharp tip and
-``apex+fillet/\\sin(span/2)-fillet`` for a rounded tip.
+``r_o`` are its inner and outer radii. The inner radius of a circle is zero.
 
-A rectangle, a polygon, an arc polygon or an ellipse takes the distance of its contour. A
-layer keeps its outer boundary's distance bound.
+A rectangle, a sector, a polygon, an arc polygon or an ellipse takes the distance of its
+contour. A layer keeps its outer boundary's distance bound.
 """
 distance(circle::Circle) = max(zero(circle.r), distance(circle.at) - circle.r)
 
@@ -752,18 +749,7 @@ centroid(rectangle::Rectangle) = (rectangle.at.x, rectangle.at.y)
 boundary(rectangle::Rectangle) = rectangle
 distance(rectangle::Rectangle) = distance(Contour(rectangle))
 
-function distance(sector::Sector)
-    offset = hypot(sector.at.x, sector.at.y)
-    if iszero(sector.apex) && iszero(nominal(sector.fillet))
-        return max(zero(offset), offset - sector.ro, sector.ri - offset)
-    end
-    inner = if nominal(sector.ri) > zero(nominal(sector.ri))
-        sector.ri
-    else
-        sector.apex + sector.fillet / sin(sector.span / 2) - sector.fillet
-    end
-    return max(zero(offset), offset - sector.ro, inner - offset)
-end
+distance(sector::Sector) = distance(Contour(sector))
 
 support(shape::AbstractShape, φ::Real) = support(Contour(shape), φ)
 support(shape::PerforatedShape, φ::Real) = support(shape.outer, φ)
@@ -800,38 +786,6 @@ function resolve(at::Placement, rectangle::Rectangle)
     T = promote_type(Float64, eltype(rectangle), eltype(placed))
     return Rectangle{T}(convert(T, rectangle.w), convert(T, rectangle.h),
         convert(Placement{T}, placed))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Resolve the outward offset `t` \\[m\\] of a sector by
-``(r_i,r_o,a,f)\\mapsto(\\max(r_i-t,0),r_o+t,a-t/\\sin(α),f+t)``,
-where ``α=span/2`` and all four lengths are in \\[m\\].
-Keep its angular span and placement. Return the layer of thickness `t`,
-``PerforatedShape(Sector′,[inner])``, whose `boundary` is the parallel.
-"""
-function resolve(inner::Sector, offset::Offset)
-    validate(offset, inner)
-    T = promote_type(eltype(inner), typeof(offset.t))
-    return PerforatedShape(
-        Sector(max(inner.ri - offset.t, zero(inner.ri)), inner.ro + offset.t,
-            inner.span, inner.apex - offset.t / sin(inner.span / 2),
-            inner.fillet + offset.t, inner.at),
-        AbstractShape{T}[inner])
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Check that ``t\\leq apex\\sin(span/2)``, the largest offset thickness that fits
-\\[m\\], and return `offset`. Throw `DomainError` above that limit.
-"""
-function validate(offset::Offset, sector::Sector)
-    limit = sector.apex * sin(sector.span / 2)
-    offset.t <= limit || throw(DomainError(offset.t,
-        "Offset.t must not exceed $limit m, apex sin(span / 2), the thickness that fits"))
-    return offset
 end
 
 area(ellipse::Ellipse) = π * ellipse.a * ellipse.b
@@ -911,47 +865,14 @@ Resolve a distance ``t`` \\[m\\] outward over the outer contour of `shape`.
 Return the layer of thickness `t`, ``PerforatedShape(parallel,[boundary(shape)])``.
 The layer rests on the parallel of the contour.
 Its `boundary` is the parallel.
-Throw `ArgumentError` for a clockwise arc or corner:
-"an offset follows a circle, an annulus, a sector, a rectangle, an ellipse or a convex polygon".
+
+# Errors
+
+Throws `DomainError` where the outward parallel of the contour self-intersects, as
+`parallel(contour, d)` refuses it.
 """
 function resolve(shape::AbstractShape, offset::Offset)
-    path = Contour(shape).outer
     T = promote_type(eltype(shape), typeof(offset.t))
-    normals = Tuple{T, T}[]
-    indices = Int[]
-    for (k, curve) in [(k, curve) for (k, curve) in enumerate(path) if curve isa Segment]
-        push!(indices, k)
-        dx, dy = curve.q .- curve.p
-        φ = atan(-dx, dy)
-        push!(normals, (φ, φ))
-    end
-    for (k, curve) in [(k, curve) for (k, curve) in enumerate(path) if curve isa Arc]
-        nominal(curve.span) > 0 ||
-            throw(ArgumentError("an offset follows a circle, an annulus, a sector, a rectangle, an ellipse or a convex polygon"))
-        push!(indices, k)
-        push!(normals, (curve.at.φ, curve.at.φ + curve.span))
-    end
-    for (k, curve) in
-        [(k, curve) for (k, curve) in enumerate(path) if curve isa EllipticArc]
-        nominal(curve.span) > 0 ||
-            throw(ArgumentError("an offset follows a circle, an annulus, a sector, a rectangle, an ellipse or a convex polygon"))
-        θ₁, θ₂ = curve.φ0, curve.φ0 + curve.span
-        push!(indices, k)
-        push!(normals,
-            (atan(curve.a * sin(θ₁), curve.b * cos(θ₁)) + curve.at.φ,
-                atan(curve.a * sin(θ₂), curve.b * cos(θ₂)) + curve.at.φ))
-    end
-    order = sortperm(indices)
-    normals = normals[order]
-    for k in eachindex(path)
-        φ = normals[k][2]
-        Δ = mod(normals[mod1(k + 1, length(path))][1] - φ + π, 2π) - π
-        scale = max(one(nominal(φ)), abs(nominal(φ)),
-            abs(nominal(normals[mod1(k + 1, length(path))][1])))
-        tolerance = sqrt(eps(float(scale))) * max(one(scale), scale)
-        nominal(Δ) >= -tolerance ||
-            throw(ArgumentError("an offset follows a circle, an annulus, a sector, a rectangle, an ellipse or a convex polygon"))
-    end
     return PerforatedShape(ArcPolygon(parallel(Contour(shape), offset.t).outer),
         AbstractShape{T}[boundary(shape)])
 end
