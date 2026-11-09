@@ -15,12 +15,20 @@ using LineCableModels.Engine: admittivity, reductions
                 :sheath_bedding, :armour_jacket], [false]),
         "overhead_bare_wires" => (2, 1, 0, Symbol[], [true, true]),
         "mixed_bare_wires" => (2, 1, 0, Symbol[], [true, false]),
-        "one_insulated_sector" => (3, 2, 0, Symbol[], [false]))
+        "one_insulated_sector" => (3, 2, 0, Symbol[], [false]),
+        "milliken_solid_segments" => (81, 5, 7,
+            [:binder, :semicon_inner, :xlpe, :semicon_outer, :bedding_inner,
+                :bedding_outer, :jacket], [false]),
+        "three_insulated_sectors" => (39, 3, 1, [:jacket], [false]),
+        "three_cores_steel_pipe" => (9, 4, 4,
+            [:a_insulation, :b_insulation, :c_insulation, :jacket], [false]))
     # Per case, the copies of a repeat by tag and count: the regions of `model.strand`.
     coaxial = [:core_strands_1 => 6, :core_strands_2 => 12, :core_strands_3 => 18,
         :armour_wires => 40]
     strands = Dict("coaxial_circular_strands" => coaxial,
-        "coaxial_rectangular_strands" => coaxial)
+        "coaxial_rectangular_strands" => coaxial,
+        "milliken_solid_segments" => [:segment => 6, :screen => 65],
+        "three_insulated_sectors" => [:neutral_wires => 30])
     @testset "$case" for (case, reference) in REFERENCES
         regions, groups, layers, expected_layers, air = facts[case]
         problem = LineParametersProblem(reference.system, reference.earth;

@@ -1,6 +1,6 @@
 # Reference results
 
-Per-unit-length line parameters of the seven cable systems of this release, computed with the
+Per-unit-length line parameters of the ten cable systems of this release, computed with the
 earth-return formula `:martins2026` and with FEM. The tests compare the package against them.
 
 Each case is a problem of `test/references/problems.jl`. Commit `bee50049` computed the rows of
@@ -11,8 +11,14 @@ frequencies of the problem. The FEM rows come from the formulation of the FEM te
 and the table gives their run.
 
 The build of record is GetDP 3.5.0 and Gmsh 4.15.2 on x86_64 Linux. On it, a second run gives
-the FEM rows of every case within 2e-8 of the largest diagonal entry. The suite compares them at
-1e-6. On another build, the suite skips that comparison and warns with both builds.
+the FEM rows of every case within 3e-8 of the largest diagonal entry, except `Y` of
+`milliken_solid_segments` at 10 MHz. The suite compares them at 1e-6. On another build, the suite
+skips that comparison and warns with both builds.
+
+The triangulation of the screen wires and the foil of `milliken_solid_segments` changes with a
+run's incidental state, while the node and element counts stay equal. Over seven runs, its `Y` at
+10 MHz moves by up to 2.18e-6 of the largest diagonal entry. The suite compares that `Y` at
+2.18e-6, its known status.
 
 | Case | System | Commit | Run |
 |---|---|---|---|
@@ -23,6 +29,9 @@ the FEM rows of every case within 2e-8 of the largest diagonal entry. The suite 
 | `overhead_bare_wires` | two bare copper wires of radius 42.5 mm, 1 m apart, 1 m above earth of 0.1 Ω·m (εr 1) | `bee50049` | `20261109-083138-xbye` |
 | `mixed_bare_wires` | the same wires at (0, 1) m and (1, −1) m, one overhead and one buried | `bee50049` | `20261109-083138-c7w6` |
 | `one_insulated_sector` | one aluminum sector core with its PVC insulation and a PVC jacket, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-144108-sx0a` |
+| `milliken_solid_segments` | one 220 kV cable with a core of six solid aluminum segments, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-172637-kmpa` |
+| `three_insulated_sectors` | one 1 kV cable of three aluminum sectors and 30 copper neutral wires, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-172647-9ggu` |
+| `three_cores_steel_pipe` | one 36 kV pipe-type cable of three round aluminum cores in a steel pipe, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-172801-k1bl` |
 
 The coaxial cable, from the center out:
 
@@ -46,6 +55,30 @@ The analytical rows of that case come from the equivalent tube of the sector: 2.
 5.849 mm, of the same area. Its resistivity gives the sector's conductance, and its
 permeability gives the geometric mean radius of the circle of the same area. So the case compares
 that equivalent section of a sector with FEM.
+
+The cable of `milliken_solid_segments` has a core of six solid aluminum segments of 60° in a PE
+fill of radius 31.15 mm. The sides of each segment are radial, and arcs of 1.25 mm round its outer
+corners. Together the segments have 3 037.65 mm² of aluminum. The insulation is XLPE of 20.3 mm
+between semicon layers of 1.6 mm and 1.3 mm. A PE binder of 0.5 mm lies under it and a PE layer of
+0.3 mm over it.
+
+The screen of that cable is 65 copper wires of 2.22 mm at lay ratio 5.5 in a PE fill. A PE layer
+of 0.73 mm, an aluminum foil of 0.2 mm and a PE jacket of 4.8 mm follow. The core, the screen and
+the foil are the three terminals of the cable.
+
+The cable of `three_insulated_sectors` has three cores at 0°, 120° and 240°, each the sector of
+`one_insulated_sector` with its PVC layer of 1.1 mm. The layers of adjacent cores touch at their
+inner ends, inside a PVC filler of radius 13.57 mm. A neutral of 30 copper wires of 1.58 mm in a
+PVC fill follows, with the wire centers at 14.36 mm. A PVC jacket follows to 17.25 mm. Each core
+and the neutral is a terminal of the cable. Its `matrices.csv` gives FEM rows, and its
+`# Sources:` line names FEM alone.
+
+The cable of `three_cores_steel_pipe` is the 36 kV cable of 3 × 1000 mm² in Table 1 of
+Høidalen (2013). Its aluminum cores of radius 19.5 mm and 3.365e-8 Ω·m lie 120° apart, each under
+XLPE to a radius of 28 mm. Each core center lies 32.33 mm from the center of the cable, so the
+insulations touch. XLPE fills the steel pipe of 62 mm to 65 mm, with 7e-8 Ω·m and relative
+permeability 10. A PE jacket of 5 mm follows, and each core and the pipe is a terminal. Its
+`matrices.csv` gives FEM rows, and its `# Sources:` line names FEM alone.
 
 ## Files
 
@@ -117,6 +150,7 @@ The port's run gives these maxima against the analytical rows:
 | `overhead_bare_wires` | 0.610 % | 0.817 % |
 | `mixed_bare_wires` | 0.609 % | 0.617 % |
 | `one_insulated_sector` | 7.62 % | 6.85 % |
+| `milliken_solid_segments` | 2.68 % | 40.7 % |
 
 The file `two_bare_wires/xue2021.csv` gives `analytical` and `fem` rows of `Z` and `Y` at 1 kHz
 for the wires of `two_bare_wires` on a layered earth. The upper layer is 100 Ω·m and 5 m thick
@@ -190,6 +224,17 @@ The source gives the following results against the analytical rows:
 
 For `one_insulated_sector`, e_Z rises from 0.057 % at 0.1 Hz to 7.62 % at 10 MHz. Its e_Y is
 1.3 % up to 40 kHz and 6.85 % at 10 MHz.
+
+For `milliken_solid_segments`, e_Y is 36 % from 0.1 Hz to 40 kHz and 40.7 % at 10 MHz, in Y22.
+The analytical model treats the 65 screen wires as a tube 0.73 mm from the aluminum foil. The
+round wires touch the PE layer under the foil only at their crowns. Its e_Z is 2.68 % at 0.1 Hz
+in Z22. That is the lay correction of the screen, which the analytical equivalent conductor
+includes and a two-dimensional FEM model does not.
+
+For `three_insulated_sectors` and `three_cores_steel_pipe`, the real part of each Z_ii at 0.1 Hz
+is ρ/A + ωμ₀/8 within 7.2e-4. Here A is the metal area of the terminal and ωμ₀/8 the earth return
+resistance. In each cable, the cores agree within 6.5e-6 of their mean Z_ii, and within 4.4e-4
+of their mean Y_ii.
 
 ## Cable systems of the case scripts
 

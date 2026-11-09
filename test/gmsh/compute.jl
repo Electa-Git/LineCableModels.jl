@@ -218,7 +218,12 @@
     # One build computed the frozen fem rows: GetDP 3.5.0 and Gmsh 4.15.2 on x86_64
     # Linux. Gmsh's meshing decisions depend on floating point, so a build is the platform
     # and the versions of Gmsh and GetDP together. The build of record computes the rows
-    # again within 2e-8 of the largest diagonal entry. This testset compares them at 1e-6.
+    # again within 3e-8 of the largest diagonal entry. This testset compares them at 1e-6.
+    #
+    # Y of milliken_solid_segments at 10 MHz is the exception. The triangulation of its screen
+    # wires and foil changes with a run's incidental state, while the node and element counts
+    # stay equal. Over seven runs on the build of record, that Y moves by up to 2.18e-6 of the
+    # largest diagonal entry. This testset compares it at 2.18e-6, its known status.
     #
     # Another build meshes the same geometry slightly differently. Pull request 67 measured
     # deviations up to 6e-4 of the diagonal on Apple silicon, Intel macOS and Windows. With
@@ -240,9 +245,10 @@
         "coaxial_rectangular_strands" => (Z = 0.0520, Y = 0.104),
         "overhead_bare_wires" => (Z = 0.00610, Y = 0.00817),
         "mixed_bare_wires" => (Z = 0.00609, Y = 0.00617),
-        "one_insulated_sector" => (Z = 0.0762, Y = 0.0685))
+        "one_insulated_sector" => (Z = 0.0762, Y = 0.0685),
+        "milliken_solid_segments" => (Z = 0.0268, Y = 0.407))
+    tolerances = Dict(("milliken_solid_segments", "Y") => 2.18e-6)
     @testset "$case" for (case, reference) in REFERENCES
-        expected = facts[case]
         problem = LineParametersProblem(reference.system, reference.earth;
             temperature = reference.temperature, frequencies = reference.frequencies[1:10:end])
         formulation = FEM(; bundle = false, kron = false, transposition = false)
@@ -277,12 +283,12 @@
                       ["cable:$(row.cable):$(problem.system.designs[row.cable].terminals[row.terminal].name)"
                        for row in problem.system.terminals]
                 @test result.line_length == problem.system.line_length
-                for (quantity, computed, status) in
-                    (("Z", result.Z, expected.Z), ("Y", result.Y, expected.Y))
+                for (quantity, computed) in (("Z", result.Z), ("Y", result.Y))
                     target = targets[("fem", quantity)]
+                    tolerance = get(tolerances, (case, quantity), 1e-6)
                     @testset "$quantity k=$k f=$(problem.frequencies[k]) Hz" for k in
                                                                                  eachindex(problem.frequencies)
-                        bound = 1e-6 * maximum(abs(target[i, i, k]) for i in 1:n)
+                        bound = tolerance * maximum(abs(target[i, i, k]) for i in 1:n)
                         @test maximum(abs, real.(computed[:, :, k] - target[:, :, k])) <=
                               bound skip = !recorded
                         @test maximum(abs, imag.(computed[:, :, k] - target[:, :, k])) <=
@@ -290,11 +296,26 @@
                         @test maximum(abs, computed[:, :, k] - target[:, :, k]) <=
                               bound skip = !recorded
                     end
+                    case in FEM_ALONE && continue
                     analytical = targets[("analytical", quantity)]
                     errors = [maximum(abs, computed[:, :, k] - analytical[:, :, k]) /
                               maximum(abs(analytical[i, i, k]) for i in 1:n)
                               for k in eachindex(problem.frequencies)]
-                    @test abs(maximum(errors) - status) <= 0.002
+                    @test abs(maximum(errors) - facts[case][Symbol(quantity)]) <= 0.002
+                end
+                # A case without analytical rows checks each terminal's resistance at 0.1 Hz.
+                if case in FEM_ALONE
+                    for (i, row) in enumerate(problem.system.terminals)
+                        metals = [region
+                                  for region in problem.system.regions[row.regions]
+                                  if region.source.material isa
+                                     Material{<:Real, :conductor}]
+                        conductance = sum(area(region.shape) / region.source.material.rho
+                        for region in metals)
+                        resistance = 1 / conductance +
+                                     2π * problem.frequencies[1] * LineCableModels.μ₀ / 8
+                        @test abs(real(result.Z[i, i, 1]) / resistance - 1) <= 2e-3
+                    end
                 end
                 @test size(result.trace.Z) == (n, n, 11)
                 @test size(result.trace.P) == (n, n, 11)

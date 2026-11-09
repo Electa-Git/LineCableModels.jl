@@ -336,7 +336,8 @@ For patch In {0:FEMAnnularPatches-1}
 EndFor
 EndIf
 // Each strip's parallel takes the intervals of its outline, shared among its pieces by their
-// lengths, and its spokes the layer count of its region, graded from the outline.
+// lengths, each piece keeping one interval for every piece after it; its spokes take the layer
+// count of its region, graded from the outline.
 For strip In {0:FEMStrips-1}
   region = FEMStripRegion~{strip};
   FEMIntervals = 0;
@@ -351,7 +352,7 @@ For strip In {0:FEMStrips-1}
   FEMRemainder = FEMIntervals;
   For member In {0:#FEMStripInnerCurves~{strip}()-2}
     FEMCurve = FEMStripInnerCurves~{strip}(member);
-    FEMCurveNodes~{FEMCurve} = Max(1,Round(FEMIntervals*FEMStripInnerLengths~{strip}(member)/FEMLength))+1;
+    FEMCurveNodes~{FEMCurve} = Max(1,Min(Round(FEMIntervals*FEMStripInnerLengths~{strip}(member)/FEMLength),FEMRemainder-(#FEMStripInnerCurves~{strip}()-1-member)))+1;
     Transfinite Curve {FEMCurve} = FEMCurveNodes~{FEMCurve};
     FEMRemainder -= FEMCurveNodes~{FEMCurve}-1;
   EndFor

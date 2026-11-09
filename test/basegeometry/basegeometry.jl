@@ -206,11 +206,17 @@ end
                   if placed.source.primitive isa Offset && placed.shape isa Annulus]
         coaxial = (:core_semicon_inner, :core_insulation, :core_semicon_outer,
             :sheath_bedding, :armour_jacket)
+        milliken = (:binder, :semicon_inner, :xlpe, :semicon_outer, :bedding_inner,
+            :bedding_outer, :foil, :jacket)
+        pipe = (:a_insulation, :b_insulation, :c_insulation, :pipe, :jacket)
         @test [(name, tag) for (name, tag, _, _) in layers] ==
               [("two_insulated_wires", :core_insulation),
             ("two_insulated_wires", :core_insulation),
             (("coaxial_circular_strands", tag) for tag in coaxial)...,
-            (("coaxial_rectangular_strands", tag) for tag in coaxial)...]
+            (("coaxial_rectangular_strands", tag) for tag in coaxial)...,
+            (("milliken_solid_segments", tag) for tag in milliken)...,
+            ("three_insulated_sectors", :jacket),
+            (("three_cores_steel_pipe", tag) for tag in pipe)...]
         @test all(r_ex(shape) === r_in(shape) + t for (_, _, shape, t) in layers)
     end
 
