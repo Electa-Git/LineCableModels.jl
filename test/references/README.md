@@ -3,28 +3,24 @@
 Per-unit-length line parameters of the six cable systems of this release, computed with the
 earth-return formula `:martins2026` and with FEM. The tests compare the package against them.
 
-The case scripts in `test/manual/cases/` computed them, each at the commit of this repository
-that the table gives. Commit `2bff171d` adds
-the two coaxial scripts to `a7640beb` and changes nothing else. Commit `989af96c` reduces every
-terminal to its equivalent conductor by the current share of its regions, as this release does.
-This reduction changes only the core of `coaxial_circular_strands`. At `989af96c`, the other
-three runs repeat their analytical values within 4e-15 of the largest diagonal entry, and their
-FEM values within 1e-8. Run each script from the repository root as
-`julia --project=test test/manual/cases/<case>.jl`.
+Each case is a problem of `test/references/problems.jl`. Commit `bee50049` computed the rows of
+every case. The analytical rows come from `compute(problem, CoaxialFormulation())` at the 101
+frequencies of the problem. The FEM rows come from the formulation of the FEM test of the suite,
+`FEM(; bundle = false, kron = false, transposition = false)`. They hold 11 of the frequencies,
+and the table gives their run.
+
+The build of record is GetDP 3.5.0 and Gmsh 4.15.2 on x86_64 Linux. On it, a second run gives
+the FEM rows of every case within 2e-8 of the largest diagonal entry. The suite compares them at
+1e-6. On another build, the suite skips that comparison and warns with both builds.
 
 | Case | System | Commit | Run |
 |---|---|---|---|
-| `two_bare_wires` | two copper wires of radius 42.5 mm, 1 m apart, buried 1 m deep in earth of 0.1 Ω·m (εr 1) | `a7640beb` | `20261016-162340` |
-| `two_insulated_wires` | the same wires with 1 mm of insulation (εr 2.3) | `a7640beb` | `20261016-162539` |
-| `coaxial_circular_strands` | one coaxial cable with a core of circular strands, buried 1 m deep in earth of 100 Ω·m (εr 10) | `989af96c` | `20261025-000358` |
-| `coaxial_rectangular_strands` | the same cable with a core of rectangular strands | `2bff171d` | `20261023-215619` |
-| `overhead_bare_wires` | two bare copper wires of radius 42.5 mm, 1 m apart, 1 m above earth of 0.1 Ω·m (εr 1) | `e41bba13` | `20261031-100133` |
-| `mixed_bare_wires` | the same wires at (0, 1) m and (1, −1) m, one overhead and one buried | `e41bba13` | `20261031-100324` |
-
-The `fem` rows of `coaxial_rectangular_strands` come from the run `20261106-131133`, at the
-commit that meshes each of its rectangular strands with transfinite strips. That run computes
-the case as `test/references/problems.jl` declares it, with the options of the FEM test of the
-suite. The `analytical` rows are those of `2bff171d`.
+| `two_bare_wires` | two copper wires of radius 42.5 mm, 1 m apart, buried 1 m deep in earth of 0.1 Ω·m (εr 1) | `bee50049` | `20261109-083033-ipgl` |
+| `two_insulated_wires` | the same wires with 1 mm of insulation (εr 2.3) | `bee50049` | `20261109-083034-ksru` |
+| `coaxial_circular_strands` | one coaxial cable with a core of circular strands, buried 1 m deep in earth of 100 Ω·m (εr 10) | `bee50049` | `20261109-083248-mich` |
+| `coaxial_rectangular_strands` | the same cable with a core of rectangular strands | `bee50049` | `20261109-083248-j17k` |
+| `overhead_bare_wires` | two bare copper wires of radius 42.5 mm, 1 m apart, 1 m above earth of 0.1 Ω·m (εr 1) | `bee50049` | `20261109-083138-xbye` |
+| `mixed_bare_wires` | the same wires at (0, 1) m and (1, −1) m, one overhead and one buried | `bee50049` | `20261109-083138-c7w6` |
 
 The coaxial cable, from the center out:
 
@@ -40,26 +36,17 @@ The coaxial cable, from the center out:
 
 ## Files
 
-Each case folder holds `matrices.csv`, as its script wrote it. Its comment lines give the
+Each case folder holds `matrices.csv`. Its comment lines give the
 conductors in row and column order, and the units. Each row is one entry of one matrix:
 `source` (`analytical` or `fem`), `frequency_hz`, `quantity` (`Z` in Ω/m or `Y` in S/m), `row`,
 `column`, `real`, `imaginary`. The analytical rows hold 101 frequencies from 0.1 Hz to 10 MHz,
 evenly spaced on a logarithmic scale. The FEM rows hold 11 of them, one per 0.8 decade.
 
-Each case folder also holds `physical.geo`, the geometry file of the FEM run of its
-script. At commit `989af96c`, the four original scripts ran unchanged with
-gmsh_jll 4.15.2. Their FEM rows match `matrices.csv` within 5.4e-9 of the largest
-diagonal entry.
+Each case folder also holds `physical.geo`, the geometry file of the FEM run of its case. The
+geometry tests compare against these files.
 
-Each `physical.geo` is the retained file of its case's run of 2026-10-25. It holds the lines
-that the extension has written since then, without the lines `FEMConductorWidth`,
-`FEMConductorSector`, `FEMConductorKind` and `FEMConductorDimension`, which the extension no
-longer writes. The file of `coaxial_rectangular_strands` is the retained file of its run
-`20261106-131133`. The geometry tests compare against these files.
-
-Running a script again gives analytical values identical to the bit and FEM values within about
-1e-8 of the largest diagonal entry. FEM meshes depend on incidental state such as the length of
-the run directory's path.
+Computing a case again gives analytical values identical to the bit. FEM meshes depend on
+incidental state such as the length of the run directory's path.
 
 ## Intermediate matrices
 
@@ -84,7 +71,7 @@ one matrix: `source` (`analytical`), `frequency_hz`, `matrix`, `row`, `column`, 
 
 `Z` is `Zin` plus `Zg`, whose entry for two cables adds to every pair of their conductors, and `Y`
 is `jω (Pin + Pg)⁻¹`, with `Pg` added in the same way. Rebuilt so, each `stages.csv` gives the
-analytical rows of its `matrices.csv` within 4e-15 of the largest diagonal entry.
+analytical rows of its `matrices.csv` within 6e-15 of the largest diagonal entry.
 
 `stages.csv` uses `Γ = 0`, as `matrices.csv` does. `stages-gamma.csv` prescribes the longitudinal
 wavenumber `Γ_k = j·1.01·2π·f_k/c` on both earth matrices, with `c = 299792458` m/s. It changes
@@ -130,10 +117,10 @@ file. The test suite repeats the analytical one alone.
 
 For `two_bare_wires`, `two_insulated_wires`, `overhead_bare_wires` and
 `mixed_bare_wires`, the meshes coincide with the source meshes.
-Their rows agree with the frozen `fem` rows within 1e-6 scaled.
-The frozen wire-pair rows use a tolerance of 1e-6 of the largest diagonal entry on the reference
-build, x86_64 Linux with Gmsh 4.15.2, and 1e-2, the FEM acceptance metric, on other builds.
-For the coaxial cases, the maxima against the `fem` rows frozen on 2026-10-25 are:
+Their rows agree with the `fem` rows of the source within 1e-6 scaled.
+For the coaxial cases, the maxima against the `fem` rows of the source are below. The source
+computed them at `989af96c` for the circular strands and at `2bff171d` for the rectangular
+strands.
 
 | Case | Scaled difference in Z | Scaled difference in Y |
 |---|---|---|

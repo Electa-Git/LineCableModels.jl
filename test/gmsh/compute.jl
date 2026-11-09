@@ -215,27 +215,33 @@
             end
         end
     end
-    # The frozen rows were produced on x86_64 Linux with Gmsh 4.15.2. Gmsh's meshing
-    # decisions depend on floating point. A build is the platform and the Gmsh version
-    # together. The same build regenerates the same mesh and reproduces the rows to 1e-6 of
-    # the diagonal. Another platform or another Gmsh version meshes the same geometry
-    # slightly differently. Pull request 67 measured deviations up to 6e-4 of the diagonal
-    # in Z and Y at most frequencies on Apple silicon, Intel macOS and Windows. With Gmsh
-    # 4.13.1 on x86_64 Linux, the deviations are up to 2.7e-4 of the diagonal. There the
-    # rows hold within the FEM acceptance metric, 1e-2, as the coaxial cases do everywhere
-    # because their rows' mesh is older than today's. The comparison with the analytical
-    # rows and the known status holds on every platform and is the physics check.
-    wire_pair_tolerance = Sys.islinux() && Sys.ARCH === :x86_64 &&
-                          gmsh.GMSH_API_VERSION == "4.15.2" ? 1e-6 : 1e-2
+    # One build computed the frozen fem rows: GetDP 3.5.0 and Gmsh 4.15.2 on x86_64
+    # Linux. Gmsh's meshing decisions depend on floating point, so a build is the platform
+    # and the versions of Gmsh and GetDP together. The build of record computes the rows
+    # again within 2e-8 of the largest diagonal entry. This testset compares them at 1e-6.
+    #
+    # Another build meshes the same geometry slightly differently. Pull request 67 measured
+    # deviations up to 6e-4 of the diagonal on Apple silicon, Intel macOS and Windows. With
+    # Gmsh 4.13.1 on x86_64 Linux, they reach 2.7e-4. On such a build, this testset skips
+    # the comparison with the fem rows and warns with both builds. The comparison with the
+    # analytical rows and the known status runs on every build and is the physics check.
+    record = "x86_64 Linux, Gmsh 4.15.2, GetDP 3.5.0"
+    version = pkgversion(getdp_jll)
+    found = "$(Sys.ARCH) $(Sys.KERNEL), Gmsh $(gmsh.GMSH_API_VERSION), " *
+            "GetDP $(version.major).$(version.minor).$(version.patch)"
+    recorded = found == record
+    recorded ||
+        @warn "The build $record computed the fem rows of the references. This build is " *
+              "$found, and the suite skips their comparison."
     facts = Dict(
-        "two_bare_wires" => (wire_pair_tolerance, (Z = 0.00568, Y = 0.00798)),
-        "two_insulated_wires" => (wire_pair_tolerance, (Z = 0.00407, Y = 0.000447)),
-        "coaxial_circular_strands" => (1e-2, (Z = 0.0492, Y = 0.105)),
-        "coaxial_rectangular_strands" => (1e-2, (Z = 0.0520, Y = 0.104)),
-        "overhead_bare_wires" => (wire_pair_tolerance, (Z = 0.00610, Y = 0.00817)),
-        "mixed_bare_wires" => (wire_pair_tolerance, (Z = 0.00609, Y = 0.00617)))
+        "two_bare_wires" => (Z = 0.00568, Y = 0.00798),
+        "two_insulated_wires" => (Z = 0.00407, Y = 0.000447),
+        "coaxial_circular_strands" => (Z = 0.0492, Y = 0.105),
+        "coaxial_rectangular_strands" => (Z = 0.0520, Y = 0.104),
+        "overhead_bare_wires" => (Z = 0.00610, Y = 0.00817),
+        "mixed_bare_wires" => (Z = 0.00609, Y = 0.00617))
     @testset "$case" for (case, reference) in REFERENCES
-        tolerance, expected = facts[case]
+        expected = facts[case]
         problem = LineParametersProblem(reference.system, reference.earth;
             temperature = reference.temperature, frequencies = reference.frequencies[1:10:end])
         formulation = FEM(; bundle = false, kron = false, transposition = false)
@@ -275,12 +281,13 @@
                     target = targets[("fem", quantity)]
                     @testset "$quantity k=$k f=$(problem.frequencies[k]) Hz" for k in
                                                                                  eachindex(problem.frequencies)
-                        bound = tolerance * maximum(abs(target[i, i, k]) for i in 1:n)
+                        bound = 1e-6 * maximum(abs(target[i, i, k]) for i in 1:n)
                         @test maximum(abs, real.(computed[:, :, k] - target[:, :, k])) <=
-                              bound
+                              bound skip = !recorded
                         @test maximum(abs, imag.(computed[:, :, k] - target[:, :, k])) <=
-                              bound
-                        @test maximum(abs, computed[:, :, k] - target[:, :, k]) <= bound
+                              bound skip = !recorded
+                        @test maximum(abs, computed[:, :, k] - target[:, :, k]) <=
+                              bound skip = !recorded
                     end
                     analytical = targets[("analytical", quantity)]
                     errors = [maximum(abs, computed[:, :, k] - analytical[:, :, k]) /
