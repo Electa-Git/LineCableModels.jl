@@ -1,6 +1,7 @@
 function defaults(::Type{Formula{:longmire1975}})
     (epsilon_high = 5.0, corner_scale = 125.0, corner_exponent = 0.8312)
 end
+domain(::Formula{:longmire1975}) = (frequencies = 5.0 .. 3.0e10,)
 
 validate(formula::Formula{:longmire1975}, ::Type{EarthLayer}) = formula
 
@@ -49,26 +50,4 @@ function validate(options::FormulationOptions{Formula{:longmire1975}})
     options.corner_scale > 0 || throw(ArgumentError(
         "Longmire–Smith corner_scale must be positive"))
     return options
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Warn once when the scan of `problem` leaves the range of the law.
-
-# Arguments
-
-- `problem`: frequencies of the scan.
-- `formula`: law `Formula{:longmire1975}` that consumes the problem.
-
-# Returns
-
-- `problem`, unchanged.
-"""
-function validate(problem::LineParametersProblem, formula::Formula{:longmire1975})
-    frequencies = problem.frequencies
-    if first(frequencies) < 5 || last(frequencies) > 3e10
-        @warn "the law :longmire1975 holds from 5 Hz to 30 GHz; the scan runs from $(first(frequencies)) Hz to $(last(frequencies)) Hz"
-    end
-    return problem
 end

@@ -65,8 +65,6 @@ struct CoaxialFormulation{
         map(formula -> validate(formula, impedance!), earth_impedance)
         map(formula -> validate(formula, potential!), earth_admittance)
         validate((Tuple(earth_impedance)..., Tuple(earth_admittance)...), CoaxialFormulation)
-        map(formula -> validate(options.Γ, formula),
-            (Tuple(earth_impedance)..., Tuple(earth_admittance)...))
         validate(earth_properties, EarthLayer)
         validate(equivalent_earth, EarthModel)
         formulas = foldl(
@@ -128,7 +126,6 @@ equal formulas.
 - Throws `DomainError` for an earth formula that does not give the quantity of its slot.
 - Throws `DomainError` for a model of the equivalent earth in `earth_properties`, or a law in
   `equivalent_earth`.
-- Throws `DomainError` for a nonzero `Γ` with an earth formula that does not read it.
 - Throws `DomainError` when `Γ` is empty or nonfinite.
 """
 function CoaxialFormulation(;
@@ -367,7 +364,7 @@ function select(::Type{CoaxialFormulation}, ::Val{:earth_impedance}, formula::Ea
 end
 function select(::Type{CoaxialFormulation}, ::Val{:earth_impedance}, selection::NamedTuple)
     return merge(select(CoaxialFormulation, Val(:earth_impedance), Val(:default)),
-        map(domain -> select(CoaxialFormulation, Val(:earth_impedance), domain).air, selection))
+        map(place -> select(CoaxialFormulation, Val(:earth_impedance), place).air, selection))
 end
 function select(::Type{CoaxialFormulation}, ::Val{:earth_admittance}, ::Val{ID}; kw...) where {ID}
     formula = EarthReturn.Formula(Val(ID); kw...)
@@ -378,7 +375,7 @@ function select(::Type{CoaxialFormulation}, ::Val{:earth_admittance}, formula::E
 end
 function select(::Type{CoaxialFormulation}, ::Val{:earth_admittance}, selection::NamedTuple)
     return merge(select(CoaxialFormulation, Val(:earth_admittance), Val(:default)),
-        map(domain -> select(CoaxialFormulation, Val(:earth_admittance), domain).air, selection))
+        map(place -> select(CoaxialFormulation, Val(:earth_admittance), place).air, selection))
 end
 
 # Γ is one finite value, or one finite value per frequency.
@@ -421,7 +418,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Check the options of the formulation against the frequencies.
+Check the options of the formulation against the frequencies, and the problem against each
+formula of the formulation.
 
 # Arguments
 
@@ -435,10 +433,13 @@ Check the options of the formulation against the frequencies.
 # Errors
 
 - Throws `DimensionMismatch` when a `Γ` vector and the frequency vector have different lengths.
+- Throws `DomainError` when a cable touches the interface for the earth-return formula
+  `:martins2026`.
 """
 function validate(problem::LineParametersProblem,
         formulation::Union{CoaxialFormulation, FEM})
     validate(problem, formulation.options)
+    map(formula -> validate(problem, formula), formulation.formulas)
     return problem
 end
 
@@ -475,6 +476,72 @@ function validate(input::CoaxialInput, formulation::CoaxialFormulation)
         end
     end
     return input
+end
+
+# The quantities of a problem and of a formulation's Γ: the hull of each one's nominal values,
+# empty where the problem has none.
+function domain(problem::LineParametersProblem{T},
+        options::FormulationOptions{<:Union{CoaxialFormulation, FEM}}) where {T <: Real}
+    N = typeof(nominal(zero(T)))
+    none = (typemax(N), typemin(N))
+    (; system, earth, frequencies, temperature) = problem
+    deepest = last(earth.layers)
+    buried = findall(placement -> nominal(placement.y) < 0, system.placements)
+    reach = extrema(
+        (i == j ? nominal(support(system.designs[i].outer)) :
+         nominal(hypot(system.placements[i].x - system.placements[j].x,
+             system.placements[i].y - system.placements[j].y))
+        for i in buried, j in buried); init = none)
+    m = map(f -> nominal(sqrt(2π * f * μ₀ * deepest.mu_r / deepest.rho)),
+        (first(frequencies), last(frequencies)))
+    return (
+        frequencies = ClosedInterval(nominal(first(frequencies)), nominal(last(frequencies))),
+        mu_r_earth = ClosedInterval(extrema(layer -> nominal(layer.mu_r), Base.tail(earth.layers))...),
+        Γ = ClosedInterval(extrema(z -> abs(nominal(z)), options.Γ)...),
+        mD = isempty(buried) ? ClosedInterval(none...) :
+             ClosedInterval(first(m) * first(reach), last(m) * last(reach)),
+        Δθ = ClosedInterval(extrema(N[nominal(abs(temperature - region.source.material.T0))
+                                      for region in system.regions
+                                      if region.source.material isa
+                                         Material{<:Real, :conductor}])...))
+end
+
+# A formula without a declaration holds for every value.
+domain(::AbstractFormulation) = (;)
+
+"""
+$(TYPEDSIGNATURES)
+
+Warn once for each quantity of a computation outside the domain of a formula of the
+formulation.
+
+# Arguments
+
+- `presented`: the closed interval of each quantity that the computation presents, by its key.
+- `formulation`: coaxial or finite-element formulation, the formulas of its slots.
+
+# Returns
+
+- `presented`, unchanged.
+"""
+function validate(presented::NamedTuple, formulation::Union{CoaxialFormulation, FEM})
+    map(formulation.formulas) do formula
+        map(keys(domain(formula)), values(domain(formula))) do key, bound
+            issubset(getfield(presented, key), bound) ||
+                @warn("the formula :$(nameof(formula)) holds for $key in $bound; " *
+                      "the computation has $key in $(getfield(presented, key))")
+        end
+    end
+    return presented
+end
+
+# A formula's identifier, its type's parameter, in every family.
+function Base.nameof(::Union{
+        InternalImpedance.Formula{ID}, InsulationImpedance.Formula{ID},
+        InsulationAdmittance.Formula{ID}, SemiconAdmittance.Formula{ID},
+        EarthReturn.Formula{ID}, Shunt.Formula{ID}, Resistivity.Formula{ID},
+        EarthProperties.Formula{ID}}) where {ID}
+    return ID
 end
 
 """

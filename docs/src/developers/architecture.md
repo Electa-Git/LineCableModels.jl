@@ -207,11 +207,14 @@ The physics of a formula is its callable. Each mathematical expression is a meth
 formula's own type. A literal tag selects the expression when the formula has more than one. A
 component of one expression is a field of the record it returns.
 
-A formula's programmatic methods take the formula object first: `defaults`, `validate`,
-`initialize_buffers`, `to_buffer!` and `from_buffer`. `to_buffer!` moves the formula's
+A formula's programmatic methods take the formula object first: `defaults`, `domain`,
+`validate`, `initialize_buffers`, `to_buffer!` and `from_buffer`. `to_buffer!` moves the formula's
 per-frequency terms into its block of the buffers and does nothing by default. `from_buffer`
 returns the block. The formulation's methods of `impedance!` and `potential!` assemble the
 matrices of a computation. A formula does not write a matrix of the computation.
+
+`domain` gives, by key, the closed interval of each quantity inside the formula's range of
+validity. The fallback `(;)` in `Engine` stands for a formula without bounds.
 
 | Family | Formula | Callable |
 | --- | --- | --- |
@@ -271,8 +274,9 @@ A formula of the family gives the impedance, the potential coefficients, or both
 methods it defines. A formula in a slot whose quantity it does not give is refused at
 construction. Formulas of one identifier among the six places must be equal, because a formula
 that gives both quantities is one computation. The constructor stores each distinct formula
-once in the field `formulas`, so `to_buffer!` runs once per formula and frequency. A nonzero `Γ`
-needs a formula that reads it in each of the six places, and the constructor refuses any other.
+once in the field `formulas`, so `to_buffer!` runs once per formula and frequency. At a nonzero
+`Γ`, a computation warns for each formula that does not read it: its `domain` declares
+`Γ = 0.0 .. 0.0`.
 
 The slots `earth_properties` and `equivalent_earth` hold formulas of one family, of two kinds.
 The law describes each layer of the earth model at a frequency. Then the model reduces the
@@ -308,14 +312,17 @@ without overwriting a method. A later backend adds a singleton, a `defaults` met
 The scalar `compute` of `LCMBackend` depends on nothing above it. A parametric layer, when
 it arrives, calls it per point, never the reverse. Its steps are fixed.
 
-1. `validate(problem, formulation)` and `validate(problem, formula)` for each formula.
+1. `validate(problem, formulation)`: the options against the frequencies and
+   `validate(problem, formula)` for each formula.
 2. `CoaxialInput(problem, options)` builds the blueprint of every cable, the placements and
    the reduction plan from `reductions(system, options)`.
 3. `validate(input, formulation)`: the formula of each earth place against the pairs of layers
    of the input.
-4. `initialize_buffers(formulation, problem, input)`: every array once, before the loop.
-5. The loop `solve!`, its own method, over the frequencies.
-6. `LineParameters` from the filled arrays, validated once.
+4. `validate(presented, formulation)`: one warning for each quantity of the problem and the
+   input outside the `domain` of a formula.
+5. `initialize_buffers(formulation, problem, input)`: every array once, before the loop.
+6. The loop `solve!`, its own method, over the frequencies.
+7. `LineParameters` from the filled arrays, validated once.
 
 At each frequency the loop runs these steps in order.
 

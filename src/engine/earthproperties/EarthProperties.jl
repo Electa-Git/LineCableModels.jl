@@ -306,7 +306,7 @@ The layer it returns parametrizes ``\\gamma_\\mathrm{eq}^2`` by its resistivity
 ```
 
 This ``\\varepsilon_{r,\\mathrm{eq}}`` is negative where the layers are inductive. The layer takes
-the relative permeability of the deepest layer. A computation refuses an earth layer whose
+the relative permeability of the deepest layer. A computation warns for an earth layer whose
 relative permeability differs from 1. The source reports errors below 4 % from 1 Hz to 5 MHz on
 overhead conductors.
 
@@ -322,8 +322,10 @@ module EarthProperties
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults, validate
 using ...Commons: FormulationOptions
-using ..Engine: AbstractEarthProperties, LineParametersProblem, admittivity, ε₀, μ₀
+using ..Engine: AbstractEarthProperties, admittivity, ε₀, μ₀
+import ..Engine: domain
 using ...Earth: EarthLayer, EarthModel
+using IntervalSets: (..)
 
 export Formula, FORMULAS
 

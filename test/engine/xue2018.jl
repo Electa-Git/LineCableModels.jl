@@ -151,7 +151,9 @@ end
     @test_throws "treats no pair of a receiver in the air and a source in the earth" compute(
         Dict(REFERENCES)["mixed_bare_wires"], CoaxialFormulation(earth_impedance = (
             air = :carson1926, earth = :saad1996, mixed = :xue2018)))
-    @test_throws r":xue2018.*earth layer 1 has mu_r = 2.0" compute(
+    @test_logs (:warn,
+        "the formula :xue2018 holds for mu_r_earth in 1.0 .. 1.0; " *
+        "the computation has mu_r_earth in 2.0 .. 2.0") compute(
         LineParametersProblem(Dict(REFERENCES)["two_bare_wires"].system,
             homogeneous(rho = 0.1, mu_r = 2.0);
             frequencies = Dict(REFERENCES)["two_bare_wires"].frequencies), formulation)

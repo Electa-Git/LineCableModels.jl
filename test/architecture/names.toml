@@ -102,7 +102,7 @@ nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resist
     "properties", "admittance", "semicon", "temperature",
     "line_parameters", "gmsh", "fem", "earth_return", "shunt", "buffers", "trace",
     "frequencies", "input", "connection", "radius", "bundles",
-    "transposition", "integral", "integrand", "reductions", "air"]
+    "transposition", "integral", "integrand", "reductions", "air", "domain"]
 qualifiers = ["coaxial", "equivalent", "internal", "kept", "eliminated", "spectral", "lcm", "mixed"]
 symbols = ["Z", "Y", "r_ins_ex", "Λ", "ζ", "ε₀", "μ₀"]
 
@@ -251,6 +251,7 @@ CoaxialFormulation = "the methodology of concentric tubes: the formula of each s
 FEM = "the laws, the equivalent earth and the options of the finite-element computation of line parameters"
 LineParameters = "the series impedance and shunt admittance per unit length of a line at each frequency, with the labels of its rows and the formulation"
 admittivity = "the admittivity of a medium: of a material at a frequency and a temperature, by the law of its class in the formulation, a conductor's from its resistivity at the temperature and its permittivity; of an earth layer, or of a resistivity and a relative permittivity, at a complex frequency, the conductivity plus the complex frequency times the permittivity"
+domain = "the closed interval of each quantity by its key: where a formula holds, or what a computation presents to the formulas of its formulation"
 "impedance!" = "series impedances per unit length written into a matrix [Ω/m]: the assembly of the cable-internal terms, and the earth step's recipe on the formulation"
 "potential!" = "potential coefficients per unit length written into a matrix [m/F]: the shunt step's chain, and the earth step's recipe on the formulation"
 "to_buffer!" = "move a formula's per-frequency terms into its block of the buffers, or the formulation's into the base buffers, at one frequency"

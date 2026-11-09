@@ -120,8 +120,14 @@ end
     @test_throws "gives no potential!" CoaxialFormulation(earth_admittance = :wise1934)
     magnetic = LineParametersProblem(reference.system, homogeneous(rho = 0.1, mu_r = 2.0);
         frequencies = [10.0, 100.0])
-    @test_throws r":wise1934.*earth layer 1 has mu_r = 2.0" compute(magnetic, formulation)
-    @test_throws "does not read Γ" CoaxialFormulation(earth_impedance = :wise1934, Γ = 1e-3im)
+    @test_logs (:warn,
+        "the formula :wise1934 holds for mu_r_earth in 1.0 .. 1.0; " *
+        "the computation has mu_r_earth in 2.0 .. 2.0") compute(magnetic, formulation)
+    gamma = CoaxialFormulation(earth_impedance = :wise1934, Γ = 1e-3im)
+    @test_logs (:warn,
+        "the formula :wise1934 holds for Γ in 0.0 .. 0.0; " *
+        "the computation has Γ in 0.001 .. 0.001") LineCableModels.validate(
+        LineCableModels.domain(Dict(REFERENCES)["two_bare_wires"], gamma.options), gamma)
     @test_throws ArgumentError CoaxialFormulation(
         earth_impedance = :wise1934 => (integral = (rtol = -1.0,),))
     buffers = Engine.initialize_buffers(formulation, reference, input)

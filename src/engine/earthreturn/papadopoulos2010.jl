@@ -1,4 +1,5 @@
 defaults(::Type{Formula{:papadopoulos2010}}) = (integral = integrate => :quad,)
+domain(::Formula{:papadopoulos2010}) = (Γ = 0.0 .. 0.0,)
 
 validate(formula::Formula{:papadopoulos2010}, ::typeof(impedance!)) = formula
 validate(formula::Formula{:papadopoulos2010}, ::typeof(potential!)) = formula

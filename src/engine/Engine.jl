@@ -19,6 +19,7 @@ using ..Materials: Material
 using ..Earth: EarthLayer, EarthModel
 using ..BaseGeometry: Placement, support
 using ..DataModel: CableSystem, flatten
+using IntervalSets: ClosedInterval
 using LinearAlgebra: BlasFloat, BlasInt, I, LAPACK, LU, SingularException, checksquare,
                      ldiv!, lu!, mul!
 using QuadGK: alloc_segbuf, quadgk
@@ -34,7 +35,7 @@ export LineParametersProblem, CoaxialFormulation, FEM, LCMBackend, GmshBackend,
 export @formulation, @air, @earth, @mixed
 export bundle!, eliminate!, factorize!, transposition!, reductions
 export SpectralIntegral, integrate
-public CoaxialInput, solve!, Λ
+public CoaxialInput, domain, solve!, Λ
 public InternalImpedance, InsulationImpedance, InsulationAdmittance, SemiconAdmittance,
        EarthReturn, Shunt, Resistivity, EarthProperties
 
@@ -111,6 +112,52 @@ permittivity, return the conductivity plus the complex frequency times the permi
 - Admittivity \\[S/m\\].
 """
 function admittivity end
+
+"""
+    domain(formula)
+    domain(problem, options)
+    domain(input)
+
+Return the closed interval of each quantity by its key: where a formula holds, or what a
+computation presents to the formulas of its formulation.
+
+A formula that holds within bounds declares them in its own file. Any other formula holds for
+every value of every quantity, `(;)`. For each quantity, a computation presents the interval
+from its least to its greatest nominal value, empty when it has none.
+`validate(presented, formulation)` warns once for each quantity outside the domain of a
+formula of the formulation.
+
+| Key | Quantity | Unit | Read from |
+| --- | --- | --- | --- |
+| `frequencies` | the frequencies of the scan | \\[Hz\\] | `problem` |
+| `mu_r_earth` | the relative permeability of each earth layer below the air | \\[dimensionless\\] | `problem` |
+| `Γ` | the modulus of the longitudinal wavenumber | \\[1/m\\] | `options` |
+| `mD` | the product ``m D`` of the deepest layer | \\[dimensionless\\] | `problem` |
+| `Δθ` | the distance of the temperature from `T0` of each conductor material | \\[K\\] | `problem` |
+| `wall` | ``(r_\\mathrm{ex} - r_\\mathrm{in}) / (r_\\mathrm{ex} + r_\\mathrm{in})`` of each tube with a hole | \\[dimensionless\\] | `input` |
+
+The key `mD` bounds the product ``m D``, where
+
+```math
+m = \\sqrt{2 \\pi f \\mu_0 \\mu_r / \\rho}
+```
+
+takes the static resistivity and permeability of the deepest layer at the lowest and the
+highest frequency. The length ``D`` is the distance between two buried cables or the outer
+radius of one \\[m\\].
+
+# Arguments
+
+- `formula`: formula of a family.
+- `problem`: line-parameters problem.
+- `options`: options of a coaxial or finite-element formulation, with `Γ` \\[1/m\\].
+- `input`: numerical input of a coaxial computation.
+
+# Returns
+
+- A named tuple of closed intervals by quantity key.
+"""
+function domain end
 
 """
     impedance!(formula, Z, …)

@@ -1,41 +1,10 @@
 defaults(::Type{Formula{:wedepohl1973}}) = (;)
+domain(::Formula{:wedepohl1973}) = (Γ = 0.0 .. 0.0, mD = 0.0 .. 0.25)
 
 validate(formula::Formula{:wedepohl1973}, ::typeof(impedance!)) = formula
 function validate(formula::Formula{:wedepohl1973}, t::Int, s::Int)
     t > 1 && s > 1 || invoke(validate, Tuple{Formula, Int, Int}, formula, t, s)
     return formula
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Warn once when the highest frequency of the scan leaves the bound of the paper
-on the buried cables. The bound reads the static resistivity and permeability of the
-deepest layer.
-
-# Arguments
-
-- `problem`: cable geometry, earth model and frequencies.
-- `formula`: earth-return formula `Formula{:wedepohl1973}` that consumes the problem.
-
-# Returns
-
-- `problem`, unchanged.
-"""
-function validate(problem::LineParametersProblem, formula::Formula{:wedepohl1973})
-    system = problem.system
-    layer = last(problem.earth.layers)
-    f = last(problem.frequencies)
-    m = sqrt(2π * f * μ₀ * layer.mu_r / layer.rho)
-    buried = findall(placement -> placement.y < 0, system.placements)
-    reach = maximum(
-        (i == j ? support(system.designs[i].outer) :
-         hypot(system.placements[i].x - system.placements[j].x,
-             system.placements[i].y - system.placements[j].y)
-        for i in buried, j in buried); init = zero(m))
-    m * reach < 0.25 ||
-        @warn "the formula :wedepohl1973 holds for |m D| and |m r| below 0.25; on $(system.id) at $f Hz the largest is $(m * reach)"
-    return problem
 end
 
 function (f::Formula{:wedepohl1973})(

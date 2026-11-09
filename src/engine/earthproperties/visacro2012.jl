@@ -1,4 +1,5 @@
 defaults(::Type{Formula{:visacro2012}}) = (frequency_boundary = 100.0,)
+domain(::Formula{:visacro2012}) = (frequencies = 100.0 .. 4.0e6,)
 
 validate(formula::Formula{:visacro2012}, ::Type{EarthLayer}) = formula
 
@@ -34,26 +35,4 @@ function validate(options::FormulationOptions{Formula{:visacro2012}})
     options.frequency_boundary > 0 || throw(ArgumentError(
         "Visacro–Alipio frequency_boundary must be positive [Hz]"))
     return options
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Warn once when the scan of `problem` leaves the range of the law.
-
-# Arguments
-
-- `problem`: frequencies of the scan.
-- `formula`: law `Formula{:visacro2012}` that consumes the problem.
-
-# Returns
-
-- `problem`, unchanged.
-"""
-function validate(problem::LineParametersProblem, formula::Formula{:visacro2012})
-    frequencies = problem.frequencies
-    if first(frequencies) < 100 || last(frequencies) > 4e6
-        @warn "the law :visacro2012 holds from 100 Hz to 4 MHz; the scan runs from $(first(frequencies)) Hz to $(last(frequencies)) Hz"
-    end
-    return problem
 end

@@ -348,6 +348,8 @@ using SpecialFunctions: besseli, besselk
             id = "touching", line_length = 1.0),
         homogeneous(rho = 0.1); frequencies = [1.0e3])
     @test_throws DomainError Engine.validate(touching, formula)
+    @test_logs (@test_throws "needs the cable 1 of touching in one medium" compute(
+        touching, CoaxialFormulation(earth_admittance = :ideal, Γ = 1e-3im)))
     buried = LineParametersProblem(
         build(CableSystem, [wire, wire], [Placement(0.0, -1.0), Placement(0.085, -1.0)];
             connections = [(core = 1,), (core = 2,)], id = "pair", line_length = 1.0),

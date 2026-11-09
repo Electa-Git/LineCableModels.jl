@@ -1,36 +1,10 @@
 defaults(::Type{Formula{:saad1996}}) = (;)
+domain(::Formula{:saad1996}) = (mu_r_earth = 1.0 .. 1.0, Γ = 0.0 .. 0.0)
 
 validate(formula::Formula{:saad1996}, ::typeof(impedance!)) = formula
 function validate(formula::Formula{:saad1996}, t::Int, s::Int)
     t > 1 && s > 1 || invoke(validate, Tuple{Formula, Int, Int}, formula, t, s)
     return formula
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Refuse a magnetic earth layer: the formula assumes the permeability of vacuum
-on both sides of the interface.
-
-# Arguments
-
-- `problem`: earth layers of the computation.
-- `formula`: earth-return formula `Formula{:saad1996}` that consumes the problem.
-
-# Returns
-
-- `problem`, unchanged.
-
-# Errors
-
-- Throws `DomainError` for an earth layer whose relative permeability differs from 1.
-"""
-function validate(problem::LineParametersProblem, formula::Formula{:saad1996})
-    for (k, layer) in enumerate(Base.tail(problem.earth.layers))
-        isone(layer.mu_r) || throw(DomainError(layer.mu_r,
-            "the earth-return formula :saad1996 holds for a nonmagnetic earth; the earth layer $k has mu_r = $(layer.mu_r)"))
-    end
-    return problem
 end
 
 function (f::Formula{:saad1996})(::Val{:Z}, ::Val{:self}, i, buffers, input, media, s, k)

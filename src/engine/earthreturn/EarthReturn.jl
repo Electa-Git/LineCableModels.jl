@@ -212,7 +212,7 @@ Z_{g,ij} &= \\frac{s \\mu_0}{2 \\pi} \\left[\\ln\\frac{D'_{ij}}{D_{ij}}
 where ``\\sigma_2 = 1 / \\rho_2`` \\[S/m\\] is the conductivity of the earth. The lengths \\[m\\] are the
 height ``h_i``, the exterior radius ``r_i``, the horizontal distance ``y_{ij}`` and
 ``H_{ij} = h_i + h_j``. The first logarithm of each entry is ``\\Lambda_{ii}`` or ``\\Lambda_{ij}`` at ``\\kappa = 0``. The formula
-leaves out the displacement current of the earth, and it gives the impedance alone. A computation refuses a
+leaves out the displacement current of the earth, and it gives the impedance alone. A computation warns for a
 magnetic earth layer.
 
 ### Callables
@@ -259,7 +259,7 @@ Z_{g,ij} &= \\frac{s \\mu_0}{2 \\pi} \\left[K_0(m D_{ij}) + \\frac{2 e^{-m H_{ij
 
 where ``K_0`` is the modified Bessel function of the second kind and order zero. The source proves
 the form for ``y_{ij} / H_{ij} < 1``. The formula leaves out the displacement current of the earth, and it
-gives the impedance alone. A computation refuses a magnetic earth layer.
+gives the impedance alone. A computation warns for a magnetic earth layer.
 
 ### Callables
 
@@ -285,7 +285,7 @@ Z_{g,ij} &= \\frac{s \\mu_0}{2 \\pi} \\left[\\ln\\frac{S}{D}
 where ``h_a`` is the height of the conductor in the air and ``h_g`` the depth of the conductor in
 the earth \\[m\\]. The horizontal distance is ``y_{ij}`` \\[m\\], and ``\\sigma_2 = 1 / \\rho_2`` \\[S/m\\].
 The formula leaves out the displacement current of the earth. It gives the entries of a mixed pair
-alone, so other formulas fill the air and earth places. A computation refuses a magnetic earth layer.
+alone, so other formulas fill the air and earth places. A computation warns for a magnetic earth layer.
 
 ### Callables
 
@@ -309,7 +309,7 @@ Z_{g,ij} &= \\frac{s \\mu_0}{2 \\pi} e^{-h_g / p} \\ln\\frac{S}{D},
 where ``h_a``, ``h_g`` and ``y_{ij}`` are the lengths of `Formula{:lucca1994}`. The exponential takes
 ``h_g`` as a positive depth. The formula leaves out the displacement current of the earth. It gives
 the entries of a mixed pair alone, so other formulas fill the air and earth places. A computation
-refuses a magnetic earth layer.
+warns for a magnetic earth layer.
 
 ### Callables
 
@@ -336,7 +336,7 @@ those of `Formula{:gary1976}`. The first logarithm of each entry is ``\\Lambda_{
 at ``p = H_{ij} \\sqrt{\\omega \\mu_0 \\sigma_2}`` and ``q = y_{ij} \\sqrt{\\omega \\mu_0 \\sigma_2}``. Its series
 evaluate that integral, and this formula evaluates it on the path of [`SpectralIntegral`](@ref), under the
 options `integral` of [`integrate`](@ref). The formula leaves out the displacement currents of the air
-and the earth, and it gives the impedance alone. A computation refuses a magnetic earth layer.
+and the earth, and it gives the impedance alone. A computation warns for a magnetic earth layer.
 
 ### Callables
 
@@ -374,7 +374,7 @@ where ``\\sigma_2 = 1 / \\rho_2`` \\[S/m\\] and ``J_{ij}`` is in \\[dimensionles
 The formula evaluates the integrals on the path of [`SpectralIntegral`](@ref), under the options
 `integral` of [`integrate`](@ref). Each cable enters as a filament of its exterior radius. The formula
 leaves out the displacement currents of the air and the earth, and it gives the impedance alone. A
-computation refuses a magnetic earth layer.
+computation warns for a magnetic earth layer.
 
 ### Callables
 
@@ -454,7 +454,7 @@ and the lengths are those of `Formula{:gary1976}`. The displacement current of t
 ``\\sqrt{(\\kappa_2^2 - \\kappa_1^2) \\rho_2 / (s \\mu_0)}``.
 
 The formula evaluates the integral on the path of [`SpectralIntegral`](@ref), under the options
-`integral` of [`integrate`](@ref), and it gives the impedance alone. A computation refuses a magnetic
+`integral` of [`integrate`](@ref), and it gives the impedance alone. A computation warns for a magnetic
 earth layer.
 
 ### Callables
@@ -484,7 +484,7 @@ where ``\\varepsilon_1 = \\varepsilon_0 \\varepsilon_{r,1}`` \\[F/m\\], and ``M_
 approximation. Its charts and its closed approximation evaluate the same integral.
 
 The formula evaluates the integral on the path of [`SpectralIntegral`](@ref), under the options
-`integral` of [`integrate`](@ref), and it gives the potential coefficients alone. A computation refuses
+`integral` of [`integrate`](@ref), and it gives the potential coefficients alone. A computation warns for
 a magnetic earth layer.
 
 ### Callables
@@ -527,7 +527,7 @@ At ``\\Gamma = 0`` the formula is the quasi-TEM form of their equations (33) and
 entry is the prescription of that form. The source solves a modal equation for ``k_v``, and the formula
 reads the prescribed ``\\Gamma`` instead. The integrals run on the path of [`SpectralIntegral`](@ref), under
 the options `integral` of [`integrate`](@ref). Each cable enters as a filament of its exterior radius. A
-computation refuses a magnetic earth layer.
+computation warns for a magnetic earth layer.
 
 ### Callables
 
@@ -548,7 +548,9 @@ using ...Commons: FormulationOptions, nominal
 using ...BaseGeometry: support
 using ..Engine: AbstractEarthReturn, CoaxialInput, LineParametersProblem, SpectralIntegral,
                 factorize!, integrate, ε₀, μ₀
-import ..Engine: impedance!, potential!, to_buffer!, from_buffer, initialize_buffers, Λ
+import ..Engine: domain, impedance!, potential!, to_buffer!, from_buffer,
+                 initialize_buffers, Λ
+using IntervalSets: (..)
 using LinearAlgebra: BlasInt, ldiv!
 using SpecialFunctions: besselix, besselkx, besseljx, besselk
 
@@ -610,14 +612,6 @@ end
 # not give its quantity.
 function validate(formula::Formula{ID}, verb) where {ID}
     throw(DomainError(formula, "the earth-return formula :$ID gives no $(nameof(verb))"))
-end
-
-# A formula that does not read Γ takes none: a result records its formulation.
-function validate(Γ::Union{Number, AbstractVector}, formula::Formula{ID}) where {ID}
-    all(iszero, Γ) || throw(DomainError(Γ,
-        "the earth-return formula :$ID does not read Γ; a nonzero Γ needs a formula that " *
-        "models the longitudinal dependence in every earth place"))
-    return Γ
 end
 
 # A formula treats the pairs it declares, each the layer of a target and of a source, 1 the air.

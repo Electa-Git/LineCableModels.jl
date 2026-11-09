@@ -53,6 +53,8 @@
     @test_throws "gives no potential!" CoaxialFormulation(earth_admittance = :lucca1994)
     magnetic = LineParametersProblem(reference.system, homogeneous(rho = 0.1, mu_r = 2.0);
         frequencies = [10.0, 100.0])
-    @test_throws r":lucca1994.*earth layer 1 has mu_r = 2.0" compute(
+    @test_logs (:warn,
+        "the formula :lucca1994 holds for mu_r_earth in 1.0 .. 1.0; " *
+        "the computation has mu_r_earth in 2.0 .. 2.0") compute(
         magnetic, CoaxialFormulation(earth_impedance = (mixed = :lucca1994,)))
 end

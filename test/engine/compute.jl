@@ -256,3 +256,112 @@ end
         @test bytes[1] == bytes[3]
     end
 end
+
+# Two cables 1 m apart at the height y, of one design, over an earth of 10 Ω·m, scanned from 10 Hz
+# to 1 MHz.
+function bounded_pair(design, y, connections; id, mu_r = 1.0, temperature = 20.0)
+    system = build(CableSystem, [design, design], [Placement(0.0, y), Placement(1.0, y)];
+        connections, id, line_length = 1.0)
+    return LineParametersProblem(system, homogeneous(; rho = 10.0, mu_r); temperature,
+        frequencies = 10.0 .^ range(1, 6; length = 11))
+end
+
+@testset "the domain of each formula and the check that reads it" begin
+    Engine = LineCableModels.Engine
+    copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+    polymer = Material(:insulator, 1.0e14, 2.3)
+    wire = build(CableDesign, "cable",
+        Terminal(:core, Region(:core_metal, Circle(0.01), copper)))
+    tube = build(CableDesign, "coaxial",
+        Terminal(:core, Region(:core_metal, Circle(5.0e-3), copper)),
+        Region(:core_insulation, Offset(5.0e-3), polymer),
+        Terminal(:sheath, Region(:sheath_copper, Annulus(10.0e-3, 20.0e-3), copper)),
+        Region(:sheath_jacket, Offset(3.0e-3), polymer))
+    wires = [(core = 1,), (core = 2,)]
+    sheathed = [(core = 1, sheath = 0), (core = 2, sheath = 0)]
+
+    @testset "one warning for each quantity outside a formula's domain" begin
+        @test_logs (:warn,
+            "the formula :alipio2014 holds for frequencies in 100.0 .. 4.0e6; " *
+            "the computation has frequencies in 10.0 .. 1.0e6") compute(
+            bounded_pair(wire, 1.0, wires; id = "overhead"),
+            CoaxialFormulation(earth_properties = :alipio2014))
+        carson = CoaxialFormulation(
+            earth_impedance = :carson1926, earth_admittance = :ideal, Γ = 0.1im)
+        @test_logs (:warn,
+            "the formula :carson1926 holds for mu_r_earth in 1.0 .. 1.0; " *
+            "the computation has mu_r_earth in 300.0 .. 300.0") (:warn,
+            "the formula :carson1926 holds for Γ in 0.0 .. 0.0; " *
+            "the computation has Γ in 0.1 .. 0.1") (:warn,
+            "the formula :ideal holds for Γ in 0.0 .. 0.0; " *
+            "the computation has Γ in 0.1 .. 0.1") compute(
+            bounded_pair(wire, 1.0, wires; id = "overhead", mu_r = 300.0), carson)
+        @test_logs (:warn,
+            r"^the formula :wedepohl1973 holds for mD in 0\.0 \.\. 0\.25; the computation has mD in 2\.8099\d*e-5 \.\. 0\.8885\d*$") compute(
+            bounded_pair(wire, -1.0, wires; id = "buried"),
+            CoaxialFormulation(earth_impedance = (earth = :wedepohl1973,)))
+        @test_logs (:warn,
+            "the formula :wedepohl1973 holds for wall in 0.0 .. 0.125; " *
+            "the computation has wall in 0.33333333333333337 .. 0.33333333333333337") compute(
+            bounded_pair(tube, 1.0, sheathed; id = "tube"),
+            CoaxialFormulation(internal_impedance = :wedepohl1973))
+        @test_logs (:warn,
+            "the formula :linear holds for Δθ in 0.0 .. 150.0; " *
+            "the computation has Δθ in 180.0 .. 180.0") compute(
+            bounded_pair(wire, 1.0, wires; id = "hot", temperature = 200.0), CoaxialFormulation())
+        hot = bounded_pair(wire, 1.0, wires; id = "hot", temperature = 200.0)
+        finite = FEM(earth_properties = :alipio2014)
+        @test_logs (:warn,
+            "the formula :linear holds for Δθ in 0.0 .. 150.0; " *
+            "the computation has Δθ in 180.0 .. 180.0") (:warn,
+            "the formula :alipio2014 holds for frequencies in 100.0 .. 4.0e6; " *
+            "the computation has frequencies in 10.0 .. 1.0e6") LineCableModels.validate(
+            Engine.domain(hot, finite.options), finite)
+    end
+
+    @testset "no warning on the references with the default formulations" begin
+        for (case, problem) in REFERENCES
+            @test_logs compute(problem, CoaxialFormulation())
+            @test_logs LineCableModels.validate(Engine.domain(problem, FEM().options), FEM())
+        end
+    end
+
+    @testset "every declared key is a quantity that the computations present" begin
+        reference = Dict(REFERENCES)["coaxial_circular_strands"]
+        coaxial = CoaxialFormulation()
+        presented = keys(merge(Engine.domain(reference, coaxial.options),
+            Engine.domain(Engine.CoaxialInput(reference, coaxial.options))))
+        for family in (Engine.InternalImpedance, Engine.InsulationImpedance,
+                Engine.InsulationAdmittance, Engine.SemiconAdmittance, Engine.EarthReturn,
+                Engine.Shunt, Engine.Resistivity, Engine.EarthProperties),
+            id in family.FORMULAS
+
+            @test keys(Engine.domain(family.Formula(Val(id)))) ⊆ presented
+        end
+        presented = keys(Engine.domain(reference, FEM().options))
+        for family in (Engine.InsulationAdmittance, Engine.SemiconAdmittance,
+                Engine.Resistivity, Engine.EarthProperties),
+            id in family.FORMULAS
+
+            @test keys(Engine.domain(family.Formula(Val(id)))) ⊆ presented
+        end
+    end
+
+    @testset "the check and its readers are inferred, with no runtime dispatch" begin
+        problem = Dict(REFERENCES)["coaxial_circular_strands"]
+        formulation = CoaxialFormulation()
+        input = Engine.CoaxialInput(problem, formulation.options)
+        given = @inferred Engine.domain(problem, formulation.options)
+        tubes = @inferred Engine.domain(input)
+        presented = merge(given, tubes)
+        @test (@inferred LineCableModels.validate(presented, formulation)) === presented
+        JET.@test_opt target_modules=(LineCableModels,) Engine.domain(problem, formulation.options)
+        JET.@test_opt target_modules=(LineCableModels,) Engine.domain(input)
+        JET.@test_opt target_modules=(LineCableModels,) LineCableModels.validate(presented, formulation)
+        finite = FEM()
+        given = @inferred Engine.domain(problem, finite.options)
+        @test (@inferred LineCableModels.validate(given, finite)) === given
+        JET.@test_opt target_modules=(LineCableModels,) Engine.domain(problem, finite.options)
+        JET.@test_opt target_modules=(LineCableModels,) LineCableModels.validate(given, finite)
+    end
+end

@@ -8,8 +8,9 @@
         @test law(copper, copper.T0) == copper.rho
         @test law(copper, copper.T0 + 70) ≈
               copper.rho * (1 + 70 * copper.alpha) rtol = 1.0e-15
-        @test_throws DomainError law(copper, copper.T0 + 150)
-        @test_throws DomainError law(copper, copper.T0 - 150)
+        @test law(copper, copper.T0 + 180) ≈
+              copper.rho * (1 + 180 * copper.alpha) rtol = 1.0e-15
+        @test_throws DomainError law(copper, copper.T0 - 300)
     end
 
     @testset "the constant properties of the earth" begin
@@ -340,11 +341,17 @@
         end
         above = LineParametersProblem(system, homogeneous(rho = 0.1);
             frequencies = [1.0e3, 1.0e11])
-        for id in
-            (:alipio2014, :cigre2019, :datsios2019, :longmire1975, :messier1985,
-            :portela1999, :scott1967, :visacro1987, :visacro2012)
-            law = Engine.EarthProperties.Formula(Val(id))
-            @test_logs (:warn, Regex(":$id")) LineCableModels.validate(above, law)
+        for (id, bounds) in
+            ((:alipio2014, "100.0 .. 4.0e6"), (:cigre2019, "100.0 .. 4.0e6"),
+            (:datsios2019, "42.0 .. 1.0e6"), (:longmire1975, "5.0 .. 3.0e10"),
+            (:messier1985, "100.0 .. 1.0e6"), (:portela1999, "100.0 .. 2.0e6"),
+            (:scott1967, "100.0 .. 1.0e6"), (:visacro1987, "40.0 .. 2.0e6"),
+            (:visacro2012, "100.0 .. 4.0e6"))
+            formulation = CoaxialFormulation(earth_properties = id)
+            @test_logs (:warn,
+                "the formula :$id holds for frequencies in $bounds; " *
+                "the computation has frequencies in 1000.0 .. 1.0e11") LineCableModels.validate(
+                LineCableModels.domain(above, formulation.options), formulation)
         end
     end
 
@@ -521,8 +528,9 @@
         earth = EarthModel((EarthLayer(Inf, 1.0, 1.0), EarthLayer(100.0, 10.0, 2.0, 5.0),
             EarthLayer(50.0, 5.0, 1.0)))
         problem = LineParametersProblem(system, earth; frequencies = [1.0e3, 1.0e4, 1.0e5])
-        @test_throws DomainError(2.0,
-            "the equivalent earth :xue2021 holds for a nonmagnetic earth; the earth layer 1 has mu_r = 2.0") compute(
+        @test_logs (:warn,
+            "the formula :xue2021 holds for mu_r_earth in 1.0 .. 1.0; " *
+            "the computation has mu_r_earth in 1.0 .. 2.0") compute(
             problem, CoaxialFormulation(equivalent_earth = :xue2021))
         result = compute(problem, CoaxialFormulation(equivalent_earth = :martins2020))
         @test result isa Engine.LineParameters

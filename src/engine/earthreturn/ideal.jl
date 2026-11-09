@@ -1,4 +1,5 @@
 defaults(::Type{Formula{:ideal}}) = (;)
+domain(::Formula{:ideal}) = (Γ = 0.0 .. 0.0,)
 
 # The formula gives the potential coefficients alone.
 validate(formula::Formula{:ideal}, ::typeof(potential!)) = formula

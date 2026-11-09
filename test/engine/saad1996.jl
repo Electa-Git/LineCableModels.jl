@@ -54,5 +54,7 @@ using SpecialFunctions: besselk
     reference = Dict(REFERENCES)["two_bare_wires"]
     magnetic = LineParametersProblem(reference.system, homogeneous(rho = 0.1, mu_r = 2.0);
         frequencies = [10.0, 100.0])
-    @test_throws r":saad1996.*earth layer 1 has mu_r = 2.0" compute(magnetic, formulation)
+    @test_logs (:warn,
+        "the formula :saad1996 holds for mu_r_earth in 1.0 .. 1.0; " *
+        "the computation has mu_r_earth in 2.0 .. 2.0") compute(magnetic, formulation)
 end

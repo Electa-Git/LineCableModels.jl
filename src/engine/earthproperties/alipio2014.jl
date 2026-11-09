@@ -1,6 +1,7 @@
 function defaults(::Type{Formula{:alipio2014}})
     (exponent = 0.54, epsilon_high = 12.0, scale = 1.26, sigma_exponent = -0.73)
 end
+domain(::Formula{:alipio2014}) = (frequencies = 100.0 .. 4.0e6,)
 
 validate(formula::Formula{:alipio2014}, ::Type{EarthLayer}) = formula
 
@@ -44,26 +45,4 @@ function validate(options::FormulationOptions{Formula{:alipio2014}})
         throw(ArgumentError(
             "Alipio–Visacro exponent must not be an odd integer (tangent pole)"))
     return options
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Warn once when the scan of `problem` leaves the range of the law.
-
-# Arguments
-
-- `problem`: frequencies of the scan.
-- `formula`: law `Formula{:alipio2014}` that consumes the problem.
-
-# Returns
-
-- `problem`, unchanged.
-"""
-function validate(problem::LineParametersProblem, formula::Formula{:alipio2014})
-    frequencies = problem.frequencies
-    if first(frequencies) < 100 || last(frequencies) > 4e6
-        @warn "the law :alipio2014 holds from 100 Hz to 4 MHz; the scan runs from $(first(frequencies)) Hz to $(last(frequencies)) Hz"
-    end
-    return problem
 end

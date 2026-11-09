@@ -1,4 +1,5 @@
 defaults(::Type{Formula{:visacro1987}}) = (normalization_frequency = 100.0,)
+domain(::Formula{:visacro1987}) = (frequencies = 40.0 .. 2.0e6,)
 
 validate(formula::Formula{:visacro1987}, ::Type{EarthLayer}) = formula
 
@@ -32,26 +33,4 @@ function validate(options::FormulationOptions{Formula{:visacro1987}})
     options.normalization_frequency > 0 || throw(ArgumentError(
         "Visacro–Portela normalization_frequency must be positive [Hz]"))
     return options
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Warn once when the scan of `problem` leaves the range of the law.
-
-# Arguments
-
-- `problem`: frequencies of the scan.
-- `formula`: law `Formula{:visacro1987}` that consumes the problem.
-
-# Returns
-
-- `problem`, unchanged.
-"""
-function validate(problem::LineParametersProblem, formula::Formula{:visacro1987})
-    frequencies = problem.frequencies
-    if first(frequencies) < 40 || last(frequencies) > 2e6
-        @warn "the law :visacro1987 holds from 40 Hz to 2 MHz; the scan runs from $(first(frequencies)) Hz to $(last(frequencies)) Hz"
-    end
-    return problem
 end

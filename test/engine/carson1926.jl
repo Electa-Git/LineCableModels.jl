@@ -100,9 +100,16 @@ end
     @test_throws "gives no potential!" CoaxialFormulation(earth_admittance = :carson1926)
     magnetic = LineParametersProblem(reference.system, homogeneous(rho = 0.1, mu_r = 2.0);
         frequencies = [10.0, 100.0])
-    @test_throws r":carson1926.*earth layer 1 has mu_r = 2.0" compute(magnetic, formulation)
-    @test_throws "does not read Γ" CoaxialFormulation(earth_impedance = :carson1926,
-        earth_admittance = :ideal, Γ = 1e-3im)
+    @test_logs (:warn,
+        "the formula :carson1926 holds for mu_r_earth in 1.0 .. 1.0; " *
+        "the computation has mu_r_earth in 2.0 .. 2.0") compute(magnetic, formulation)
+    gamma = CoaxialFormulation(earth_impedance = :carson1926, earth_admittance = :ideal,
+        Γ = 1e-3im)
+    @test_logs (:warn,
+        "the formula :carson1926 holds for Γ in 0.0 .. 0.0; " *
+        "the computation has Γ in 0.001 .. 0.001") (:warn,
+        "the formula :ideal holds for Γ in 0.0 .. 0.0; " *
+        "the computation has Γ in 0.001 .. 0.001") compute(reference, gamma)
     @test_throws ArgumentError CoaxialFormulation(
         earth_impedance = :carson1926 => (integral = (rtol = -1.0,),))
     @test (@inferred compute(

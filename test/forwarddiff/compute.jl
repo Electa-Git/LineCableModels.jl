@@ -74,3 +74,18 @@ end
         end
     end
 end
+
+@testset "the check reads the nominal values of a Dual problem" begin
+    Engine = LineCableModels.Engine
+    problem = trefoil_problem(ForwardDiff.Dual.([10.0e-3, 8.0e-3, 100.0], 1.0))
+    formulation = CoaxialFormulation()
+    input = Engine.CoaxialInput(problem, formulation.options)
+    given = @inferred Engine.domain(problem, formulation.options)
+    tubes = @inferred Engine.domain(input)
+    presented = merge(given, tubes)
+    @test all(interval -> eltype(interval) === Float64, presented)
+    @test (@inferred LineCableModels.validate(presented, formulation)) === presented
+    JET.@test_opt target_modules=(LineCableModels,) Engine.domain(problem, formulation.options)
+    JET.@test_opt target_modules=(LineCableModels,) Engine.domain(input)
+    JET.@test_opt target_modules=(LineCableModels,) LineCableModels.validate(presented, formulation)
+end

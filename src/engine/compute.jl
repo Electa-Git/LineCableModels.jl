@@ -309,9 +309,9 @@ function compute(
         options::ComputationOptions{LCMBackend}
 ) where {T <: Real}
     validate(problem, formulation)
-    map(formula -> validate(problem, formula), formulation.formulas)
     input = CoaxialInput(problem, formulation.options)
     validate(input, formulation)
+    validate(merge(domain(problem, formulation.options), domain(input)), formulation)
     buffers = initialize_buffers(formulation, problem, input)
     n = length(input.cable)
     c = length(input.radius)

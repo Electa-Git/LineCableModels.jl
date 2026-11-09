@@ -205,5 +205,14 @@ end
         options = LineCableModels.ComputationOptions(Engine.LCMBackend; trace = true)
         JET.@test_opt target_modules=(LineCableModels,) Engine.solve!(
             Z, Y, trace, problem, input, formulation, buffers, options)
+        # The check reads the nominal values of an uncertain problem.
+        given = @inferred Engine.domain(problem, formulation.options)
+        tubes = @inferred Engine.domain(input)
+        presented = merge(given, tubes)
+        @test all(interval -> eltype(interval) === Float64, presented)
+        @test (@inferred LineCableModels.validate(presented, formulation)) === presented
+        JET.@test_opt target_modules=(LineCableModels,) Engine.domain(problem, formulation.options)
+        JET.@test_opt target_modules=(LineCableModels,) Engine.domain(input)
+        JET.@test_opt target_modules=(LineCableModels,) LineCableModels.validate(presented, formulation)
     end
 end

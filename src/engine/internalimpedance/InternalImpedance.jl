@@ -99,11 +99,12 @@ impedances of the inner and outer surfaces and the transfer impedance between th
 module InternalImpedance
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ...Commons: defaults, validate
+import ...Commons: defaults
 using ...Commons: FormulationOptions
-using ...DataModel: flatten
-using ..Engine: AbstractInternalImpedance, LineParametersProblem
+using ..Engine: AbstractInternalImpedance
 using ..Engine: μ₀
+import ..Engine: domain
+using IntervalSets: (..)
 using SpecialFunctions: besselix, besselkx
 
 export Formula, FORMULAS

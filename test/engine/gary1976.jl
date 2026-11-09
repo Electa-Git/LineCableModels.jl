@@ -51,5 +51,7 @@
     reference = Dict(REFERENCES)["overhead_bare_wires"]
     magnetic = LineParametersProblem(reference.system, homogeneous(rho = 0.1, mu_r = 2.0);
         frequencies = [10.0, 100.0])
-    @test_throws r":gary1976.*earth layer 1 has mu_r = 2.0" compute(magnetic, formulation)
+    @test_logs (:warn,
+        "the formula :gary1976 holds for mu_r_earth in 1.0 .. 1.0; " *
+        "the computation has mu_r_earth in 2.0 .. 2.0") compute(magnetic, formulation)
 end

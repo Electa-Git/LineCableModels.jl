@@ -130,8 +130,12 @@ end
     @test_throws "treats no pair of a receiver in the air and a source in the earth" compute(
         Dict(REFERENCES)["mixed_bare_wires"], CoaxialFormulation(earth_impedance = (
             air = :carson1926, earth = :saad1996, mixed = :papadopoulos2010)))
-    @test_throws "does not read Γ" CoaxialFormulation(
-        earth_impedance = :papadopoulos2010, earth_admittance = :papadopoulos2010, Γ = 1e-3im)
+    gamma = CoaxialFormulation(earth_impedance = :papadopoulos2010,
+        earth_admittance = :papadopoulos2010, Γ = 1e-3im)
+    @test_logs (:warn,
+        "the formula :papadopoulos2010 holds for Γ in 0.0 .. 0.0; " *
+        "the computation has Γ in 0.001 .. 0.001") LineCableModels.validate(
+        LineCableModels.domain(Dict(REFERENCES)["two_bare_wires"], gamma.options), gamma)
     @test_throws ArgumentError CoaxialFormulation(
         earth_impedance = :papadopoulos2010 => (integral = (rtol = -1.0,),))
 

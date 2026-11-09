@@ -149,12 +149,22 @@ end
         @test_throws "reduces no earth model" CoaxialFormulation(;
             equivalent_earth = :constant)
         @test CoaxialFormulation(; Γ = [0.1im]).options.Γ == [0.1im]
-        # A nonzero Γ needs a formula that reads it in every earth place.
+        # A formula that does not read Γ holds at Γ = 0, and a computation at another Γ warns.
+        # A Γ per frequency presents the range of its moduli.
         @test CoaxialFormulation(; Γ = 1.0e-3im).options.Γ == 1.0e-3im
-        @test_throws ":ideal does not read Γ" CoaxialFormulation(;
-            earth_admittance = :ideal, Γ = 1.0e-3im)
-        @test_throws ":ideal does not read Γ" CoaxialFormulation(;
+        scan = LineParametersProblem(Dict(REFERENCES)["overhead_bare_wires"].system,
+            Dict(REFERENCES)["overhead_bare_wires"].earth; frequencies = [50.0, 60.0])
+        ideal = CoaxialFormulation(; earth_admittance = :ideal, Γ = 1.0e-3im)
+        @test_logs (:warn,
+            "the formula :ideal holds for Γ in 0.0 .. 0.0; " *
+            "the computation has Γ in 0.001 .. 0.001") LineCableModels.validate(
+            LineCableModels.domain(scan, ideal.options), ideal)
+        ideal = CoaxialFormulation(;
             earth_admittance = (air = :ideal,), Γ = [0.0im, 1.0e-3im])
+        @test_logs (:warn,
+            "the formula :ideal holds for Γ in 0.0 .. 0.0; " *
+            "the computation has Γ in 0.0 .. 0.001") LineCableModels.validate(
+            LineCableModels.domain(scan, ideal.options), ideal)
         @test CoaxialFormulation(;
             earth_admittance = :ideal, Γ = [0.0im]).options.Γ == [0.0im]
         @test_throws DomainError CoaxialFormulation(; Γ = complex(Inf))
@@ -266,11 +276,13 @@ end
         @test_throws "unknown options (:earth_impedance,)" @formulation FEM begin
             earth_impedance = :saad1996
         end
-        @test_throws "does not read Γ" @formulation begin
+        @test (@formulation begin
             earth_impedance = @air :gary1976 @earth :saad1996 @mixed :lucca1994
             earth_admittance = :ideal
             Γ = 1e-3im
-        end
+        end) === CoaxialFormulation(;
+            earth_impedance = (air = :gary1976, earth = :saad1996, mixed = :lucca1994),
+            earth_admittance = :ideal, Γ = 1e-3im)
         @test_throws "the earth slots hold two different :martins2026 formulas" @formulation begin
             earth_impedance = @air :martins2026 => section
         end

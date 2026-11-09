@@ -137,7 +137,9 @@ end
     problem = LineParametersProblem(system, homogeneous(rho = 100);
         frequencies = [50.0, 1.0e4, 1.0e6])
     formulation = CoaxialFormulation(internal_impedance = :wedepohl1973)
-    result = @test_logs (:warn, r"1/8") compute(problem, formulation)
+    result = @test_logs (:warn,
+        r"^the formula :wedepohl1973 holds for wall in 0\.0 \.\. 0\.125; the computation has wall in 0\.35") compute(
+        problem, formulation)
     @test result isa LineParameters
 
     thin = build(CableDesign, "thin_tube",

@@ -118,3 +118,13 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
             eliminated, terminals)
     end
 end
+
+# The tubes with a hole that the coaxial input reduces its conductors to.
+function domain(input::CoaxialInput{T}) where {T <: Real}
+    N = typeof(nominal(zero(T)))
+    none = (typemax(N), typemin(N))
+    wall = extrema(
+        nominal((input.r_ex[i] - input.r_in[i]) / (input.r_ex[i] + input.r_in[i]))
+        for i in eachindex(input.r_in) if !iszero(input.r_in[i]); init = none)
+    return (wall = ClosedInterval(wall...),)
+end

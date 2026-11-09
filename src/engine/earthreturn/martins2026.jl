@@ -52,8 +52,6 @@ validate(formula::Formula{:martins2026}, ::typeof(impedance!)) = formula
 validate(formula::Formula{:martins2026}, ::typeof(potential!)) = formula
 validate(formula::Formula{:martins2026}, ::Int, ::Int) = formula
 
-validate(Γ::Union{Number, AbstractVector}, formula::Formula{:martins2026}) = Γ
-
 """
 $(TYPEDSIGNATURES)
 

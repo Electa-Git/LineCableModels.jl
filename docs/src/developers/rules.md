@@ -235,6 +235,9 @@ checks user input, or an input derived from it, before a consumer uses it. It th
 invalid input with a native exception that states the field, the value and the condition. It
 may warn on input that is computable but questionable. It returns its subject unchanged.
 
+The questionable input of a formula is a quantity outside its `domain`. The `domain` is the
+formula's one statement of its range, and one check reads it for every formula and warns.
+
 A check runs where its fact is built: the inner constructor of a record calls `validate` on
 the new object. The context is the consumer, such as the problem, the formulation, the
 physical model or the result being built, and never a plumbing function or a `Val` tag.
@@ -376,6 +379,7 @@ const FORMULAS = (:martins2026, :ideal, :saad1996)
 
 # in src/engine/earthreturn/saad1996.jl
 defaults(::Type{Formula{:saad1996}}) = (;)
+domain(::Formula{:saad1996}) = (mu_r_earth = 1.0 .. 1.0, Γ = 0.0 .. 0.0)
 validate(formula::Formula{:saad1996}, ::typeof(impedance!)) = formula
 
 function (f::Formula{:saad1996})(::Val{:Z}, ::Val{:self}, i, buffers, input, media, s, k)
@@ -429,6 +433,10 @@ frequency, and `from_buffer(f, buffers)` reads them. The arrays of the block com
 the formula's own, keyed by its identifier. A family whose formulas own blocks has one
 `from_buffer` method.
 
+A formula that holds within bounds declares them in `domain`, by the keys of the quantities
+that a computation presents: `frequencies`, `mu_r_earth`, `Γ`, `mD`, `Δθ` and `wall`. One
+check reads every formula's `domain` and warns once for each quantity outside it.
+
 The equations, the symbols and the call form of each callable go to the "Formulas" section of
 the family module's docstring, as the [conventions](conventions.md) say. A callable has no
 docstring of its own.
@@ -450,7 +458,8 @@ A backend is a singleton of `AbstractBackend` in `Engine`. It adds three things.
 - `compute(::B, problem, formulation, options::ComputationOptions{B})`, which computes.
 
 A backend that has something to refuse adds `validate(formulation, ::B)`. Otherwise the refusal
-is the fallback of `compute`.
+is the fallback of `compute`. Its `compute` method checks the domain that it presents by
+`validate(presented, formulation)` after its refusals, as both backends do.
 
 A backend implemented in an extension defines its methods there and leaves its singleton in
 `Engine`, as `GmshBackend` does. A formulation's default backend is one `backend` method.

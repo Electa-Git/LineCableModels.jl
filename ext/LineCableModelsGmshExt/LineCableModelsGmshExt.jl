@@ -27,7 +27,7 @@ using LineCableModels.BaseGeometry: Placement, support, Segment, Arc, EllipticAr
 import LineCableModels.Engine: solve!
 using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem, LineParameters,
                               bundle!, eliminate!, factorize!, transposition!, admittivity,
-                              initialize_buffers, reductions,
+                              domain, initialize_buffers, reductions,
                               ε₀,
                               μ₀
 
@@ -111,7 +111,7 @@ function compute(::GmshBackend, problem::LineParametersProblem, formulation::FEM
         options::ComputationOptions{GmshBackend})
     mapped = map(x -> Float64(nominal(x)), problem)
     validate(mapped, formulation)
-    map(formula -> validate(mapped, formula), formulation.formulas)
+    validate(domain(mapped, formulation.options), formulation)
     model = FieldModel(mapped, formulation)
     path = directory(mapped)
     for name in (joinpath("input", "getdp"), "mesh", joinpath("results", "jobs"),

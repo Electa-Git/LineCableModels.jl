@@ -1,4 +1,5 @@
 defaults(::Type{Formula{:portela1999}}) = (beta = 0.1, exponent = 0.72)
+domain(::Formula{:portela1999}) = (frequencies = 100.0 .. 2.0e6,)
 
 validate(formula::Formula{:portela1999}, ::Type{EarthLayer}) = formula
 
@@ -37,26 +38,4 @@ function validate(options::FormulationOptions{Formula{:portela1999}})
         throw(ArgumentError(
             "Portela exponent must not be an odd integer (tangent pole)"))
     return options
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Warn once when the scan of `problem` leaves the range of the law.
-
-# Arguments
-
-- `problem`: frequencies of the scan.
-- `formula`: law `Formula{:portela1999}` that consumes the problem.
-
-# Returns
-
-- `problem`, unchanged.
-"""
-function validate(problem::LineParametersProblem, formula::Formula{:portela1999})
-    frequencies = problem.frequencies
-    if first(frequencies) < 100 || last(frequencies) > 2e6
-        @warn "the law :portela1999 holds from 100 Hz to 2 MHz; the scan runs from $(first(frequencies)) Hz to $(last(frequencies)) Hz"
-    end
-    return problem
 end

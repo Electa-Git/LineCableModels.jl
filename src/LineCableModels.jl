@@ -38,7 +38,7 @@ using .DataModel: AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle,
 using .Engine: ε₀, μ₀, AbstractInternalImpedance,
                AbstractInsulationImpedance, AbstractInsulationAdmittance,
                AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt,
-               AbstractResistivity, AbstractEarthProperties, admittivity,
+               AbstractResistivity, AbstractEarthProperties, admittivity, domain,
                impedance!, potential!, to_buffer!, from_buffer, initialize_buffers,
                LineParametersProblem, CoaxialFormulation, FEM, LCMBackend,
                GmshBackend, backend, LineParameters, bundle!, eliminate!, factorize!,
@@ -69,7 +69,7 @@ public ε₀, μ₀, LCMBackend, GmshBackend, backend
 public AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulationAdmittance,
        AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt, AbstractResistivity,
        AbstractEarthProperties
-public admittivity, impedance!, potential!, to_buffer!, from_buffer,
+public admittivity, domain, impedance!, potential!, to_buffer!, from_buffer,
        initialize_buffers, bundle!, eliminate!, factorize!, transposition!,
        SpectralIntegral, integrate, nominal, Λ, reductions
 

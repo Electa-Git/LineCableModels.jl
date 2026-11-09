@@ -1,39 +1,11 @@
 defaults(::Type{Formula{:xue2018}}) = (integral = integrate => :quad,)
+domain(::Formula{:xue2018}) = (mu_r_earth = 1.0 .. 1.0,)
 
 validate(formula::Formula{:xue2018}, ::typeof(impedance!)) = formula
 validate(formula::Formula{:xue2018}, ::typeof(potential!)) = formula
 function validate(formula::Formula{:xue2018}, t::Int, s::Int)
     t > 1 && s > 1 || invoke(validate, Tuple{Formula, Int, Int}, formula, t, s)
     return formula
-end
-
-validate(Γ::Union{Number, AbstractVector}, formula::Formula{:xue2018}) = Γ
-
-"""
-$(TYPEDSIGNATURES)
-
-Refuse a magnetic earth layer: the formula assumes the permeability of vacuum
-on both sides of the interface.
-
-# Arguments
-
-- `problem`: earth layers of the computation.
-- `formula`: earth-return formula `Formula{:xue2018}` that consumes the problem.
-
-# Returns
-
-- `problem`, unchanged.
-
-# Errors
-
-- Throws `DomainError` for an earth layer whose relative permeability differs from 1.
-"""
-function validate(problem::LineParametersProblem, formula::Formula{:xue2018})
-    for (k, layer) in enumerate(Base.tail(problem.earth.layers))
-        isone(layer.mu_r) || throw(DomainError(layer.mu_r,
-            "the earth-return formula :xue2018 holds for a nonmagnetic earth; the earth layer $k has mu_r = $(layer.mu_r)"))
-    end
-    return problem
 end
 
 function initialize_buffers(f::Formula{:xue2018}, input::CoaxialInput{T},
