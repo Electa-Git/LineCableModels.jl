@@ -124,6 +124,19 @@ function validate(pattern::CircularPattern{T, T}, rectangle::Rectangle) where {T
     return pattern
 end
 
+# A pattern of radius zero turns copies of a sector about their common center, one in each step.
+function validate(pattern::CircularPattern{T, T}, sector::Sector) where {T}
+    iszero(pattern.r) || throw(DomainError(pattern.r,
+        "a sector is laid about the center it is declared about: CircularPattern.r must " *
+        "be zero"))
+    step = pattern.span / pattern.n
+    tolerance = sqrt(eps(float(step))) * max(one(step), step)
+    sector.span <= step + tolerance || throw(DomainError(pattern.n,
+        "$(pattern.n) sectors of span $(sector.span) rad do not fit in a span of " *
+        "$(pattern.span) rad"))
+    return pattern
+end
+
 # A circular pattern with a declared radius keeps it in any context.
 function resolve(::Union{EmptyBoundary, AbstractShape}, pattern::CircularPattern{T, T},
         ::AbstractShape) where {T}
@@ -165,6 +178,9 @@ r_i = \\max\\left(0, R - \\frac{h}{2}\\right), \\qquad r_o = r_i + h, \\qquad
 \\Delta\\phi_\\mathrm{sector} = \\frac{2 w h}{r_o^2 - r_i^2}.
 ```
 
+A [`Sector`](@ref) needs a pattern of radius ``R = 0``. Member ``k`` is the sector turned by
+``\\phi_k`` about the center of the part, with ``\\delta = \\Delta\\phi / n``.
+
 Radii, widths and heights are in \\[m\\], and angles in \\[rad\\].
 
 A [`LinearPattern`](@ref) places a circle unchanged at each of its points.
@@ -172,6 +188,7 @@ A [`LinearPattern`](@ref) places a circle unchanged at each of its points.
 # Errors
 
 - Throws `DomainError` when the members do not fit on the pattern with its clearance.
+- Throws `DomainError` when a pattern of sectors has a radius other than zero.
 """
 function placements end
 
@@ -197,6 +214,14 @@ function placements(pattern::CircularPattern{T, T}, rectangle::Rectangle) where 
     return (placements = members,
         shape = Sector(
             inner, outer, span, zero(span), zero(span), Placement(zero(span), zero(span))))
+end
+
+function placements(pattern::CircularPattern{T, T}, sector::Sector) where {T}
+    validate(pattern, sector)
+    step = pattern.span / pattern.n
+    members = [Placement(zero(step), zero(step), pattern.φ0 + k * step)
+               for k in 0:(pattern.n - 1)]
+    return (placements = members, shape = sector)
 end
 
 """

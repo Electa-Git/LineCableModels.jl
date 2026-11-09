@@ -1,10 +1,11 @@
 # Reference results
 
-Per-unit-length line parameters of the six cable systems of this release, computed with the
+Per-unit-length line parameters of the seven cable systems of this release, computed with the
 earth-return formula `:martins2026` and with FEM. The tests compare the package against them.
 
 Each case is a problem of `test/references/problems.jl`. Commit `bee50049` computed the rows of
-every case. The analytical rows come from `compute(problem, CoaxialFormulation())` at the 101
+the first six cases, and the commit that adds each later case computed its rows. The analytical
+rows come from `compute(problem, CoaxialFormulation())` at the 101
 frequencies of the problem. The FEM rows come from the formulation of the FEM test of the suite,
 `FEM(; bundle = false, kron = false, transposition = false)`. They hold 11 of the frequencies,
 and the table gives their run.
@@ -21,6 +22,7 @@ the FEM rows of every case within 2e-8 of the largest diagonal entry. The suite 
 | `coaxial_rectangular_strands` | the same cable with a core of rectangular strands | `bee50049` | `20261109-083248-j17k` |
 | `overhead_bare_wires` | two bare copper wires of radius 42.5 mm, 1 m apart, 1 m above earth of 0.1 Ω·m (εr 1) | `bee50049` | `20261109-083138-xbye` |
 | `mixed_bare_wires` | the same wires at (0, 1) m and (1, −1) m, one overhead and one buried | `bee50049` | `20261109-083138-c7w6` |
+| `one_insulated_sector` | one aluminum sector core with its PVC insulation and a PVC jacket, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-144108-sx0a` |
 
 The coaxial cable, from the center out:
 
@@ -33,6 +35,17 @@ The coaxial cable, from the center out:
 - A copper sheath of 1 mm and a PE bedding of 3 mm follow.
 - The armor is 40 steel wires of 4 mm at lay ratio 10, with relative permeability 36.6, under
   a PE jacket of 4 mm.
+
+The core of `one_insulated_sector` is one aluminum sector of a 1 kV cable of three cores. Its
+outer radius is 10.24 mm and its span 119°, and arcs of 1.02 mm round its three corners. Its sides
+meet 1.27 mm from its center. It measures 86.5 mm², against the nominal section of 95 mm² of the
+cable's designation. A PVC layer of 1.1 mm follows its outline, and a PVC jacket of 3 mm follows
+that layer.
+
+The analytical rows of that case come from the equivalent tube of the sector: 2.585 mm to
+5.849 mm, of the same area. Its resistivity gives the sector's conductance, and its
+permeability gives the geometric mean radius of the circle of the same area. So the case compares
+that equivalent section of a sector with FEM.
 
 ## Files
 
@@ -50,8 +63,8 @@ incidental state such as the length of the run directory's path.
 
 ## Intermediate matrices
 
-Each case folder also holds `stages.csv`, and the folder of `two_insulated_wires` holds
-`stages-gamma.csv`. They give the four matrices from which the analytical computation builds `Z`
+The folders of the first six cases also hold `stages.csv`, and the folder of
+`two_insulated_wires` holds `stages-gamma.csv`. They give the four matrices from which the analytical computation builds `Z`
 and `Y`, at the same 101 frequencies:
 
 - `Zin`, per conductor: the series impedance inside each cable from its conductors to its outer
@@ -103,6 +116,7 @@ The port's run gives these maxima against the analytical rows:
 | `coaxial_rectangular_strands` | 5.20 % | 10.4 % |
 | `overhead_bare_wires` | 0.610 % | 0.817 % |
 | `mixed_bare_wires` | 0.609 % | 0.617 % |
+| `one_insulated_sector` | 7.62 % | 6.85 % |
 
 The file `two_bare_wires/xue2021.csv` gives `analytical` and `fem` rows of `Z` and `Y` at 1 kHz
 for the wires of `two_bare_wires` on a layered earth. The upper layer is 100 Ω·m and 5 m thick
@@ -173,6 +187,9 @@ The source gives the following results against the analytical rows:
     against the tube.
   - With the armor as a tube and a straight core, e_Z is at most 0.42 % and e_Y at most
     0.094 % for the rectangular strands, and 0.63 % and 0.13 % for the circular strands.
+
+For `one_insulated_sector`, e_Z rises from 0.057 % at 0.1 Hz to 7.62 % at 10 MHz. Its e_Y is
+1.3 % up to 40 kHz and 6.85 % at 10 MHz.
 
 ## Cable systems of the case scripts
 

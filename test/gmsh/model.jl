@@ -14,7 +14,13 @@ using LineCableModels.Engine: admittivity, reductions
             [:core_semicon_inner, :core_insulation, :core_semicon_outer,
                 :sheath_bedding, :armour_jacket], [false]),
         "overhead_bare_wires" => (2, 1, 0, Symbol[], [true, true]),
-        "mixed_bare_wires" => (2, 1, 0, Symbol[], [true, false]))
+        "mixed_bare_wires" => (2, 1, 0, Symbol[], [true, false]),
+        "one_insulated_sector" => (3, 2, 0, Symbol[], [false]))
+    # Per case, the copies of a repeat by tag and count: the regions of `model.strand`.
+    coaxial = [:core_strands_1 => 6, :core_strands_2 => 12, :core_strands_3 => 18,
+        :armour_wires => 40]
+    strands = Dict("coaxial_circular_strands" => coaxial,
+        "coaxial_rectangular_strands" => coaxial)
     @testset "$case" for (case, reference) in REFERENCES
         regions, groups, layers, expected_layers, air = facts[case]
         problem = LineParametersProblem(reference.system, reference.earth;
@@ -39,18 +45,9 @@ using LineCableModels.Engine: admittivity, reductions
                   [admittivity(formulation, material, f, problem.temperature)
                    for f in problem.frequencies]
         end
-        if startswith(case, "coaxial")
-            core = findall(
-                region -> startswith(string(region.source.tag), "core_strands_"),
-                problem.system.regions)
-            armour = findall(region -> region.source.tag == :armour_wires,
-                problem.system.regions)
-            @test findall(model.strand) == sort([core; armour])
-            @test length(intersect(findall(model.strand), core)) == 36
-            @test length(intersect(findall(model.strand), armour)) == 40
-        else
-            @test isempty(findall(model.strand))
-        end
+        tags = [region.source.tag for region in problem.system.regions[model.strand]]
+        @test [tag => count(==(tag), tags) for tag in unique(tags)] ==
+              get(strands, case, Pair{Symbol, Int}[])
     end
 
     copper = Material(:conductor, Inf)

@@ -239,7 +239,8 @@
         "coaxial_circular_strands" => (Z = 0.0492, Y = 0.105),
         "coaxial_rectangular_strands" => (Z = 0.0520, Y = 0.104),
         "overhead_bare_wires" => (Z = 0.00610, Y = 0.00817),
-        "mixed_bare_wires" => (Z = 0.00609, Y = 0.00617))
+        "mixed_bare_wires" => (Z = 0.00609, Y = 0.00617),
+        "one_insulated_sector" => (Z = 0.0762, Y = 0.0685))
     @testset "$case" for (case, reference) in REFERENCES
         expected = facts[case]
         problem = LineParametersProblem(reference.system, reference.earth;

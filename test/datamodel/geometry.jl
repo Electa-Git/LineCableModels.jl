@@ -105,6 +105,18 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test all(abs.(centroid(annulus)) .< 1.0e-15)
     end
 
+    @testset "a circular pattern of radius zero turns a sector about its center" begin
+        segment = Sector(0, 31.15e-3, π / 3, 0, 1.25e-3, Placement(0, 0))
+        course = placements(CircularPattern(6; r = 0.0), segment)
+        @test course.shape === segment
+        @test all(placement -> placement.x == 0 && placement.y == 0, course.placements)
+        @test [placement.φ for placement in course.placements] ≈ (0:5) .* (π / 3)
+        @test_throws DomainError placements(CircularPattern(6; r = 1.0e-3), segment)
+        @test_throws DomainError placements(CircularPattern(7; r = 0.0), segment)
+        wide = Sector(0, 31.15e-3, π / 3 + 1.0e-9, 0, 0, Placement(0, 0))
+        @test length(placements(CircularPattern(6; r = 0.0), wide).placements) == 6
+    end
+
     @testset "a placement locates a cross-section in its frame" begin
         wire = LineCableModels.resolve(Placement(0, -1), Circle(1.5e-3, Placement(3.0e-3, 0)))
         @test all(centroid(wire) .≈ (3.0e-3, -1.0))

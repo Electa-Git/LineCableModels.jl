@@ -1,5 +1,6 @@
 # Reference order: the buried bare and insulated wire pairs, the two coaxial cases,
-# then the overhead and mixed bare-wire pairs. The first two entries keep their positions.
+# then the overhead and mixed bare-wire pairs. A cable with a sector-shaped core follows.
+# The first two entries keep their positions.
 const REFERENCES = let
     copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
     # The wire cases take the copper of the materials library that their scripts read.
@@ -57,5 +58,21 @@ const REFERENCES = let
         push!(cases,
             case => LineParametersProblem(system, homogeneous(rho = 0.1); frequencies))
     end
+    aluminum = Material(:conductor, 2.8264e-8, 1, 1, 20, 0.00429)
+    pvc = Material(:insulator, Inf, 8.0)
+    # The sector of a 1 kV cable of three cores. Its sides meet 1.1 mm / sin(60°) from its
+    # center, where the insulations of three such cores touch.
+    span, t = deg2rad(119.0), 1.1e-3
+    sector = LineCableModels.Sector(
+        0, 10.24e-3, span, t / sind(60), 1.02e-3, Placement(0, 0))
+    single = build(CableDesign, "insulated_sector",
+        Terminal(:core, Region(:core, sector, aluminum)),
+        Region(:core_insulation, Offset(t), pvc),
+        Region(:jacket, Offset(3.0e-3), pvc))
+    system = build(CableSystem, [single], [Placement(0.0, -1.0)];
+        connections = [(core = 1,)], id = "one_insulated_sector", line_length = 1.0)
+    push!(cases,
+        "one_insulated_sector" => LineParametersProblem(system,
+            homogeneous(rho = 100, eps_r = 10); frequencies))
     cases
 end
