@@ -91,7 +91,7 @@ nouns = ["shape", "primitive", "circle", "annulus", "rectangle", "sector",
     "jacket", "tape", "wires", "spacing", "trefoil", "apex", "fillet",
     "polygon", "ellipse", "vertices"]
 qualifiers = ["circular", "empty", "perforated", "placed", "stranded",
-    "layout", "flat", "linear"]
+    "layout", "flat", "linear", "tangent"]
 symbols = ["ri", "ro", "w", "h", "t", "n", "gap_frac", "dir"]
 
 [modules.DataModel.verbs]
@@ -191,6 +191,7 @@ boundary = "the outline of a shape: a circle, a rectangle, a sector, an ellipse,
 r_in = "the inner radius of a circular shape"
 r_ex = "the outer radius of a circular shape"
 placements = "the placements and the shared cross-section of the members a pattern lays"
+istangent = "whether the outline of a shape touches a circle, within the tolerance with which containment compares a content with that circle"
 overlength = "the length of a helical path over the length of the cable"
 pitch = "the lay length of a helix at a radius"
 PerforatedShape = "a cross-section perforated by the cross-sections inside it, such as the fill between wires or a layer around an outline other than a circle"

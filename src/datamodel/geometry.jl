@@ -484,7 +484,7 @@ Base.eltype(::AbstractShape{T}) where {T} = T
 Return whether the outline `B` lies within the region of `A`, written `B ⊆ A`.
 For a circle or annulus `A`, translate `B` to the frame centered on `A` as
 `C = resolve(Placement(-A.at.x, -A.at.y), B)`. Compare ``support(C)≤r_ex(A)+tol``
-and ``distance(C)+tol≥r_in(A)``, with the tolerance computed from `r_ex(A)`.
+and ``distance(C)+tol≥r_in(A)``, each tolerance computed from the radius it compares.
 
 For a rectangle, polygon, ellipse or arc polygon `A`, compare
 ``support(B,φ)≤support(A,φ)+tol`` at the outward normal at each end of every curve of
@@ -508,11 +508,11 @@ A perforated `B` uses the directional support of its outer boundary.
 """
 function Base.issubset(B::AbstractShape, A::Union{Circle, Annulus})
     C = resolve(Placement(-A.at.x, -A.at.y), B)
-    radius = r_ex(A)
-    tolerance = sqrt(eps(float(nominal(radius)))) *
-                max(one(nominal(radius)), nominal(radius))
-    return nominal(support(C)) <= nominal(radius) + tolerance &&
-           nominal(distance(C)) + tolerance >= nominal(r_in(A))
+    outer = nominal(r_ex(A))
+    inner = nominal(r_in(A))
+    return nominal(support(C)) <=
+           outer + sqrt(eps(float(outer))) * max(one(outer), outer) &&
+           nominal(distance(C)) + sqrt(eps(float(inner))) * max(one(inner), inner) >= inner
 end
 
 function Base.issubset(B::AbstractShape, A::Sector)
@@ -523,6 +523,24 @@ function Base.issubset(B::AbstractShape, A::Sector)
     tolerance = sqrt(eps(float(nominal(radius)))) *
                 max(one(nominal(radius)), nominal(radius))
     return nominal(distance(C)) + tolerance >= nominal(radius)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return whether the outline of `B` touches the circle `A`. Translate `B` to the frame
+centered on `A` as `C = resolve(Placement(-A.at.x, -A.at.y), B)`. Compare ``support(C)``
+and ``distance(C)`` with the radius ``r`` of `A` within the tolerance
+``√eps(float(r))max(1,r)``. Lengths are in \\[m\\], and the comparisons use `nominal`
+values. `⊆` and `isdisjoint` compare a content with a circle of its container within the
+same tolerance. A content that they admit within that tolerance of the circle touches it.
+"""
+function istangent(B::AbstractShape, A::Circle)
+    C = resolve(Placement(-A.at.x, -A.at.y), B)
+    radius = nominal(A.r)
+    tolerance = sqrt(eps(float(radius))) * max(one(radius), radius)
+    return abs(nominal(support(C)) - radius) <= tolerance ||
+           abs(nominal(distance(C)) - radius) <= tolerance
 end
 
 """

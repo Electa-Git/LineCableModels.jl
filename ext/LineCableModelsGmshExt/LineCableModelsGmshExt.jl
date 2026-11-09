@@ -19,7 +19,7 @@ using LineCableModels.Earth: EarthLayer
 import LineCableModels.BaseGeometry: direction, draw
 using LineCableModels.DataModel: AbstractShape, Circle, Annulus,
                                  Rectangle, Offset, Sector, Ellipse, Polygon, ArcPolygon,
-                                 PerforatedShape
+                                 PerforatedShape, istangent
 using LineCableModels.BaseGeometry: Placement, support, Segment, Arc, EllipticArc, Curve,
                                     Contour,
                                     turn, parallel,

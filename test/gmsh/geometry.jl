@@ -352,6 +352,41 @@ end
         end
     end
 
+    @testset "an armour moved within the tolerance of containment keeps its fill" begin
+        copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+        polymer = Material(:insulator, Inf)
+        steel = Material(:conductor, 1.7475e-7, 1.0, 36.6326, 20.0, 0.0045)
+        moves = (-1.5e-9, -1e-10, 1e-12, 1e-10, 1.5e-9)
+        @testset "the pattern radius moved by $δ m" for δ in moves
+            armour = Lay(Helix(LayRatio(10)),
+                Repeat(CircularPattern(40; r = 26.5e-3 + δ),
+                    Region(:armour_wires, Circle(2.0e-3), steel)))
+            design = build(CableDesign, "armour",
+                Terminal(:core, Region(:core, Circle(21.5e-3), copper)),
+                Region(:bedding, Offset(3.0e-3), polymer),
+                Terminal(:armour,
+                    Enclosure(Region(:armour_fill, Offset(4.0e-3), polymer), armour)),
+                Region(:jacket, Offset(4.0e-3), polymer))
+            system = build(CableSystem, [design], [Placement(0.0, -1.0)];
+                connections = [(core = 1, armour = 2)], id = "armour", line_length = 1.0)
+            problem = LineParametersProblem(system, homogeneous(rho = 100);
+                frequencies = [50.0])
+            index = findfirst(region -> region.shape isa LineCableModels.PerforatedShape,
+                system.regions)
+            plan = extension.compartments(system.regions[index].shape)
+            @test length(plan.holes) == 40
+            @test plan.outer_radius == plan.shell_outer_radius
+            gmsh.initialize()
+            try
+                geometry = build(Geometry, FieldModel(problem, FEM()), options)
+                @test length(geometry.surfaces[index]) == 40
+            finally
+                gmsh.model.remove()
+                gmsh.finalize()
+            end
+        end
+    end
+
     @testset "$case" for (case, reference) in REFERENCES
         problem = LineParametersProblem(reference.system, reference.earth;
             temperature = reference.temperature,

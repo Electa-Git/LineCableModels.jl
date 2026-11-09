@@ -28,7 +28,7 @@ using .DataModel: AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle,
                   LinearPattern, Helix,
                   LayRatio, boundary, r_in,
                   r_ex,
-                  placements, overlength, pitch, PerforatedShape, ArcPolygon,
+                  placements, istangent, overlength, pitch, PerforatedShape, ArcPolygon,
                   AbstractCablePart, Region,
                   Stack, Terminal, Repeat, Lay, Enclosure, Assembly, PlacedRegion,
                   CableDesign,
@@ -59,7 +59,8 @@ export @design, @terminal, core, insulation, screen, sheath, bedding, jacket, st
        wires, tape, trefoil, flat
 public Commons, Materials, Earth, DataModel, validate, resolve, Sector, Ellipse, Polygon,
        PerforatedShape, ArcPolygon
-public PlacedRegion, CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
+public PlacedRegion, CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten,
+       istangent
 export compute, LineParametersProblem, CoaxialFormulation, FEM, LineParameters
 export @formulation, @air, @earth, @mixed
 public Engine, BaseGeometry, defaults, select, AbstractFormulation, AbstractBackend,

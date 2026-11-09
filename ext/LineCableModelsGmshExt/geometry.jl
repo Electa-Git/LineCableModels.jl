@@ -392,7 +392,8 @@ end
 $(TYPEDSIGNATURES)
 
 Cut each pair of tangent or intersecting registered circles at their shared contacts.
-Centers, radii, and contact coordinates are in \\[m\\]. Return `geometry`.
+A pair is tangent when one of its circles is tangent to the other by `istangent`. Centers,
+radii, and contact coordinates are in \\[m\\]. Return `geometry`.
 """
 function cut!(geometry::Geometry)
     circles = collect(keys(geometry.breaks))
@@ -402,24 +403,18 @@ function cut!(geometry::Geometry)
             qx, qy, s = circles[j]
             dx, dy = qx - cx, qy - cy
             distance = hypot(dx, dy)
-            scale = max(r, s, distance, 1.0)
-            tolerance = 1e-12 * scale
-            distance <= tolerance && continue
-            distance > r + s + tolerance && continue
-            distance < abs(r - s) - tolerance && continue
-            along = (r^2 - s^2 + distance^2) / (2distance)
-            height_squared = r^2 - along^2
-            height_squared < -tolerance * scale && continue
-            tangent = isapprox(distance, r + s; rtol = 0, atol = tolerance) ||
-                      isapprox(distance, abs(r - s); rtol = 0, atol = tolerance)
-            height = tangent ? 0.0 : sqrt(max(height_squared, 0.0))
-            ux, uy = dx / distance, dy / distance
-            bx, by = cx + along * ux, cy + along * uy
-            contacts = height <= tolerance ? ((bx, by),) :
-                       ((bx - height * uy, by + height * ux),
-                (bx + height * uy, by - height * ux))
+            distance <= 1e-12 * max(r, s, distance, 1.0) && continue
             p = Circle(r, Placement(cx, cy))
             q = Circle(s, Placement(qx, qy))
+            tangent = istangent(p, q) || istangent(q, p)
+            tangent || abs(r - s) < distance < r + s || continue
+            along = (r^2 - s^2 + distance^2) / (2distance)
+            height = tangent ? 0.0 : sqrt(r^2 - along^2)
+            ux, uy = dx / distance, dy / distance
+            bx, by = cx + along * ux, cy + along * uy
+            contacts = tangent ? ((bx, by),) :
+                       ((bx - height * uy, by + height * ux),
+                (bx + height * uy, by - height * ux))
             for xy in contacts
                 cut!(geometry, p, atan(xy[2] - cy, xy[1] - cx), xy)
                 cut!(geometry, q, atan(xy[2] - qy, xy[1] - qx), xy)
@@ -479,9 +474,13 @@ end
 $(TYPEDSIGNATURES)
 
 Return the course of circular wires tangent to the inner circle of `outer`, or a plan
-with no wires. Record the center and inner, contact, and shell radii \\[m\\], the wires
-and their angles \\[rad\\], and the shell's free angular spans \\[rad\\]. Convert
-the cutouts of `shape` to `Float64` and calculate their free spans.
+with no wires. Each wire touches the inner circle and the contact circle, and each cutout
+touches the contact circle and the outer circle, by `istangent`. The contact circle is
+the inner circle of the cutouts. Without cutouts, it is the outer circle when every wire
+touches it, else the circle through the outer point of the first wire. Record the center
+and inner, contact, and shell radii \\[m\\], the wires and their angles \\[rad\\], and the
+shell's free angular spans \\[rad\\]. Convert the cutouts of `shape` to `Float64` and
+calculate their free spans.
 """
 function compartments(shape::PerforatedShape, outer::Annulus)
     plan = invoke(compartments, Tuple{PerforatedShape, AbstractShape}, shape, outer)
@@ -494,47 +493,37 @@ function compartments(shape::PerforatedShape, outer::Annulus)
                if hole isa Sector && iszero(hole.apex) && iszero(nominal(hole.fillet))]
     length(wires) + length(cutouts) == length(shape.holes) || return plan
     isempty(wires) && return plan
-    entries = Tuple{Float64, Circle{Float64}}[]
-    outer_contacts = Float64[]
-    for wire in wires
-        dx, dy = Float64(wire.at.x) - center[1], Float64(wire.at.y) - center[2]
-        distance = hypot(dx, dy)
-        radius = Float64(wire.r)
-        tolerance = 1e-12 * max(Float64(outer.ro), distance, radius, 1.0)
-        distance > tolerance || return plan
-        isapprox(distance - radius, Float64(outer.ri); rtol = 0, atol = tolerance) ||
-            return plan
-        push!(outer_contacts, distance + radius)
-        a = mod(atan(dy, dx), 2π)
-        isapprox(a, 2π; rtol = 0, atol = 128eps(Float64)) && (a = 0.0)
-        push!(entries, (a, Circle(radius, convert(Placement{Float64}, wire.at))))
-    end
-    computed_radius = first(outer_contacts)
-    tolerance = 1e-12 * max(Float64(outer.ro), computed_radius, 1.0)
-    for r in outer_contacts
-        isapprox(r, computed_radius; rtol = 0, atol = tolerance) || return plan
-    end
-    computed_radius <= Float64(outer.ro) + tolerance || return plan
+    all(wire -> istangent(wire, Circle(outer.ri, outer.at)), wires) || return plan
+    rim = Circle(outer.ro, outer.at)
     contact_radius = if !isempty(cutouts)
         Float64(first(cutouts).ri)
-    elseif isapprox(computed_radius, Float64(outer.ro); rtol = 0, atol = tolerance)
+    elseif all(wire -> istangent(wire, rim), wires)
         Float64(outer.ro)
     else
-        computed_radius
+        hypot(Float64(first(wires).at.x) - center[1],
+            Float64(first(wires).at.y) - center[2]) + Float64(first(wires).r)
     end
-    isapprox(contact_radius, computed_radius; rtol = 0, atol = tolerance) || return plan
+    contact = Circle(contact_radius, outer.at)
+    all(wire -> istangent(wire, contact), wires) || return plan
+    all(sector -> istangent(sector, contact) && istangent(sector, rim), cutouts) ||
+        return plan
+    entries = Tuple{Float64, Circle{Float64}}[]
+    for wire in wires
+        dx, dy = Float64(wire.at.x) - center[1], Float64(wire.at.y) - center[2]
+        a = mod(atan(dy, dx), 2π)
+        isapprox(a, 2π; rtol = 0, atol = 128eps(Float64)) && (a = 0.0)
+        push!(entries, (a, Circle(Float64(wire.r), convert(Placement{Float64}, wire.at))))
+    end
     sectors = [Sector(
                    Float64(sector.ri), Float64(sector.ro), Float64(sector.span), 0.0, 0.0,
                    convert(Placement{Float64}, sector.at)) for sector in cutouts]
+    tolerance = 1e-12 * max(Float64(outer.ro), contact_radius, 1.0)
     for sector in sectors
         isapprox(sector.at.x, center[1]; rtol = 0, atol = tolerance) || return plan
         isapprox(sector.at.y, center[2]; rtol = 0, atol = tolerance) || return plan
-        isapprox(sector.ri, contact_radius; rtol = 0, atol = tolerance) || return plan
-        isapprox(sector.ro, Float64(outer.ro); rtol = 0, atol = tolerance) || return plan
         1e-12 < sector.span < 2π - 1e-12 || return plan
     end
-    shell = Float64(outer.ro) - contact_radius > tolerance
-    shell || isempty(sectors) || return plan
+    shell = contact_radius != Float64(outer.ro)
     spans = NTuple{2, Float64}[]
     if shell
         if isempty(sectors)

@@ -1,4 +1,4 @@
-using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon
+using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon, istangent
 using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, parallel,
                                     clearance,
                                     dimension, turn, lowest, vertex, apsides, winding,
@@ -1081,6 +1081,51 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test !isdisjoint(Circle(0.5e-3, Placement(2e-3, 0.0)), Circle(2e-3))
         @test isdisjoint(Circle(0.5e-3, Placement(5e-3, 0.0)), Rectangle(2e-3, 2e-3))
         @test !isdisjoint(Circle(0.5e-3, Placement(1e-3, 0.0)), Rectangle(2e-3, 2e-3))
+    end
+
+    # A margin k places a content k tolerances clear of the circle, or into it when negative.
+    @testset "a shape touches a circle within the tolerance of containment" begin
+        r, w = 0.017, 0.5e-3
+        tolerance = sqrt(eps(r)) * max(1.0, r)
+        A = Circle(r, Placement(0.01, -0.02))
+        for (k, touches) in ((0.0, true), (-0.9, true), (0.9, true), (-1.2, false),
+            (1.2, false))
+            inside = Circle(w, Placement(0.01 + r - w - k * tolerance, -0.02))
+            outside = Circle(w, Placement(0.01 + r + w + k * tolerance, -0.02))
+            @test istangent(inside, A) == touches
+            @test istangent(outside, A) == touches
+        end
+        sector = Sector(0.01, 0.012, π / 3, 0.0, 0.0, Placement(0.01, -0.02, 0.25))
+        @test istangent(sector, Circle(0.01, Placement(0.01, -0.02)))
+        @test istangent(sector, Circle(0.012, Placement(0.01, -0.02)))
+        @test !istangent(sector, Circle(0.011, Placement(0.01, -0.02)))
+        @test @inferred(istangent(Circle(w, Placement(r - w, 0.0)), Circle(r)))
+        @test @inferred(istangent(sector, Circle(0.012, Placement(0.01, -0.02))))
+        # Uncertainties larger than the tolerance: the nominal values decide.
+        @test istangent(Circle(w ± 1e-6, Placement(r - w, 0.0)), Circle(r ± 1e-6))
+        @test !istangent(Circle(w ± 1e-6, Placement(r - w + 1.2tolerance, 0.0)),
+            Circle(r ± 1e-6))
+    end
+
+    # The radii of this annulus lie in two binades. An overlap of 1.5e-9 m exceeds the
+    # tolerance of the inner radius alone.
+    @testset "an annulus compares a content with each circle within its own tolerance" begin
+        A = Annulus(0.0155, 0.017)
+        hole, rim = Circle(A.ri), Circle(A.ro)
+        inner = sqrt(eps(A.ri)) * max(1.0, A.ri)
+        outer = sqrt(eps(A.ro)) * max(1.0, A.ro)
+        w = 0.5e-3
+        for (k, admitted) in ((-1.2, false), (-0.9, true))
+            at_hole = Circle(w, Placement(A.ri + w + k * inner, 0.0))
+            at_rim = Circle(w, Placement(A.ro - w - k * outer, 0.0))
+            @test (at_hole ⊆ A) == admitted
+            @test istangent(at_hole, hole) == admitted
+            @test (at_rim ⊆ A) == admitted
+            @test istangent(at_rim, rim) == admitted
+        end
+        into = Circle(w, Placement(A.ri + w - 1.5e-9, 0.0))
+        @test !(into ⊆ A)
+        @test !istangent(into, hole)
     end
 
     @testset "the area and moment of a curve about a point and of a path" begin
