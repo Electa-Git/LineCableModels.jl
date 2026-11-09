@@ -13,7 +13,7 @@ module DataModel
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..Commons: build, resolve, validate
 using ..Materials: Material
-using ..Commons: nominal
+using ..Commons: nominal, tolerance
 using SpecialFunctions: ellipe
 import ..BaseGeometry: Contour, area, perimeter, centroid, support, distance, dimension,
                        draw

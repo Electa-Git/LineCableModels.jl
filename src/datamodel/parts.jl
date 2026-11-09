@@ -149,8 +149,7 @@ validate(shape::AbstractShape, ::Repeat, ::EmptyBoundary) = shape
 # A copy lies outside the outline of the parts inside the repeat.
 function validate(shape::AbstractShape, repeat::Repeat, outline::AbstractShape)
     radius = support(outline)
-    tolerance = sqrt(eps(float(radius))) * max(one(radius), radius)
-    distance(shape) + tolerance >= radius || throw(DomainError(distance(shape),
+    distance(shape) + tolerance(radius) >= radius || throw(DomainError(distance(shape),
         "a copy in a repeat must not enter the part inside it, of outer radius $radius m"))
     return shape
 end

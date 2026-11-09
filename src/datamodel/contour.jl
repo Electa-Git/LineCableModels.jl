@@ -79,9 +79,7 @@ function Base.issubset(B::AbstractShape, A::Union{Rectangle, Polygon, Ellipse, A
                 (low, (low + high) / 2, high))
         end
         radius = support(container, φ)
-        tolerance = sqrt(eps(float(nominal(radius)))) *
-                    max(one(nominal(radius)), nominal(radius))
-        nominal(support(content, φ)) <= nominal(radius) + tolerance || return false
+        nominal(support(content, φ)) <= nominal(radius) + tolerance(radius) || return false
     end
     return true
 end
@@ -96,10 +94,8 @@ hole lies apart from it, as a content that touches its container lies within it.
 """
 function Base.isdisjoint(B::AbstractShape, hole::Circle)
     radius = hole.r
-    tolerance = sqrt(eps(float(nominal(radius)))) *
-                max(one(nominal(radius)), nominal(radius))
-    return nominal(distance(resolve(Placement(-hole.at.x, -hole.at.y), B))) + tolerance >=
-           nominal(radius)
+    return nominal(distance(resolve(Placement(-hole.at.x, -hole.at.y), B))) +
+           tolerance(radius) >= nominal(radius)
 end
 
 """
@@ -122,9 +118,7 @@ function Base.isdisjoint(B::AbstractShape, hole::AbstractShape)
     apart = false
     for ψ in directions
         radius = support(content, ψ + π)
-        tolerance = sqrt(eps(float(nominal(radius)))) *
-                    max(one(nominal(radius)), nominal(radius))
-        apart |= nominal(support(hole, ψ)) <= -nominal(radius) + tolerance
+        apart |= nominal(support(hole, ψ)) <= -nominal(radius) + tolerance(radius)
     end
     return apart
 end

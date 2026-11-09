@@ -88,24 +88,7 @@ each pair's domain in the slot `earth_impedance`. The recipe alone writes the ma
 """
 function impedance!(formulation::CoaxialFormulation, Zg::AbstractMatrix, buffers,
         input::CoaxialInput, media, s, k)
-    (; air, earth, mixed) = formulation.earth_impedance
-    for i in eachindex(input.radius)
-        Zg[i, i] = (input.earth_layer[i] == 1 ? air : earth)(
-            Val(:Z), Val(:self), i, buffers, input, media, s, k)
-    end
-    for j in eachindex(input.radius), i in eachindex(input.radius)
-
-        i == j && continue
-        above_i, above_j = input.earth_layer[i] == 1, input.earth_layer[j] == 1
-        Zg[i, j] = if above_i && above_j
-            air(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)
-        elseif !above_i && !above_j
-            earth(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)
-        else
-            mixed(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)
-        end
-    end
-    return Zg
+    return assemble!(Zg, formulation.earth_impedance, Val(:Z), buffers, input, media, s, k)
 end
 
 """
@@ -131,22 +114,51 @@ the matrix.
 """
 function potential!(formulation::CoaxialFormulation, Pg::AbstractMatrix, buffers,
         input::CoaxialInput, media, s, k)
-    (; air, earth, mixed) = formulation.earth_admittance
+    return assemble!(Pg, formulation.earth_admittance, Val(:P), buffers, input, media, s, k)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Write into `M` the earth-return terms of the cables for the quantity of the tag `quantity`,
+pair by pair. Each pair takes the formula of its domain in `slot`. A pair above the earth
+takes the air formula, a pair in it the earth formula, and any other pair the mixed
+formula. A diagonal entry takes the formula of its cable's domain.
+
+# Arguments
+
+- `M`: destination matrix of the quantity per unit length.
+- `slot`: the air, earth and mixed formulas of one earth slot of the formulation.
+- `quantity`: tag of the quantity, `Val(:Z)` for impedances \\[Ω/m\\] or `Val(:P)` for
+  potential coefficients \\[m/F\\].
+- `buffers`: preallocated computation arrays.
+- `input`: numerical cable geometry and connections.
+- `media`: the air and the equivalent earth at the frequency.
+- `s`: complex frequency, `j 2π f`, in \\[1/s\\].
+- `k`: frequency index.
+
+# Returns
+
+- `M`, in the unit of the quantity.
+"""
+function assemble!(M::AbstractMatrix, slot, quantity::Val, buffers, input::CoaxialInput,
+        media, s, k)
+    (; air, earth, mixed) = slot
     for i in eachindex(input.radius)
-        Pg[i, i] = (input.earth_layer[i] == 1 ? air : earth)(
-            Val(:P), Val(:self), i, buffers, input, media, s, k)
+        M[i, i] = (input.earth_layer[i] == 1 ? air : earth)(
+            quantity, Val(:self), i, buffers, input, media, s, k)
     end
     for j in eachindex(input.radius), i in eachindex(input.radius)
 
         i == j && continue
         above_i, above_j = input.earth_layer[i] == 1, input.earth_layer[j] == 1
-        Pg[i, j] = if above_i && above_j
-            air(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)
+        M[i, j] = if above_i && above_j
+            air(quantity, Val(:mutual), i, j, buffers, input, media, s, k)
         elseif !above_i && !above_j
-            earth(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)
+            earth(quantity, Val(:mutual), i, j, buffers, input, media, s, k)
         else
-            mixed(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)
+            mixed(quantity, Val(:mutual), i, j, buffers, input, media, s, k)
         end
     end
-    return Pg
+    return M
 end

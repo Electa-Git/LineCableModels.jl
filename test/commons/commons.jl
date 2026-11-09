@@ -15,6 +15,15 @@ end
         @test nominal(complex(1.0, -2.0)) === complex(1.0, -2.0)
     end
 
+    @testset "tolerance at a scale, from the floating-point spacing at its nominal value" begin
+        tolerance = LineCableModels.tolerance
+        @test tolerance(1.0) === sqrt(eps(1.0))
+        @test tolerance(3.0e-3) === sqrt(eps(3.0e-3))
+        @test tolerance(10.0) === 10 * sqrt(eps(10.0))
+        @test tolerance(10) === tolerance(10.0)
+        @test tolerance(measurement(3.0e-3, 1.0e-4)) === tolerance(3.0e-3)
+    end
+
     @testset "validate returns what it checks" begin
         copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
         @test LineCableModels.validate(copper) === copper

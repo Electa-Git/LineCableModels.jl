@@ -8,7 +8,7 @@ module Commons
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 
-export build, resolve, validate, compute, defaults, select, nominal
+export build, resolve, validate, compute, defaults, select, nominal, tolerance
 export AbstractFormulation, AbstractBackend, FormulationOptions, ComputationOptions
 
 """
@@ -134,6 +134,23 @@ The IntervalArithmetic extension gives an `Interval` its midpoint.
 """
 nominal(value::Real) = value
 nominal(value::Complex) = complex(nominal(real(value)), nominal(imag(value)))
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the absolute tolerance at the scale `x`, in the unit of `x`:
+``\\sqrt{\\operatorname{eps}(x)}\\,\\max(1, x)``. Here ``\\operatorname{eps}(x)`` is the
+spacing of floating-point numbers at the nominal value of `x`.
+
+# Arguments
+
+- `x`: scale of the compared quantity.
+
+# Returns
+
+- The tolerance, a real number of the nominal type of `x`, in the unit of `x`.
+"""
+tolerance(x::Real) = sqrt(eps(float(nominal(x)))) * max(one(nominal(x)), nominal(x))
 
 include("options.jl")
 

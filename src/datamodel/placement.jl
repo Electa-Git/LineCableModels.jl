@@ -106,8 +106,7 @@ function validate(pattern::CircularPattern{T, T}, circle::Circle) where {T}
     intervals = isapprox(pattern.span, 2π) ? pattern.n : pattern.n - 1
     chord = 2pattern.r * sin(pattern.span / intervals / 2)
     required = 2circle.r * (1 + pattern.gap_frac)
-    tolerance = sqrt(eps(float(chord))) * max(one(chord), chord)
-    chord + tolerance >= required || throw(DomainError(pattern.n,
+    chord + tolerance(chord) >= required || throw(DomainError(pattern.n,
         "$(pattern.n) wires of radius $(circle.r) m do not fit on a circle of radius " *
         "$(pattern.r) m with clearance fraction $(pattern.gap_frac)"))
     return pattern
@@ -117,8 +116,7 @@ end
 function validate(pattern::CircularPattern{T, T}, rectangle::Rectangle) where {T}
     occupied = pattern.n * rectangle.w * (1 + pattern.gap_frac)
     available = pattern.r * pattern.span
-    tolerance = sqrt(eps(float(available))) * max(one(available), available)
-    occupied <= available + tolerance || throw(DomainError(pattern.n,
+    occupied <= available + tolerance(available) || throw(DomainError(pattern.n,
         "$(pattern.n) strands of width $(rectangle.w) m do not fit along a circle of " *
         "radius $(pattern.r) m and span $(pattern.span) rad"))
     return pattern
@@ -130,8 +128,7 @@ function validate(pattern::CircularPattern{T, T}, sector::Sector) where {T}
         "a sector is laid about the center it is declared about: CircularPattern.r must " *
         "be zero"))
     step = pattern.span / pattern.n
-    tolerance = sqrt(eps(float(step))) * max(one(step), step)
-    sector.span <= step + tolerance || throw(DomainError(pattern.n,
+    sector.span <= step + tolerance(step) || throw(DomainError(pattern.n,
         "$(pattern.n) sectors of span $(sector.span) rad do not fit in a span of " *
         "$(pattern.span) rad"))
     return pattern
@@ -282,8 +279,7 @@ end
 function validate(pattern::LinearPattern, circle::Circle)
     pattern.n == 1 && return pattern
     required = 2circle.r
-    tolerance = sqrt(eps(float(required))) * max(one(required), required)
-    pattern.pitch + tolerance >= required || throw(DomainError(pattern.pitch,
+    pattern.pitch + tolerance(required) >= required || throw(DomainError(pattern.pitch,
         "$(pattern.n) members of radius $(circle.r) m do not fit on a line at the pitch " *
         "$(pattern.pitch) m"))
     return pattern

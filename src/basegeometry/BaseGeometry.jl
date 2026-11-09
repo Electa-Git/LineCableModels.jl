@@ -11,7 +11,7 @@ module BaseGeometry
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..Commons: resolve, validate
-using ..Commons: nominal
+using ..Commons: nominal, tolerance
 using QuadGK: quadgk
 using IntervalSets: ClosedInterval, leftendpoint, rightendpoint
 

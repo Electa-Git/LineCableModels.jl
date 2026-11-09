@@ -111,8 +111,7 @@ end
 # An annulus that follows a part begins at or outside the part's outer radius.
 function validate(annulus::Annulus, inner::Union{Circle, Annulus})
     radius = r_ex(inner)
-    tolerance = sqrt(eps(float(radius))) * max(one(radius), radius)
-    annulus.ri + tolerance >= radius || throw(DomainError(annulus.ri,
+    annulus.ri + tolerance(radius) >= radius || throw(DomainError(annulus.ri,
         "Annulus.ri must not be less than $radius m, the outer radius of the part inside it"))
     return annulus
 end
@@ -510,9 +509,8 @@ function Base.issubset(B::AbstractShape, A::Union{Circle, Annulus})
     C = resolve(Placement(-A.at.x, -A.at.y), B)
     outer = nominal(r_ex(A))
     inner = nominal(r_in(A))
-    return nominal(support(C)) <=
-           outer + sqrt(eps(float(outer))) * max(one(outer), outer) &&
-           nominal(distance(C)) + sqrt(eps(float(inner))) * max(one(inner), inner) >= inner
+    return nominal(support(C)) <= outer + tolerance(outer) &&
+           nominal(distance(C)) + tolerance(inner) >= inner
 end
 
 function Base.issubset(B::AbstractShape, A::Sector)
@@ -520,9 +518,7 @@ function Base.issubset(B::AbstractShape, A::Sector)
     iszero(nominal(A.ri)) && return true
     C = resolve(Placement(-A.at.x, -A.at.y), B)
     radius = A.ri
-    tolerance = sqrt(eps(float(nominal(radius)))) *
-                max(one(nominal(radius)), nominal(radius))
-    return nominal(distance(C)) + tolerance >= nominal(radius)
+    return nominal(distance(C)) + tolerance(radius) >= nominal(radius)
 end
 
 """
@@ -538,9 +534,8 @@ same tolerance. A content that they admit within that tolerance of the circle to
 function istangent(B::AbstractShape, A::Circle)
     C = resolve(Placement(-A.at.x, -A.at.y), B)
     radius = nominal(A.r)
-    tolerance = sqrt(eps(float(radius))) * max(one(radius), radius)
-    return abs(nominal(support(C)) - radius) <= tolerance ||
-           abs(nominal(distance(C)) - radius) <= tolerance
+    return abs(nominal(support(C)) - radius) <= tolerance(radius) ||
+           abs(nominal(distance(C)) - radius) <= tolerance(radius)
 end
 
 """

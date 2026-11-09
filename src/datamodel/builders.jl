@@ -256,8 +256,7 @@ centers lie on the vertices of an equilateral triangle of side `spacing`, at ``9
 """
 function trefoil(design::CableDesign; spacing::Real, at::Placement = Placement(0, 0))
     radius = support(design.outer)
-    tolerance = sqrt(eps(float(radius))) * max(one(radius), radius)
-    spacing + tolerance >= 2radius || throw(DomainError(spacing,
+    spacing + tolerance(radius) >= 2radius || throw(DomainError(spacing,
         "a trefoil of the cable $(design.id) takes a spacing of at least its outer " *
         "diameter, $(2radius) m"))
     course = placements(CircularPattern(3; r = spacing / sqrt(3), φ0 = π / 2),

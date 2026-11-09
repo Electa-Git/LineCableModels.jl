@@ -69,7 +69,7 @@ compute = "run one computation of a problem by a formulation, on the backend tha
 select = "fit a user's selection to the slot or option key it fills, lifting a Symbol to its type"
 
 [modules.Commons]
-nouns = ["computation", "defaults", "values"]
+nouns = ["computation", "defaults", "values", "tolerance"]
 qualifiers = ["nominal"]
 
 [modules.Materials]
@@ -115,6 +115,7 @@ eliminate = "remove the eliminated rows and columns of a matrix by the Kron elim
 factorize = "decompose a square matrix in place into its lower and upper triangular factors, with the row interchanges of partial pivoting"
 integrate = "evaluate an integral by the method that its tag selects, with the controls of its section"
 solve = "find the line parameters of a problem at each of its frequencies"
+assemble = "write a matrix pair by pair from the formula of each pair's domain in a slot, air, earth or mixed, for the quantity of a tag"
 
 [modules."Engine.EarthReturn"]
 symbols = ["i0m1"]
@@ -159,6 +160,7 @@ AbstractBackend = "the supertype of the singletons that run a formulation"
 FormulationOptions = "the options of a formula or a formulation, its owner the first type parameter"
 ComputationOptions = "the options of a backend for one computation, its owner the first type parameter"
 nominal = "the nominal value of a quantity: the identity on a real number and componentwise on a complex number; the Measurements extension gives a measurement's nominal value"
+tolerance = "the absolute tolerance at the scale of a quantity, in its unit: the square root of the spacing of floating-point numbers at its nominal value, times the larger of one and that value"
 
 [register.Materials]
 lifts = ["material"]
@@ -269,6 +271,9 @@ integrate = "evaluate an integral by the method that its tag selects, with the c
 reductions = "the conductor indices that the bundle and Kron reductions of a system merge, keep and remove under the formulation's options, with the labels of its conductors and of the kept rows"
 
 "solve!" = "a backend's loop over the problem's frequencies that fills Z and Y and, when traced, its stage matrices"
+
+[register.Engine.private]
+"assemble!" = "write a matrix pair by pair from the formula of each pair's domain in a slot, air, earth or mixed, for the quantity of a tag"
 
 [register."Engine.InternalImpedance".public]
 Formula = "an internal-impedance formula, its identifier the type parameter"

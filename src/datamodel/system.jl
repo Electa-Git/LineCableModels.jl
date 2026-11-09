@@ -69,10 +69,9 @@ function validate(system::CableSystem)
     for i in eachindex(system.designs), j in firstindex(system.designs):(i - 1)
 
         reach = support(system.designs[i].outer) + support(system.designs[j].outer)
-        tolerance = sqrt(eps(float(reach))) * max(one(reach), reach)
         a, b = system.placements[i], system.placements[j]
         d = hypot(a.x - b.x, a.y - b.y)
-        d + tolerance >= reach || throw(DomainError(d,
+        d + tolerance(reach) >= reach || throw(DomainError(d,
             "the cables $j and $i of $(system.id) overlap: their placements lie $d m " *
             "apart, closer than the $reach m that their outlines need"))
     end

@@ -1113,40 +1113,25 @@ elliptic arc's lie at the parametric angles ``θ=\\operatorname{atan}(b\\sin ψ,
 regular normal offset keeps them.
 """
 function apsides(curve::Segment{T}, φ::Real) where {T}
-    c, s = cos(φ), sin(φ)
-    return (
-        near = argmax(t -> (xy = curve(t); nominal(xy[1] * c + xy[2] * s)), (
-            zero(T), one(T))),
-        far = argmin(t -> (xy = curve(t); nominal(xy[1] * c + xy[2] * s)), (
-            zero(T), one(T))))
+    return apsides(curve, φ, (zero(T), one(T)))
 end
 
 function apsides(curve::Arc{T}, φ::Real) where {T}
-    c, s = cos(φ), sin(φ)
     toward = clamp(mod(sign(curve.span) * (φ - curve.at.φ), 2π) / abs(curve.span), zero(T),
         one(T))
     away = clamp(mod(sign(curve.span) * (φ + π - curve.at.φ), 2π) / abs(curve.span),
         zero(T), one(T))
-    return (
-        near = argmax(t -> (xy = curve(t); nominal(xy[1] * c + xy[2] * s)),
-            (zero(T), one(T), toward)),
-        far = argmin(t -> (xy = curve(t); nominal(xy[1] * c + xy[2] * s)),
-            (zero(T), one(T), away)))
+    return apsides(curve, φ, (zero(T), one(T), toward, away))
 end
 
 function apsides(curve::EllipticArc{T}, φ::Real) where {T}
-    c, s = cos(φ), sin(φ)
     ψ = φ - curve.at.φ
     θ = atan(curve.b * sin(ψ), curve.a * cos(ψ))
     toward = clamp(mod(sign(curve.span) * (θ - curve.φ0), 2π) / abs(curve.span), zero(T),
         one(T))
     away = clamp(mod(sign(curve.span) * (θ + π - curve.φ0), 2π) / abs(curve.span),
         zero(T), one(T))
-    return (
-        near = argmax(t -> (xy = curve(t); nominal(xy[1] * c + xy[2] * s)),
-            (zero(T), one(T), toward)),
-        far = argmin(t -> (xy = curve(t); nominal(xy[1] * c + xy[2] * s)),
-            (zero(T), one(T), away)))
+    return apsides(curve, φ, (zero(T), one(T), toward, away))
 end
 
 """
@@ -1188,6 +1173,19 @@ end
 A curve of a contour is a [`Segment`](@ref) an [`Arc`](@ref) or an [`EllipticArc`](@ref) in the floating type `T`.
 """
 const Curve{T} = Union{Segment{T}, Arc{T}, EllipticArc{T}}
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the parameters `(near, far)` among `parameters` of the points of `curve` with the
+greatest and the least projection on the direction `φ` \\[rad\\]. Where projections are
+equal, it returns the earliest of their parameters.
+"""
+function apsides(curve::Curve, φ::Real, parameters::Tuple)
+    c, s = cos(φ), sin(φ)
+    projections = map(t -> (xy = curve(t); nominal(xy[1] * c + xy[2] * s)), parameters)
+    return (near = parameters[argmax(projections)], far = parameters[argmin(projections)])
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -1279,7 +1277,7 @@ function parallel(a::Curve, b::Curve, d::Real)
     u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
     sine = nominal(u[1] * v[2] - u[2] * v[1])
     if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
-       abs(sine) <= sqrt(eps(float(one(sine))))
+       abs(sine) <= tolerance(one(sine))
         p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
         return (p, p)
     elseif nominal(sin(τ) * d) < 0
@@ -1536,7 +1534,7 @@ function dimension(contour::Contour{T}) where {T}
                     n = (cos(θ), sin(θ))
                     sine = nominal(chord[1] * n[2] - chord[2] * n[1])
                     counts &= nominal(chord[1] * n[1] + chord[2] * n[2]) > 0 &&
-                              abs(sine) <= sqrt(eps(float(one(sine))))
+                              abs(sine) <= tolerance(one(sine))
                 else
                     before = nominal(parameter) == 0 ?
                              edges[mod1(index - 1, length(edges))] : curve
@@ -1548,15 +1546,15 @@ function dimension(contour::Contour{T}) where {T}
                     nb = (cos(θb + side * π / 2), sin(θb + side * π / 2))
                     sine = nominal(na[1] * nb[2] - na[2] * nb[1])
                     if nominal(na[1] * nb[1] + na[2] * nb[2]) > 0 &&
-                       abs(sine) <= sqrt(eps(float(one(sine))))
+                       abs(sine) <= tolerance(one(sine))
                         cross = nominal(chord[1] * na[2] - chord[2] * na[1])
                         counts &= nominal(chord[1] * na[1] + chord[2] * na[2]) > 0 &&
-                                  abs(cross) <= sqrt(eps(float(one(cross))))
+                                  abs(cross) <= tolerance(one(cross))
                     elseif nominal(side * τ) < 0
                         cross₁ = nominal(na[1] * chord[2] - na[2] * chord[1])
                         cross₂ = nominal(chord[1] * nb[2] - chord[2] * nb[1])
-                        counts &= side * cross₁ <= sqrt(eps(float(one(cross₁)))) &&
-                                  side * cross₂ <= sqrt(eps(float(one(cross₂))))
+                        counts &= side * cross₁ <= tolerance(one(cross₁)) &&
+                                  side * cross₂ <= tolerance(one(cross₂))
                     else
                         counts = false
                     end
@@ -1592,7 +1590,7 @@ function dimension(contour::Contour{T}) where {T}
                 U, V = (cos(θa), sin(θa)), (cos(θb), sin(θb))
                 sine = nominal(U[1] * V[2] - U[2] * V[1])
                 corners |= !(nominal(U[1] * V[1] + U[2] * V[2]) > 0 &&
-                             abs(sine) <= sqrt(eps(float(one(sine)))))
+                             abs(sine) <= tolerance(one(sine)))
             end
             corners || continue
             lo,

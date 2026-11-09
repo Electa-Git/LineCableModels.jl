@@ -304,6 +304,7 @@
                     @test abs(maximum(errors) - facts[case][Symbol(quantity)]) <= 0.002
                 end
                 # A case without analytical rows checks each terminal's resistance at 0.1 Hz.
+                # On the build of record, each ratio lies within 7.2e-4 of one.
                 if case in FEM_ALONE
                     for (i, row) in enumerate(problem.system.terminals)
                         metals = [region

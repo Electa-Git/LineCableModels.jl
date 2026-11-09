@@ -245,10 +245,10 @@ function flatten(design::CableDesign)
                  a, b = distance(shapes[i]), support(shapes[i])
                  c, d = distance(shapes[j]), support(shapes[j])
                  mean = if rings[i] && a > zero(a) &&
-                           support(shapes[j]) <= a + sqrt(eps(a)) * max(one(a), a)
+                           support(shapes[j]) <= a + tolerance(a)
                      (b^2 * log(b) - a^2 * log(a)) / (b^2 - a^2) - one(a) / 2
                  elseif rings[j] && c > zero(c) &&
-                        support(shapes[i]) <= c + sqrt(eps(c)) * max(one(c), c)
+                        support(shapes[i]) <= c + tolerance(c)
                      (d^2 * log(d) - c^2 * log(c)) / (d^2 - c^2) - one(c) / 2
                  else
                      log(hypot((centroid(shapes[i]) .- centroid(shapes[j]))...))

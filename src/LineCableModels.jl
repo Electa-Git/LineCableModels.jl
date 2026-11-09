@@ -17,7 +17,7 @@ include("basegeometry/BaseGeometry.jl")
 include("datamodel/DataModel.jl")
 include("engine/Engine.jl")
 
-using .Commons: build, resolve, validate, compute, defaults, select, nominal,
+using .Commons: build, resolve, validate, compute, defaults, select, nominal, tolerance,
                 AbstractFormulation,
                 AbstractBackend, FormulationOptions, ComputationOptions
 using .Materials: Material, material
@@ -72,6 +72,6 @@ public AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulatio
        AbstractEarthProperties
 public admittivity, domain, impedance!, potential!, to_buffer!, from_buffer,
        initialize_buffers, bundle!, eliminate!, factorize!, transposition!,
-       SpectralIntegral, integrate, nominal, Λ, reductions
+       SpectralIntegral, integrate, nominal, tolerance, Λ, reductions
 
 end

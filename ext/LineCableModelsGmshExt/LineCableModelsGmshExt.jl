@@ -13,7 +13,7 @@ using Printf: @sprintf
 using LinearAlgebra: ldiv!
 using getdp_jll: getdp_jll
 import LineCableModels.Commons: build, compute, defaults, validate
-using LineCableModels.Commons: ComputationOptions, resolve, nominal
+using LineCableModels.Commons: ComputationOptions, resolve, nominal, tolerance
 using LineCableModels.Materials: Material
 using LineCableModels.Earth: EarthLayer
 import LineCableModels.BaseGeometry: direction, draw

@@ -1153,21 +1153,6 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the mesh parameters of the strip region `x`, a rectangle of sides ``w`` and ``h``
-\\[m\\]. The target is ``\\min(w, h)/2`` for a strand and ``\\min(w, h)/5`` otherwise. Its
-resolved `shape` gives the width ``d = dimension(shape)`` \\[m\\], with five divisions, the
-fraction ``0.45`` and strips at the depth ``0.45 d``.
-"""
-function section(x::Rectangle, shape::AbstractShape, strand::Bool, ::Bool, ::NamedTuple)
-    width = dimension(shape)
-    fraction = 0.45
-    return (target = min(x.w, x.h) / (strand ? 2 : 5), width = width,
-        divisions = 5, fraction = fraction, depth = fraction * width)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
 Return the mesh parameters of the strip region `x`, a sector with the sides ``a`` and ``b``
 \\[m\\] of the rectangle that it bends. The target is ``\\min(a, b)/2`` for a strand and
 ``\\min(a, b)/5`` otherwise. Its resolved `shape` gives the width ``d = dimension(shape)``
@@ -1192,13 +1177,14 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the mesh parameters of the strip region `x`, a polygon or an arc polygon of
-`dimension` ``d_x`` \\[m\\]. The target is ``d_x/2`` for a strand and ``d_x/5`` otherwise.
-Its resolved `shape` gives the width ``d = dimension(shape)`` \\[m\\], with five divisions,
-the fraction ``0.45`` and strips at the depth ``0.45 d``.
+Return the mesh parameters of the strip region `x`, a rectangle, a polygon or an arc polygon
+of `dimension` ``d_x`` \\[m\\]. A rectangle's `dimension` is its smaller side. The target is
+``d_x/2`` for a strand and ``d_x/5`` otherwise. Its resolved `shape` gives the width
+``d = dimension(shape)`` \\[m\\], with five divisions, the fraction ``0.45`` and strips at
+the depth ``0.45 d``.
 """
-function section(x::Union{Polygon, ArcPolygon}, shape::AbstractShape, strand::Bool, ::Bool,
-        ::NamedTuple)
+function section(x::Union{Rectangle, Polygon, ArcPolygon}, shape::AbstractShape,
+        strand::Bool, ::Bool, ::NamedTuple)
     d = dimension(x)
     width = dimension(shape)
     fraction = 0.45
@@ -1264,7 +1250,7 @@ function Base.write(path::AbstractString, geometry::Geometry)
             δa = direction(geometry, a, ds) - direction(geometry, a, 0)
             δn = direction(geometry, n, ds) - direction(geometry, n, 0)
             Δ = direction(geometry, n, 0) - direction(geometry, a, 0)
-            cos(Δ) > 0 && abs(sin(Δ)) <= sqrt(eps(float(one(sin(Δ))))) || continue
+            cos(Δ) > 0 && abs(sin(Δ)) <= tolerance(one(sin(Δ))) || continue
             sign(δa) * sign(δn) > 0 || continue
             L, S = abs(δa) < abs(δn) ? (A, N) : (N, A)
             push!(entries, (L, S, turn(geometry.curves[L]).fraction,
@@ -1330,7 +1316,7 @@ function Base.write(path::AbstractString, geometry::Geometry)
             end
         end
         println(io, "FEMAnnularPatches = ", length(geometry.patches), ";")
-        println(io, "FEMAngularMatch = ", @sprintf("%.17g", sqrt(eps(Float64))), ";")
+        println(io, "FEMAngularMatch = ", @sprintf("%.17g", tolerance(1.0)), ";")
         for (k, strip) in enumerate(geometry.strips)
             println(io, "FEMStripRegion~{", k - 1, "} = ", strip.region - 1, ";")
             println(io, "FEMStripSurface~{", k - 1, "} = ", strip.surface, ";")

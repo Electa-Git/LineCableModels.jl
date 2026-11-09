@@ -160,7 +160,8 @@ A helper takes these forms.
 
 Its disguises are a missing underscore, a move into `Commons`, nesting inside the caller, a
 field-less type used as a namespace, a new label such as stage, kernel or adapter, and a
-test that pins it.
+test that pins it. One block copied into several methods in place of one function is the
+same fault.
 
 These are not helpers.
 
@@ -188,10 +189,10 @@ literal. A type test appears only in a `catch` clause, or as the condition of a 
 from a collection. Such a selection is a comprehension filter, or the predicate of `filter`,
 `findall`, `findfirst` or `findlast`.
 
-The guard admits a type test on a member of `Curve` only in a method that tests no other
-member, and never beside its negation. Every generic with a method on one member of `Curve`
-has a method applicable to every other member, or one on `Curve`. A new curve type then
-fails the guard, and no function skips it.
+In one method, a type test names at most one member of a closed union that the package
+defines, and never stands beside its negation. Every generic with a method on one member of
+such a union has a method applicable to every other member, or one on the union. A new
+member then fails the guard, and no function skips it. `Curve` is the one such union today.
 
 A choice known at construction is lifted once to a
 type or a type parameter and dispatched after that.
@@ -207,6 +208,12 @@ comparison is the module that owns external data. The Gmsh extension decodes the
 outputs of its own solver runs, and no package module decodes external data.
 
 ### No value stands for absence
+
+Absence is a value of the result's own domain. An empty set, such as an empty interval, is
+one such value. A value of the quantity is another, such as `Inf` for a distance that never
+degenerates. The empty member of a type is a third, such as the empty region before a
+cable's first part. A function that finds none returns the empty member of what it returns,
+never a second type.
 
 The code calls none of `isnothing`, `ismissing` and `something`. It compares nothing with
 `nothing` or `missing`, and no argument or type parameter is `Nothing` or `Missing`. The one
@@ -315,6 +322,35 @@ Parametric types where they matter, type stability, and no over-constrained `<:R
 constructor promotes its numbers with `Float64`. A parametric layer passes its number types
 through that promotion.
 
+At a degenerate value, a branch tests the `nominal` value where its branches agree to first
+order there. A change of topology whose first derivative vanishes is such a branch. A
+shortcut that drops a parameter with a nonzero derivative at the branch point tests the
+exact value. Measure the derivative before a test moves to the `nominal` value.
+
+### Geometry
+
+A geometric quantity is one computation over the outline, `Contour(shape)`, and every
+consumer reads it. Offset layers, the distance across, supports, nearest distances and
+moments are such quantities. A method on one type of primitive exists only where it
+describes the region of the general computation at every input of that computation. Its
+curves are the same point sets, and its radii and ends come from the general computation
+itself. A test compares its outline with the general one's.
+
+A refusal states the failure that it prevents. A piece of a parallel with no positive
+length, a path that does not close and a content outside its container are such failures.
+A refusal never states a form in place of the failure, such as convex, clockwise or an apex.
+Green's integrals take their moments about a point of the path, never about the origin of
+the plane.
+
+Within a module, one letter is one quantity: `p` and `q` are points, `a`, `b`, `r`, `t`, `w`
+and `h` are lengths, and `φ` and `span` are angles. Fields use the subscripts of the
+mathematics, such as `ri` and `ro`. Public functions use the spelling of the API, such as
+`r_in` and `r_ex`.
+
+Reason: a second expression of one quantity can disagree with the first, whatever its value
+today. A thickness added to a radius, or a closed form kept beside the parallel, is such an
+expression.
+
 ### A native name or none
 
 An act that Julia already names is written with Julia's name, inline. Starting an external
@@ -322,6 +358,12 @@ process is Base's `run` on a pipeline. Walking a record to convert its numbers i
 of Base's `map`. Writing a file is a method of Base's `write`. No package verb bundles the
 preparation of inputs with the start of a process, because that verb would mean something
 different at every use.
+
+Before a new name, try a method of a Base or standard-library function, in this order of
+likelihood: `in`, `isdisjoint`, `issubset`, `intersect`, `reverse`, `map`, `convert`,
+`iterate`, `length`, `isempty`, `show`, `write`, `read` and `run`. Such a method on an owned
+type keeps Base's meaning exactly. `in(point, contour)` is a point in the region that the
+contour bounds, and `in(x, vector)` stays membership.
 
 ### Files
 
