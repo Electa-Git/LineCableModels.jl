@@ -1119,7 +1119,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Place `contour` by `at`: each curve of its outer path and of its holes, in order, by
+Place `contour` by `at`, each curve of its outer path and of its holes in order:
 ``P\\mapsto\\mathrm{at}(P)`` for segment ends and ``c\\mapsto\\mathrm{at}\\,c`` for arc
 placements. Coordinates are in \\[m\\] and rotations in \\[rad\\]. Keep each elliptic arc's
 normal offset \\[m\\].

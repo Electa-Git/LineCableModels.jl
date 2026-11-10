@@ -69,8 +69,8 @@ end
             @test s.width ≈ 0.5e-3 rtol = 1e-12
             @test (s.divisions, s.fraction, s.depth) == (3, 0.45, 0)
         end
-        # A strip's target reads its declared sides, and its width the `dimension` of its
-        # resolved shape. The band's outer is 1 mm across, the band 0.5 mm thick. At the
+        # A strip's target reads its declared sides, and its width the `dimension` of
+        # `resolve(at, x)`. The band's outer is 1 mm across, the band 0.5 mm thick. At the
         # placement 1.2 m away, the rectangle's `dimension` is 2.9e-15 m off its 2 mm.
         sector = LineCableModels.Sector(2.0e-3, 5.0e-3, π / 3, 0, 0, Placement(0, 0))
         polygon = LineCableModels.Polygon([

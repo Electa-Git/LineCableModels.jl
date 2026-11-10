@@ -557,7 +557,7 @@ the angular span of a sector. A [`PerforatedShape`](@ref) has the area of its ou
 cross-section less the areas of its holes. A sector with displaced sides or fillets, and
 an arc polygon, take the area of their contour by Green's theorem.
 
-An ellipse has ``A=πab``. A polygon uses
+The area of an ellipse is ``A=πab``, and that of a polygon
 ``A=\\sum_i(x_i y_{i+1}-y_i x_{i+1})/2``.
 A layer subtracts the wrapped outline's area and gives ``Pt+πt²`` for a convex outline.
 """
@@ -637,7 +637,7 @@ support of its contour.
 
 `support(shape, φ)` returns the support function ``\\max(x\\cos φ+y\\sin φ)`` \\[m\\]
 of `shape` in the direction `φ` \\[rad\\]: the support of its contour in that direction. A
-perforated shape takes that of its outer cross-section, and a layer that of its parallel
+`PerforatedShape` takes that of its outer cross-section, and a layer that of its parallel
 boundary.
 
 Holes leave the support unchanged, so for an annulus or a sector it is the support of the
@@ -877,8 +877,8 @@ $(TYPEDSIGNATURES)
 
 Resolve a distance ``t`` \\[m\\] outward over the outer boundary of `shape`.
 Return the layer of thickness `t`, ``PerforatedShape(parallel,[boundary(shape)])``.
-The layer rests on the parallel of the contour of `boundary(shape)`. A hole of `shape` is
-not on the layer. Its `boundary` is the parallel.
+The layer rests on the parallel of the contour of `boundary(shape)`, which is its
+`boundary`. Its one hole is `boundary(shape)`, whatever the holes of `shape`.
 
 # Errors
 

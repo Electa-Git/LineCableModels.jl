@@ -35,8 +35,8 @@ run's incidental state, while the node and element counts stay equal. Over seven
 
 The coaxial cable, from the center out:
 
-- The core of `coaxial_circular_strands` is 37 copper wires of 3 mm: a straight center wire and
-  courses of 6, 12 and 18 wires at lay ratio 12.
+- The core of `coaxial_circular_strands` is 37 copper wires of 3 mm. It has a straight center
+  wire and courses of 6, 12 and 18 wires at lay ratio 12.
 - The core of `coaxial_rectangular_strands` is a copper center wire of 3 mm and courses of 6, 12
   and 18 copper strands of 3.0 × 3.0 mm at lay ratio 12. Each strand is bent into an annular
   sector of the same area.
@@ -75,8 +75,8 @@ and the neutral is a terminal of the cable. Its `matrices.csv` gives FEM rows, a
 
 The cable of `three_cores_steel_pipe` is the 36 kV cable of 3 × 1000 mm² in Table 1 of
 Høidalen (2013). Its aluminum cores of radius 19.5 mm and 3.365e-8 Ω·m lie 120° apart, each under
-XLPE to a radius of 28 mm. Each core center lies 32.33 mm from the center of the cable, so the
-insulations touch. XLPE fills the steel pipe of 62 mm to 65 mm, with 7e-8 Ω·m and relative
+XLPE to a radius of 28 mm. Each core center lies 32.33 mm from the center of the cable, the
+distance at which the insulations touch. XLPE fills the steel pipe of 62 mm to 65 mm, with 7e-8 Ω·m and relative
 permeability 10. A PE jacket of 5 mm follows, and each core and the pipe is a terminal. Its
 `matrices.csv` gives FEM rows, and its `# Sources:` line names FEM alone.
 
@@ -109,7 +109,7 @@ and `Y`, at the same 101 frequencies:
 
 Copies of the four original case scripts computed them at `989af96c`. Copies of the overhead
 and mixed scripts computed them at `9621e504`. The runs appear below. Each copy keeps the
-script's system and formulation, leaves out FEM, computes with `options = (trace = true,)`
+script's system and formulation without FEM, computes with `options = (trace = true,)`
 and writes the four matrices of `result.trace`. The comment lines give the
 conductors and the cables in row and column order, and the units. Each row is one entry of
 one matrix: `source` (`analytical`), `frequency_hz`, `matrix`, `row`, `column`, `real`,
@@ -212,7 +212,7 @@ The source gives the following results against the analytical rows:
     wires as a tube. The wires meet the 3 mm bedding only at their crowns, with fill (εr 1) in
     the wedges between them. With the armor as a steel tube, e_Y is at most 0.094 %.
   - e_Z below about 25 Hz, up to 4.5 % in Z33: the armor lay correction, which the analytical
-    equivalent conductor carries and a two-dimensional FEM model does not. With straight armor
+    equivalent conductor includes and a two-dimensional FEM model does not. With straight armor
     wires, e_Z at 0.1 Hz is 0.49 %.
   - e_Z above about 40 kHz: the core lay correction, in the same way. In Z11 at 10 MHz, e_Z
     reaches 5.2 % for the rectangular strands and 4.9 % for the circular strands. With a
@@ -412,7 +412,7 @@ Each deviation follows from the approximation of the formula:
 - `:wise1934` is the integral of `:carson1926` at `eps_r = 1`, so the two share their cause.
 - `:pollaczek1926` takes each cable as a filament and leaves out both displacement currents.
 
-The implementation at commit `88f5de54` stops the integral at `λ = 1` 1/m and keeps the displacement
+The implementation at commit `88f5de54` stops the integral at `λ = 1` 1/m and includes the displacement
 current of the air in its root. It differs from `:carson1926` by 0.0105 of the largest diagonal entry
 of `Zg` at 13.2 kHz, where the stop of the integral acts. At 10 MHz, where the air acts, it differs by
 0.0281.

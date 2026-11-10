@@ -39,8 +39,9 @@ open(joinpath(folder, "matrices.csv"), "w") do io
     end
 end
 
-# FEM against the coaxial formulation: the matrices scaled by their largest diagonal entry,
-# and the positive-sequence resistance, reactance and susceptance relative to the coaxial.
+# FEM against the coaxial formulation. The comparison scales the matrices by their largest
+# diagonal entry, and takes the positive-sequence resistance, reactance and susceptance
+# relative to the coaxial.
 z1_fem = fem.Z[1, 1, :] .- fem.Z[1, 2, :]
 y1_fem = fem.Y[1, 1, :] .- fem.Y[1, 2, :]
 for k in eachindex(result.frequencies)

@@ -170,7 +170,7 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t files < "$RUNNER_TEMP/prose-reports/vale-files.txt"
-          vale --no-global --config=.github/prose/vale.ini --no-color "${files[@]}" 2>&1 | tee "$RUNNER_TEMP/prose-reports/vale.log"
+          julia --startup-file=no .github/prose/vale-unwrapped.jl --no-global --config=.github/prose/vale.ini --no-color "${files[@]}" 2>&1 | tee "$RUNNER_TEMP/prose-reports/vale.log"
       - name: Check spelling with cspell
         if: ${{ !cancelled() && steps.prose_tools.outcome == 'success' && steps.prose_inputs.outcome == 'success' }}
         shell: bash

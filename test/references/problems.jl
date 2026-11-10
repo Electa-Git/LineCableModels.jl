@@ -1,5 +1,5 @@
-# Reference order: the buried bare and insulated wire pairs, the two coaxial cases,
-# then the overhead and mixed bare-wire pairs. Cables with sector-shaped conductors
+# Reference order: first the buried bare and insulated wire pairs and the two coaxial
+# cases, then the overhead and mixed bare-wire pairs. Cables with sector-shaped conductors
 # follow, then a pipe-type cable. The first two entries keep their positions.
 const REFERENCES = let
     copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)

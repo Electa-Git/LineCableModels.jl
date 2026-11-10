@@ -60,8 +60,8 @@ end
         @test reinterpret(UInt64, ldiv!(factors, copy(B))) ==
               reinterpret(UInt64, ldiv!(expected, copy(B)))
     end
-    # After a first call, the factorization of a BLAS element type does not allocate, nor
-    # does the solve with it. The function and its arguments pass through an anonymous
+    # After a first call, the factorization of a BLAS element type and the solve with it
+    # allocate 0 bytes. The function and its arguments pass through an anonymous
     # function, where their types are concrete.
     A = [complex(sin(i + 2j), cos(3i - j)) for i in 1:6, j in 1:6] + 6I
     B = [complex(cos(i - j), sin(i * j)) for i in 1:6, j in 1:3]

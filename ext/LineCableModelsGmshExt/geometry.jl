@@ -718,9 +718,9 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Walk oriented `boundaries`, with material on the left, into cycles. Return the plane
-surface tags of positive cycles with their contained holes, and the curve lists of
-uncontained negative cycles. Stored coordinates are in \\[m\\]. Compare incident
+Walk oriented `boundaries`, with material on the left, into cycles. Return the tag of
+the Gmsh plane surface of each positive cycle with its contained holes, and the curve
+lists of uncontained negative cycles. Stored coordinates are in \\[m\\]. Compare incident
 directions at a common distance from each contact.
 
 A cycle's path takes the stored curve of each edge, reversed where the edge is negative.

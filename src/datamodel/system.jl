@@ -145,7 +145,7 @@ end
     draw(target, system)
 
 Draw the regions of a system or a design on `target`, each through the contour of its
-shape. The walk reads the system's or design's already placed regions, then
+`shape`. The walk reads the system's or design's already placed regions, then
 `placed.shape` and its contour. A system or design returns a vector of results from its
 regions. A placed region returns the result for `placed.shape`. An `AbstractShape`
 returns the result for its contour.

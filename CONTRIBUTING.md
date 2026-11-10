@@ -12,9 +12,8 @@ describes the architecture, the rules and the conventions in full.
   their equations and references.
 - A change adds only the names, tests, checks and files that it requires. What does not
   fit the architecture is discussed first, never worked around.
-- A new name is a concept. It is proposed with its meaning and its terms, confirmed by the
-  maintainers, and entered in `test/architecture/names.toml` in the same change as its
-  definition.
+- A new name is a concept. It is proposed with its meaning and its terms and confirmed by the
+  maintainers. It enters `test/architecture/names.toml` in the same change as its definition.
 - Every test calls feature code and checks a feature result. A tolerance, an assertion or a
   guard is never loosened to make a change pass.
 - Numbers come before decisions. A design choice that rests on a measurement states the

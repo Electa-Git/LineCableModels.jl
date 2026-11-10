@@ -840,8 +840,8 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test d ≈ 1.0e-3 rtol = 1e-12
         inner = Arc(Placement(0, 0, 0), 2.0e-3, π / 2)
         outer = Arc(Placement(0, 0, π / 4), 3.0e-3, π / 2)
-        # Every pair at one angle of the common range [π/4, π/2] is nearest, and the
-        # floating-point error decides which one returns. The bounds are two spacings of
+        # Every pair at one angle of the common range [π/4, π/2] is nearest, and which one
+        # returns depends on the floating-point error. The bounds are two spacings of
         # floating-point numbers at the radii and at the angle.
         p, q, d, s, t = clearance(inner, outer)
         φ = atan(p[2], p[1])

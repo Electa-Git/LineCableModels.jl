@@ -14,7 +14,7 @@ using SpecialFunctions: besseli, besselk
     reductions = LineCableModels.FormulationOptions(CoaxialFormulation)
     copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
     # Each case gives the outer radius of each cable in m, the placements and the earth. A state
-    # row gives the frequency index, the cable, x, A and F. A term row gives the frequency index,
+    # row gives the frequency index, the cable, x, A and F. Term rows give the frequency index,
     # the receiver, the source, k in Ω/m and h in m/F.
     cases = [
         (name = "two buried bare wires", radii = [0.0425, 0.0425],

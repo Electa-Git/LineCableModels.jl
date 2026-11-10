@@ -13,38 +13,38 @@ arrangements of underground and overhead power cables, with uncertainty propagat
 
 ## Main features
 
-- **High-fidelity cable modeling:** Detailed representation of solid and stranded conductors,
+- **High-fidelity cable modeling.** Detailed representation of solid and stranded conductors,
   with round wires or rectangular strands laid on helices, semicon screens, insulation layers,
   sheaths, beddings, armors of round wires, jackets and fillers. Any number of cables can be
   placed in the same cross-section to form a cable system.
-- **Equivalent tubular representation:** Each terminal of a cable is represented by an
+- **Equivalent tubular representation.** Each terminal of a cable is represented by an
   equivalent tubular conductor that preserves the DC resistance and the geometric mean radius
   of its regions, including the overlength of the round wires and rectangular strands laid on
   helices. The relative permeability of the insulation layers is corrected to account for the
   solenoid effect introduced by the helical path of the current in stranded conductors.
-- **Internal impedances and admittances:** Internal impedances of multilayered coaxial cables
+- **Internal impedances and admittances.** Internal impedances of multilayered coaxial cables
   by the general formulation of Ametani. The surface impedances of the conductors follow
   Schelkunoff or Wedepohl and Wilcox, and their resistivities follow the operating
   temperature.
-- **Lossy dielectrics:** The admittivity of an insulation or semicon layer includes its
+- **Lossy dielectrics.** The admittivity of an insulation or semicon layer includes its
   conduction and polarization loss when the formulation selects the lossy law.
-- **Earth-return impedances and admittances:** Earth-return impedances and potential
+- **Earth-return impedances and admittances.** Earth-return impedances and potential
   coefficients of underground, overhead and mixed systems, computed by a unified formulation
   with a prescribed longitudinal wavenumber.
-- **Classical earth-return formulas:** Carson, Pollaczek, Wise, Gary, Wedepohl and Wilcox,
+- **Classical earth-return formulas.** Carson, Pollaczek, Wise, Gary, Wedepohl and Wilcox,
   Saad, Papadopoulos, Xue, Lucca and Ametani, selected per domain of a pair of cables.
   The macro `@formulation` writes a selection per domain as a block.
-- **Earth models:** Layered earth models, with nine soil laws for the frequency dependence of
+- **Earth models.** Layered earth models, with nine soil laws for the frequency dependence of
   each layer and two models of an equivalent homogeneous earth.
-- **Phase-domain matrices:** Series impedance and shunt admittance matrices of polyphase
+- **Phase-domain matrices.** Series impedance and shunt admittance matrices of polyphase
   systems with any number of conductors per phase, with bundling of bonded conductors, Kron
   elimination of grounded conductors and ideal transposition.
-- **Analytical and FEM solutions:** The same problem is solved by the analytical coaxial
+- **Analytical and FEM solutions.** The same problem is solved by the analytical coaxial
   formulation of the package, which combines the closed-form internal impedances of the
   tubular conductors with the earth-return integrals, or by the finite-element backend, which
   solves the field equations on a mesh of the actual cross-section of the cables with Gmsh
   and GetDP. Both return a `LineParameters` record.
-- **Uncertainty quantification:** Linear propagation of the uncertainties of materials,
+- **Uncertainty quantification.** Linear propagation of the uncertainties of materials,
   dimensions, positions, earth properties and temperature to the line parameters, by means of
   the [Measurements.jl](https://github.com/JuliaPhysics/Measurements.jl) package.
 

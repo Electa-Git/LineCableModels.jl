@@ -1,8 +1,8 @@
 using LinearAlgebra: norm
 using JET
 
-# An earth-return identifier that the test declares for the mixed pairs, so that one slot holds
-# three distinct formulas.
+# An earth-return identifier that the test declares for the mixed pairs, so that one slot
+# contains three distinct formulas.
 function LineCableModels.defaults(::Type{LineCableModels.Engine.EarthReturn.Formula{:crossing}})
     (;)
 end

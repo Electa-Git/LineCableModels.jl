@@ -1,10 +1,9 @@
 """
 $(TYPEDSIGNATURES)
 
-Return the run directory of `problem` under `.linecablemodels/fem` in the current directory.
-Replace each character outside `[A-Za-z0-9_-]` in the system identifier with `_`. Append the
-local time and four random lower-case letters or digits. The function does not create the
-directory.
+Return the run directory of `problem` under `.linecablemodels/fem` in the current directory,
+without creating it. Replace each character outside `[A-Za-z0-9_-]` in the system identifier
+with `_`, and append the local time and four random lower-case letters or digits.
 """
 function directory(problem::LineParametersProblem)
     id = replace(problem.system.id, r"[^A-Za-z0-9_-]" => "_")
