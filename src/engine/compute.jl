@@ -27,8 +27,9 @@ function admittivity(rho::Real, eps_r::Real, s::Complex)
     return inv(rho) + s * (ε₀ * eps_r)
 end
 
-# An earth layer takes the admittivity of its resistivity and its relative permittivity.
-function admittivity(layer::EarthLayer, s::Complex)
+# An earth layer, declared or equivalent, takes the admittivity of its resistivity and its
+# relative permittivity.
+function admittivity(layer::Union{EarthLayer, EquivalentEarthLayer}, s::Complex)
     return admittivity(layer.rho, layer.eps_r, s)
 end
 
@@ -87,8 +88,9 @@ validate(problem::LineParametersProblem, ::AbstractFormulation) = problem
 """
 $(TYPEDSIGNATURES)
 
-Allocate the coaxial computation arrays, fill the longitudinal wavenumbers, and add the
-arrays of each formula from the distinct formulas of the formulation.
+Allocate the coaxial computation arrays, and fill the longitudinal wavenumbers and the
+equivalent earth at each frequency. Add the arrays of each formula from the distinct formulas of
+the formulation.
 
 # Arguments
 
@@ -100,6 +102,8 @@ arrays of each formula from the distinct formulas of the formulation.
 
 - A named tuple of conductor resistivities `rho` \\[Ω·m\\], dielectric admittivities `kappa`
   \\[S/m\\], and longitudinal wavenumbers `gamma` \\[1/m\\].
+- The same tuple contains `earth`, the [`EquivalentEarthLayer`](@ref) of each frequency by the
+  formulation's laws.
 - The same tuple contains, for each medium, the complex conductivity `σ̃` \\[S/m\\] and the
   permeability `μ` \\[H/m\\].
 - The same tuple contains `Zin`, `Zg` \\[Ω/m\\], `Pin`, `Pg` \\[m/F\\], reduction arrays, an
@@ -116,7 +120,7 @@ A formula reads these terms and derives everything else itself:
 | `ρ_i` at the operating temperature, by the resistivity law | `buffers.rho[i]` | once, before the loop |
 | `κ_l`, the admittivity of dielectric layer `l`, by its law | `buffers.kappa[l]` | per frequency, in `solve!` |
 | `Γ_k` | `buffers.gamma[k]` | once, from the options |
-| media as the law describes them and the model reduces them | `media[t]`, with `rho`, `eps_r`, `mu_r`, `thickness` | per frequency, in `solve!` |
+| media as the law describes them and the model reduces them | `media[t]`, with `rho`, `eps_r`, `mu_r` | once, in `initialize_buffers` |
 | `σ̃_t = 1/ρ_t + s ε₀ ε_r,t`, the [`admittivity`](@ref) of medium `t`, and `μ_t = μ₀ μ_r,t` | `buffers.σ̃[t]`, `buffers.μ[t]` | per frequency, by `to_buffer!` of the formulation |
 """
 function initialize_buffers(
@@ -130,6 +134,10 @@ function initialize_buffers(
         (rho = Vector{T}(undef, n),
             kappa = Vector{Complex{T}}(undef, l),
             gamma = Vector{Complex{T}}(undef, nf),
+            earth = [formulation.equivalent_earth(
+                         map(layer -> formulation.earth_properties(layer, f),
+                             Base.tail(problem.earth.layers)),
+                         f) for f in problem.frequencies],
             σ̃ = Vector{Complex{T}}(undef, 2),
             μ = Vector{T}(undef, 2),
             Zin = Matrix{Complex{T}}(undef, n, n),
@@ -171,10 +179,9 @@ relative permittivity and permeability \\[dimensionless\\] of medium ``t``.
 - `buffers`, with `σ̃` and `μ` filled.
 """
 function to_buffer!(::CoaxialFormulation, buffers, input::CoaxialInput, media, s, k)
-    for t in eachindex(media)
-        buffers.σ̃[t] = admittivity(media[t], s)
-        buffers.μ[t] = μ₀ * media[t].mu_r
-    end
+    # The air and the equivalent earth are of two types: the map compiles each medium's call.
+    buffers.σ̃ .= map(medium -> admittivity(medium, s), media)
+    buffers.μ .= map(medium -> μ₀ * medium.mu_r, media)
     return buffers
 end
 
@@ -237,10 +244,7 @@ function solve!(
             kappa[l] = admittivity(
                 formulation, input.dielectric_material[l], f, problem.temperature)
         end
-        air = first(problem.earth.layers)
-        described = map(layer -> formulation.earth_properties(layer, f),
-            Base.tail(problem.earth.layers))
-        media = (air, formulation.equivalent_earth(described, f))
+        media = (first(problem.earth.layers), buffers.earth[k])
         to_buffer!(formulation, buffers, input, media, s, k)
         impedance!(formulation.internal_impedance,
             formulation.insulation_impedance, Zin, input, rho, s)
@@ -313,6 +317,7 @@ function compute(
     validate(input, formulation)
     validate(merge(domain(problem, formulation.options), domain(input)), formulation)
     buffers = initialize_buffers(formulation, problem, input)
+    validate(buffers.earth, formulation.equivalent_earth, problem.frequencies)
     n = length(input.cable)
     c = length(input.radius)
     m = length(input.kept)

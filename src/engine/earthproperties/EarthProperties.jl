@@ -37,7 +37,7 @@ one layer.
 
 ### Callable
 
-`formula(layers, f)` returns the last of `layers`.
+`formula(layers, f)` returns the last of `layers` as an [`EquivalentEarthLayer`](@ref).
 
 - `layers`: the layers below the air, as the law describes them at `f`.
 - `f`: frequency \\[Hz\\].
@@ -265,13 +265,13 @@ below the air, where ``\\sigma_\\mathrm{eq} = \\sigma_{\\mathrm{eq},1}``:
 
 where layer ``k`` has the conductivity ``\\sigma_k = 1 / \\rho_k`` \\[S/m\\], the thickness ``h_k``
 \\[m\\] and the permeability ``\\mu_k = \\mu_0 \\mu_{r,k}`` \\[H/m\\], and ``\\mu_0`` is [`μ₀`](@ref). The
-layer it returns has the resistivity ``1 / \\sigma_\\mathrm{eq}`` and takes the relative
+medium it returns has the resistivity ``1 / \\sigma_\\mathrm{eq}`` and takes the relative
 permittivity and the relative permeability of the deepest layer. The source validates the
 equivalent on overhead conductors from 1 Hz to 2 MHz.
 
 ### Callable
 
-`formula(layers, f)` returns one semi-infinite layer.
+`formula(layers, f)` returns an [`EquivalentEarthLayer`](@ref).
 
 - `layers`: the layers below the air, as the law describes them at `f`.
 - `f`: frequency \\[Hz\\].
@@ -297,7 +297,7 @@ to the layer below the air, where ``\\gamma_\\mathrm{eq} = \\gamma_{\\mathrm{eq}
 \\end{aligned}
 ```
 
-The layer it returns parametrizes ``\\gamma_\\mathrm{eq}^2`` by its resistivity
+The medium it returns parametrizes ``\\gamma_\\mathrm{eq}^2`` by its resistivity
 ``1 / \\sigma_\\mathrm{eq}`` and its relative permittivity:
 
 ```math
@@ -305,7 +305,7 @@ The layer it returns parametrizes ``\\gamma_\\mathrm{eq}^2`` by its resistivity
 \\varepsilon_{r,\\mathrm{eq}} = 1 - \\frac{\\Re\\left(\\gamma_\\mathrm{eq}^2\\right)}{\\omega^2 \\mu_0 \\varepsilon_0}.
 ```
 
-This ``\\varepsilon_{r,\\mathrm{eq}}`` is negative where the layers are inductive. The layer takes
+This ``\\varepsilon_{r,\\mathrm{eq}}`` is negative where the layers are inductive. The medium takes
 the relative permeability of the deepest layer. A computation warns for an earth layer whose
 relative permeability differs from 1. The source reports errors below 4 % from 1 Hz to 5 MHz on
 overhead conductors.
@@ -321,10 +321,10 @@ module EarthProperties
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults, validate
-using ...Commons: FormulationOptions
+using ...Commons: FormulationOptions, nominal
 using ..Engine: AbstractEarthProperties, admittivity, ε₀, μ₀
 import ..Engine: domain
-using ...Earth: EarthLayer, EarthModel
+using ...Earth: EarthLayer, EquivalentEarthLayer, EarthModel
 using IntervalSets: (..)
 
 export Formula, FORMULAS
@@ -393,6 +393,35 @@ include("visacro1987.jl")
 include("visacro2012.jl")
 include("martins2020.jl")
 include("xue2021.jl")
+
+"""
+$(TYPEDSIGNATURES)
+
+Warn once when the medium that a model of the equivalent earth computes has a resistivity that
+is not positive at some frequency. The models hold for overhead conductors.
+
+# Arguments
+
+- `earth`: the computed medium at each frequency.
+- `formula`: the model of the slot `equivalent_earth` that computed `earth`.
+- `frequencies`: the frequency of each medium \\[Hz\\].
+
+# Returns
+
+- `earth`, unchanged.
+"""
+function validate(earth::AbstractVector{<:EquivalentEarthLayer}, formula::Formula{ID},
+        frequencies::AbstractVector{<:Real}) where {ID}
+    negative = findall(layer -> nominal(layer.rho) <= 0, earth)
+    isempty(negative) ||
+        @warn "the equivalent earth of :$ID has a resistivity that is not " *
+              "positive at $(length(negative)) of $(length(earth)) frequencies, " *
+              "from $(nominal(frequencies[first(negative)])) Hz to " *
+              "$(nominal(frequencies[last(negative)])) Hz; the models of the " *
+              "equivalent earth hold for overhead conductors, and the results " *
+              "may be nonphysical"
+    return earth
+end
 
 # A law describes a layer, and a model reduces the described layers of an earth model to one.
 validate(formula::Formula{:constant}, ::Type{EarthLayer}) = formula

@@ -15,7 +15,7 @@ using getdp_jll: getdp_jll
 import LineCableModels.Commons: build, compute, defaults, validate
 using LineCableModels.Commons: ComputationOptions, resolve, nominal, tolerance
 using LineCableModels.Materials: Material
-using LineCableModels.Earth: EarthLayer
+using LineCableModels.Earth: EquivalentEarthLayer
 import LineCableModels.BaseGeometry: direction, draw
 using LineCableModels.DataModel: AbstractShape, Circle, Annulus,
                                  Rectangle, Offset, Sector, Ellipse, Polygon, ArcPolygon,

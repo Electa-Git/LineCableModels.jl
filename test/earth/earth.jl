@@ -28,9 +28,32 @@
         @test model == EarthModel((EarthLayer(Inf, 1.0, 1.0),
             EarthLayer(100.0, 10.0, 1.0, 5.0), EarthLayer(1000.0, 10.0, 1.0)))
     end
-    @testset "finite relative permittivity of an equivalent earth" begin
-        @test EarthLayer(52.4, -300334.5, 1.0).eps_r == -300334.5
+    @testset "a declared earth model takes a relative permittivity of at least 1" begin
+        air = EarthLayer(Inf, 1.0, 1.0)
+        low = EarthLayer(52.4, -300334.5, 1.0)
+        @test low.eps_r == -300334.5
+        @test_throws "EarthModel.layers[2].eps_r must be at least 1" EarthModel((air, low))
+        @test_throws "EarthModel.layers[2].eps_r must be at least 1" EarthModel((
+            air, EarthLayer(100.0, 0.5, 1.0)))
+        @test_throws "EarthModel.layers[1].eps_r must be at least 1" EarthModel((
+            EarthLayer(Inf, 0.5, 1.0), EarthLayer(100.0, 10.0, 1.0)))
         @test_throws DomainError EarthLayer(100.0, Inf, 1.0)
         @test_throws DomainError EarthLayer(100.0, NaN, 1.0)
+    end
+    @testset "a computed medium takes any resistivity but NaN" begin
+        @test EquivalentEarthLayer(-393, 333 // 2, 1) ===
+              EquivalentEarthLayer{Float64}(-393.0, 166.5, 1.0)
+        @test EquivalentEarthLayer(Inf, 1.0, 1.0).rho == Inf
+        @test EquivalentEarthLayer(52.4, -300334.5, 1.0).eps_r == -300334.5
+        @test_throws "EquivalentEarthLayer.rho must not be NaN" EquivalentEarthLayer(
+            NaN, 1.0, 1.0)
+        @test_throws "EquivalentEarthLayer.eps_r must be finite" EquivalentEarthLayer(
+            100.0, Inf, 1.0)
+        @test_throws "EquivalentEarthLayer.eps_r must be finite" EquivalentEarthLayer(
+            100.0, NaN, 1.0)
+        @test_throws "EquivalentEarthLayer.mu_r must be positive and finite" EquivalentEarthLayer(
+            100.0, 1.0, 0.0)
+        @test_throws "EquivalentEarthLayer.mu_r must be positive and finite" EquivalentEarthLayer(
+            100.0, 1.0, Inf)
     end
 end

@@ -76,6 +76,9 @@ nine soil laws of `EarthProperties` give values that vary with it. The default m
 `:bottommost`, takes the deepest layer, and `:martins2020` and `:xue2021` reduce all the layers
 to one equivalent layer.
 
+The sources of both reductions validate them on overhead conductors. Where a model gives a
+resistivity that is not positive, the computation runs and warns once, with the frequencies.
+
 ## Earth-return formulas
 
 ```@autodocs

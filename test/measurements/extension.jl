@@ -75,6 +75,16 @@ using SpecialFunctions: besselix, besselkx, besseljx, besselk
     result = @inferred compute(problem, CoaxialFormulation())
     @test result isa LineParameters{Measurement{Float64}}
 
+    layered = LineParametersProblem(reference.system,
+        EarthModel((
+            EarthLayer(measurement(Inf), 1.0, 1.0), EarthLayer(50.0 ± 1.0, 4.0, 1.0, 1.0),
+            EarthLayer(2000.0 ± 0.0, 30.0, 1.0, 20.0), EarthLayer(10.0 ± 0.0, 60.0, 1.0, 3.0),
+            EarthLayer(300.0 ± 0.0, 8.0, 1.0))); frequencies = [1.0e6])
+    result = @test_logs (:warn, r"the equivalent earth of :xue2021") (:warn,
+        r"the series impedance Z is not passive at 1 of 1") compute(
+        layered, CoaxialFormulation(equivalent_earth = :xue2021))
+    @test result isa LineParameters{Measurement{Float64}}
+
     ro, apex = measurement(10.0e-3, 1.0e-5), measurement(0.0, 1.0e-4)
     A = area(LineCableModels.Sector(0, ro, 2π / 3, apex, 0, Placement(0, 0)))
     @test Measurements.value(A) ≈ π * 1.0e-4 / 3 rtol = 1e-12

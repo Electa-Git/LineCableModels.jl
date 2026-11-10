@@ -70,7 +70,7 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
     "Longitudinal wavenumber Γ at each frequency \\[1/m\\]."
     gamma::Vector{Complex{T}}
     "Equivalent earth at each frequency."
-    earth::Vector{EarthLayer{T}}
+    earth::Vector{EquivalentEarthLayer{T}}
     "Mean horizontal placement of the cables \\[m\\]."
     center::T
     "Smallest radius of the cable outlines, used to size CAD points \\[m\\]."
@@ -107,7 +107,7 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
     - Throws `DomainError` when a conductive region's conductivity is not finite and
       positive.
     - Throws `DomainError` when a cable's outer circle touches the ground surface.
-    - Throws `DomainError` when earth conductivity is not finite and nonnegative.
+    - Throws `DomainError` when earth conductivity is not finite.
     """
     function FieldModel(problem::LineParametersProblem{T}, formulation::FEM) where {T <:
                                                                                     Real}
@@ -167,6 +167,7 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
                      map(layer -> formulation.earth_properties(layer, f),
                          Base.tail(problem.earth.layers)),
                      f) for f in problem.frequencies]
+        validate(earth, formulation.equivalent_earth, problem.frequencies)
         center = convert(T, sum(at.x for at in problem.system.placements) /
                             length(problem.system.placements))
         scale = convert(T, minimum(design -> support(design.outer), problem.system.designs))
@@ -194,7 +195,7 @@ Check the regions' and earth's conductivity and the cables' contact with the gro
 - Throws `DomainError` when a conductive region's conductivity \\[S/m\\] is not finite
   and positive at every frequency.
 - Throws `DomainError` when a cable's outer circle touches the ground surface.
-- Throws `DomainError` when earth conductivity is not finite and nonnegative.
+- Throws `DomainError` when earth conductivity is not finite.
 
 An error about a cable identifies its index. A conductive region's error also identifies its
 tag. An error about earth conductivity identifies the frequency.
@@ -202,8 +203,8 @@ tag. An error about earth conductivity identifies the frequency.
 function validate(model::FieldModel)
     for (k, state) in enumerate(model.earth)
         σ = inv(state.rho)
-        isfinite(σ) && σ >= 0 || throw(DomainError(σ,
-            "earth conductivity must be finite and nonnegative at frequency " *
+        isfinite(σ) || throw(DomainError(σ,
+            "earth conductivity must be finite at frequency " *
             "$(model.problem.frequencies[k]) Hz"))
     end
     offset = 0

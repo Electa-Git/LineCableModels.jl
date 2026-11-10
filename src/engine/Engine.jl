@@ -16,12 +16,12 @@ using ..Commons: nominal
 using ..Commons: AbstractFormulation, AbstractBackend, FormulationOptions,
                  ComputationOptions
 using ..Materials: Material
-using ..Earth: EarthLayer, EarthModel
+using ..Earth: EarthLayer, EquivalentEarthLayer, EarthModel
 using ..BaseGeometry: Placement, support
 using ..DataModel: CableSystem, flatten
 using IntervalSets: ClosedInterval
-using LinearAlgebra: BlasFloat, BlasInt, I, LAPACK, LU, SingularException, checksquare,
-                     ldiv!, lu!, mul!
+using LinearAlgebra: BlasFloat, BlasInt, Hermitian, I, LAPACK, LU, SingularException,
+                     checksquare, isposdef!, ldiv!, lu!, mul!
 using QuadGK: alloc_segbuf, quadgk
 
 export ε₀, μ₀

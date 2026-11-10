@@ -14,5 +14,5 @@ function (::Formula{:martins2020})(layers::Tuple{Vararg{EarthLayer{T}}}, f::T) w
                ((sqrt(σ_k) + sqrt(σ_eq) - (sqrt(σ_k) - sqrt(σ_eq)) * decay) /
                 (sqrt(σ_k) + sqrt(σ_eq) + (sqrt(σ_k) - sqrt(σ_eq)) * decay))^convert(T, 2)
     end
-    return EarthLayer{T}(inv(σ_eq), last(layers).eps_r, last(layers).mu_r, convert(T, Inf))
+    return EquivalentEarthLayer{T}(inv(σ_eq), last(layers).eps_r, last(layers).mu_r)
 end

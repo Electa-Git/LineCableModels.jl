@@ -21,7 +21,7 @@ using .Commons: build, resolve, validate, compute, defaults, select, nominal, to
                 AbstractFormulation,
                 AbstractBackend, FormulationOptions, ComputationOptions
 using .Materials: Material, material
-using .Earth: EarthLayer, EarthModel, homogeneous, @layers
+using .Earth: EarthLayer, EquivalentEarthLayer, EarthModel, homogeneous, @layers
 using .BaseGeometry: Placement, area, perimeter, centroid, support, distance
 using .DataModel: AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle,
                   Offset, Sector, Ellipse, Polygon, AbstractLayoutPattern, CircularPattern,
@@ -46,7 +46,8 @@ using .Engine: ε₀, μ₀, AbstractInternalImpedance,
                SpectralIntegral, integrate, Λ, reductions,
                @formulation, @air, @earth, @mixed
 
-export Material, material, EarthLayer, EarthModel, homogeneous, @layers
+export Material, material, EarthLayer, EquivalentEarthLayer, EarthModel, homogeneous,
+       @layers
 export Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
 export AbstractLayoutPattern, CircularPattern, LinearPattern, Helix, LayRatio
 export area, perimeter, centroid, support, distance, boundary, r_in, r_ex, placements,

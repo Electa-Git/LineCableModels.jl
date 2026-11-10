@@ -316,7 +316,9 @@ declared by every formula of that level.
 
 `compute` runs as its controls say and reports a requested target it did not meet. It leaves
 error budgets, refinement loops, audits and resource guards out. Scientific validation
-belongs to the tests and to the user's comparisons with finite-element results.
+belongs to the tests and to the user's comparisons with finite-element results. A warning on the
+physical sanity of a computed medium or of a result is a report that the user judges. The
+`validate` of that medium or result issues it once, and the computation runs.
 
 ### Numbers
 

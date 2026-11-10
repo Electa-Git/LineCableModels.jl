@@ -326,6 +326,34 @@ end
         end
     end
 
+    @testset "a negative equivalent resistivity warns once and computes" begin
+        reference = Dict(REFERENCES)["two_insulated_wires"]
+        air = first(reference.earth.layers)
+        stratifications = (
+            (EarthLayer(100.0, 10.0, 1.0, 5.0), EarthLayer(500.0, 20.0, 1.0, 10.0),
+                EarthLayer(50.0, 5.0, 1.0)),
+            (EarthLayer(1000.0, 5.0, 1.0, 2.0), EarthLayer(100.0, 15.0, 1.0)),
+            (EarthLayer(50.0, 4.0, 1.0, 1.0), EarthLayer(2000.0, 30.0, 1.0, 20.0),
+                EarthLayer(10.0, 60.0, 1.0, 3.0), EarthLayer(300.0, 8.0, 1.0)))
+        formulation = CoaxialFormulation(equivalent_earth = :xue2021)
+        problems = [LineParametersProblem(reference.system, EarthModel((air, layers...));
+                        frequencies = [1.0e6]) for layers in stratifications]
+        @test_logs compute(problems[1], formulation)
+        @test_logs compute(problems[2], formulation)
+        # The scan frequencies about 1 MHz where the equivalent resistivity is negative.
+        buried = LineParametersProblem(reference.system,
+            EarthModel((air, stratifications[3]...));
+            frequencies = [912010.8393559096, 1.0e6, 1.096478196143185e6])
+        result = @test_logs (:warn,
+            r"the equivalent earth of :xue2021 has a resistivity that is not positive at 3 of 3 frequencies") (
+            :warn,
+            "the series impedance Z is not passive at 3 of 3 frequencies, from " *
+            "912010.8393559096 Hz to 1.096478196143185e6 Hz; the results may be nonphysical") compute(
+            buried, formulation)
+        @test all(isfinite, result.Z)
+        @test all(isfinite, result.Y)
+    end
+
     @testset "every declared key is a quantity that the computations present" begin
         reference = Dict(REFERENCES)["coaxial_circular_strands"]
         coaxial = CoaxialFormulation()

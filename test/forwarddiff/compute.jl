@@ -75,6 +75,26 @@ end
     end
 end
 
+# The trefoil over a layered earth whose upper resistivity is p, at 1 MHz, where the
+# equivalent resistivity of :xue2021 is negative.
+function layered_problem(p)
+    ρ = only(p)
+    T = typeof(ρ)
+    earth = EarthModel((EarthLayer(T(Inf), 1.0, 1.0), EarthLayer(ρ, 4.0, 1.0, 1.0),
+        EarthLayer(T(2000), 30.0, 1.0, 20.0), EarthLayer(T(10), 60.0, 1.0, 3.0),
+        EarthLayer(T(300), 8.0, 1.0)))
+    return LineParametersProblem(trefoil_problem([10.0e-3, 8.0e-3, 100.0]).system, earth;
+        frequencies = [1.0e6])
+end
+
+@testset "a negative equivalent resistivity of a Dual problem warns on its nominal value" begin
+    formulation = CoaxialFormulation(equivalent_earth = :xue2021)
+    J = @test_logs (:warn, r"the equivalent earth of :xue2021") (:warn,
+        r"the series impedance Z is not passive at 1 of 1") ForwardDiff.jacobian(
+        p -> line_parameters(layered_problem, formulation, p), [50.0])
+    @test all(isfinite, J)
+end
+
 @testset "the check reads the nominal values of a Dual problem" begin
     Engine = LineCableModels.Engine
     problem = trefoil_problem(ForwardDiff.Dual.([10.0e-3, 8.0e-3, 100.0], 1.0))

@@ -20,5 +20,5 @@ function (::Formula{:xue2021})(layers::Tuple{Vararg{EarthLayer{T}}}, f::T) where
     end
     σ_eq = imag(γ_eq * γ_eq) / (ω * μ)
     ε_eq = one(T) - real(γ_eq * γ_eq) / (ω * ω * μ * ε)
-    return EarthLayer{T}(inv(σ_eq), ε_eq, last(layers).mu_r, convert(T, Inf))
+    return EquivalentEarthLayer{T}(inv(σ_eq), ε_eq, last(layers).mu_r)
 end

@@ -1,14 +1,15 @@
 """
     LineCableModels.Earth
 
-Describe the earth below the air as an ordered stack of layers, semi-infinite air first.
+Describe the earth below the air as an ordered stack of layers, semi-infinite air first. A
+model of the equivalent earth reduces those layers to one medium at each frequency.
 """
 module Earth
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..Commons: validate
 
-export EarthLayer, EarthModel, homogeneous, @layers
+export EarthLayer, EquivalentEarthLayer, EarthModel, homogeneous, @layers
 
 """
 $(TYPEDEF)
@@ -20,7 +21,7 @@ $(TYPEDFIELDS)
 struct EarthLayer{T <: Real}
     "Electrical resistivity \\[Ω·m\\]."
     rho::T
-    "Relative permittivity, negative where an equivalent earth parametrizes an inductive stack \\[dimensionless\\]."
+    "Relative permittivity, at least 1 where an earth model declares it \\[dimensionless\\]."
     eps_r::T
     "Relative permeability \\[dimensionless\\]."
     mu_r::T
@@ -85,6 +86,55 @@ end
 """
 $(TYPEDEF)
 
+Store the semi-infinite medium that a model of the formulation's slot `equivalent_earth`
+computes for the earth layers at one frequency. A model computes it, and no user declares it.
+Its resistivity takes any value but `NaN`, a negative or an infinite one included.
+
+$(TYPEDFIELDS)
+"""
+struct EquivalentEarthLayer{T <: Real}
+    "Electrical resistivity, negative where the equivalent conductivity is negative \\[Ω·m\\]."
+    rho::T
+    "Relative permittivity, negative where the layers are inductive \\[dimensionless\\]."
+    eps_r::T
+    "Relative permeability, as the deepest layer declares it \\[dimensionless\\]."
+    mu_r::T
+    function EquivalentEarthLayer{T}(rho::T, eps_r::T, mu_r::T) where {T <: Real}
+        return validate(new{T}(rho, eps_r, mu_r))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct the medium in the type that its properties promote to with `Float64`. The arguments
+are the fields of [`EquivalentEarthLayer`](@ref).
+
+# Errors
+
+- Throws `DomainError` when `rho` is `NaN`, when `eps_r` is not finite, or when `mu_r` is not
+  positive and finite.
+"""
+function EquivalentEarthLayer(rho::Real, eps_r::Real, mu_r::Real)
+    values = promote(rho, eps_r, mu_r)
+    T = promote_type(Float64, eltype(values))
+    return EquivalentEarthLayer{T}(convert.(T, values)...)
+end
+
+# The checks refuse only the values that break the formulas.
+function validate(layer::EquivalentEarthLayer)
+    isnan(layer.rho) &&
+        throw(DomainError(layer.rho, "EquivalentEarthLayer.rho must not be NaN"))
+    isfinite(layer.eps_r) ||
+        throw(DomainError(layer.eps_r, "EquivalentEarthLayer.eps_r must be finite"))
+    isfinite(layer.mu_r) && layer.mu_r > zero(layer.mu_r) ||
+        throw(DomainError(layer.mu_r, "EquivalentEarthLayer.mu_r must be positive and finite"))
+    return layer
+end
+
+"""
+$(TYPEDEF)
+
 Store an earth description: semi-infinite air above the earth layers, the last of them
 semi-infinite.
 
@@ -107,6 +157,7 @@ Construct an earth model from its layers, semi-infinite air first.
 
 - Throws `ArgumentError` unless the first layer is semi-infinite air, the last is semi-infinite
   and each layer between has a finite thickness.
+- Throws `ArgumentError` when the relative permittivity of a layer is below 1.
 """
 function EarthModel(layers::Tuple{EarthLayer{T}, Vararg{EarthLayer{T}}}) where {T <: Real}
     return EarthModel{T, length(layers)}(layers)
@@ -165,6 +216,10 @@ function validate(model::EarthModel)
         throw(ArgumentError("EarthModel.layers[$(length(layers))] must be semi-infinite"))
     all(layer -> isfinite(layer.thickness), layers[2:(end - 1)]) || throw(ArgumentError(
         "EarthModel.layers between the air and the last layer must have a finite thickness"))
+    for (k, layer) in enumerate(layers)
+        layer.eps_r >= 1 || throw(ArgumentError(
+            "EarthModel.layers[$k].eps_r must be at least 1; received $(layer.eps_r)"))
+    end
     return model
 end
 

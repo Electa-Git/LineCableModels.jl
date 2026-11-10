@@ -4,6 +4,7 @@ $(TYPEDEF)
 Store the line parameters of a problem: the series impedance and the shunt admittance per
 unit length of the retained conductors at each frequency. Each row has the label of its
 conductor, and the record keeps the formulation that computed it and the length of the line.
+The constructor warns once where the series impedance is not passive at some frequency.
 
 $(TYPEDFIELDS)
 """
@@ -43,7 +44,7 @@ struct LineParameters{T <: Real, F <: AbstractFormulation, N <: NamedTuple}
 end
 
 # Z and Y are square, of one size, with one slice per frequency and one label per row, and
-# finite.
+# finite. A Z that is not passive at some frequency warns once.
 function validate(result::LineParameters)
     n = size(result.Z, 1)
     size(result.Z) == (n, n, length(result.frequencies)) &&
@@ -64,5 +65,30 @@ function validate(result::LineParameters)
         throw(DomainError(result.Z, "LineParameters.Z must be finite"))
     all(isfinite, result.Y) ||
         throw(DomainError(result.Y, "LineParameters.Y must be finite"))
+    # Z is passive at a frequency where the Hermitian part of its slice has no negative
+    # eigenvalue. H is that part, scaled by its diagonal to entries of magnitude one, plus
+    # √eps·I. H has a Cholesky factor exactly where its least eigenvalue exceeds -√eps.
+    H = Matrix{typeof(nominal(zero(eltype(result.Z))))}(undef, n, n)
+    margin = sqrt(eps(real(eltype(H))))
+    nonpassive = Int[]
+    for k in axes(result.Z, 3)
+        Z = view(result.Z,:,:,k)
+        for j in 1:n
+            for i in 1:n
+                H[i, j] = (nominal(Z[i, j]) + conj(nominal(Z[j, i]))) / 2 /
+                          sqrt(abs(nominal(Z[i, i])) * abs(nominal(Z[j, j])))
+            end
+        end
+        for i in 1:n
+            H[i, i] += margin
+        end
+        isposdef!(Hermitian(H)) || push!(nonpassive, k)
+    end
+    isempty(nonpassive) ||
+        @warn "the series impedance Z is not passive at $(length(nonpassive)) of " *
+              "$(length(result.frequencies)) frequencies, from " *
+              "$(nominal(result.frequencies[first(nonpassive)])) Hz to " *
+              "$(nominal(result.frequencies[last(nonpassive)])) Hz; the results may be " *
+              "nonphysical"
     return result
 end

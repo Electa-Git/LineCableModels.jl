@@ -23,7 +23,14 @@
         model = Engine.EarthProperties.Formula(Val(:bottommost))
         upper = EarthLayer(100.0, 10.0, 1.0, 5.0)
         lower = EarthLayer(1000.0, 5.0, 1.0)
-        @test model((upper, lower), 50.0) === lower
+        @test model((upper, lower), 50.0) === EquivalentEarthLayer(1000.0, 5.0, 1.0)
+        @test model((lower,), 50.0) === EquivalentEarthLayer(1000.0, 5.0, 1.0)
+    end
+
+    @testset "a computed medium takes the admittivity of a layer of the same numbers" begin
+        s = complex(0.0, 2π * 1.0e6)
+        @test (@inferred Engine.admittivity(EquivalentEarthLayer(100.0, 15.0, 1.0), s)) ===
+              (@inferred Engine.admittivity(EarthLayer(100.0, 15.0, 1.0), s))
     end
 
     @testset "the lossless admittivity of insulators and semicons" begin
@@ -413,6 +420,7 @@
             (:xue2021, 1000000.0, 91.43603911709877, 55.504199487018646))
             formula = Engine.EarthProperties.Formula(Val(id))
             value = formula(layers, f)
+            @test value isa EquivalentEarthLayer{Float64}
             @test value.rho ≈ ρ rtol = 2.0e-13
             @test value.eps_r ≈ ε_r rtol = 2.0e-13
         end
@@ -555,11 +563,14 @@
                 equivalent_earth = :martins2020))
         composed = formula(map(layer -> law(layer, f), layers), f)
         expected = compute(
-            LineParametersProblem(system, EarthModel((air, composed));
+            LineParametersProblem(system,
+                EarthModel((air, EarthLayer(composed.rho, composed.eps_r, composed.mu_r)));
                 frequencies = [f]),
             CoaxialFormulation())
+        reduced = formula(layers, f)
         raw = compute(
-            LineParametersProblem(system, EarthModel((air, formula(layers, f)));
+            LineParametersProblem(system,
+                EarthModel((air, EarthLayer(reduced.rho, reduced.eps_r, reduced.mu_r)));
                 frequencies = [f]),
             CoaxialFormulation())
         @test isequal(result.Z, expected.Z)

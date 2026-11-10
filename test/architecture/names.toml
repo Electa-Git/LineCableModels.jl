@@ -57,12 +57,12 @@ nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "f
     "options", "backend", "insulation", "system", "line_length", "terminals", "assemblies",
     "layer", "model", "problem", "center", "label", "base_geometry", "holes",
     "positions", "dielectric", "ranges", "arc", "span", "offset"]
-qualifiers = ["cable", "outer"]
+qualifiers = ["cable", "outer", "equivalent"]
 symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "mu_r_ins", "φ", "φ0", "r", "a", "b", "q"]
 prepositions = ["at"]
 
 [global.verbs]
-validate = "check an input before its consumer uses it; return it unchanged, or throw"
+validate = "check an input, a computed medium or a result before its consumer uses it; return it unchanged, or throw; warn once where it is computable but questionable"
 resolve = "give a declared part or layer its geometry in its context, or place a shape in a frame"
 build = "construct a completed object of a type from its declarations"
 compute = "run one computation of a problem by a formulation, on the backend that runs it"
@@ -103,7 +103,7 @@ nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resist
     "line_parameters", "gmsh", "fem", "earth_return", "shunt", "buffers", "trace",
     "frequencies", "input", "connection", "radius", "bundles",
     "transposition", "integral", "integrand", "reductions", "air", "domain"]
-qualifiers = ["coaxial", "equivalent", "internal", "kept", "eliminated", "spectral", "lcm", "mixed"]
+qualifiers = ["coaxial", "internal", "kept", "eliminated", "spectral", "lcm", "mixed"]
 symbols = ["Z", "Y", "r_ins_ex", "Λ", "ζ", "ε₀", "μ₀"]
 
 [modules.Engine.verbs]
@@ -149,7 +149,7 @@ walk = "walk oriented boundaries into the cycles that bound faces"
 lifts = ["select"]
 
 [register.Commons.public]
-validate = "check an input before its consumer uses it; return it unchanged, or throw"
+validate = "check an input, a computed medium or a result before its consumer uses it; return it unchanged, or throw; warn once where it is computable but questionable"
 resolve = "give a declared part or layer its geometry in its context, or place a shape in a frame"
 build = "construct a completed object of a type from its declarations"
 compute = "run one computation of a problem by a formulation, on the backend that runs it"
@@ -171,6 +171,7 @@ material = "the Material of a class with the properties given as keywords"
 
 [register.Earth.public]
 EarthLayer = "the static properties and thickness of one earth or air layer"
+EquivalentEarthLayer = "the semi-infinite medium that a model of the equivalent earth computes for the earth layers at one frequency"
 EarthModel = "an ordered stack of earth layers, semi-infinite air first, the last layer semi-infinite"
 homogeneous = "the earth model of air above one semi-infinite earth layer"
 "@layers" = "the earth model built from the layers of a block, from the top down, semi-infinite air first"

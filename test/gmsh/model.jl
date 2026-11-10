@@ -37,9 +37,10 @@ using LineCableModels.Engine: admittivity, reductions
             temperature = reference.temperature,
             frequencies = reference.frequencies[1:10:end])
         model = FieldModel(problem, formulation)
-        earth = problem.earth.layers[2]
+        soil = problem.earth.layers[2]
         @test length(model.earth) == length(problem.frequencies)
-        @test all(state == earth for state in model.earth)
+        @test all(state == EquivalentEarthLayer(soil.rho, soil.eps_r, soil.mu_r)
+        for state in model.earth)
         @test length(model.material) == length(problem.system.regions) == regions
         @test model.label == reductions(problem.system, FEM().options).label
         @test length(model.label) == length(problem.system.terminals)
@@ -84,7 +85,18 @@ using LineCableModels.Engine: admittivity, reductions
         layered = LineParametersProblem(reference.system,
             EarthModel((air, EarthLayer(100.0, 1.0, 1.0, 5.0), bottom));
             frequencies = reference.frequencies[1:10:end])
-        @test all(layer -> layer === bottom, FieldModel(layered, formulation).earth)
+        @test all(
+            layer -> layer === EquivalentEarthLayer(bottom.rho, bottom.eps_r, bottom.mu_r),
+            FieldModel(layered, formulation).earth)
+    end
+    @testset "a negative equivalent resistivity warns and builds the model" begin
+        earth = EarthModel((first(reference.earth.layers), EarthLayer(50.0, 4.0, 1.0, 1.0),
+            EarthLayer(2000.0, 30.0, 1.0, 20.0), EarthLayer(10.0, 60.0, 1.0, 3.0),
+            EarthLayer(300.0, 8.0, 1.0)))
+        problem = LineParametersProblem(reference.system, earth; frequencies = [1.0e6])
+        model = @test_logs (:warn, r"the equivalent earth of :xue2021") FieldModel(
+            problem, FEM(equivalent_earth = :xue2021))
+        @test only(model.earth).rho < 0
     end
     @testset "a lossy insulation reaches the model with the value of its law" begin
         polymer = Material(:insulator, 1.0e14, 2.3; tan_delta = 1.0e-3)
