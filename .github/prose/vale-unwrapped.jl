@@ -8,6 +8,7 @@
 # under the current directory. The environment variable `VALE` gives the path of the binary,
 # `vale` by default. The output is one line per alert,
 # `path:line:column:severity:check:message`, and the exit status is the status of Vale.
+# The last line on stderr is the summary sentence of Vale, which counts the inputs.
 #
 # The copy of a Markdown file joins the whole file. The copy of a Julia file joins its
 # docstrings, its `#=` blocks and its runs of `#` comments. Vale reads an input of another
@@ -187,6 +188,11 @@ const TEMPLATE = """
 {{- end -}}{{- end -}}
 """
 
+"""
+The count `n` and its noun, singular for one, as Vale writes them.
+"""
+counted(n, noun) = n == 1 ? "1 $noun" : "$n $(noun)s"
+
 function main(args)
     flags = filter(startswith("-"), args)
     inputs = filter(!startswith("-"), args)
@@ -213,7 +219,6 @@ function main(args)
         records = split(read(process, String), '\x1e'; keepempty = false)
         wait(process)
         counts = Dict("error" => 0, "warning" => 0, "suggestion" => 0)
-        files = Set{String}()
         for record in records
             path, row, column, severity, check, message = split(record, '\t'; limit = 6)
             row, column = parse(Int, row), parse(Int, column)
@@ -222,13 +227,14 @@ function main(args)
                 row, column = source_location(pieces, row, column)
             end
             counts[severity] = get(counts, severity, 0) + 1
-            push!(files, path)
             println("$path:$row:$column:$severity:$check:", replace(message, '\n' => ' '))
         end
-        # Flush the alerts first, so that a stream that joins the two outputs ends with the summary.
+        # Flush the alerts first, so that a stream that joins the two outputs ends with the
+        # summary.
         flush(stdout)
-        println(stderr, "$(counts["error"]) errors, $(counts["warning"]) warnings and ",
-            "$(counts["suggestion"]) suggestions in $(length(files)) files.")
+        severities = ("error", "warning", "suggestion")
+        alerts = join((counted(counts[k], k) for k in severities), ", ", " and ")
+        println(stderr, alerts, " in ", counted(length(targets), "file"), ".")
         return process.exitcode
     end
 end

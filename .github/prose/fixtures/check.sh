@@ -229,12 +229,19 @@ if (cd "$unwrapped_dir" && julia --startup-file=no "$root/.github/prose/vale-unw
 else
     test "$?" -eq 1
 fi
+# The summary on stderr is the sentence of Vale for the same inputs, less its leading mark.
+for input in page.html clean.md; do
+    expected=$( (cd "$unwrapped_dir" && vale "${unwrapped_args[@]}" --no-color "$input" 2>&1 || true) | tail -n 1)
+    actual=$( (cd "$unwrapped_dir" && julia --startup-file=no "$root/.github/prose/vale-unwrapped.jl" \
+        "${unwrapped_args[@]}" "$input" 2>&1 > /dev/null || true) | tail -n 1)
+    test "$actual" = "${expected#* }"
+done
 # In a stream that joins both outputs, as the log of CI does, every alert comes before the
 # summary.
 for i in $(seq 1 3000); do printf 'It has provenance.\n\n'; done > "$unwrapped_dir/many.md"
 (cd "$unwrapped_dir" && julia --startup-file=no "$root/.github/prose/vale-unwrapped.jl" \
     "${unwrapped_args[@]}" many.md > "$scratch/many.txt" 2>&1 || true)
-test "$(tail -n 1 "$scratch/many.txt")" = '3000 errors, 0 warnings and 0 suggestions in 1 files.'
+test "$(tail -n 1 "$scratch/many.txt")" = '3000 errors, 0 warnings and 0 suggestions in 1 file.'
 test "$(grep -cxE 'many.md:[0-9]+:[0-9]+:error:Project.BannedTerms:.*' "$scratch/many.txt")" -eq 3000
 # The path of the temporary directory can hold a parent step. The alerts keep the path of
 # each input and its columns.
