@@ -132,6 +132,10 @@ end
         @test Guards.clones(files, methods, tree) == Dict{String, Int}()
     end
 
+    @testset "clones of every body" begin
+        @test Guards.body_clones(files, methods, tree) == Dict{String, Int}()
+    end
+
     @testset "register" begin
         names = Guards.TOML.parsefile(joinpath(@__DIR__, "names.toml"))
         @test Guards.register_differences(tree, names) == Dict{String, Int}()
@@ -362,6 +366,24 @@ end
         @test Base.invokelatest(Guards.clones, clean_files, clean_methods, clean) ==
               Dict{String, Int}()
         @test Base.invokelatest(Guards.root_definitions, clean) == Dict{String, Int}()
+
+        planted, _ = probe("clones/planted", "ClonesProbePlanted")
+        planted_methods = Base.invokelatest(Guards.package_methods, planted)
+        planted_files = Guards.source_files(planted.directory)
+        @test Base.invokelatest(Guards.body_clones, planted_files, planted_methods, planted) ==
+              Dict{String, Int}(
+            "src/ClonesProbePlanted.jl | Box ~ sorted_sides" => 1,
+            "src/ClonesProbePlanted.jl | Crate ~ sorted_sides" => 1,
+            "src/ClonesProbePlanted.jl | sorted_sides ~ Box" => 1,
+            "src/ClonesProbePlanted.jl | sorted_sides ~ Crate" => 1,
+            "src/ClonesProbePlanted.jl | spread_left ~ spread_right" => 1,
+            "src/ClonesProbePlanted.jl | spread_right ~ spread_left" => 1)
+
+        clean, _ = probe("clones/clean", "ClonesProbeClean")
+        clean_methods = Base.invokelatest(Guards.package_methods, clean)
+        clean_files = Guards.source_files(clean.directory)
+        @test Base.invokelatest(Guards.body_clones, clean_files, clean_methods, clean) ==
+              Dict{String, Int}()
 
         planted, _ = probe("values/planted", "ValuesProbePlanted")
         planted_methods = Base.invokelatest(Guards.package_methods, planted)

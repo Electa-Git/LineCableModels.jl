@@ -123,8 +123,8 @@ symbols = ["i0m1"]
 [modules.BaseGeometry]
 nouns = ["placement", "segment", "curve", "contour", "area", "centroid", "perimeter", "support",
     "distance", "dimension", "parallel", "clearance", "turn", "direction", "overlap", "vertex",
-    "apsides", "winding", "moment"]
-qualifiers = ["elliptic", "lowest"]
+    "apsides", "winding", "moment", "parameter"]
+qualifiers = ["elliptic", "lowest", "stationary"]
 symbols = ["p"]
 
 [modules.BaseGeometry.verbs]
@@ -387,6 +387,8 @@ dimension = "the distance across the metal of a shape: twice the depth at which 
 draw = "draw a system, a design, a placed region, a shape, a contour or a path on a target as the curves the target draws, returning what the target made"
 
 [register.BaseGeometry.private]
+parameter = "the parameter of a curve at an angle of its parametrization, an arc's direction about its center or an elliptic arc's parametric angle: the angle from its start in the sense of its span, modulo a revolution, over the span, at most 1 on the curve"
+stationary = "the pairs of parameters inside two curves at which their squared distance is stationary, the common normals and the crossings, and one point of a parallel or concentric overlap, each with its distance"
 bisect = "the two parameters, adjacent in nominal value, between which a predicate changes from true to false, by halving their bracket; read by the apsides of an elliptic arc, the depth of `dimension` and the crossings of `clearance`"
 
 [register.LineCableModelsGmshExt.public]

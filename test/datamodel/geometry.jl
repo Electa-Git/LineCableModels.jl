@@ -825,11 +825,15 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test d ≈ 1.0e-3 rtol = 1e-12
         inner = Arc(Placement(0, 0, 0), 2.0e-3, π / 2)
         outer = Arc(Placement(0, 0, π / 4), 3.0e-3, π / 2)
+        # Every pair at one angle of the common range [π/4, π/2] is nearest, and the
+        # floating-point error decides which one returns. The bounds are two spacings of
+        # floating-point numbers at the radii and at the angle.
         p, q, d, s, t = clearance(inner, outer)
-        @test collect(p) ≈ 2.0e-3 .* [cos(3π / 8), sin(3π / 8)] rtol = 1e-12
-        @test collect(q) ≈ 3.0e-3 .* [cos(3π / 8), sin(3π / 8)] rtol = 1e-12
-        @test d === 3.0e-3 - 2.0e-3
-        @test collect((s, t)) ≈ [0.75, 0.25] rtol = 1e-12
+        φ = atan(p[2], p[1])
+        @test collect(p) ≈ 2.0e-3 .* [cos(φ), sin(φ)] rtol = 2eps()
+        @test collect(q) ≈ 3.0e-3 .* [cos(φ), sin(φ)] rtol = 2eps()
+        @test d ≈ 3.0e-3 - 2.0e-3 rtol = 2eps()
+        @test π / 4 - 2eps(float(π)) <= φ <= π / 2 + 2eps(float(π))
         quarter = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2)
         moved = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π / 2, 0.5e-3)
         p, q, d = clearance(quarter, moved)
@@ -877,7 +881,9 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
             circle = LineCableModels.resolve(place, Circle(1.5e-3))
             annulus = LineCableModels.resolve(place, Annulus(20.5e-3, 21.5e-3, Placement(0, 0)))
             @test dimension(circle) === 2 * 1.5e-3
-            @test dimension(annulus) === 21.5e-3 - 20.5e-3
+            # The distance across a placed annulus differs from the difference of its radii by at
+            # most the spacing of floating-point numbers at its coordinate y.
+            @test dimension(annulus) ≈ 21.5e-3 - 20.5e-3 atol = eps(y)
             @testset "$id" for (id, shape, across) in shapes
                 @test dimension(LineCableModels.resolve(place, shape)) ≈ across rtol = 1e-12
             end

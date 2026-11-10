@@ -415,19 +415,40 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return `(p, q, d, s, t)` for the nearest points `p` of `curve` and `q` of `other`. Their
-distance is `d` \\[m\\], and their parameters give ``p = curve(s)`` and ``q = other(t)``.
-Each parameter lies in ``[0, 1]`` and is exactly 0 or 1 at an end. Parallel segments take
-the middle of their common range, at their perpendicular distance, or else their nearest
-ends.
+Return the parameter of `curve` at the angle `θ` \\[rad\\] of its parametrization. It is the
+angle from the curve's start in the sense of its span, reduced modulo ``2π`` and divided by
+``|span|``. An arc's angle is its direction about its center, ``at.φ + t\\,span``. An
+elliptic arc's is its parametric angle in the frame of its ellipse, ``φ_0 + t\\,span``. The
+parameter lies in ``[0, 1]`` on the curve and above 1 off it.
+
+# Errors
+
+- Throws `DomainError` for a segment, which has no angle of parametrization.
 """
-function clearance(curve::Segment, other::Segment)
+function parameter(curve::Arc, θ::Real)
+    return mod(sign(curve.span) * (θ - curve.at.φ), 2π) / abs(curve.span)
+end
+
+function parameter(curve::EllipticArc, θ::Real)
+    return mod(sign(curve.span) * (θ - curve.φ0), 2π) / abs(curve.span)
+end
+
+function parameter(curve::Segment, θ::Real)
+    throw(DomainError(curve, "a segment has no angle of parametrization"))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the stationary pairs `(s, t, d)` of two segments, empty when they have none. Segments
+that are not parallel give their crossing at ``d=0`` when both parameters lie in ``[0, 1]``.
+Parallel segments give the middle of their common range, at the distance between their lines.
+"""
+function stationary(curve::Segment{S}, other::Segment{T}) where {S, T}
+    R = promote_type(S, T)
     u, v = curve.q .- curve.p, other.q .- other.p
     w = other.p .- curve.p
-    z = zero(u[1] + v[1])
-    best = argmin(candidate -> nominal(candidate[3]),
-        map(((s, t),) -> (s, t, hypot((curve(s) .- other(t))...)),
-            ((z, z), (z, one(z)), (one(z), z), (one(z), one(z)))))
+    triples = Tuple{R, R, R}[]
     cross = u[1] * v[2] - u[2] * v[1]
     if iszero(nominal(cross))
         L = hypot(u...)
@@ -435,190 +456,93 @@ function clearance(curve::Segment, other::Segment)
         α,
         β = w[1] * n[1] + w[2] * n[2],
         (other.q[1] - curve.p[1]) * n[1] + (other.q[2] - curve.p[2]) * n[2]
-        lo = max(z, min(α, β))
+        lo = max(zero(R), min(α, β))
         hi = min(L, max(α, β))
         if nominal(lo) <= nominal(hi)
             h = (lo + hi) / 2
-            s = h / L
-            t = (h - α) / (β - α)
-            p, q = curve(s), other(t)
-            return (p, q, abs(w[1] * n[2] - w[2] * n[1]), s, t)
+            push!(triples, (h / L, (h - α) / (β - α), abs(w[1] * n[2] - w[2] * n[1])))
         end
     else
         s = (w[1] * v[2] - w[2] * v[1]) / cross
         t = (w[1] * u[2] - w[2] * u[1]) / cross
-        if 0 <= nominal(s) <= 1 && 0 <= nominal(t) <= 1
-            d = z
-            best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
-        end
+        0 <= nominal(s) <= 1 && 0 <= nominal(t) <= 1 && push!(triples, (s, t, zero(R)))
     end
-    for s in (z, one(z))
-        p = curve(s)
-        t = ((p[1] - other.p[1]) * v[1] + (p[2] - other.p[2]) * v[2]) /
-            (v[1]^2 + v[2]^2)
-        t = nominal(t) <= 0 ? z : nominal(t) >= 1 ? one(z) : t
-        d = hypot((p .- other(t))...)
-        best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
-    end
-    for t in (z, one(z))
-        q = other(t)
-        s = ((q[1] - curve.p[1]) * u[1] + (q[2] - curve.p[2]) * u[2]) /
-            (u[1]^2 + u[2]^2)
-        s = nominal(s) <= 0 ? z : nominal(s) >= 1 ? one(z) : s
-        d = hypot((curve(s) .- q)...)
-        best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
-    end
-    s, t, d = best
-    return (curve(s), other(t), d, s, t)
+    return triples
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return `(p, q, d, s, t)` for the nearest points `p` of `curve` and `q` of `other`. Their
-distance is `d` \\[m\\], and their parameters give ``p = curve(s)`` and ``q = other(t)``.
-Each parameter lies in ``[0, 1]`` and is exactly 0 or 1 at an end. The pair is the nearest
-among the ends, the feet of the normals and the crossings.
+Return the stationary pairs `(s, t, d)` of a segment and an arc, empty when they have none.
+Each point of the arc along the segment's normal gives a pair with its foot, where the foot
+lies on the segment. Each crossing of the line and the circle within both ranges gives a pair
+at ``d=0``.
 """
-function clearance(curve::Segment, other::Arc)
+function stationary(curve::Segment{S}, other::Arc{T}) where {S, T}
+    R = promote_type(S, T)
     u = curve.q .- curve.p
-    z = zero(u[1] + other.r)
-    best = argmin(candidate -> nominal(candidate[3]),
-        map(((s, t),) -> (s, t, hypot((curve(s) .- other(t))...)),
-            ((z, z), (z, one(z)), (one(z), z), (one(z), one(z)))))
     L = u[1]^2 + u[2]^2
-    for t in (z, one(z))
-        q = other(t)
-        s = ((q[1] - curve.p[1]) * u[1] + (q[2] - curve.p[2]) * u[2]) / L
-        s = nominal(s) <= 0 ? z : nominal(s) >= 1 ? one(z) : s
-        d = hypot((curve(s) .- q)...)
-        best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
-    end
-    for s in (z, one(z))
-        p = curve(s)
-        φ = atan(p[2] - other.at.y, p[1] - other.at.x)
-        travel = mod(sign(other.span) * (φ - other.at.φ), 2π)
-        if nominal(travel) <= abs(nominal(other.span))
-            t = travel / abs(other.span)
-            d = hypot((p .- other(t))...)
-            best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
-        end
-    end
+    triples = Tuple{R, R, R}[]
     h = ((other.at.x - curve.p[1]) * u[1] +
          (other.at.y - curve.p[2]) * u[2]) / L
     if 0 <= nominal(h) <= 1
-        s = h
-        p = curve(s)
+        p = curve(h)
         for φ in (atan(-u[1], u[2]), atan(u[1], -u[2]))
-            travel = mod(sign(other.span) * (φ - other.at.φ), 2π)
-            if nominal(travel) <= abs(nominal(other.span))
-                t = travel / abs(other.span)
-                d = hypot((p .- other(t))...)
-                best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
-            end
+            t = parameter(other, φ)
+            nominal(t) <= 1 && push!(triples, (h, t, hypot((p .- other(t))...)))
         end
     end
     w = curve.p .- (other.at.x, other.at.y)
     Δ = h^2 - (w[1]^2 + w[2]^2 - other.r^2) / L
     if nominal(Δ) >= 0
         for s in (h - sqrt(max(Δ, zero(Δ))), h + sqrt(max(Δ, zero(Δ))))
-            if 0 <= nominal(s) <= 1
-                p = curve(s)
-                φ = atan(p[2] - other.at.y, p[1] - other.at.x)
-                travel = mod(sign(other.span) * (φ - other.at.φ), 2π)
-                if nominal(travel) <= abs(nominal(other.span))
-                    t = travel / abs(other.span)
-                    d = z
-                    best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
-                end
-            end
+            0 <= nominal(s) <= 1 || continue
+            p = curve(s)
+            t = parameter(other, atan(p[2] - other.at.y, p[1] - other.at.x))
+            nominal(t) <= 1 && push!(triples, (s, t, zero(R)))
         end
     end
-    s, t, d = best
-    return (curve(s), other(t), d, s, t)
+    return triples
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return `clearance(other, curve)` with its two points and its two parameters swapped,
-`(q, p, d, t, s)`.
+Return `stationary(other, curve)` with the parameters of each triple exchanged.
 """
-function clearance(curve::Arc, other::Segment)
-    q, p, d, t, s = clearance(other, curve)
-    return (p, q, d, s, t)
+function stationary(curve::Arc, other::Segment)
+    return [(s, t, d) for (t, s, d) in stationary(other, curve)]
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return `(p, q, d, s, t)` for the nearest points `p` of `curve` and `q` of `other`. Their
-distance is `d` \\[m\\], and their parameters give ``p = curve(s)`` and ``q = other(t)``.
-Each parameter lies in ``[0, 1]`` and is exactly 0 or 1 at an end. Concentric arcs take the
-middle of their widest common interval, at ``|r_1-r_2|`` less the distance of their
-centers, or else their nearest ends.
+Return the stationary pairs `(s, t, d)` of two arcs, empty when they have none. Arcs of one
+center give the middle of their widest common interval, at ``|r_1-r_2|`` less the distance of
+their centers. Other arcs give the pairs along their line of centers, toward and away from each
+center, and the crossings of their circles, at ``d=0``.
 """
-function clearance(curve::Arc, other::Arc)
-    z = zero(curve.r + other.r)
-    best = argmin(candidate -> nominal(candidate[3]),
-        map(((s, t),) -> (s, t, hypot((curve(s) .- other(t))...)),
-            ((z, z), (z, one(z)), (one(z), z), (one(z), one(z)))))
+function stationary(curve::Arc{S}, other::Arc{T}) where {S, T}
+    R = promote_type(S, T)
+    triples = Tuple{R, R, R}[]
     w = (other.at.x - curve.at.x, other.at.y - curve.at.y)
     L = hypot(w...)
     if nominal(curve.at.x) == nominal(other.at.x) &&
        nominal(curve.at.y) == nominal(other.at.y)
-        α = mod(curve.at.φ + min(curve.span, zero(curve.span)), 2π)
-        β = mod(other.at.φ + min(other.span, zero(other.span)), 2π)
         interval = overlap(curve, other)
         if !isempty(interval)
             φ = (leftendpoint(interval) + rightendpoint(interval)) / 2
-            s = nominal(curve.span) > 0 ? (φ - α) / abs(curve.span) :
-                (α + abs(curve.span) - φ) / abs(curve.span)
-            ψ = mod(φ - β, 2π)
-            t = nominal(other.span) > 0 ? ψ / abs(other.span) :
-                (abs(other.span) - ψ) / abs(other.span)
-            s = nominal(φ) == nominal(α) ?
-                (nominal(curve.span) > 0 ? z : one(z)) :
-                nominal(φ) == nominal(α + abs(curve.span)) ?
-                (nominal(curve.span) > 0 ? one(z) : z) : s
-            t = nominal(ψ) == 0 ?
-                (nominal(other.span) > 0 ? z : one(z)) :
-                nominal(ψ) == nominal(abs(other.span)) ?
-                (nominal(other.span) > 0 ? one(z) : z) : t
-            return (curve(s), other(t), abs(curve.r - other.r) - L, s, t)
+            push!(triples,
+                (apsides(curve, φ).near, apsides(other, φ).near,
+                    abs(curve.r - other.r) - L))
         end
     else
-        for s in (z, one(z))
-            p = curve(s)
-            φ = atan(p[2] - other.at.y, p[1] - other.at.x)
-            travel = mod(sign(other.span) * (φ - other.at.φ), 2π)
-            if nominal(travel) <= abs(nominal(other.span))
-                t = travel / abs(other.span)
-                d = hypot((p .- other(t))...)
-                best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
-            end
-        end
-        for t in (z, one(z))
-            q = other(t)
-            φ = atan(q[2] - curve.at.y, q[1] - curve.at.x)
-            travel = mod(sign(curve.span) * (φ - curve.at.φ), 2π)
-            if nominal(travel) <= abs(nominal(curve.span))
-                s = travel / abs(curve.span)
-                d = hypot((curve(s) .- q)...)
-                best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
-            end
-        end
         for φ in (atan(w[2], w[1]), atan(w[2], w[1]) + π),
             ψ in (atan(w[2], w[1]), atan(w[2], w[1]) + π)
 
-            travel₁ = mod(sign(curve.span) * (φ - curve.at.φ), 2π)
-            travel₂ = mod(sign(other.span) * (ψ - other.at.φ), 2π)
-            if nominal(travel₁) <= abs(nominal(curve.span)) &&
-               nominal(travel₂) <= abs(nominal(other.span))
-                s, t = travel₁ / abs(curve.span), travel₂ / abs(other.span)
-                d = hypot((curve(s) .- other(t))...)
-                best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
-            end
+            s, t = parameter(curve, φ), parameter(other, ψ)
+            nominal(s) <= 1 && nominal(t) <= 1 &&
+                push!(triples, (s, t, hypot((curve(s) .- other(t))...)))
         end
         h = (curve.r^2 - other.r^2 + L^2) / (2L)
         Δ = curve.r^2 - h^2
@@ -627,51 +551,36 @@ function clearance(curve::Arc, other::Arc)
             center = (curve.at.x, curve.at.y) .+ h .* n
             for point in (center .+ sqrt(max(Δ, zero(Δ))) .* (-n[2], n[1]),
                 center .- sqrt(max(Δ, zero(Δ))) .* (-n[2], n[1]))
-                φ = atan(point[2] - curve.at.y, point[1] - curve.at.x)
-                ψ = atan(point[2] - other.at.y, point[1] - other.at.x)
-                travel₁ = mod(sign(curve.span) * (φ - curve.at.φ), 2π)
-                travel₂ = mod(sign(other.span) * (ψ - other.at.φ), 2π)
-                if nominal(travel₁) <= abs(nominal(curve.span)) &&
-                   nominal(travel₂) <= abs(nominal(other.span))
-                    s, t = travel₁ / abs(curve.span), travel₂ / abs(other.span)
-                    d = z
-                    best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, d)))
-                end
+                s = parameter(curve, atan(point[2] - curve.at.y, point[1] - curve.at.x))
+                t = parameter(other, atan(point[2] - other.at.y, point[1] - other.at.x))
+                nominal(s) <= 1 && nominal(t) <= 1 && push!(triples, (s, t, zero(R)))
             end
         end
     end
-    s, t, d = best
-    return (curve(s), other(t), d, s, t)
+    return triples
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return `(p, q, d, s, t)` for the nearest points `p` of `curve` and `q` of `other`, as
-`clearance(::Segment, ::Segment)`. The candidates are the four end pairs and each end with its
-nearest point on the other curve. They also include the apsides of `other` along the
-segment's normal, with their feet on the segment. Between those parameters and
-the ends, the signed distance of `other` from the segment's line is monotone, and `bisect`
-finds each change of its sign. A change whose point projects onto the segment is a crossing,
-at ``d=0``.
+Return the stationary pairs `(s, t, d)` of a segment and an elliptic arc, empty when they have
+none. They include the apsides of `other` along the segment's normal that lie inside it, each
+with its foot on the segment where the foot lies inside. Between those apsides and the ends,
+the signed distance of `other` from the segment's line is monotone, and `bisect` finds each
+change of its sign. A change whose point projects onto the segment is a crossing, at ``d=0``.
 """
-function clearance(curve::Segment, other::EllipticArc)
+function stationary(curve::Segment{S}, other::EllipticArc{T}) where {S, T}
+    R = promote_type(S, T)
     u = curve.q .- curve.p
     L = u[1]^2 + u[2]^2
-    z = zero(u[1] + other.a)
-    best = argmin(candidate -> nominal(candidate[3]),
-        map(((s, t),) -> (s, t, hypot((curve(s) .- other(t))...)),
-            ((z, z), (z, one(z)), (one(z), z), (one(z), one(z)))))
-    for s in (z, one(z))
-        t = apsides(other, curve(s)).near
-        best = argmin(candidate -> nominal(candidate[3]),
-            (best, (s, t, hypot((curve(s) .- other(t))...))))
-    end
+    z = zero(R)
+    triples = Tuple{R, R, R}[]
     near, far = apsides(other, atan(u[2], u[1]) + π / 2)
-    for t in (z, one(z), near, far)
-        s = apsides(curve, other(t)).near
-        best = argmin(candidate -> nominal(candidate[3]),
-            (best, (s, t, hypot((curve(s) .- other(t))...))))
+    for t in (near, far)
+        0 < nominal(t) < 1 || continue
+        q = other(t)
+        s = ((q[1] - curve.p[1]) * u[1] + (q[2] - curve.p[2]) * u[2]) / L
+        0 <= nominal(s) <= 1 && push!(triples, (s, t, hypot((curve(s) .- q)...)))
     end
     knots = nominal(near) <= nominal(far) ? (z, near, far, one(z)) : (z, far, near, one(z))
     for k in 1:3
@@ -692,43 +601,28 @@ function clearance(curve::Segment, other::EllipticArc)
                 knots[k], knots[k + 1]))
         q = other(t)
         s = ((q[1] - curve.p[1]) * u[1] + (q[2] - curve.p[2]) * u[2]) / L
-        if 0 <= nominal(s) <= 1
-            best = argmin(candidate -> nominal(candidate[3]), (best, (s, t, z)))
-        end
+        0 <= nominal(s) <= 1 && push!(triples, (s, t, z))
     end
-    s, t, d = best
-    return (curve(s), other(t), d, s, t)
+    return triples
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return `(p, q, d, s, t)` for the nearest points `p` of `curve` and `q` of `other`, as
-`clearance(::Segment, ::Segment)`. The candidates start with the end pairs and each end's
-nearest point on the other curve. The method then cuts `other` where it crosses the rays from
-the arc's center ``O`` through the arc's ends.
+Return the stationary pairs `(s, t, d)` of an arc and an elliptic arc, empty when they have
+none. The method cuts `other` where it crosses the rays from the arc's center ``O`` through
+the arc's ends.
 
 On a piece inside the arc's angle, the distance to the arc is
 ``\\lvert\\lvert q-O\\rvert-r\\rvert``. There, the piece's nearest apsis about ``O`` gives it
-outside the circle and its farthest apsis inside. Otherwise `bisect` finds a crossing
-between them, at ``d=0``. Outside the angle, the arc's ends are nearest.
+outside the circle and its farthest apsis inside, each where it lies inside the piece.
+Otherwise `bisect` finds a crossing between them, at ``d=0``.
 """
-function clearance(curve::Arc, other::EllipticArc)
-    z = zero(curve.r + other.a)
+function stationary(curve::Arc{S}, other::EllipticArc{T}) where {S, T}
+    R = promote_type(S, T)
+    z = zero(R)
     O = (curve.at.x, curve.at.y)
-    best = argmin(candidate -> nominal(candidate[3]),
-        map(((s, t),) -> (s, t, hypot((curve(s) .- other(t))...)),
-            ((z, z), (z, one(z)), (one(z), z), (one(z), one(z)))))
-    for s in (z, one(z))
-        t = apsides(other, curve(s)).near
-        best = argmin(candidate -> nominal(candidate[3]),
-            (best, (s, t, hypot((curve(s) .- other(t))...))))
-    end
-    for t in (z, one(z))
-        s = apsides(curve, other(t)).near
-        best = argmin(candidate -> nominal(candidate[3]),
-            (best, (s, t, hypot((curve(s) .- other(t))...))))
-    end
+    triples = Tuple{R, R, R}[]
     cuts = [z, one(z)]
     for α in (curve.at.φ, curve.at.φ + curve.span)
         near, far = apsides(other, α + π / 2)
@@ -758,60 +652,51 @@ function clearance(curve::Arc, other::EllipticArc)
         t₁, t₂ = cuts[k], cuts[k + 1]
         nominal(t₂) > nominal(t₁) || continue
         q = other((t₁ + t₂) / 2)
-        travel = mod(sign(curve.span) * (atan(q[2] - O[2], q[1] - O[1]) - curve.at.φ), 2π)
-        nominal(travel) <= abs(nominal(curve.span)) || continue
+        nominal(parameter(curve, atan(q[2] - O[2], q[1] - O[1]))) <= 1 || continue
         piece = EllipticArc(other.at, other.a, other.b, other.φ0 + t₁ * other.span,
             (t₂ - t₁) * other.span, other.offset)
         near, far = apsides(piece, O)
         near, far = t₁ + near * (t₂ - t₁), t₁ + far * (t₂ - t₁)
         if nominal(hypot((other(near) .- O)...)) > nominal(curve.r)
+            nominal(t₁) < nominal(near) < nominal(t₂) || continue
             s = apsides(curve, other(near)).near
-            best = argmin(candidate -> nominal(candidate[3]),
-                (best, (s, near, hypot((curve(s) .- other(near))...))))
+            push!(triples, (s, near, hypot((curve(s) .- other(near))...)))
         elseif nominal(hypot((other(far) .- O)...)) < nominal(curve.r)
+            nominal(t₁) < nominal(far) < nominal(t₂) || continue
             s = apsides(curve, other(far)).near
-            best = argmin(candidate -> nominal(candidate[3]),
-                (best, (s, far, hypot((curve(s) .- other(far))...))))
+            push!(triples, (s, far, hypot((curve(s) .- other(far))...)))
         else
             t = nominal(hypot((other(near) .- O)...)) == nominal(curve.r) ? near :
                 nominal(hypot((other(far) .- O)...)) == nominal(curve.r) ? far :
                 argmin(t -> abs(nominal(hypot((other(t) .- O)...) - curve.r)),
                 bisect(t -> nominal(hypot((other(t) .- O)...)) < nominal(curve.r), near, far))
-            best = argmin(candidate -> nominal(candidate[3]),
-                (best, (apsides(curve, other(t)).near, t, z)))
+            push!(triples, (apsides(curve, other(t)).near, t, z))
         end
     end
-    s, t, d = best
-    return (curve(s), other(t), d, s, t)
+    return triples
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return `clearance(other, curve)` with its two points and its two parameters swapped,
-`(q, p, d, t, s)`.
+Return `stationary(other, curve)` with the parameters of each triple exchanged.
 """
-function clearance(curve::EllipticArc, other::Union{Segment, Arc})
-    q, p, d, t, s = clearance(other, curve)
-    return (p, q, d, s, t)
+function stationary(curve::EllipticArc, other::Union{Segment, Arc})
+    return [(s, t, d) for (t, s, d) in stationary(other, curve)]
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return `(p, q, d, s, t)` for the nearest points `p` of `curve` and `q` of `other`. Their
-distance is `d` \\[m\\], and their parameters give ``p = curve(s)`` and ``q = other(t)``.
-Each parameter lies in ``[0, 1]`` and is exactly 0 or 1 at an end.
-
-Arcs of one ellipse take the middle of their widest common interval, at ``|o_1-o_2|`` for
-their offsets ``o_1`` and ``o_2``. Without one, the candidates are the end pairs, each end
-with its nearest point on the other arc, and the pairs along the two axes.
+Return the stationary pairs `(s, t, d)` of two elliptic arcs of one ellipse, empty when they
+have none. Arcs with a common interval give its middle, at ``|o_1-o_2|`` for their offsets
+``o_1`` and ``o_2``. Other arcs give the pairs along the two axes.
 
 Arcs of different ellipses throw `DomainError`. So do arcs of one ellipse with an offset at or below minus its least radius
 of curvature, ``\\min(b^2/a,a^2/b)``. There its parallels are no longer level sets of the
 distance from it.
 """
-function clearance(curve::EllipticArc, other::EllipticArc)
+function stationary(curve::EllipticArc{S}, other::EllipticArc{T}) where {S, T}
     (nominal(curve.at.x), nominal(curve.at.y), nominal(curve.at.φ),
         nominal(curve.a), nominal(curve.b)) ==
     (nominal(other.at.x), nominal(other.at.y), nominal(other.at.φ),
@@ -821,51 +706,24 @@ function clearance(curve::EllipticArc, other::EllipticArc)
     nominal(min(curve.offset, other.offset)) > -nominal(reach) ||
         throw(DomainError((curve, other),
             "the clearance of two elliptic arcs of one ellipse needs their offsets above minus its least radius of curvature"))
-    z = zero(curve.a + other.a)
-    best = argmin(candidate -> nominal(candidate[3]),
-        map(((s, t),) -> (s, t, hypot((curve(s) .- other(t))...)),
-            ((z, z), (z, one(z)), (one(z), z), (one(z), one(z)))))
-    α = mod(curve.φ0 + min(curve.span, zero(curve.span)), 2π)
-    β = mod(other.φ0 + min(other.span, zero(other.span)), 2π)
+    R = promote_type(S, T)
+    z = zero(R)
+    triples = Tuple{R, R, R}[]
     interval = overlap(curve, other)
     if !isempty(interval)
         φ = (leftendpoint(interval) + rightendpoint(interval)) / 2
-        s = nominal(curve.span) > 0 ? (φ - α) / abs(curve.span) :
-            (α + abs(curve.span) - φ) / abs(curve.span)
-        ψ = mod(φ - β, 2π)
-        t = nominal(other.span) > 0 ? ψ / abs(other.span) :
-            (abs(other.span) - ψ) / abs(other.span)
-        s = nominal(φ) == nominal(α) ?
-            (nominal(curve.span) > 0 ? z : one(z)) :
-            nominal(φ) == nominal(α + abs(curve.span)) ?
-            (nominal(curve.span) > 0 ? one(z) : z) : s
-        t = nominal(ψ) == 0 ?
-            (nominal(other.span) > 0 ? z : one(z)) :
-            nominal(ψ) == nominal(abs(other.span)) ?
-            (nominal(other.span) > 0 ? one(z) : z) : t
-        return (curve(s), other(t), abs(curve.offset - other.offset), s, t)
-    end
-    for s in (z, one(z))
-        t = apsides(other, curve(s)).near
-        best = argmin(candidate -> nominal(candidate[3]),
-            (best, (s, t, hypot((curve(s) .- other(t))...))))
-    end
-    for t in (z, one(z))
-        s = apsides(curve, other(t)).near
-        best = argmin(candidate -> nominal(candidate[3]),
-            (best, (s, t, hypot((curve(s) .- other(t))...))))
-    end
-    for θ in (z, z + π / 2, z + π, z + 3π / 2)
-        s = mod(sign(curve.span) * (θ - curve.φ0), 2π)
-        t = mod(sign(other.span) * (θ + π - other.φ0), 2π)
-        if nominal(s) <= abs(nominal(curve.span)) && nominal(t) <= abs(nominal(other.span))
-            s, t = s / abs(curve.span), t / abs(other.span)
-            best = argmin(candidate -> nominal(candidate[3]),
-                (best, (s, t, hypot((curve(s) .- other(t))...))))
+        ν = curve.at.φ + atan(curve.a * sin(φ), curve.b * cos(φ))
+        push!(triples,
+            (apsides(curve, ν).near, apsides(other, ν).near,
+                abs(curve.offset - other.offset)))
+    else
+        for θ in (z, z + π / 2, z + π, z + 3π / 2)
+            s, t = parameter(curve, θ), parameter(other, θ + π)
+            nominal(s) <= 1 && nominal(t) <= 1 &&
+                push!(triples, (s, t, hypot((curve(s) .- other(t))...)))
         end
     end
-    s, t, d = best
-    return (curve(s), other(t), d, s, t)
+    return triples
 end
 
 """
@@ -1054,11 +912,8 @@ end
 
 function apsides(curve::Arc{T}, m) where {T}
     φ = atan(m[2] - curve.at.y, m[1] - curve.at.x)
-    toward = clamp(mod(sign(curve.span) * (φ - curve.at.φ), 2π) / abs(curve.span), zero(T),
-        one(T))
-    away = clamp(
-        mod(sign(curve.span) * (φ + π - curve.at.φ), 2π) / abs(curve.span), zero(T),
-        one(T))
+    toward = clamp(parameter(curve, φ), zero(T), one(T))
+    away = clamp(parameter(curve, φ + π), zero(T), one(T))
     return (
         near = argmin(t -> nominal(hypot((curve(t) .- m)...)), (zero(T), one(T), toward)),
         far = argmax(t -> nominal(hypot((curve(t) .- m)...)), (zero(T), one(T), away)))
@@ -1087,9 +942,8 @@ function apsides(curve::EllipticArc{T}, m) where {T}
             ϑ -> nominal(sign((b^2 - a^2) * sin(ϑ) * cos(ϑ) - a * x * sin(ϑ) +
                               b * y * cos(ϑ))) == nominal(sign(left)),
             angles[k], angles[k + 1])
-            travel = mod(sign(curve.span) * (ϑ - curve.φ0), 2π)
-            if nominal(travel) <= abs(nominal(curve.span))
-                t = travel / abs(curve.span)
+            t = parameter(curve, ϑ)
+            if nominal(t) <= 1
                 near = argmin(t -> nominal(hypot((curve(t) .- m)...)), (near, t))
                 far = argmax(t -> nominal(hypot((curve(t) .- m)...)), (far, t))
             end
@@ -1117,20 +971,16 @@ function apsides(curve::Segment{T}, φ::Real) where {T}
 end
 
 function apsides(curve::Arc{T}, φ::Real) where {T}
-    toward = clamp(mod(sign(curve.span) * (φ - curve.at.φ), 2π) / abs(curve.span), zero(T),
-        one(T))
-    away = clamp(mod(sign(curve.span) * (φ + π - curve.at.φ), 2π) / abs(curve.span),
-        zero(T), one(T))
+    toward = clamp(parameter(curve, φ), zero(T), one(T))
+    away = clamp(parameter(curve, φ + π), zero(T), one(T))
     return apsides(curve, φ, (zero(T), one(T), toward, away))
 end
 
 function apsides(curve::EllipticArc{T}, φ::Real) where {T}
     ψ = φ - curve.at.φ
     θ = atan(curve.b * sin(ψ), curve.a * cos(ψ))
-    toward = clamp(mod(sign(curve.span) * (θ - curve.φ0), 2π) / abs(curve.span), zero(T),
-        one(T))
-    away = clamp(mod(sign(curve.span) * (θ + π - curve.φ0), 2π) / abs(curve.span),
-        zero(T), one(T))
+    toward = clamp(parameter(curve, θ), zero(T), one(T))
+    away = clamp(parameter(curve, θ + π), zero(T), one(T))
     return apsides(curve, φ, (zero(T), one(T), toward, away))
 end
 
@@ -1153,7 +1003,7 @@ For a center at the origin, every point lies at the radius.
 function support(curve::Arc)
     iszero(distance(curve.at)) && return curve.r
     φ = atan(curve.at.y, curve.at.x)
-    if nominal(mod(sign(curve.span) * (φ - curve.at.φ), 2π)) <= abs(nominal(curve.span))
+    if nominal(parameter(curve, φ)) <= 1
         return distance(curve.at) + curve.r
     end
     return max(distance(curve(0)), distance(curve(1)))
@@ -1196,6 +1046,35 @@ projection of its point at the near parameter of `apsides(curve, φ)`.
 function support(curve::Curve, φ::Real)
     x, y = curve(apsides(curve, φ).near)
     return x * cos(φ) + y * sin(φ)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `(p, q, d, s, t)` for the nearest points `p` of `curve` and `q` of `other`. Their
+distance is `d` \\[m\\], and their parameters give ``p = curve(s)`` and ``q = other(t)``.
+Each parameter lies in ``[0, 1]`` and is exactly 0 or 1 at an end.
+
+The candidates start with the pairs of `stationary(curve, other)`. Next come the pairs of
+ends, each end of one curve with each end of the other. Last comes each end with its nearest
+point on the other curve. The result is the nearest candidate, and the first of an exact tie.
+
+# Errors
+
+- Throws `DomainError` for two elliptic arcs of different ellipses.
+- Throws `DomainError` for arcs of one ellipse at an offset at or below minus its least radius
+  of curvature.
+"""
+function clearance(curve::Curve{S}, other::Curve{T}) where {S, T}
+    R = promote_type(S, T)
+    z = zero(R)
+    ends = ((z, z), (z, one(z)), (one(z), z), (one(z), one(z)),
+        (z, apsides(other, curve(z)).near), (one(z), apsides(other, curve(one(z))).near),
+        (apsides(curve, other(z)).near, z), (apsides(curve, other(one(z))).near, one(z)))
+    triples = [stationary(curve, other)
+               Tuple{R, R, R}[(s, t, hypot((curve(s) .- other(t))...)) for (s, t) in ends]]
+    s, t, d = argmin(triple -> nominal(triple[3]), triples)
+    return (curve(s), other(t), d, s, t)::Tuple{NTuple{2, R}, NTuple{2, R}, R, R, R}
 end
 
 """
@@ -1900,7 +1779,7 @@ function distance end
 function distance(curve::Arc)
     iszero(distance(curve.at)) && return curve.r
     φ = atan(-curve.at.y, -curve.at.x)
-    if nominal(mod(sign(curve.span) * (φ - curve.at.φ), 2π)) <= abs(nominal(curve.span))
+    if nominal(parameter(curve, φ)) <= 1
         return abs(distance(curve.at) - curve.r)
     end
     return min(distance(curve(0)), distance(curve(1)))

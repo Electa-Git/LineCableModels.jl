@@ -33,6 +33,7 @@ const VOCABULARY = Dict{Symbol, Pair{String, Regex}}(
 const SHINGLE = 8
 const CLONE_TOKENS = 30
 const CLONE_SHARE = 0.75
+const BODY_TOKENS = 90
 
 # The core modules, the loaded extension modules and the repository
 # directory that holds `src/` and `ext/`.
@@ -1631,6 +1632,91 @@ function clones(files, methods, tree::PackageTree; share = CLONE_SHARE)
                     string(candidate_path, " | ",
                         something(definition_name(candidate), "anonymous"), " ~ ",
                         definition_name(reference)))
+        end
+    end
+    return found
+end
+
+# The names of the types that the files declare.
+function declared_types(trees)
+    found = Set{Symbol}()
+    for (_, tree) in trees
+        visit(tree) do node
+            if kind(node) in (K"struct", K"abstract", K"primitive")
+                name = declared_name(node)
+                name === nothing || push!(found, name)
+            end
+            return true
+        end
+    end
+    return found
+end
+
+# The name of the type that a definition constructs, `T(…)` or `T{…}(…)`, or nothing.
+function constructed_name(node)
+    call = signature_call(node)
+    call === nothing && return nothing
+    head = call[1]
+    kind(head) == K"curly" && numchildren(head) > 0 && (head = head[1])
+    name = syntax_name(head)
+    return isempty(name) ? nothing : last(name)
+end
+
+# The file and line of each method whose callee is a formula or a formulation: its first
+# signature parameter is a subtype of `AbstractFormulation` of `Commons`.
+function physics_lines(methods, tree::PackageTree)
+    found = Set{Tuple{String, Int}}()
+    C = commons_module(tree)
+    (C === nothing || !isdefined(C, :AbstractFormulation)) && return found
+    A = getfield(C, :AbstractFormulation)
+    for m in methods
+        F = Base.unwrap_unionall(Base.unwrap_unionall(m.sig).parameters[1])
+        F isa DataType && F.name.wrapper <: A || continue
+        path = source_path(tree, m.file)
+        path === nothing || push!(found, (path, Int(m.line)))
+    end
+    return found
+end
+
+# Whether `node` lies in a method at one of `lines` of `path`, itself included.
+function within(node, path, lines)
+    while node !== nothing
+        kind(node) == K"function" && (path, JuliaSyntax.source_line(node)) in lines &&
+            return true
+        node = node.parent
+    end
+    return false
+end
+
+# Clones of every body. No function body contains `CLONE_SHARE` of the token shingles of another
+# body of at least `BODY_TOKENS` tokens. Two repeated forms are admitted. One is two definitions
+# that each construct a type that the files declare: the keyword constructors `FEM` and
+# `CoaxialFormulation` set it, at 141 tokens. The other is two bodies that each lie in a method
+# of a formula or a formulation, the functions inside it included: the methods of the
+# earth-return formulas set it, at 146 to 328 tokens. The floor lies above the largest repeated
+# form after the admissions, an 88-token rule for a Bessel function in the ForwardDiff
+# extension. It lies below the smallest computation that the check found written twice,
+# `apsides(::Arc, φ)` at 113 tokens.
+function body_clones(files, methods, tree::PackageTree; share = CLONE_SHARE)
+    found = Dict{String, Int}()
+    trees = [(relative(file, tree.directory), parse_source(file)) for file in files]
+    types = declared_types(trees)
+    lines = physics_lines(methods, tree)
+    bodies = [(path, node, body_tokens(body))
+              for (path, node, body) in function_bodies(trees)]
+    sets = [shingles(tokens) for (_, _, tokens) in bodies]
+    constructors = [constructed_name(node) in types for (_, node, _) in bodies]
+    physics = [within(node, path, lines) for (path, node, _) in bodies]
+    for (i, (path, reference, tokens)) in enumerate(bodies)
+        length(tokens) >= BODY_TOKENS || continue
+        for (j, (candidate_path, candidate, _)) in enumerate(bodies)
+            j == i && continue
+            ((constructors[i] && constructors[j]) || (physics[i] && physics[j])) && continue
+            count(in(sets[j]), sets[i]) >= share * length(sets[i]) || continue
+            count!(found,
+                string(candidate_path, " | ",
+                    something(definition_name(candidate), "anonymous"), " ~ ",
+                    something(definition_name(reference), "anonymous")))
         end
     end
     return found

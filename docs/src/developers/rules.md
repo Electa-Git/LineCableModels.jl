@@ -161,7 +161,9 @@ A helper takes these forms.
 Its disguises are a missing underscore, a move into `Commons`, nesting inside the caller, a
 field-less type used as a namespace, a new label such as stage, kernel or adapter, and a
 test that pins it. One block copied into several methods in place of one function is the
-same fault.
+same fault. The constructors of the package's types are not this fault, since each builds a
+value of its type from its arguments. Nor are the methods of a formula or a formulation,
+since each writes one expression of its physics.
 
 These are not helpers.
 
