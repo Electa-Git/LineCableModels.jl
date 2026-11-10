@@ -22,13 +22,13 @@ using .Commons: build, resolve, validate, compute, defaults, select, nominal, to
                 AbstractBackend, FormulationOptions, ComputationOptions
 using .Materials: Material, material
 using .Earth: EarthLayer, EquivalentEarthLayer, EarthModel, homogeneous, @layers
-using .BaseGeometry: Placement, area, perimeter, centroid, support, distance
+using .BaseGeometry: Placement, area, perimeter, centroid, support, distance, istangent
 using .DataModel: AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle,
                   Offset, Sector, Ellipse, Polygon, AbstractLayoutPattern, CircularPattern,
                   LinearPattern, Helix,
                   LayRatio, boundary, r_in,
                   r_ex,
-                  placements, istangent, overlength, pitch, PerforatedShape, ArcPolygon,
+                  placements, overlength, pitch, PerforatedShape, ArcPolygon,
                   AbstractCablePart, Region,
                   Stack, Terminal, Repeat, Lay, Enclosure, Assembly, PlacedRegion,
                   CableDesign,

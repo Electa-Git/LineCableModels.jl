@@ -37,6 +37,8 @@ using LineCableModels.Engine: admittivity, reductions
             temperature = reference.temperature,
             frequencies = reference.frequencies[1:10:end])
         model = FieldModel(problem, formulation)
+        @test model.earth ==
+              formulation.equivalent_earth(problem, formulation.earth_properties)
         soil = problem.earth.layers[2]
         @test length(model.earth) == length(problem.frequencies)
         @test all(state == EquivalentEarthLayer(soil.rho, soil.eps_r, soil.mu_r)

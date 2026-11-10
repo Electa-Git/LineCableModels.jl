@@ -1,5 +1,6 @@
-using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon, istangent
+using LineCableModels.DataModel: Sector, Ellipse, Polygon, ArcPolygon
 using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, parallel,
+                                    istangent,
                                     clearance,
                                     dimension, turn, lowest, vertex, apsides, winding,
                                     moment
@@ -456,6 +457,20 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
             for (φ, projection) in zip((0, π / 2, π, 3π / 2, 1.0), projections)
                 @test support(polygon, φ) ≈ projection rtol = 1e-12
             end
+        end
+    end
+
+    @testset "the polygon's constructors infer on vertices of one type" begin
+        vertices = [(0.0, 0.0), (4.0e-3, 0.0), (4.0e-3, 3.0e-3), (0.0, 3.0e-3)]
+        at = Placement(1.0e-3, -2.0e-3, 0.3)
+        polygon = Polygon(vertices)
+        @test @inferred(Polygon(vertices, at)) isa Polygon{Float64}
+        @test @inferred(LineCableModels.resolve(at, polygon)) isa Polygon{Float64}
+        @test @inferred(polygon ⊆ Circle(10.0e-3))
+        # Literals that mix integers and floats build the same polygon.
+        for mixed in ([(0, 0.0), (4.0e-3, 0), (4.0e-3, 3.0e-3), (0, 3.0e-3)],
+            [(0, 0.0), (4.0e-3, 0.0), (4.0e-3, 3.0e-3), (0, 3.0e-3)])
+            @test Polygon(mixed) isa Polygon{Float64} && Polygon(mixed).vertices == vertices
         end
     end
 

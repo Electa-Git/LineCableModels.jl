@@ -71,6 +71,23 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Construct the material of the class that two dielectrics combine into, with the properties
+`values` in the order of the fields of [`Material`](@ref). An insulator with an insulator
+gives an insulator. A semicon with an insulator or with another semicon gives a semicon. A conductor combines
+with neither, and the call has no method.
+"""
+function Material(::Material{<:Real, :insulator}, ::Material{<:Real, :insulator},
+        values::Real...)
+    return Material(Val(:insulator), values...)
+end
+function Material(::Union{Material{<:Real, :insulator}, Material{<:Real, :semicon}},
+        ::Union{Material{<:Real, :insulator}, Material{<:Real, :semicon}}, values::Real...)
+    return Material(Val(:semicon), values...)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Construct a material of class `kind`. The arguments and keywords are the fields of
 [`Material`](@ref).
 

@@ -487,6 +487,12 @@ A baseline, a ratchet or a count does not exist.
 | reserved vocabulary | the physical constants and the matrix reductions are used by their names, never redefined |
 | literal fingerprints | the digits of the physical constants appear only in their home |
 | clones of Commons bodies | no function body repeats a public `Commons` body |
+| clones of every body | no function body of at least 90 tokens repeats three quarters of another body's shingles. The rule admits a pair of constructors of package types and a pair of methods of formulas or formulations |
+| the method table over the curves | a generic with a method on one member of the closed `Curve` union has a method for every other member, or one on the union |
+| narrow floats | no number type narrower than `Float64`, and no literal of one, under `src/`, `ext/`, `test/` or `docs/src/` |
+| offset reads | only the methods that apply, resolve, validate or map an offset read its field `t` |
+| distance across on a concrete primitive | no `dimension` method on a concrete primitive type: the distance across is one computation over the contour |
+| distance across outside `dimension` and `section` | under `ext/`, no hand computation of the distance across, such as `ro - ri`, `min(w, h)`, `2r` or a bounding box |
 | register | the package defines exactly the names of `names.toml` |
 | local functions | no method is defined inside a function body, and no local is bound to an anonymous function |
 | forwarders | no function is only a second name for one call |
@@ -499,5 +505,5 @@ A baseline, a ratchet or a count does not exist.
 
 A set of planted probes, the negative controls, proves that each guard reports a violation.
 Beside the guards, Aqua checks the project, JET and `@inferred` check the inference of
-`compute`, and the loop's allocation is measured exactly. Under `test/references/`, six frozen
-reference cases hold the physics to finite-element results.
+`compute`, and the loop's allocation is measured exactly. Under `test/references/`, ten reference cases hold
+the physics to their rows of record, analytical and finite-element.

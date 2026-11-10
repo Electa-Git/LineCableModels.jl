@@ -19,11 +19,11 @@ using LineCableModels.Earth: EquivalentEarthLayer
 import LineCableModels.BaseGeometry: direction, draw
 using LineCableModels.DataModel: AbstractShape, Circle, Annulus,
                                  Rectangle, Offset, Sector, Ellipse, Polygon, ArcPolygon,
-                                 PerforatedShape, istangent
+                                 PerforatedShape
 using LineCableModels.BaseGeometry: Placement, support, Segment, Arc, EllipticArc, Curve,
                                     Contour,
                                     turn, parallel,
-                                    dimension, lowest, area, apsides
+                                    dimension, lowest, area, apsides, istangent
 import LineCableModels.Engine: solve!
 using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem, LineParameters,
                               bundle!, eliminate!, factorize!, transposition!, admittivity,

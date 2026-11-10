@@ -492,13 +492,11 @@ function stationary(curve::Segment{S}, other::Arc{T}) where {S, T}
             nominal(t) <= 1 && push!(triples, (h, t, hypot((p .- other(t))...)))
         end
     end
-    w = curve.p .- (other.at.x, other.at.y)
-    Δ = h^2 - (w[1]^2 + w[2]^2 - other.r^2) / L
-    if nominal(Δ) >= 0
-        for s in (h - sqrt(max(Δ, zero(Δ))), h + sqrt(max(Δ, zero(Δ))))
+    c = vertex(curve, other)
+    if nominal(c.Δ) >= 0
+        for (s, point) in zip(c.s, (c.p, c.q))
             0 <= nominal(s) <= 1 || continue
-            p = curve(s)
-            t = parameter(other, atan(p[2] - other.at.y, p[1] - other.at.x))
+            t = parameter(other, atan(point[2] - other.at.y, point[1] - other.at.x))
             nominal(t) <= 1 && push!(triples, (s, t, zero(R)))
         end
     end
@@ -544,14 +542,9 @@ function stationary(curve::Arc{S}, other::Arc{T}) where {S, T}
             nominal(s) <= 1 && nominal(t) <= 1 &&
                 push!(triples, (s, t, hypot((curve(s) .- other(t))...)))
         end
-        h = (curve.r^2 - other.r^2 + L^2) / (2L)
-        Δ = curve.r^2 - h^2
-        if nominal(Δ) >= 0
-            n = w ./ L
-            center = (curve.at.x, curve.at.y) .+ h .* n
-            for point in (center .+ sqrt(max(Δ, zero(Δ))) .* (-n[2], n[1]),
-                center .- sqrt(max(Δ, zero(Δ))) .* (-n[2], n[1]))
-                s = parameter(curve, atan(point[2] - curve.at.y, point[1] - curve.at.x))
+        c = vertex(curve, other)
+        if nominal(c.Δ) >= 0
+            for (s, point) in zip(c.s, (c.p, c.q))
                 t = parameter(other, atan(point[2] - other.at.y, point[1] - other.at.x))
                 nominal(s) <= 1 && nominal(t) <= 1 && push!(triples, (s, t, zero(R)))
             end
@@ -1139,6 +1132,24 @@ function resolve(at::Placement, contour::Contour{T}) where {T}
 end
 
 """
+    istangent(a, b)
+
+Return whether `a` and `b` are tangent: they meet at a point where their tangents agree.
+Consecutive curves are tangent at their junction when the direction of `a` at its end
+agrees with that of `b` at its start. Their sine is within the tolerance at one, and their
+cosine is positive. The data model adds the method for a cross-section and a circle, which
+are tangent when the outline of the cross-section touches the circle.
+"""
+function istangent end
+
+function istangent(a::Curve, b::Curve)
+    θa, θb = direction(a, 1), direction(b, 0)
+    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
+    sine = nominal(u[1] * v[2] - u[2] * v[1])
+    return nominal(u[1] * v[1] + u[2] * v[2]) > 0 && abs(sine) <= tolerance(one(sine))
+end
+
+"""
 $(TYPEDSIGNATURES)
 
 Return the end of the parallel of `a` and the start of the parallel of `b` at the distance
@@ -1151,10 +1162,7 @@ function parallel(a::Curve, b::Curve, d::Real)
     j = a(1)
     θa, θb = direction(a, 1), direction(b, 0)
     τ = π - mod(π - (θb - θa), 2π)
-    u, v = (cos(θa), sin(θa)), (cos(θb), sin(θb))
-    sine = nominal(u[1] * v[2] - u[2] * v[1])
-    if nominal(u[1] * v[1] + u[2] * v[2]) > 0 &&
-       abs(sine) <= tolerance(one(sine))
+    if istangent(a, b)
         p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
         return (p, p)
     elseif nominal(sin(τ) * d) < 0
@@ -1168,37 +1176,46 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the crossing of the curves `A` and `B` nearest the point `j`, in \\[m\\]. Segments
-cross where their lines meet. A segment and an arc cross where the line meets the circle,
-and two arcs cross where their circles meet. Of the two crossings of a circle, the result is
-the one nearest `j`.
+Return the two points where the carriers of `A` and `B` cross, in \\[m\\]: the line of a
+segment and the circle of an arc. The record gives the points `p` and `q`, the parameters `s`
+of those points on `A`, and the discriminant `Δ`. The discriminant is positive where the
+carriers cross twice and zero where they touch or where two lines cross. It is negative
+where they have ceased to meet.
 
-A line and a circle that have ceased to meet give the foot of the normal from the center to
-the line. Circles that have ceased to meet give the point where their radical axis crosses
-the line of their centers. An elliptic arc's parallel is no conic, and the method throws
-`DomainError` for it.
+Past that, `p` and `q` are one point. It is the foot of the normal from the center to the
+line, or the point of the line of centers on the radical axis. The crossing of parallel
+lines is not finite.
+
+# Errors
+
+- Throws `DomainError` for an elliptic arc, whose parallel is no conic.
 """
-function vertex(A::Segment, B::Segment, j)
+function vertex(A::Segment, B::Segment)
     U, V = A.q .- A.p, B.q .- B.p
     w = B.p .- A.p
     t = (w[1] * V[2] - w[2] * V[1]) / (U[1] * V[2] - U[2] * V[1])
-    return A.p .+ t .* U
+    p = A.p .+ t .* U
+    return (p = p, q = p, s = (t, t), Δ = zero(t))
 end
 
-function vertex(A::Segment, B::Arc, j)
+function vertex(A::Segment, B::Arc)
     U = A.q .- A.p
     w = A.p .- (B.at.x, B.at.y)
     L = U[1]^2 + U[2]^2
     h = -(w[1] * U[1] + w[2] * U[2]) / L
     Δ = h^2 - (w[1]^2 + w[2]^2 - B.r^2) / L
     δ = sqrt(max(Δ, zero(Δ)))
-    points = (A.p .+ (h - δ) .* U, A.p .+ (h + δ) .* U)
-    return argmin(xy -> nominal(hypot((xy .- j)...)), points)
+    return (p = A.p .+ (h - δ) .* U, q = A.p .+ (h + δ) .* U, s = (h - δ, h + δ), Δ = Δ)
 end
 
-vertex(A::Arc, B::Segment, j) = vertex(B, A, j)
+function vertex(A::Arc, B::Segment)
+    c = vertex(B, A)
+    return (p = c.p, q = c.q,
+        s = (parameter(A, atan(c.p[2] - A.at.y, c.p[1] - A.at.x)),
+            parameter(A, atan(c.q[2] - A.at.y, c.q[1] - A.at.x))), Δ = c.Δ)
+end
 
-function vertex(A::Arc, B::Arc, j)
+function vertex(A::Arc, B::Arc)
     w = (B.at.x - A.at.x, B.at.y - A.at.y)
     L = hypot(w...)
     U = w ./ L
@@ -1206,13 +1223,31 @@ function vertex(A::Arc, B::Arc, j)
     Δ = A.r^2 - h^2
     δ = sqrt(max(Δ, zero(Δ)))
     center = (A.at.x, A.at.y) .+ h .* U
-    points = (center .+ δ .* (-U[2], U[1]), center .- δ .* (-U[2], U[1]))
-    return argmin(xy -> nominal(hypot((xy .- j)...)), points)
+    p = center .+ δ .* (-U[2], U[1])
+    q = center .- δ .* (-U[2], U[1])
+    return (p = p, q = q,
+        s = (parameter(A, atan(p[2] - A.at.y, p[1] - A.at.x)),
+            parameter(A, atan(q[2] - A.at.y, q[1] - A.at.x))), Δ = Δ)
 end
 
+function vertex(A::Curve, B::Curve)
+    throw(DomainError((A, B),
+        "the carriers of an elliptic arc and its neighbour cross at no point of a conic"))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the crossing of the curves `A` and `B` nearest the point `j`, in \\[m\\]. Segments
+cross where their lines meet. A segment and an arc cross where the line meets the circle,
+and two arcs cross where their circles meet.
+
+Of the two crossings of the carriers, the result is the one nearest `j`. Past the point
+where they have ceased to meet, both are the one point of nearest approach.
+"""
 function vertex(A::Curve, B::Curve, j)
-    throw(DomainError(j,
-        "the parallels of an elliptic arc and its neighbour meet at no point of a conic at $(j) m"))
+    c = vertex(A, B)
+    return argmin(xy -> nominal(hypot((xy .- j)...)), (c.p, c.q))
 end
 
 # An angular range common to two curves exists for two arcs of one kind alone.
@@ -1421,9 +1456,7 @@ function dimension(contour::Contour{T}) where {T}
                     τ = π - mod(π - (θb - θa), 2π)
                     na = (cos(θa + side * π / 2), sin(θa + side * π / 2))
                     nb = (cos(θb + side * π / 2), sin(θb + side * π / 2))
-                    sine = nominal(na[1] * nb[2] - na[2] * nb[1])
-                    if nominal(na[1] * nb[1] + na[2] * nb[2]) > 0 &&
-                       abs(sine) <= tolerance(one(sine))
+                    if istangent(before, after)
                         cross = nominal(chord[1] * na[2] - chord[2] * na[1])
                         counts &= nominal(chord[1] * na[1] + chord[2] * na[2]) > 0 &&
                                   abs(cross) <= tolerance(one(cross))
@@ -1463,11 +1496,7 @@ function dimension(contour::Contour{T}) where {T}
             path[mod1(k + 1, length(path))]
             corners = false
             for (before, after) in ((a, c), (c, b))
-                θa, θb = direction(before, 1), direction(after, 0)
-                U, V = (cos(θa), sin(θa)), (cos(θb), sin(θb))
-                sine = nominal(U[1] * V[2] - U[2] * V[1])
-                corners |= !(nominal(U[1] * V[1] + U[2] * V[2]) > 0 &&
-                             abs(sine) <= tolerance(one(sine)))
+                corners |= !istangent(before, after)
             end
             corners || continue
             lo,

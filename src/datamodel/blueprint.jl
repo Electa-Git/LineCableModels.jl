@@ -98,6 +98,20 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Return whether `shape`, or the set `shapes`, fills an annulus about the center. Its area
+is then that of the annulus between its least `distance` and its greatest `support`. The
+comparison takes `nominal` values and the relative tolerance of `isapprox`. A centered
+circle or annulus fills one, and a course of wires does not.
+"""
+function isannular(shapes::AbstractVector{<:AbstractShape})
+    return isapprox(nominal(sum(area, shapes)),
+        nominal(π * (maximum(support, shapes)^2 - minimum(distance, shapes)^2)))
+end
+isannular(shape::AbstractShape) = isannular([shape])
+
+"""
+$(TYPEDSIGNATURES)
+
 Reduce a cable design to its [`CableBlueprint`](@ref). Each row of the assemblies of the
 design is a concentric assembly about its center. Each terminal becomes a tube about the
 center of its assembly. The tube spans the conductive regions of the terminal and the fills
@@ -230,8 +244,7 @@ function flatten(design::CableDesign)
         conductances = [area(shapes[i]) / (materials[i].rho * overlengths[members[i]])
                         for i in eachindex(members)]
         shares = conductances ./ sum(conductances)
-        rings = [isapprox(area(shape), π * (support(shape)^2 - distance(shape)^2))
-                 for shape in shapes]
+        rings = [isannular(shape) for shape in shapes]
         own = map(eachindex(shapes)) do i
             a, b, μ = distance(shapes[i]), support(shapes[i]), materials[i].mu_r
             rings[i] || return log(area(shapes[i]) / π) / 2 - μ / 4
@@ -261,9 +274,7 @@ function flatten(design::CableDesign)
         contents = [index for fill in design.fills if fill.region in blocks[k]
                     for index in fill.contents]
         tube = [centered[owners[k]][index] for index in blocks[k] if index ∉ contents]
-        annular = isapprox(
-            nominal(sum(index -> area(centered[owners[k]][index]), blocks[k])),
-            nominal(π * (maximum(support, tube)^2 - minimum(distance, tube)^2)))
+        annular = isannular([centered[owners[k]][index] for index in blocks[k]])
         outer = convert(T,
             annular ? maximum(support, tube) :
             perimeter(boundary(centered[owners[k]][last(blocks[k])])) / 2π)
@@ -300,12 +311,7 @@ function flatten(design::CableDesign)
                     base.mu_r, base.T0, base.alpha, base.rho_thermal, base.theta_max,
                     sum(fractions .* [item.eps_r * item.tan_delta for item in media]) /
                     permittivity, base.sigma_solar)
-                if length([item for item in media
-                           if item isa Material{<:Real, :insulator}]) == length(media)
-                    Material(Val(:insulator), values...)
-                else
-                    Material(Val(:semicon), values...)
-                end
+                foldl((merged, medium) -> Material(merged, medium, values...), media)
             end
             lower = convert(T,
                 annular ? minimum(distance, bands) :
@@ -405,20 +411,14 @@ function validate(design::CableDesign, ::typeof(flatten),
                              for j in eachindex(blocks)
                              if owners[j] == k && last(blocks[j]) < index])
             metal = [shapes[i] for i in blocks[previous]]
-            isapprox(nominal(sum(area, metal)),
-                nominal(π * (maximum(support, metal)^2 - minimum(distance, metal)^2))) ||
-                continue
+            isannular(metal) || continue
             grouped = [fill
                        for fill in design.fills
                        if (fill.region == index || index in fill.contents) &&
                           all(i -> i ∉ tubes, fill.contents)]
             bands = isempty(grouped) ? [shapes[index]] :
                     [shapes[i] for i in [only(grouped).contents; only(grouped).region]]
-            shape = shapes[index]
-            (isempty(grouped) ?
-             isapprox(area(shape), π * (support(shape)^2 - distance(shape)^2)) :
-             isapprox(nominal(sum(area, bands)),
-                nominal(π * (maximum(support, bands)^2 - minimum(distance, bands)^2)))) ||
+            isannular(bands) ||
                 throw(ArgumentError(
                     "flatten reduces dielectric layers that are annuli about the center; " *
                     ":$(design.regions[index].source.tag) of the cable $(design.id) is not"))

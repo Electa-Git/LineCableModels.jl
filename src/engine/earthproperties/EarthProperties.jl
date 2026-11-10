@@ -12,6 +12,10 @@ the relative permeability and the thickness of `layer`. The constant ``\\varepsi
 
 # Formulas
 
+A model applied to a problem and a law, `model(problem, law)`, returns the equivalent earth at
+each frequency of the problem. It is the model of the layers below the air, as the law describes
+them at that frequency.
+
 ## `Formula{:constant}`
 
 Properties of an earth layer independent of the frequency ``f``:
@@ -322,7 +326,7 @@ module EarthProperties
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults, validate
 using ...Commons: FormulationOptions, nominal
-using ..Engine: AbstractEarthProperties, admittivity, ε₀, μ₀
+using ..Engine: AbstractEarthProperties, admittivity, ε₀, μ₀, LineParametersProblem
 import ..Engine: domain
 using ...Earth: EarthLayer, EquivalentEarthLayer, EarthModel
 using IntervalSets: (..)
@@ -393,6 +397,13 @@ include("visacro1987.jl")
 include("visacro2012.jl")
 include("martins2020.jl")
 include("xue2021.jl")
+
+# A model reduces the layers below the air, as the law describes them, at every frequency of
+# the problem.
+function (model::Formula)(problem::LineParametersProblem, law::Formula)
+    return [model(map(layer -> law(layer, f), Base.tail(problem.earth.layers)), f)
+            for f in problem.frequencies]
+end
 
 """
 $(TYPEDSIGNATURES)

@@ -379,7 +379,8 @@ $(TYPEDSIGNATURES)
 Construct a polygon at the origin from `vertices` \\[m\\], promoted with `Float64`.
 """
 function Polygon(vertices::AbstractVector{<:Tuple{Real, Real}})
-    T = promote_type(Float64, (typeof(x) for vertex in vertices for x in vertex)...)
+    T = mapreduce(vertex -> promote_type(map(typeof, vertex)...), promote_type, vertices;
+        init = Float64)
     return Polygon{T}(Tuple{T, T}[convert.(T, vertex) for vertex in vertices],
         Placement(zero(T), zero(T)))
 end
@@ -390,8 +391,8 @@ $(TYPEDSIGNATURES)
 Construct a polygon from local `vertices` \\[m\\] at `at`, promoted with `Float64`.
 """
 function Polygon(vertices::AbstractVector{<:Tuple{Real, Real}}, at::Placement)
-    T = promote_type(Float64, eltype(at), (typeof(x) for vertex in vertices
-    for x in vertex)...)
+    T = mapreduce(vertex -> promote_type(map(typeof, vertex)...), promote_type, vertices;
+        init = promote_type(Float64, eltype(at)))
     return Polygon{T}(Tuple{T, T}[convert.(T, vertex) for vertex in vertices],
         convert(Placement{T}, at))
 end

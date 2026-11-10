@@ -134,10 +134,7 @@ function initialize_buffers(
         (rho = Vector{T}(undef, n),
             kappa = Vector{Complex{T}}(undef, l),
             gamma = Vector{Complex{T}}(undef, nf),
-            earth = [formulation.equivalent_earth(
-                         map(layer -> formulation.earth_properties(layer, f),
-                             Base.tail(problem.earth.layers)),
-                         f) for f in problem.frequencies],
+            earth = formulation.equivalent_earth(problem, formulation.earth_properties),
             σ̃ = Vector{Complex{T}}(undef, 2),
             μ = Vector{T}(undef, 2),
             Zin = Matrix{Complex{T}}(undef, n, n),

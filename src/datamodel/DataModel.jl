@@ -16,13 +16,13 @@ using ..Materials: Material
 using ..Commons: nominal, tolerance
 using SpecialFunctions: ellipe
 import ..BaseGeometry: Contour, area, perimeter, centroid, support, distance, dimension,
-                       draw
+                       draw, istangent
 using ..BaseGeometry: Placement, Segment, Arc, EllipticArc, Curve, parallel, direction
 
 export AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
 export Sector, Ellipse, Polygon
 export AbstractLayoutPattern, CircularPattern, LinearPattern, Helix, LayRatio
-export boundary, r_in, r_ex, placements, istangent,
+export boundary, r_in, r_ex, placements,
        overlength,
        pitch
 export PerforatedShape, ArcPolygon

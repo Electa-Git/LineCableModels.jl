@@ -355,27 +355,19 @@ end
 
 # An earth slot stores one formula per domain. One selection fills the three domains. A
 # selection per domain leaves the others to the default.
-function select(::Type{CoaxialFormulation}, ::Val{:earth_impedance}, ::Val{ID}; kw...) where {ID}
+function select(::Type{CoaxialFormulation},
+        ::Union{Val{:earth_impedance}, Val{:earth_admittance}}, ::Val{ID}; kw...) where {ID}
     formula = EarthReturn.Formula(Val(ID); kw...)
     return (air = formula, earth = formula, mixed = formula)
 end
-function select(::Type{CoaxialFormulation}, ::Val{:earth_impedance}, formula::EarthReturn.Formula)
+function select(::Type{CoaxialFormulation},
+        ::Union{Val{:earth_impedance}, Val{:earth_admittance}}, formula::EarthReturn.Formula)
     return (air = formula, earth = formula, mixed = formula)
 end
-function select(::Type{CoaxialFormulation}, ::Val{:earth_impedance}, selection::NamedTuple)
-    return merge(select(CoaxialFormulation, Val(:earth_impedance), Val(:default)),
-        map(place -> select(CoaxialFormulation, Val(:earth_impedance), place).air, selection))
-end
-function select(::Type{CoaxialFormulation}, ::Val{:earth_admittance}, ::Val{ID}; kw...) where {ID}
-    formula = EarthReturn.Formula(Val(ID); kw...)
-    return (air = formula, earth = formula, mixed = formula)
-end
-function select(::Type{CoaxialFormulation}, ::Val{:earth_admittance}, formula::EarthReturn.Formula)
-    return (air = formula, earth = formula, mixed = formula)
-end
-function select(::Type{CoaxialFormulation}, ::Val{:earth_admittance}, selection::NamedTuple)
-    return merge(select(CoaxialFormulation, Val(:earth_admittance), Val(:default)),
-        map(place -> select(CoaxialFormulation, Val(:earth_admittance), place).air, selection))
+function select(::Type{CoaxialFormulation},
+        slot::Union{Val{:earth_impedance}, Val{:earth_admittance}}, selection::NamedTuple)
+    return merge(select(CoaxialFormulation, slot, Val(:default)),
+        map(place -> select(CoaxialFormulation, slot, place).air, selection))
 end
 
 # Γ is one finite value, or one finite value per frequency.

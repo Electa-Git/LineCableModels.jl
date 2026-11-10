@@ -69,6 +69,7 @@ Private = false
 ```@docs
 build(::Type{CableDesign}, id::AbstractString, parts::AbstractCablePart...)
 build(::Type{CableSystem}, designs::AbstractVector{<:CableDesign}, placements::AbstractVector{<:Placement})
+istangent(::AbstractShape, ::Circle)
 ```
 
 ## Engine

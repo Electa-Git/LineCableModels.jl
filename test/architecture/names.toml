@@ -91,7 +91,7 @@ nouns = ["shape", "primitive", "circle", "annulus", "rectangle", "sector",
     "jacket", "tape", "wires", "spacing", "trefoil", "apex", "fillet",
     "polygon", "ellipse", "vertices"]
 qualifiers = ["circular", "empty", "perforated", "placed", "stranded",
-    "layout", "flat", "linear", "tangent"]
+    "layout", "flat", "linear", "annular"]
 symbols = ["ri", "ro", "w", "h", "t", "n", "gap_frac", "dir"]
 
 [modules.DataModel.verbs]
@@ -124,7 +124,7 @@ symbols = ["i0m1"]
 nouns = ["placement", "segment", "curve", "contour", "area", "centroid", "perimeter", "support",
     "distance", "dimension", "parallel", "clearance", "turn", "direction", "overlap", "vertex",
     "apsides", "winding", "moment", "parameter"]
-qualifiers = ["elliptic", "lowest", "stationary"]
+qualifiers = ["elliptic", "lowest", "stationary", "tangent"]
 symbols = ["p"]
 
 [modules.BaseGeometry.verbs]
@@ -166,7 +166,7 @@ tolerance = "the absolute tolerance at the scale of a quantity, in its unit: the
 lifts = ["material"]
 
 [register.Materials.public]
-Material = "the electromagnetic and thermal properties of one material, its class the type parameter"
+Material = "the electromagnetic and thermal properties of one material, its class the type parameter, or of the class two dielectrics combine into, with the given properties"
 material = "the Material of a class with the properties given as keywords"
 
 [register.Earth.public]
@@ -194,7 +194,6 @@ boundary = "the outline of a shape: a circle, a rectangle, a sector, an ellipse,
 r_in = "the inner radius of a circular shape"
 r_ex = "the outer radius of a circular shape"
 placements = "the placements and the shared cross-section of the members a pattern lays"
-istangent = "whether the outline of a shape touches a circle, within the tolerance with which containment compares a content with that circle"
 overlength = "the length of a helical path over the length of the cable"
 pitch = "the lay length of a helix at a radius"
 PerforatedShape = "a cross-section perforated by the cross-sections inside it, such as the fill between wires or a layer around an outline other than a circle"
@@ -231,6 +230,7 @@ flat = "the placements of cables on a line at a spacing"
 
 [register.DataModel.private]
 EmptyBoundary = "the outline at the center of a cable, before its first part"
+isannular = "whether a shape, or a set of shapes, fills an annulus about the center: its area is that of the annulus between its least distance and its greatest support, within the relative tolerance of isapprox, on nominal values"
 
 [register.Engine.public]
 "ε₀" = "the permittivity of vacuum [F/m]"
@@ -372,7 +372,8 @@ Contour = "the closed paths of curves that bound a shape: its outer path and the
 direction = "the direction of the tangent of a curve at a parameter; of an oriented curve stored in a geometry, its direction leaving its first point, measured at a distance along it, so that tangent arcs of different radii compare"
 turn = "the turn of a curve: the turn of its tangent as a fraction of a revolution and its length, zero for a segment, the span over a revolution for an arc, the turn of its normal for an elliptic arc; of the parallel of a face at a signed distance between two points, the signed fraction and length of that piece, negative once the face has vanished"
 parallel = "the parallel at a distance signed along the outward normal: of a curve, a segment moved along its normal, an arc of its radius and an elliptic arc of its offset, each plus the distance in its sense; of the piece of a curve's parallel between two points; of the junction of two consecutive curves, the end of the first parallel and the start of the second, one point where they meet and each end moved along its own normal where they diverge; of a contour, curve for curve, trimmed at its junctions, with an arc about each corner where the parallels diverge"
-vertex = "the vertex where two curves cross, nearest a point: the crossing of the lines or circles that carry them; where a line and a circle no longer meet, the foot of the circle's center on the line, and where two circles no longer meet, the point of their line of centers on their radical axis; refused for an elliptic arc. The one `parallel(a, b, d)` reads it with the two parallels and their junction"
+vertex = "the vertex where two curves cross: of two curves, the two points where their carriers cross, their parameters on the first curve and the discriminant, positive where the carriers cross twice, zero where they touch or where two lines cross, negative where they have ceased to meet, the two points then one: the foot of the circle's center on the line, or the point of the line of centers on the radical axis; of two curves and a point, the one of the two nearest the point; refused for an elliptic arc. `parallel(a, b, d)` reads it with the two parallels and their junction, and `stationary` reads the crossings at zero distance"
+istangent = "whether two things are tangent, meeting at a point where their tangents agree: two consecutive curves whose directions agree at their junction within the tolerance at one; the outline of a shape touching a circle, within the tolerance with which containment compares a content with that circle"
 clearance = "the clearance between two curves: their two nearest points, its width and the parameters of the two points on their curves, for two arcs of one center the difference of their radii less the distance of their centers, for two arcs of one ellipse the difference of their offsets; the middle of the common range when the two points are not unique; refused for two ellipses, or past one ellipse's inner reach"
 overlap = "the widest common range of two angular intervals, the second shifted by whole turns, or of two arcs of one center or of one ellipse by their counterclockwise angles; empty when they share none, its endpoints then the two ends that bound the gap"
 lowest = "the lowest point: of a curve, the lowest of its ends and of its near apsis along `3π/2`, least y then least x; of a contour the lowest of its outer path's curves"

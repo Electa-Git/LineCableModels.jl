@@ -176,6 +176,33 @@
         end
     end
 
+    @testset "a shape or a set of shapes fills an annulus about the center" begin
+        isannular = LineCableModels.DataModel.isannular
+        @test isannular(Annulus(1.0e-3, 3.0e-3)) && isannular(Circle(2.0e-3))
+        @test !isannular(Circle(2.0e-3, Placement(5.0e-3, 0.0)))
+        # The armour of the coaxial reference fills one: its wires touch both circles of its
+        # fill. A course of six wires leaves gaps.
+        armoured = build(CableDesign, "armoured",
+            Terminal(:core, Region(:core, Circle(24.5e-3), copper)),
+            Terminal(:armour,
+                Enclosure(Region(:armour_fill, Offset(4.0e-3), air),
+                    Repeat(CircularPattern(40; r = 26.5e-3),
+                        Region(:armour_wires, Circle(2.0e-3), steel)))))
+        @test isannular([placed.shape for placed in armoured.regions[2:end]])
+        @test !isannular([Circle(1.0e-3, Placement(3.0e-3cos(θ), 3.0e-3sin(θ)))
+                          for θ in (0:5) .* (π / 3)])
+    end
+
+    @testset "two dielectrics combine into the class of their merged material" begin
+        values = (
+            1.0e13, 2.4, polymer.mu_r, polymer.T0, polymer.alpha, polymer.rho_thermal,
+            polymer.theta_max, 1.0e-4, polymer.sigma_solar)
+        @test Material(polymer, air, values...) === Material(Val(:insulator), values...)
+        @test Material(polymer, semicon, values...) === Material(Val(:semicon), values...)
+        @test Material(semicon, semicon, values...) === Material(Val(:semicon), values...)
+        @test_throws MethodError Material(copper, polymer, values...)
+    end
+
     # Construction 10. The cores lie at their centroids. The root has no conductor, so its fill
     # and its common jacket form its interior.
     @testset "the cores of a three-core sector cable sit at their centroids" begin

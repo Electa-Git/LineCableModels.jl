@@ -63,6 +63,14 @@ end
 
     input = Engine.CoaxialInput(problem, formulation.options)
     buffers = Engine.initialize_buffers(formulation, problem, input)
+    # The equivalent earth in the buffers is the model applied to the problem and its law,
+    # at each frequency. A law reduces no layers.
+    reference = last(first(REFERENCES))
+    @test Engine.initialize_buffers(formulation, reference,
+        Engine.CoaxialInput(reference, formulation.options)).earth ==
+          formulation.equivalent_earth(reference, formulation.earth_properties)
+    @test_throws MethodError formulation.earth_properties(
+        reference, formulation.earth_properties)
     n = length(input.cable)
     c = length(input.radius)
     m = length(input.kept)

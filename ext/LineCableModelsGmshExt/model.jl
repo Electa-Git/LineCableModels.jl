@@ -163,10 +163,7 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
                for (design, at) in zip(problem.system.designs, problem.system.placements)]
         gamma = Vector{Complex{T}}(undef, length(problem.frequencies))
         gamma .= formulation.options.Γ
-        earth = [formulation.equivalent_earth(
-                     map(layer -> formulation.earth_properties(layer, f),
-                         Base.tail(problem.earth.layers)),
-                     f) for f in problem.frequencies]
+        earth = formulation.equivalent_earth(problem, formulation.earth_properties)
         validate(earth, formulation.equivalent_earth, problem.frequencies)
         center = convert(T, sum(at.x for at in problem.system.placements) /
                             length(problem.system.placements))

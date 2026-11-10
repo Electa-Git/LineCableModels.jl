@@ -1,5 +1,5 @@
 using LineCableModels.BaseGeometry: Segment, Arc, EllipticArc, Curve, Contour, draw,
-                                    clearance, apsides, lowest
+                                    clearance, apsides, lowest, vertex, istangent
 
 struct RecordingTarget
     curves::Vector{Union{Segment, Arc}}
@@ -345,6 +345,60 @@ end
     end
 
     # A fresh process reads the inference before any other call has compiled the curves.
+    @testset "the crossings of the carriers of two curves" begin
+        # The lines of two segments meet at one point, where the discriminant is zero.
+        @test vertex(Segment((0.0, 0.0), (2.0, 0.0)), Segment((1.0, -1.0), (1.0, 1.0))) ==
+              (p = (1.0, 0.0), q = (1.0, 0.0), s = (0.5, 0.5), Δ = 0.0)
+        # A line that crosses a circle gives two points, and a tangent line gives one. Where the
+        # line misses the circle, both points are the foot of the normal from the center.
+        circle = Arc(Placement(0.0, 0.0, 0.0), 1.0, Float64(π))
+        @test vertex(Segment((-2.0, 0.0), (2.0, 0.0)), circle) ==
+              (p = (-1.0, 0.0), q = (1.0, 0.0), s = (0.25, 0.75), Δ = 0.0625)
+        @test vertex(Segment((-1.0, 1.0), (1.0, 1.0)), circle) ==
+              (p = (0.0, 1.0), q = (0.0, 1.0), s = (0.5, 0.5), Δ = 0.0)
+        @test vertex(Segment((-1.0, 2.0), (1.0, 2.0)), circle) ==
+              (p = (0.0, 2.0), q = (0.0, 2.0), s = (0.5, 0.5), Δ = -0.75)
+        # The parameters of an arc's record are those of the points on the arc.
+        @test vertex(circle, Segment((-2.0, 0.0), (2.0, 0.0))).s == (1.0, 0.0)
+        # Circles that cross give two points. Circles that touch, outside or inside, give one
+        # point, and circles apart give the point of the line of centers on the radical axis.
+        crossing = vertex(circle, Arc(Placement(1.0, 0.0, 0.0), 1.0, Float64(π)))
+        @test (crossing.p, crossing.q, crossing.Δ) ==
+              ((0.5, sqrt(0.75)), (0.5, -sqrt(0.75)), 0.75)
+        @test all(crossing.s .≈ (1 / 3, 5 / 3))
+        @test vertex(circle, Arc(Placement(3.0, 0.0, 0.0), 2.0, Float64(π))) ==
+              (p = (1.0, 0.0), q = (1.0, 0.0), s = (0.0, 0.0), Δ = 0.0)
+        @test vertex(Arc(Placement(0.0, 0.0, 0.0), 2.0, Float64(π)),
+            Arc(Placement(1.0, 0.0, 0.0), 1.0, Float64(π))) ==
+              (p = (2.0, 0.0), q = (2.0, 0.0), s = (0.0, 0.0), Δ = 0.0)
+        @test vertex(circle, Arc(Placement(4.0, 0.0, 0.0), 1.0, Float64(π))) ==
+              (p = (2.0, 0.0), q = (2.0, 0.0), s = (0.0, 0.0), Δ = -3.0)
+        # The carriers of an elliptic arc are no conic, in both forms.
+        ellipse = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π)
+        chord = Segment((-3.0e-3, 0.0), (3.0e-3, 0.0))
+        message = "the carriers of an elliptic arc and its neighbour cross at no point of a conic"
+        @test_throws message vertex(ellipse, chord)
+        @test_throws message vertex(chord, ellipse, (0.0, 0.0))
+    end
+
+    @testset "consecutive curves are tangent where their directions agree" begin
+        # The fillets of a sector meet its arc and its sides tangentially, and the quarters
+        # of a circle meet each other so.
+        filleted = Contour(LineCableModels.Sector(
+            0.0, 3.0e-3, 2π / 3, 0.0, 0.3e-3, Placement(0.0, 0.0))).outer
+        @test all(istangent(filleted[k], filleted[mod1(k + 1, length(filleted))])
+        for k in eachindex(filleted))
+        quarters = Contour(Circle(2.0e-3)).outer
+        @test all(istangent(quarters[k], quarters[mod1(k + 1, 4)]) for k in 1:4)
+        @test @inferred(istangent(quarters[1], quarters[2]))
+        # The corners of a rectangle, and the arc and side of a sharp sector, are not.
+        edges = Contour(Rectangle(4.0e-3, 2.0e-3)).outer
+        @test !any(istangent(edges[k], edges[mod1(k + 1, 4)]) for k in 1:4)
+        sharp = Contour(LineCableModels.Sector(
+            1.0e-3, 3.0e-3, 1.2, 0, 0, Placement(0.0, 0.0))).outer
+        @test !istangent(sharp[1], sharp[2])
+    end
+
     @testset "the directional support of a contour infers in a fresh process" begin
         script = "using LineCableModels; " *
                  "using LineCableModels.BaseGeometry: Contour, support; " *
