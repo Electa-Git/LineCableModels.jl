@@ -66,10 +66,11 @@ function validate(result::LineParameters)
     all(isfinite, result.Y) ||
         throw(DomainError(result.Y, "LineParameters.Y must be finite"))
     # Z is passive at a frequency where the Hermitian part of its slice has no negative
-    # eigenvalue. H is that part, scaled by its diagonal to entries of magnitude one, plus
-    # √eps·I. H has a Cholesky factor exactly where its least eigenvalue exceeds -√eps.
+    # eigenvalue. The check divides entry (i, j) of that part by √(|Z_ii| |Z_jj|). H is the
+    # result plus `margin` times the identity, with `margin` the tolerance at one. H has a
+    # Cholesky factor where the least eigenvalue of the scaled part exceeds -margin.
     H = Matrix{typeof(nominal(zero(eltype(result.Z))))}(undef, n, n)
-    margin = sqrt(eps(real(eltype(H))))
+    margin = tolerance(one(real(eltype(H))))
     nonpassive = Int[]
     for k in axes(result.Z, 3)
         Z = view(result.Z,:,:,k)

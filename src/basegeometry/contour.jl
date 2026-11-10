@@ -1094,9 +1094,9 @@ struct Contour{T <: Real}
     $(TYPEDSIGNATURES)
 
     Construct a contour from its `outer` path and the paths of its `holes`, whose
-    coordinates are in \\[m\\] and angles in \\[rad\\]. Each path is nonempty and closed.
-    The tolerance is `sqrt(eps(T))` times the largest absolute coordinate at a path's ends.
-    That scale is at least one meter.
+    coordinates are in \\[m\\] and angles in \\[rad\\]. Each path is nonempty and closed: the
+    ends of consecutive curves meet within the [`tolerance`](@ref) of the largest absolute
+    coordinate at the path's ends.
 
     # Errors
 
@@ -1111,14 +1111,12 @@ end
 function validate(contour::Contour{T}) where {T}
     for path in (contour.outer, contour.holes...)
         isempty(path) && throw(DomainError(path, "Contour paths must be nonempty"))
-        scale = max(
-            one(T), maximum(abs(coordinate)
-            for curve in path for t in (0, 1) for coordinate in curve(t)))
-        tolerance = sqrt(eps(T)) * scale
+        largest = maximum(abs(coordinate)
+        for curve in path for t in (0, 1) for coordinate in curve(t))
         for k in eachindex(path)
             endpoint = path[k](1)
             nextpoint = path[mod1(k + 1, length(path))](0)
-            all(abs.(endpoint .- nextpoint) .<= tolerance) ||
+            all(abs.(endpoint .- nextpoint) .<= tolerance(largest)) ||
                 throw(DomainError(path, "Contour path must be closed at curve $k"))
         end
     end

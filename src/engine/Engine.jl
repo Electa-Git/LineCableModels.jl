@@ -12,7 +12,7 @@ module Engine
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..Commons: compute, defaults, select, validate
-using ..Commons: nominal
+using ..Commons: nominal, tolerance
 using ..Commons: AbstractFormulation, AbstractBackend, FormulationOptions,
                  ComputationOptions
 using ..Materials: Material
