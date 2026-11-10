@@ -23,6 +23,7 @@ end
 @testset "Gmsh geometry" begin
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     Geometry, FieldModel = extension.Geometry, extension.FieldModel
+    Strand, Solid = extension.Strand, extension.Solid
     options = ComputationOptions(GmshBackend)
     @testset "the circle rule counts segments" begin
         for (τ, count) in ((1e-3, 96), (1e-2, 48), (1e-4, 384), (2.0, 12))
@@ -35,16 +36,16 @@ end
         for (x, radius) in ((LineCableModels.Ellipse(3.0e-3, 2.0e-3), 2.0e-3^2 / 3.0e-3),
             (LineCableModels.Ellipse(9.0e-3, 3.0e-3), 1.0e-3),
             (LineCableModels.Ellipse(3.0e-3, 3.0e-3), 3.0e-3), (Circle(2.0e-3), 2.0e-3))
-            for (strand, target) in ((false, radius / 5), (true, radius))
-                s = extension.section(x, x, strand, false, controls)
+            for (construction, target) in ((Solid(), radius / 5), (Strand(), radius))
+                s = @inferred extension.section(x, x, construction, controls)
                 @test s.target ≈ target atol = 1e-15
                 @test s.width ≈ radius atol = 1e-15
                 @test (s.divisions, s.fraction, s.depth) == (5, 0.5, 0)
             end
         end
         annulus = Annulus(1.0e-3, 3.0e-3)
-        for layer in (false, true)
-            s = extension.section(annulus, annulus, false, layer, controls)
+        for construction in (Solid(), Strand())
+            s = @inferred extension.section(annulus, annulus, construction, controls)
             @test s.target ≈ 1.0e-3 rtol = 1e-12
             @test s.width ≈ 2.0e-3 rtol = 1e-12
             @test (s.divisions, s.fraction, s.depth) == (3, 0.45, 0)
@@ -63,7 +64,7 @@ end
         fill = LineCableModels.PerforatedShape(band,
             LineCableModels.AbstractShape{Float64}[Circle(0.2e-3, Placement(0, 1.25e-3))])
         for shape in (band, fill)
-            s = extension.section(Offset(0.5e-3), shape, false, false, controls)
+            s = @inferred extension.section(Offset(0.5e-3), shape, Solid(), controls)
             @test s.target ≈ 0.25e-3 rtol = 1e-12
             @test s.width ≈ 0.5e-3 rtol = 1e-12
             @test (s.divisions, s.fraction, s.depth) == (3, 0.45, 0)
@@ -81,8 +82,8 @@ end
             (polygon, dimension(polygon), dimension(polygon)), (band, 1.0e-3, 0.5e-3))
             for at in (Placement(0, 0), Placement(0, 10.0), Placement(0.3, -1.2, 0.7))
                 shape = LineCableModels.resolve(at, x)
-                for (strand, n) in ((false, 5), (true, 2))
-                    s = extension.section(x, shape, strand, false, controls)
+                for (construction, n) in ((Solid(), 5), (Strand(), 2))
+                    s = @inferred extension.section(x, shape, construction, controls)
                     @test s.target ≈ side / n rtol = 1e-12
                     @test s.width === dimension(shape)
                     @test s.width ≈ width atol = 1e-14

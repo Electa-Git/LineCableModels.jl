@@ -23,8 +23,23 @@ const TAGS = (air = 1_001,
 """
 $(TYPEDEF)
 
-Store the terminal labels, material groups, repeated regions, cable media, and geometric
-scales of a finite-element computation.
+The construction of a region that is a copy of a repeat, such as a strand of a conductor or
+a wire of a screen.
+"""
+struct Strand end
+
+"""
+$(TYPEDEF)
+
+The construction of a region laid alone, such as a solid conductor or a dielectric layer.
+"""
+struct Solid end
+
+"""
+$(TYPEDEF)
+
+Store the terminal labels, material groups, region constructions, cable media, and
+geometric scales of a finite-element computation.
 
 Resistivity `rho` is in \\[Ω·m\\]. Relative permittivity `eps_r` and permeability `mu_r`
 are in \\[dimensionless\\].
@@ -46,8 +61,8 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
         conductor::Bool, mu_r::T, admittivity::Vector{Complex{T}}, tag::Int, name::String}}
     "Material group of each region, in system order."
     material::Vector{Int}
-    "Whether each region belongs to a copy of a repeat."
-    strand::Vector{Bool}
+    "Construction of each region, in system order: a copy of a repeat or a region laid alone."
+    construction::Vector{Union{Strand, Solid}}
     "Whether each region is a passive annulus, partitioned into thin-layer strips."
     layer::Vector{Bool}
     "Whether each cable lies in the air."
@@ -129,11 +144,11 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
                 material[r] = found
             end
         end
-        strand = fill(false, length(sources))
+        construction = Union{Strand, Solid}[Solid() for _ in sources]
         offset = 0
         for design in problem.system.designs
             for row in design.repeats, indices in row.copies, r in indices
-                strand[offset + r] = true
+                construction[offset + r] = Strand()
             end
             offset += length(design.regions)
         end
@@ -156,7 +171,8 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
                             length(problem.system.placements))
         scale = convert(T, minimum(design -> support(design.outer), problem.system.designs))
         return validate(new{T, typeof(problem)}(
-            problem, label, materials, material, strand, layer, air, gamma, earth, center, scale))
+            problem, label, materials, material, construction, layer, air, gamma, earth, center,
+            scale))
     end
 end
 

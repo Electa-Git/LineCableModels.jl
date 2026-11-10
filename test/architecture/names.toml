@@ -132,7 +132,7 @@ draw = "draw a system, a design, a placed region, a shape, a contour, a path or 
 bisect = "halve a bracket of a parameter where a predicate changes, to two parameters adjacent in nominal value"
 
 [modules.LineCableModelsGmshExt]
-nouns = ["overrides", "field", "tags", "strand", "air", "scale",
+nouns = ["overrides", "field", "tags", "strand", "solid", "construction", "air", "scale",
     "geometry", "key", "point", "points", "buckets", "lines", "arcs", "elliptic_arcs", "ends",
     "curves", "breaks", "contacts", "loops", "surfaces", "patches", "strips", "outlines", "pockets",
     "anchors", "faces", "compartments", "anchor", "section", "directory", "segments"]
@@ -389,7 +389,7 @@ draw = "draw a system, a design, a placed region, a shape, a contour or a path o
 [register.BaseGeometry.private]
 parameter = "the parameter of a curve at an angle of its parametrization, an arc's direction about its center or an elliptic arc's parametric angle: the angle from its start in the sense of its span, modulo a revolution, over the span, at most 1 on the curve"
 stationary = "the pairs of parameters inside two curves at which their squared distance is stationary, the common normals and the crossings, and one point of a parallel or concentric overlap, each with its distance"
-bisect = "the two parameters, adjacent in nominal value, between which a predicate changes from true to false, by halving their bracket; read by the apsides of an elliptic arc, the depth of `dimension` and the crossings of `clearance`"
+bisect = "the two parameters, adjacent in nominal value, between which a predicate changes from true to false, by halving their bracket; read by the apsides of an elliptic arc, the depth of `dimension` and the crossings of `stationary`"
 
 [register.LineCableModelsGmshExt.public]
 
@@ -399,6 +399,8 @@ mesh = "write the validated meshes of the cross-section at every frequency with 
 "gauge!" = "write the gauge tree and the sampling nodes into a mesh"
 OVERRIDES = "the table of the native expert controls: each native name with its default and its range"
 segments = "the segments per turn of the circle rule at a tolerance: the fewest of 12 times a power of 2 whose inscribed polygon bounds the relative error of a circle's area by the tolerance"
+Strand = "the construction of a region that is a copy of a repeat, such as a strand of a conductor or a wire of a screen"
+Solid = "the construction of a region laid alone, such as a solid conductor or a dielectric layer"
 FieldModel = "the finite-element model of a problem under a formulation: the material groups and the region, terminal and cable data that the later steps read"
 TAGS = "the tags of the physical groups that the native sources expect, by role"
 Geometry = "the Gmsh geometry of one cross-section under construction, built once per computation and read by the writer"
@@ -413,7 +415,7 @@ compartments = "the course of wires tangent to the inner circle of a fill: its c
 anchor = "the measurement anchor of terminal t: the first probe point inside its metal, upward from the lowest point of each of its regions at the offsets of its dimension, for a shift of 0 and 1 % of the terminal's smallest dimension; refused when none is"
 curves = "the boundary curves of plane surfaces, sorted"
 scan = "scan the frequencies of a problem with GetDP: at most workers processes, one per frequency, from the meshes of the run directory, each process's job files read when it exits, results/Z.tsv and results/P.tsv written after the last, the primitive Z in Ω/m and P in Ω·m of every frequency returned by terminal"
-section = "the mesh parameters of a region of a model under the native controls: its size target, the width of its conductor's law, the divisions of that width for the bulk, the fraction of it that the boundary layer may take, and the depth of its strips, zero without strips; a round region by its radius, an annular one by its thickness, a strip by its sides and its `dimension`; of a placed region by its declared primitive, or, when the primitive is an Offset, by its resolved shape: a layer by its thickness `dimension`, a fill by its container's"
+section = "the mesh parameters of a region of a model under the native controls: its size target, the width of its conductor's law, the divisions of that width for the bulk, the fraction of it that the boundary layer may take, and the depth of its strips, zero without strips; a round region by its radius and a strip by its sides and its `dimension`, each at the target of its construction, a strand or a region laid alone; an annular one by its thickness, a patched passive annulus at least at the arc of one of its segments; of a placed region by its declared primitive, or, when the primitive is an Offset, by its resolved shape: a layer by its thickness `dimension`, a fill by its container's"
 
 # LineCableModelsMeasurementsExt defines no name: its methods extend Commons' nominal and SpecialFunctions' Bessel functions.
 [register.LineCableModelsMeasurementsExt]

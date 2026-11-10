@@ -1,7 +1,8 @@
 using LineCableModels.Engine: admittivity, reductions
 
 @testset "Gmsh field model" begin
-    FieldModel = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).FieldModel
+    extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
+    FieldModel, Strand = extension.FieldModel, extension.Strand
     formulation = FEM()
     facts = Dict(
         "two_bare_wires" => (2, 1, 0, Symbol[], [false, false]),
@@ -22,7 +23,8 @@ using LineCableModels.Engine: admittivity, reductions
         "three_insulated_sectors" => (39, 3, 1, [:jacket], [false]),
         "three_cores_steel_pipe" => (9, 4, 4,
             [:a_insulation, :b_insulation, :c_insulation, :jacket], [false]))
-    # Per case, the copies of a repeat by tag and count: the regions of `model.strand`.
+    # Per case, the copies of a repeat by tag and count: the regions whose construction is a
+    # `Strand`.
     coaxial = [:core_strands_1 => 6, :core_strands_2 => 12, :core_strands_3 => 18,
         :armour_wires => 40]
     strands = Dict("coaxial_circular_strands" => coaxial,
@@ -53,7 +55,8 @@ using LineCableModels.Engine: admittivity, reductions
                   [admittivity(formulation, material, f, problem.temperature)
                    for f in problem.frequencies]
         end
-        tags = [region.source.tag for region in problem.system.regions[model.strand]]
+        copies = findall(==(Strand()), model.construction)
+        tags = [region.source.tag for region in problem.system.regions[copies]]
         @test [tag => count(==(tag), tags) for tag in unique(tags)] ==
               get(strands, case, Pair{Symbol, Int}[])
     end

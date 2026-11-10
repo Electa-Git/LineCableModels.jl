@@ -1026,14 +1026,19 @@ parameters are a named tuple of five numbers:
 - `fraction`, the part of that width that the graded layer can take.
 - `depth`, the depth of its strips \\[m\\], zero without strips.
 
-The strand flag of the region selects the target of a strand. Its passive-annulus flag and
-`ThinLayerStrips` select the bound of a patched annulus. `ConductorThicknessElements` gives
-the divisions of an annular region.
+The construction of the region selects the target of a strand or of a region laid alone.
+`ConductorThicknessElements` gives the divisions of an annular region. A patched passive
+annulus, a region of `model.layer` under `ThinLayerStrips` 1, takes at least the target
+``2π r_o/n`` \\[m\\]. That is the arc of one of its ``n = segments(τ)`` segments on its
+outer circle ``r_o``, for ``τ`` the `ConductorGeometryTolerance` \\[m\\].
 """
 function section(model::FieldModel, i::Integer, controls::NamedTuple)
     region = model.problem.system.regions[i]
-    return section(
-        region.source.primitive, region.shape, model.strand[i], model.layer[i], controls)
+    parameters = section(
+        region.source.primitive, region.shape, model.construction[i], controls)
+    model.layer[i] && controls.ThinLayerStrips == 1 || return parameters
+    bound = 2π * region.shape.ro / segments(controls.ConductorGeometryTolerance)
+    return merge(parameters, (target = max(parameters.target, bound),))
 end
 
 """
@@ -1042,9 +1047,9 @@ $(TYPEDSIGNATURES)
 Return the mesh parameters of the perforated primitive `x`: the parameters of its outer,
 with the resolved `shape`.
 """
-function section(x::PerforatedShape, shape::AbstractShape, strand::Bool, layer::Bool,
-        controls::NamedTuple)
-    return section(x.outer, shape, strand, layer, controls)
+function section(x::PerforatedShape, shape::AbstractShape,
+        construction::Union{Strand, Solid}, controls::NamedTuple)
+    return section(x.outer, shape, construction, controls)
 end
 
 """
@@ -1052,9 +1057,9 @@ $(TYPEDSIGNATURES)
 
 Return the mesh parameters of an offset by its resolved `shape`.
 """
-function section(::Offset, shape::AbstractShape, strand::Bool, layer::Bool,
+function section(::Offset, shape::AbstractShape, construction::Union{Strand, Solid},
         controls::NamedTuple)
-    return section(shape, shape, strand, layer, controls)
+    return section(shape, shape, construction, controls)
 end
 
 """
@@ -1063,9 +1068,10 @@ $(TYPEDSIGNATURES)
 Return the mesh parameters of `offset` with the perforated resolved `shape`, through the
 outer of `shape`.
 """
-function section(offset::Offset, shape::PerforatedShape, strand::Bool, layer::Bool,
+function section(
+        offset::Offset, shape::PerforatedShape, construction::Union{Strand, Solid},
         controls::NamedTuple)
-    return section(offset, shape, shape.outer, strand, layer, controls)
+    return section(offset, shape, shape.outer, construction, controls)
 end
 
 """
@@ -1074,9 +1080,9 @@ $(TYPEDSIGNATURES)
 Return the mesh parameters of an offset fill whose container is the annulus `outer`: the
 parameters of the annulus.
 """
-function section(::Offset, ::PerforatedShape, outer::Annulus, strand::Bool, layer::Bool,
-        controls::NamedTuple)
-    return section(outer, outer, strand, layer, controls)
+function section(::Offset, ::PerforatedShape, outer::Annulus,
+        construction::Union{Strand, Solid}, controls::NamedTuple)
+    return section(outer, outer, construction, controls)
 end
 
 """
@@ -1085,35 +1091,53 @@ $(TYPEDSIGNATURES)
 Return the mesh parameters of an offset fill whose container is the layer `outer`: the
 parameters of the layer.
 """
-function section(offset::Offset, ::PerforatedShape, outer::PerforatedShape, strand::Bool,
-        layer::Bool, controls::NamedTuple)
-    return section(offset, outer, strand, layer, controls)
+function section(offset::Offset, ::PerforatedShape, outer::PerforatedShape,
+        construction::Union{Strand, Solid}, controls::NamedTuple)
+    return section(offset, outer, construction, controls)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return the mesh parameters of the round region `x`, a circle of radius ``r`` \\[m\\]. The
-target is ``r`` for a strand and ``r/5`` otherwise, with the width ``r``, five divisions,
-the fraction ``0.5`` and no strips.
+Return the mesh parameters of the round strand `x`, a circle of radius ``r`` \\[m\\]. The
+target is ``r``, with the width ``r``, five divisions, the fraction ``0.5`` and no strips.
 """
-function section(x::Circle, ::AbstractShape, strand::Bool, ::Bool, ::NamedTuple)
-    return (target = x.r / (strand ? 1 : 5), width = x.r,
-        divisions = 5, fraction = 0.5, depth = zero(x.r))
+function section(x::Circle, ::AbstractShape, ::Strand, ::NamedTuple)
+    return (target = x.r, width = x.r, divisions = 5, fraction = 0.5, depth = zero(x.r))
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return the mesh parameters of the round region `x`, an ellipse of radius ``r`` \\[m\\]. The
-target is ``r`` for a strand and ``r/5`` otherwise, with the width ``r``, five divisions,
-the fraction ``0.5`` and no strips. The radius ``r`` is half the `dimension` of the
-ellipse: the depth at which its inward parallel first degenerates, as for a circle.
+Return the mesh parameters of the round region `x` laid alone, a circle. They are those of
+a round strand, with the target ``r/5``.
 """
-function section(x::Ellipse, ::AbstractShape, strand::Bool, ::Bool, ::NamedTuple)
+function section(x::Circle, ::AbstractShape, ::Solid, ::NamedTuple)
+    return (target = x.r / 5, width = x.r, divisions = 5, fraction = 0.5, depth = zero(x.r))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the mesh parameters of the round strand `x`, an ellipse of radius ``r`` \\[m\\]. The
+target is ``r``, with the width ``r``, five divisions, the fraction ``0.5`` and no strips.
+The radius ``r`` is half the `dimension` of the ellipse: the depth at which its inward
+parallel first degenerates, as for a circle.
+"""
+function section(x::Ellipse, ::AbstractShape, ::Strand, ::NamedTuple)
     r = dimension(x) / 2
-    return (target = r / (strand ? 1 : 5), width = r,
-        divisions = 5, fraction = 0.5, depth = zero(r))
+    return (target = r, width = r, divisions = 5, fraction = 0.5, depth = zero(r))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the mesh parameters of the round region `x` laid alone, an ellipse. They are those
+of a round strand, with the target ``r/5``.
+"""
+function section(x::Ellipse, ::AbstractShape, ::Solid, ::NamedTuple)
+    r = dimension(x) / 2
+    return (target = r / 5, width = r, divisions = 5, fraction = 0.5, depth = zero(r))
 end
 
 """
@@ -1121,18 +1145,11 @@ $(TYPEDSIGNATURES)
 
 Return the mesh parameters of the annular region `x`, with the radii ``r_i`` and ``r_o``
 \\[m\\] and the thickness ``w = r_o - r_i``. The target is ``w/2``, with the width ``w``,
-`ConductorThicknessElements` divisions, the fraction ``0.45`` and no strips. A patched
-passive annulus, a `layer` under `ThinLayerStrips` 1, takes at least the target
-``2π r_o/n`` \\[m\\]. That is the arc of one of its ``n = segments(τ)`` segments, for ``τ``
-the `ConductorGeometryTolerance` \\[m\\].
+`ConductorThicknessElements` divisions, the fraction ``0.45`` and no strips.
 """
-function section(x::Annulus, ::AbstractShape, ::Bool, layer::Bool, controls::NamedTuple)
+function section(x::Annulus, ::AbstractShape, ::Union{Strand, Solid}, controls::NamedTuple)
     w = x.ro - x.ri
-    target = w / 2
-    if layer && controls.ThinLayerStrips == 1
-        target = max(target, 2π * x.ro / segments(controls.ConductorGeometryTolerance))
-    end
-    return (target = target, width = w,
+    return (target = w / 2, width = w,
         divisions = controls.ConductorThicknessElements, fraction = 0.45, depth = zero(w))
 end
 
@@ -1143,7 +1160,7 @@ Return the mesh parameters of the layer `shape`, whose thickness ``w = dimension
 \\[m\\] is the same at every placement. The target is ``w/2``, with the width ``w``,
 `ConductorThicknessElements` divisions, the fraction ``0.45`` and no strips.
 """
-function section(::Offset, shape::PerforatedShape, ::AbstractShape, ::Bool, ::Bool,
+function section(::Offset, shape::PerforatedShape, ::AbstractShape, ::Union{Strand, Solid},
         controls::NamedTuple)
     w = dimension(shape)
     return (target = w / 2, width = w,
@@ -1153,11 +1170,10 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the mesh parameters of the strip region `x`, a sector with the sides ``a`` and ``b``
-\\[m\\] of the rectangle that it bends. The target is ``\\min(a, b)/2`` for a strand and
-``\\min(a, b)/5`` otherwise. Its resolved `shape` gives the width ``d = dimension(shape)``
-\\[m\\], with five divisions, the fraction ``0.45`` and strips at the depth ``0.45 d``. The
-sides are
+Return the mesh parameters of the strip strand `x`, a sector with the sides ``a`` and ``b``
+\\[m\\] of the rectangle that it bends. The target is ``\\min(a, b)/2``. Its resolved
+`shape` gives the width ``d = dimension(shape)`` \\[m\\], with five divisions, the fraction
+``0.45`` and strips at the depth ``0.45 d``. The sides are
 
 ```math
 a = r_o - r_i, \\qquad b = \\varphi (r_o + r_i) / 2,
@@ -1166,29 +1182,57 @@ a = r_o - r_i, \\qquad b = \\varphi (r_o + r_i) / 2,
 where ``r_o`` and ``r_i`` are the outer and inner radii \\[m\\] and ``\\varphi`` is the
 angular span \\[rad\\].
 """
-function section(x::Sector, shape::AbstractShape, strand::Bool, ::Bool, ::NamedTuple)
+function section(x::Sector, shape::AbstractShape, ::Strand, ::NamedTuple)
     a, b = x.ro - x.ri, x.span * (x.ro + x.ri) / 2
     width = dimension(shape)
     fraction = 0.45
-    return (target = min(a, b) / (strand ? 2 : 5), width = width,
+    return (target = min(a, b) / 2, width = width,
         divisions = 5, fraction = fraction, depth = fraction * width)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return the mesh parameters of the strip region `x`, a rectangle, a polygon or an arc polygon
-of `dimension` ``d_x`` \\[m\\]. A rectangle's `dimension` is its smaller side. The target is
-``d_x/2`` for a strand and ``d_x/5`` otherwise. Its resolved `shape` gives the width
-``d = dimension(shape)`` \\[m\\], with five divisions, the fraction ``0.45`` and strips at
-the depth ``0.45 d``.
+Return the mesh parameters of the strip region `x` laid alone, a sector. They are those of
+a strip strand, with the target ``\\min(a, b)/5``.
 """
-function section(x::Union{Rectangle, Polygon, ArcPolygon}, shape::AbstractShape,
-        strand::Bool, ::Bool, ::NamedTuple)
+function section(x::Sector, shape::AbstractShape, ::Solid, ::NamedTuple)
+    a, b = x.ro - x.ri, x.span * (x.ro + x.ri) / 2
+    width = dimension(shape)
+    fraction = 0.45
+    return (target = min(a, b) / 5, width = width,
+        divisions = 5, fraction = fraction, depth = fraction * width)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the mesh parameters of the strip strand `x`, a rectangle, a polygon or an arc polygon
+of `dimension` ``d_x`` \\[m\\]. A rectangle's `dimension` is its smaller side. The target is
+``d_x/2``. Its resolved `shape` gives the width ``d = dimension(shape)`` \\[m\\], with five
+divisions, the fraction ``0.45`` and strips at the depth ``0.45 d``.
+"""
+function section(x::Union{Rectangle, Polygon, ArcPolygon}, shape::AbstractShape, ::Strand,
+        ::NamedTuple)
     d = dimension(x)
     width = dimension(shape)
     fraction = 0.45
-    return (target = d / (strand ? 2 : 5), width = width,
+    return (target = d / 2, width = width,
+        divisions = 5, fraction = fraction, depth = fraction * width)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the mesh parameters of the strip region `x` laid alone, a rectangle, a polygon or an
+arc polygon. They are those of a strip strand, with the target ``d_x/5``.
+"""
+function section(x::Union{Rectangle, Polygon, ArcPolygon}, shape::AbstractShape, ::Solid,
+        ::NamedTuple)
+    d = dimension(x)
+    width = dimension(shape)
+    fraction = 0.45
+    return (target = d / 5, width = width,
         divisions = 5, fraction = fraction, depth = fraction * width)
 end
 
