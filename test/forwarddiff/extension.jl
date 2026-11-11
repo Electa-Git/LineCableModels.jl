@@ -32,4 +32,28 @@ using SpecialFunctions: besselix, besselkx, besseljx, besselk
         @test nominal(complex(ForwardDiff.Dual(0.8, 1.0), ForwardDiff.Dual(0.6, 0.0))) ===
               complex(0.8, 0.6)
     end
+
+    @testset "the partial of a conductor's outer surface at a harmonic order in its radius" begin
+        # Measured against a central difference of step 1e-7 r_ex: 3.3e-8. The value lies
+        # within 5.7e-16 of the record of the nominal data.
+        # A steel pipe, a solid of aluminum and a copper sheath: radii in m, resistivity in Ω·m and
+        # relative permeability.
+        formula = LineCableModels.Engine.InternalImpedance.Formula(Val(:schelkunoff1934))
+        cases = ((62.0e-3, 65.0e-3, 7.0e-8, 10.0), (0.0, 19.5e-3, 3.365e-8, 1.0),
+            (20.5e-3, 21.5e-3, 1.7241e-8, 1.0))
+        for (r_in, r_ex, ρ, μ_r) in cases, n in (1, 3, 20), f in (50.0, 1.0e5)
+            s = im * (2π * f)
+            surface = formula(n, ForwardDiff.Dual(r_in, 0.0), ForwardDiff.Dual(r_ex, 1.0),
+                ForwardDiff.Dual(ρ, 0.0), ForwardDiff.Dual(μ_r, 0.0),
+                complex(ForwardDiff.Dual(0.0, 0.0), ForwardDiff.Dual(2π * f, 0.0)))
+            h = 1.0e-7 * r_ex
+            difference = (formula(n, r_in, r_ex + h, ρ, μ_r, s).outer -
+                          formula(n, r_in, r_ex - h, ρ, μ_r, s).outer) / 2h
+            partial = complex(ForwardDiff.partials(real(surface.outer))[1],
+                ForwardDiff.partials(imag(surface.outer))[1])
+            @test isapprox(partial, difference; rtol = 1.0e-6)
+            @test isapprox(nominal(surface.outer), formula(n, r_in, r_ex, ρ, μ_r, s).outer;
+                rtol = 1.0e-14)
+        end
+    end
 end

@@ -39,6 +39,62 @@ impedances are zero, and its outer impedance is
 ``s \\mu I_0(w_\\mathrm{ex}) / (2 \\pi w_\\mathrm{ex} I_1(w_\\mathrm{ex}))``. The
 implementation evaluates the Bessel functions in their exponentially scaled form.
 
+At a harmonic order ``n``, the field varies around the conductor's axis as
+``\\cos n\\varphi`` or ``\\sin n\\varphi``. The record then relates the axial electric field
+``E`` to ``J = 2\\pi r H_\\varphi`` at the two surfaces:
+``E(r_\\mathrm{in}) = -z_\\mathrm{inner} J_\\mathrm{in} + z_\\mathrm{transfer} J_\\mathrm{ex}``
+and ``E(r_\\mathrm{ex}) = -z_\\mathrm{transfer} J_\\mathrm{in} + z_\\mathrm{outer} J_\\mathrm{ex}``.
+At ``n = 0``, ``J_\\mathrm{in}`` and ``J_\\mathrm{ex}`` are the currents inside the radii
+``r_\\mathrm{in}`` and ``r_\\mathrm{ex}``, and the record is the one above. A solid's
+expression at an order is that of [Schelkunoff1934](@cite). The expressions of a finite wall
+at an order are the solution of the boundary-value problem of equations (5) and (6) of
+[Kane1995](@cite):
+
+```math
+\\begin{aligned}
+z_\\mathrm{inner} &= \\frac{s \\mu}{2 \\pi w_\\mathrm{in}}
+    \\frac{K_n(w_\\mathrm{in}) I_n'(w_\\mathrm{ex})
+    - I_n(w_\\mathrm{in}) K_n'(w_\\mathrm{ex})}{D_n}, \\\\
+z_\\mathrm{outer} &= \\frac{s \\mu}{2 \\pi w_\\mathrm{ex}}
+    \\frac{I_n'(w_\\mathrm{in}) K_n(w_\\mathrm{ex})
+    - K_n'(w_\\mathrm{in}) I_n(w_\\mathrm{ex})}{D_n}, \\\\
+z_\\mathrm{transfer} &= \\frac{s \\mu}{2 \\pi w_\\mathrm{in} w_\\mathrm{ex} D_n}, \\\\
+z_\\mathrm{outer}\\big|_{r_\\mathrm{in}=0} &= \\frac{s \\mu}{2 \\pi}
+    \\frac{I_n(w_\\mathrm{ex})}{w_\\mathrm{ex} I_n'(w_\\mathrm{ex})},
+\\end{aligned}
+```
+
+where
+``D_n = I_n'(w_\\mathrm{in}) K_n'(w_\\mathrm{ex}) - K_n'(w_\\mathrm{in}) I_n'(w_\\mathrm{ex})``
+and the primes denote derivatives in the argument.
+
+The implementation calls the Bessel functions at the orders 0 and 1 alone, and it forms the
+ratios of consecutive orders ``\\alpha_k(w) = w I_{k-1}(w) / I_k(w)`` and
+``\\beta_k(w) = w K_{k-1}(w) / K_k(w)``. It runs ``\\alpha_k = 2k + w^2/\\alpha_{k+1}``
+backward from ``\\alpha_N = 2N`` and ``\\beta_{k+1} = w^2/(\\beta_k + 2k)`` forward from
+``\\beta_1``. The backward run starts at ``N = n + \\lceil |w_\\mathrm{ex}| \\rceil + 80``,
+from the nominal value of ``|w_\\mathrm{ex}|``. The orders 0 and 1, in their exponentially scaled
+form, give the products
+``\\lambda_n = I_n(w_\\mathrm{in}) K_n(w_\\mathrm{ex}) / (I_n(w_\\mathrm{ex}) K_n(w_\\mathrm{in}))``
+and ``\\Pi_n = I_n(w_\\mathrm{ex}) K_n(w_\\mathrm{in})``. With
+``\\alpha_\\mathrm{in} = \\alpha_n(w_\\mathrm{in})``,
+``\\alpha_\\mathrm{ex} = \\alpha_n(w_\\mathrm{ex})``,
+``\\beta_\\mathrm{in} = \\beta_n(w_\\mathrm{in})`` and
+``\\beta_\\mathrm{ex} = \\beta_n(w_\\mathrm{ex})``, the implementation evaluates
+
+```math
+\\begin{aligned}
+\\mathrm{den} &= (\\beta_\\mathrm{in} + n)(\\alpha_\\mathrm{ex} - n)
+    - \\lambda_n (\\alpha_\\mathrm{in} - n)(\\beta_\\mathrm{ex} + n), \\\\
+z_\\mathrm{inner} &= \\frac{s \\mu}{2 \\pi}
+    \\frac{(\\alpha_\\mathrm{ex} - n) + \\lambda_n (\\beta_\\mathrm{ex} + n)}{\\mathrm{den}}, \\\\
+z_\\mathrm{outer} &= \\frac{s \\mu}{2 \\pi}
+    \\frac{(\\beta_\\mathrm{in} + n) + \\lambda_n (\\alpha_\\mathrm{in} - n)}{\\mathrm{den}}, \\\\
+z_\\mathrm{transfer} &= \\frac{s \\mu}{2 \\pi \\Pi_n \\mathrm{den}}, \\\\
+z_\\mathrm{outer}\\big|_{r_\\mathrm{in}=0} &= \\frac{s \\mu}{2 \\pi (\\alpha_\\mathrm{ex} - n)}.
+\\end{aligned}
+```
+
 ### Callable
 
 `formula(r_in, r_ex, ρ, μ_r, s)` returns the record `(; inner, outer, transfer)`, the
@@ -53,6 +109,12 @@ impedances of the inner and outer surfaces and the transfer impedance between th
 
 It throws `DomainError` unless the radii are finite with `0 ≤ r_in < r_ex`, `ρ` and `μ_r`
 are positive and finite, and `s` is finite and nonzero.
+
+`formula(n, r_in, r_ex, ρ, μ_r, s)` returns that record at the harmonic order `n`
+\\[Ω/m\\]. The order `n` \\[dimensionless\\] is a nonnegative integer, and the other
+arguments are those of the first form. At `n = 0` it returns
+`formula(r_in, r_ex, ρ, μ_r, s)`. It throws `DomainError` for `n < 0` and for the inputs
+that the first form refuses.
 
 ## `Formula{:wedepohl1973}`
 
@@ -100,7 +162,7 @@ module InternalImpedance
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults
-using ...Commons: FormulationOptions
+using ...Commons: FormulationOptions, nominal
 using ..Engine: AbstractInternalImpedance
 using ..Engine: μ₀
 import ..Engine: domain

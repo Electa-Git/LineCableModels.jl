@@ -281,7 +281,7 @@ Formula = "an internal-impedance formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
 
 [register."Engine.InternalImpedance".formulas]
-schelkunoff1934 = "the inner, outer and transfer surface impedances of a tubular conductor (Schelkunoff 1934; commit 989af96c, internalimpedance/formulas/schelkunoff1934.jl)"
+schelkunoff1934 = "the inner, outer and transfer surface impedances of a tubular conductor at a harmonic order (Schelkunoff 1934; the finite wall above order 0 as Kane, Ahmad and Auriol 1995, eqs. (5), (6); commit 989af96c, internalimpedance/formulas/schelkunoff1934.jl)"
 wedepohl1973 = "the surface impedances of a thin tube and of a solid conductor by Wedepohl and Wilcox's closed forms in coth and csch (Wedepohl and Wilcox 1973)"
 
 [register."Engine.InsulationImpedance".public]

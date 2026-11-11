@@ -97,4 +97,21 @@ using SpecialFunctions: besselix, besselkx, besseljx, besselk
     @test length(LineCableModels.BaseGeometry.Contour(sharp).outer) ==
           length(LineCableModels.BaseGeometry.Contour(
         LineCableModels.Sector(0, 10.0e-3, 2π / 3, 0, 0, Placement(0, 0))).outer)
+
+    @testset "the surfaces of a conductor at a harmonic order carry the uncertainty of its data" begin
+        # Measured: the nominal record within 9.4e-16 of the record of the nominal data.
+        # A steel pipe, a solid of aluminum and a copper sheath: radii in m, resistivity in Ω·m and
+        # relative permeability.
+        formula = LineCableModels.Engine.InternalImpedance.Formula(Val(:schelkunoff1934))
+        cases = ((62.0e-3, 65.0e-3, 7.0e-8, 10.0), (0.0, 19.5e-3, 3.365e-8, 1.0),
+            (20.5e-3, 21.5e-3, 1.7241e-8, 1.0))
+        for (r_in, r_ex, ρ, μ_r) in cases, n in (1, 3, 20), f in (50.0, 1.0e5)
+            surface = formula(n, measurement(r_in, 0.0), measurement(r_ex, 1.0e-5),
+                measurement(ρ, 1.0e-9), measurement(μ_r, 0.0),
+                complex(measurement(0.0, 0.0), measurement(2π * f, 0.0)))
+            reference = formula(n, r_in, r_ex, ρ, μ_r, im * (2π * f))
+            @test isapprox(nominal(surface.outer), reference.outer; rtol = 1.0e-14)
+            @test Measurements.uncertainty(real(surface.outer)) > 0
+        end
+    end
 end

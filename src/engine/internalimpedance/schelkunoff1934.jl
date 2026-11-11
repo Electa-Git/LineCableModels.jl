@@ -41,3 +41,50 @@ function (::Formula{:schelkunoff1934})(
     transfer = (1 / (2π * r_in * r_ex * sigma)) * (numerator / denominator)
     return (; inner, outer, transfer)
 end
+
+function (f::Formula{:schelkunoff1934})(
+        n::Int, r_in::T, r_ex::T, ρ::T, μ_r::T, s::Complex{T}) where {T <: Real}
+    n >= 0 || throw(DomainError(n, "the harmonic order must be nonnegative"))
+    iszero(n) && return f(r_in, r_ex, ρ, μ_r, s)
+    isfinite(r_in) && isfinite(r_ex) && zero(T) <= r_in < r_ex ||
+        throw(DomainError((r_in, r_ex), "conductor radii must satisfy 0 ≤ r_in < r_ex [m]"))
+    isfinite(ρ) && ρ > zero(T) && isfinite(μ_r) && μ_r > zero(T) ||
+        throw(DomainError((ρ, μ_r), "conductor resistivity and permeability must be positive and finite"))
+    isfinite(s) && !iszero(s) || throw(DomainError(s, "jω must be finite and nonzero"))
+    μ = μ₀ * μ_r
+    σ = inv(ρ)
+    m = sqrt(s * μ * σ)
+    w_in = m * r_in
+    w_ex = m * r_ex
+    N = n + ceil(Int, nominal(abs(w_ex))) + 80
+    α_in = α_ex = complex(T(2N))
+    for k in (N - 1):-1:n
+        α_in = 2k + w_in^2 / α_in
+        α_ex = 2k + w_ex^2 / α_ex
+    end
+    if iszero(r_in)
+        outer = (s * μ / 2π) / (α_ex - n)
+        return (inner = zero(outer), outer, transfer = zero(outer))
+    end
+    λ = besselix(0, w_in) * besselkx(0, w_ex) / (besselix(0, w_ex) * besselkx(0, w_in)) *
+        exp(abs(real(w_in)) - abs(real(w_ex)) + w_in - w_ex)
+    Π = besselix(0, w_ex) * besselkx(0, w_in)
+    β_in = w_in * besselkx(0, w_in) / besselkx(1, w_in)
+    β_ex = w_ex * besselkx(0, w_ex) / besselkx(1, w_ex)
+    λ *= α_ex * β_in / (α_in * β_ex)
+    Π *= w_ex * w_in / (α_ex * β_in)
+    αk_in, αk_ex = α_in, α_ex
+    for k in (n - 1):-1:1
+        αk_in = 2k + w_in^2 / αk_in
+        αk_ex = 2k + w_ex^2 / αk_ex
+        β_in = w_in^2 / (β_in + 2(n - k))
+        β_ex = w_ex^2 / (β_ex + 2(n - k))
+        λ *= αk_ex * β_in / (αk_in * β_ex)
+        Π *= w_ex * w_in / (αk_ex * β_in)
+    end
+    den = (β_in + n) * (α_ex - n) - λ * (α_in - n) * (β_ex + n)
+    inner = (s * μ / 2π) * ((α_ex - n) + λ * (β_ex + n)) / den
+    outer = (s * μ / 2π) * ((β_in + n) + λ * (α_in - n)) / den
+    transfer = (s * μ / 2π) * exp(w_in - abs(real(w_ex))) / (Π * den)
+    return (; inner, outer, transfer)
+end

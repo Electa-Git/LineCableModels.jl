@@ -18,6 +18,12 @@ surface impedance of the next conductor outward to the loop impedance of the con
 loop impedance less the transfer impedance adds to the entries between the conductor and each
 conductor inside it.
 
+Currents off a conductor's axis set up a field that varies around that axis as
+``\cos n\varphi``, at a harmonic order ``n``. Above order 0, the net current of such a field
+is zero. The surface impedances at an order relate the axial electric field to the field
+``H_\varphi`` at the two surfaces [Schelkunoff1934](@cite), [Kane1995](@cite). The formula
+`:schelkunoff1934` gives them at every order, and at ``n = 0`` they are the three above.
+
 A stranded conductor or an armor enters as the equivalent tube of its terminal, which the data
 model builds: the tube spans the conductive regions and takes their direct-current resistance
 and geometric mean radius. A strand on a helix is longer than the cable by its overlength, so
