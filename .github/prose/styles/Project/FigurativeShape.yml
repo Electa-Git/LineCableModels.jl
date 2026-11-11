@@ -1,4 +1,5 @@
 extends: ai-tells.FigurativeShape
+message: "Use '%s' only for geometry, never for code or a model's definition."
 exceptions:
   # Exact geometric outlines, as distinct from figurative descriptions.
   - '(?i)(?:natural|copper|radial|exact\s+outer)\s+shape'
@@ -6,6 +7,8 @@ exceptions:
   - '(?i)geometric\s+boundary\s+constrains\s+the\s+aggregate\s+shape'
   # Cross-sectional outlines used by conductor geometry.
   - '(?i)(?:sector|ellipse|polygon|rectangle|stadium)-shaped'
+  # A region of the cross-section, named in the prose of its geometric quantities.
+  - '(?i)(?:any\s+other|perforated)\s+shapes?'
 tests:
   - name: geometric outline
     input: "Use sector-shaped conductors."
@@ -15,4 +18,10 @@ tests:
     contains: Project.FigurativeShape
   - name: physical aggregate outline
     input: "The geometric boundary constrains the aggregate shape."
+    want: ""
+  - name: a region named by its geometry
+    input: "Any other shape takes the distance of its contour."
+    want: ""
+  - name: a perforated region
+    input: "When the origin lies in a hole of a perforated shape, the distance is that of the hole."
     want: ""

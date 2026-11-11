@@ -359,6 +359,11 @@
     # duct. The cable has no terminal, so its cores are members of the duct's assembly at their
     # own centers. Its fill and jacket join the duct's filler. The filler weighs the air,
     # 102π mm², and the jacket, 15π mm², equal to the bit on Julia 1.12.7.
+    #
+    # The core at (-1, -1.73) mm covers the axis, 2 mm from its center and inside its outline
+    # of 3 mm. The filler starts at that outline, 1 mm from the axis. With the cable on the
+    # duct's axis, its fill contains the axis. Its jacket and the duct's fill are then annuli
+    # outside the filler.
     @testset "a sub-cable without a terminal gives its members and regions to its container" begin
         d = 2 * 3.0e-3 / sqrt(3)
         angles = (π / 2, 7π / 6, 11π / 6)
@@ -378,7 +383,55 @@
               [[2.0e-3 + d * cos(θ), d * sin(θ)] for θ in angles] rtol = 1e-12
         @test isempty(blueprint.assembly_ranges[2]) && isempty(blueprint.interior_ranges[2])
         filler = only(blueprint.dielectrics[blueprint.interior_ranges[1]])
-        @test [filler.r_in, filler.r_ex] ≈ [0, 12.0e-3] rtol = 1e-12
+        @test [filler.r_in, filler.r_ex] ≈ [1.0e-3, 12.0e-3] rtol = 1e-12
         @test filler.material.eps_r ≈ (102 * air.eps_r + 15 * polymer.eps_r) / 117 rtol = 1e-14
+        centered = flatten(build(CableDesign, "duct",
+            Enclosure(Region(:duct_fill, Circle(12.0e-3), air),
+                Assembly((Placement(0.0, 0.0) => cable,))),
+            Terminal(:duct, Region(:duct, Offset(2.0e-3), steel)),
+            Region(:coating, Offset(1.0e-3), polymer)))
+        interior = centered.dielectrics[centered.interior_ranges[1]]
+        @test [[layer.r_in, layer.r_ex] for layer in interior] ≈
+              [[0, 7.0e-3], [7.0e-3, 8.0e-3], [8.0e-3, 12.0e-3]] rtol = 1e-12
+        @test [layer.material.eps_r for layer in interior] ≈
+              [air.eps_r, polymer.eps_r, air.eps_r] rtol = 1e-14
+    end
+
+    # Construction 19: a terminal of two courses of 6 and 12 wires at the lay ratio 12, around
+    # a polymer rod. The rod lies outside the terminal, in a hole of the fill around them. The
+    # fill's container makes the block an annulus, and its tube starts at the axis. The tube has
+    # the resistance of the 18 wires, each longer by its overlength. It is an equivalent tube,
+    # as Ametani's is.
+    @testset "a fill around a rod outside its terminal gives a tube from the axis" begin
+        courses = [Lay(Helix(LayRatio(12)),
+                       Repeat(CircularPattern(n; r = 3.0e-3k),
+                           Region(Symbol(:wires_, k), Circle(1.5e-3), copper)))
+                   for (k, n) in enumerate((6, 12))]
+        tube = only(flatten(build(CableDesign, "rod",
+            Enclosure(Region(:core_fill, Circle(7.5e-3), air),
+                Stack(Region(:rod, Circle(1.5e-3), polymer),
+                    Terminal(:core, Stack(courses...)))),
+            Region(:insulation, Offset(3.0e-3), polymer))).conductors)
+        @test [tube.r_in, tube.r_ex] ≈ [0, 7.5e-3] rtol = 1e-12
+        resistance = copper.rho * sqrt(1 + (π / 12)^2) / (18π * 1.5e-3^2)
+        @test tube.material.rho / (π * 7.5e-3^2) ≈ resistance rtol = 1e-12
+    end
+
+    # Construction 20: one coaxial in a steel pipe, on its axis and 5 mm off it. The filler is
+    # the pipe's fill, from the nearest point of the coaxial's outline to the pipe.
+    @testset "the filler of a pipe starts at the nearest point of its member" begin
+        coax = Stack(Terminal(:core, Region(:core, Circle(10.0e-3), copper)),
+            Region(:insulation, Offset(8.0e-3), polymer),
+            Terminal(:screen, Region(:screen, Offset(1.0e-3), copper)),
+            Region(:jacket, Offset(3.0e-3), polymer))
+        for (offset, nearest) in ((0.0, 22.0e-3), (5.0e-3, 17.0e-3))
+            enclosure = Enclosure(Region(:fill, Circle(30.0e-3), air),
+                Assembly((Placement(offset, 0.0) => coax,)))
+            blueprint = flatten(build(CableDesign, "pipe",
+                Stack(enclosure, Terminal(:pipe, Region(:pipe, Offset(8.0e-3), steel)),
+                    Region(:coating, Offset(3.0e-3), polymer))))
+            filler = only(blueprint.dielectrics[blueprint.interior_ranges[1]])
+            @test [filler.r_in, filler.r_ex] ≈ [nearest, 30.0e-3] rtol = 1e-12
+        end
     end
 end

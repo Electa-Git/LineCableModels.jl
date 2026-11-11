@@ -384,7 +384,7 @@ perimeter = "the length of the outline of a shape"
 apsides = "the apsides of a curve about a point: the parameters of its point nearest to and of its point farthest from that point, its ends included; about the point at infinity along a direction, its points of greatest and of least projection on it"
 winding = "the winding about a point: of a closed path its winding number, of a curve the signed fraction of a revolution that its direction from the point sweeps"
 support = "the radius of a circle about the origin that contains a shape, or the support function of a shape in a direction: its largest projection on that direction"
-distance = "the radius of a circle about the origin that a shape does not enter; of a curve, the distance of its nearest point from the origin; of a point or a placement, its distance from the origin"
+distance = "the radius of the largest circle about the origin that a shape does not enter; of a curve, the distance of its nearest point from the origin; of a point or a placement, its distance from the origin"
 dimension = "the distance across the metal of a shape: twice the depth at which the inward parallel of its outline first degenerates; a circle's diameter, an annulus's thickness, a rectangle's smaller side; of a curve, the metal on its left, twice the depth at which its inward parallel degenerates: twice its smallest convex radius, infinite for a segment or a curve that turns away from its left"
 draw = "draw a system, a design, a placed region, a shape, a contour or a path on a target as the curves the target draws, returning what the target made"
 

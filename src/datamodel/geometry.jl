@@ -661,7 +661,8 @@ support(shape::PerforatedShape) = support(shape.outer)
 """
     distance(shape)
 
-Return the radius of a circle about the origin that `shape` does not enter \\[m\\]:
+Return the radius of the largest circle about the origin that `shape` does not enter
+\\[m\\]. For a circle or an annulus, it is
 
 ```math
 \\max(0, d - r_o, r_i - d),
@@ -670,8 +671,8 @@ Return the radius of a circle about the origin that `shape` does not enter \\[m\
 where ``d`` is the distance from the origin to the center of `shape`, and ``r_i`` and
 ``r_o`` are its inner and outer radii. The inner radius of a circle is zero.
 
-A rectangle, a sector, a polygon, an arc polygon or an ellipse takes the distance of its
-contour. A layer keeps its outer boundary's distance bound.
+Any other shape takes the distance of its contour. When the origin lies in a hole of a
+perforated shape, the distance is that of the nearest point of the hole.
 """
 distance(circle::Circle) = max(zero(circle.r), distance(circle.at) - circle.r)
 
@@ -680,7 +681,7 @@ function distance(shape::Annulus)
     return max(zero(offset), offset - shape.ro, shape.ri - offset)
 end
 
-distance(shape::PerforatedShape) = distance(shape.outer)
+distance(shape::AbstractShape) = distance(Contour(shape))
 
 """
     boundary(shape)
@@ -771,9 +772,6 @@ end
 
 centroid(rectangle::Rectangle) = (rectangle.at.x, rectangle.at.y)
 boundary(rectangle::Rectangle) = rectangle
-distance(rectangle::Rectangle) = distance(Contour(rectangle))
-
-distance(sector::Sector) = distance(Contour(sector))
 
 support(shape::AbstractShape, φ::Real) = support(Contour(shape), φ)
 support(shape::PerforatedShape, φ::Real) = support(shape.outer, φ)
@@ -834,8 +832,6 @@ end
 function support(polygon::Polygon)
     return maximum(hypot(polygon.at(vertex)...) for vertex in polygon.vertices)
 end
-distance(ellipse::Ellipse) = distance(Contour(ellipse))
-distance(polygon::Polygon) = distance(Contour(polygon))
 perimeter(ellipse::Ellipse) = 4ellipse.a * ellipe(1 - ellipse.b^2 / ellipse.a^2)
 function perimeter(polygon::Polygon)
     return sum(hypot((polygon.vertices[mod1(i + 1, length(polygon.vertices))] .-

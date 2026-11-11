@@ -170,6 +170,21 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test all(centroid(moved) .≈ (1.0e-3 - 2.0e-3 / 15, 0))
     end
 
+    # The origin lies in a hole centered on it, in a hole off it, in the region, or far
+    # outside the cross-section. Far outside, the distance is that of the outer cross-section.
+    @testset "the distance of a cross-section with holes is the distance of its contour" begin
+        far = Circle(3.0e-3, Placement(10.0e-3, 0))
+        for (outer, hole, nearest) in (
+            (Circle(12.0e-3), Circle(8.0e-3), 8.0e-3),
+            (Circle(12.0e-3), Circle(3.0e-3, Placement(1.0e-3, 0)), 2.0e-3),
+            (Circle(12.0e-3), Circle(3.0e-3, Placement(6.0e-3, 0)), 0.0),
+            (far, Circle(1.0e-3, Placement(10.0e-3, 0)), distance(far)))
+            shape = LineCableModels.PerforatedShape(outer, [hole])
+            @test distance(shape) ≈ nearest rtol = 1e-12
+            @test distance(shape) == distance(Contour(shape))
+        end
+    end
+
     @testset "disjoint shapes have the area-weighted centroid of their centroids" begin
         shapes = [Circle(1.0e-3), Circle(2.0e-3, Placement(3.0e-3, -3.0e-3))]
         @test all(centroid(shapes) .≈ (2.4e-3, -2.4e-3))

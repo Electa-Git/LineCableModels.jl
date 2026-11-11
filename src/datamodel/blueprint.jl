@@ -154,8 +154,8 @@ Reduce a cable design to its [`CableBlueprint`](@ref). Each row of the assemblie
 design is a concentric assembly about its axis. Each terminal becomes a tube about the axis
 of its assembly. The cable lies about its origin. A member lies about the centroid of the
 regions of its first terminal, or about its placement when it has no terminal. The tube
-spans the conductive regions of the terminal and the fills between them, from their nearest
-to their farthest extent.
+spans the conductive regions of the terminal and the containers of the fills between them,
+from their nearest to their farthest extent.
 
 The regions of the same row outside the tube, up to its next terminal or its last region,
 become the layers of its dielectric interval. The regions of a row around its members form
@@ -194,7 +194,7 @@ is the mean distance of Rosa (1908), Eq. (57):
 \\log d_{ij} = \\frac{b^2 \\log b - a^2 \\log a}{b^2 - a^2} - \\frac{1}{2}.
 ```
 
-The tube of a block that tiles an annulus spans that annulus. Any other block takes the tube
+A block that tiles an annulus takes that tube. Any other block takes the tube
 of its metal area ``S`` and of the perimeter ``l`` of its outline, Ametani's equivalent:
 
 ```math
@@ -315,7 +315,10 @@ function flatten(design::CableDesign)
         gmr = sum(shares .^ 2 .* own) + 2cross
         contents = [index for fill in design.fills if fill.region in blocks[k]
                     for index in fill.contents]
-        tube = [centered[owners[k]][index] for index in blocks[k] if index ∉ contents]
+        containers = [fill.region for fill in design.fills if fill.region in blocks[k]]
+        tube = [index in containers ? centered[owners[k]][index].outer :
+                centered[owners[k]][index]
+                for index in blocks[k] if index ∉ contents]
         annular = isannular([centered[owners[k]][index] for index in blocks[k]])
         outer = convert(T,
             annular ? maximum(support, tube) :

@@ -44,7 +44,6 @@ end
 area(shape::ArcPolygon) = area(Contour(shape))
 centroid(shape::ArcPolygon) = centroid(Contour(shape))
 perimeter(shape::ArcPolygon) = perimeter(Contour(shape))
-distance(shape::ArcPolygon) = distance(Contour(shape))
 boundary(shape::ArcPolygon) = shape
 
 function Base.issubset(B::AbstractShape, A::Union{Rectangle, Polygon, Ellipse, ArcPolygon})
