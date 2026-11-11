@@ -377,9 +377,7 @@ function resolve(described::NamedTuple, lay::Lay)
     index = length(described.repeats) + 1
     radii = map(inner.repeats[index].copies) do indices
         shapes = [inner.regions[region].shape for region in indices]
-        x = sum(shape -> area(shape) * first(centroid(shape)), shapes) / sum(area, shapes)
-        y = sum(shape -> area(shape) * last(centroid(shape)), shapes) / sum(area, shapes)
-        return hypot(x, y)
+        return hypot(centroid(shapes)...)
     end
     row = (regions = inner.repeats[index].copies, radii = radii,
         pitches = [lay.helix.dir * pitch(lay.helix, radius) for radius in radii],

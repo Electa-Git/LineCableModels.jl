@@ -280,4 +280,105 @@
             "the coaxial formulation computes one concentric assembly per cable; the cable pipe holds 4 assemblies") compute(
             problem, CoaxialFormulation())
     end
+
+    # Construction 16: three round cores in a steel pipe, the geometry of the reference
+    # case `three_cores_steel_pipe`. Each member is at the origin, turned, with its core's
+    # circle off its origin. The member lies about the circle's center, the centroid of its
+    # terminal. Cores at their own centers give the same blueprint, equal to the bit on
+    # Julia 1.12.7.
+    @testset "a member lies about the centroid of its first terminal" begin
+        offset = 2 * 28.0e-3 / sqrt(3)
+        angles = (0.0, 2π / 3, 4π / 3)
+        names = (:a, :b, :c)
+        off = Circle(19.5e-3, Placement(offset, 0.0))
+        turned = Tuple(Placement(0.0,
+                           0.0,
+                           θ) => Stack(
+                           Terminal(name, Region(name, off, copper)),
+                           Region(Symbol(name, :_insulation), Offset(8.5e-3), polymer))
+        for (name, θ) in zip(names, angles))
+        placed = Tuple(Placement(offset * cos(θ),
+                           offset * sin(θ),
+                           θ) => Stack(
+                           Terminal(name, Region(name, Circle(19.5e-3), copper)),
+                           Region(Symbol(name, :_insulation), Offset(8.5e-3), polymer))
+        for (name, θ) in zip(names, angles))
+        pipe,
+        own = [flatten(build(CableDesign, "pipe_type",
+                   Enclosure(Region(:filler, Circle(62.0e-3), polymer), Assembly(members)),
+                   Terminal(:pipe, Region(:pipe, Offset(3.0e-3), steel)),
+                   Region(:jacket, Offset(5.0e-3), polymer)))
+               for members in (turned, placed)]
+        centers = vcat([[0.0, 0.0]], [[offset * cos(θ), offset * sin(θ)] for θ in angles])
+        @test [collect(p) for p in pipe.positions] ≈ centers rtol = 1e-12
+        @test [[tube.r_in, tube.r_ex] for tube in pipe.conductors] ≈
+              [[0, 19.5e-3], [0, 19.5e-3], [0, 19.5e-3], [62.0e-3, 65.0e-3]] rtol = 1e-12
+        @test [[layer.r_in, layer.r_ex] for layer in pipe.dielectrics] ≈
+              [[19.5e-3, 28.0e-3], [19.5e-3, 28.0e-3], [19.5e-3, 28.0e-3], [0, 62.0e-3],
+            [65.0e-3, 70.0e-3]] rtol = 1e-12
+        @test pipe.assembly_ranges == [4:4, 1:1, 2:2, 3:3]
+        @test pipe.interior_ranges == [4:4, 1:0, 2:1, 3:2]
+        @test pipe.dielectric_ranges == [1:1, 2:2, 3:3, 5:5]
+        @test pipe.members == [[2, 3, 4], Int[], Int[], Int[]]
+        @test own.positions == pipe.positions
+        @test [[tube.r_in, tube.r_ex, tube.material.rho, tube.material.mu_r]
+               for tube in own.conductors] ==
+              [[tube.r_in, tube.r_ex, tube.material.rho, tube.material.mu_r]
+               for tube in pipe.conductors]
+        @test [[layer.r_in, layer.r_ex] for layer in own.dielectrics] ==
+              [[layer.r_in, layer.r_ex] for layer in pipe.dielectrics]
+        @test own.mu_r_ins == pipe.mu_r_ins
+        @test (
+            own.assembly_ranges, own.interior_ranges, own.dielectric_ranges, own.members) ==
+              (pipe.assembly_ranges, pipe.interior_ranges,
+            pipe.dielectric_ranges, pipe.members)
+    end
+
+    # Construction 17: three wires around a central rod in a fill, under a binder tape. The
+    # rod and the fill form the filler, one layer from the center to the tape. Its material
+    # weighs the two by their areas, π mm² and 13.3125π mm², equal to the bit on Julia 1.12.7.
+    # The tape is the annulus outside the filler.
+    @testset "an interior is its filler and the annuli outside it" begin
+        wire = Stack(Terminal(:core, Region(:core, Circle(0.5e-3), copper)),
+            Region(:insulation, Offset(0.25e-3), polymer))
+        blueprint = flatten(build(
+            CableDesign, "rod", Region(:rod, Circle(1.0e-3), polymer),
+            Enclosure(Region(:fill, Offset(3.0e-3), air),
+                Assembly(Tuple(Placement(2.5e-3 * cos(θ), 2.5e-3 * sin(θ)) => wire
+                for θ in (0.0, 2π / 3, 4π / 3)))),
+            Region(:binder, Offset(0.2e-3), polymer)))
+        filler, binder = blueprint.dielectrics[blueprint.interior_ranges[1]]
+        @test [[filler.r_in, filler.r_ex], [binder.r_in, binder.r_ex]] ≈
+              [[0, 4.0e-3], [4.0e-3, 4.2e-3]] rtol = 1e-12
+        @test filler.material.eps_r ≈ (polymer.eps_r + 13.3125 * air.eps_r) / 14.3125 rtol = 1e-14
+        @test filler.material.rho ≈ 14.3125 * polymer.rho rtol = 1e-14
+        @test binder.material == polymer
+    end
+
+    # Construction 18: a three-core cable without a metallic layer, off the axis of a steel
+    # duct. The cable has no terminal, so its cores are members of the duct's assembly at their
+    # own centers. Its fill and jacket join the duct's filler. The filler weighs the air,
+    # 102π mm², and the jacket, 15π mm², equal to the bit on Julia 1.12.7.
+    @testset "a sub-cable without a terminal gives its members and regions to its container" begin
+        d = 2 * 3.0e-3 / sqrt(3)
+        angles = (π / 2, 7π / 6, 11π / 6)
+        core = Stack(Terminal(:core, Region(:core, Circle(2.0e-3), copper)),
+            Region(:insulation, Offset(1.0e-3), polymer))
+        cable = Stack(
+            Enclosure(Region(:cable_fill, Circle(7.0e-3), air),
+                Assembly(Tuple(Placement(d * cos(θ), d * sin(θ)) => core for θ in angles))),
+            Region(:cable_jacket, Offset(1.0e-3), polymer))
+        blueprint = flatten(build(CableDesign, "duct",
+            Enclosure(Region(:duct_fill, Circle(12.0e-3), air),
+                Assembly((Placement(2.0e-3, 0.0) => cable,))),
+            Terminal(:duct, Region(:duct, Offset(2.0e-3), steel)),
+            Region(:coating, Offset(1.0e-3), polymer)))
+        @test blueprint.members == [[3, 4, 5], Int[], Int[], Int[], Int[]]
+        @test [collect(p) for p in blueprint.positions[3:5]] ≈
+              [[2.0e-3 + d * cos(θ), d * sin(θ)] for θ in angles] rtol = 1e-12
+        @test isempty(blueprint.assembly_ranges[2]) && isempty(blueprint.interior_ranges[2])
+        filler = only(blueprint.dielectrics[blueprint.interior_ranges[1]])
+        @test [filler.r_in, filler.r_ex] ≈ [0, 12.0e-3] rtol = 1e-12
+        @test filler.material.eps_r ≈ (102 * air.eps_r + 15 * polymer.eps_r) / 117 rtol = 1e-14
+    end
 end

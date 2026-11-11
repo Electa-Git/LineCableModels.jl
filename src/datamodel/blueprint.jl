@@ -27,9 +27,9 @@ end
 """
 $(TYPEDEF)
 
-Represent one dielectric layer of a cable, about the center of its assembly. A layer of the
-interval of a conductor is an annulus. A layer of the interior of an assembly surrounds its
-members.
+Represent one dielectric layer of a cable, about the axis of its assembly. A layer of the
+interval of a conductor is an annulus. The first layer of the interior of an assembly, its
+filler, surrounds its members, and the others are annuli outside it.
 
 $(TYPEDFIELDS)
 """
@@ -44,6 +44,36 @@ struct BlueprintDielectric{T <: Real, M <: Material}
             material::M) where {T <: Real, M <: Material}
         return new{T, M}(r_in, r_ex, material)
     end
+end
+
+"""
+    BlueprintDielectric(r_in, r_ex, media, bands)
+
+Build the layer from `r_in` to `r_ex` of the dielectric regions of materials `media` and
+cross-sections `bands` as one composite material. Each region weighs by its area fraction
+``f_k``:
+
+```math
+\\frac{1}{\\rho} = \\sum_k \\frac{f_k}{\\rho_k}, \\qquad
+\\varepsilon_r = \\sum_k f_k \\varepsilon_k, \\qquad
+\\varepsilon_r \\tan\\delta = \\sum_k f_k \\varepsilon_k \\tan\\delta_k.
+```
+
+The other properties are those of the last region. The layer is an insulator when every
+region is one, and a semiconductor otherwise. One region keeps its material.
+"""
+function BlueprintDielectric(r_in::T, r_ex::T, media::AbstractVector{<:Material},
+        bands::AbstractVector{<:AbstractShape}) where {T <: Real}
+    fractions = area.(bands) ./ sum(area, bands)
+    permittivity = sum(fractions .* [item.eps_r for item in media])
+    base = last(media)
+    values = (
+        inv(sum(fractions ./ [item.rho for item in media])), permittivity,
+        base.mu_r, base.T0, base.alpha, base.rho_thermal, base.theta_max,
+        sum(fractions .* [item.eps_r * item.tan_delta for item in media]) /
+        permittivity, base.sigma_solar)
+    return BlueprintDielectric(r_in, r_ex,
+        foldl((merged, medium) -> Material(merged, medium, values...), media))
 end
 
 """
@@ -77,21 +107,29 @@ struct CableBlueprint{T <: Real, V <: AbstractVector{<:BlueprintDielectric}}
     empty range `(n + 1):n`, where `n` counts the conductors before its place.
     """
     assembly_ranges::Vector{UnitRange{Int}}
-    "Center of each concentric assembly in the frame of the cable, in \\[m\\]."
+    """
+    Axis that [`flatten`](@ref) gives each concentric assembly in the frame of the cable, in
+    \\[m\\].
+    """
     positions::Vector{Tuple{T, T}}
     """
-    Range of the interior layers of each concentric assembly: the regions around its
-    members, inside its first conductor or out to its outline. An assembly without members
-    has the empty range `(n + 1):n`, where `n` counts the layers before its place.
+    Range of the interior layers of each concentric assembly: its filler and the annuli
+    outside it. An assembly without members has the empty range `(n + 1):n`, where `n`
+    counts the layers before its place.
     """
     interior_ranges::Vector{UnitRange{Int}}
+    """
+    Rows of the members of each assembly. A sub-cable without a terminal gives its members
+    to its container.
+    """
+    members::Vector{Vector{Int}}
     function CableBlueprint{T}(id::String, conductors::Vector{BlueprintConductor{T}},
             dielectrics::V, dielectric_ranges::Vector{UnitRange{Int}}, mu_r_ins::Vector{T},
             assembly_ranges::Vector{UnitRange{Int}}, positions::Vector{Tuple{T, T}},
-            interior_ranges::Vector{UnitRange{Int}}
+            interior_ranges::Vector{UnitRange{Int}}, members::Vector{Vector{Int}}
     ) where {T <: Real, V <: AbstractVector{<:BlueprintDielectric}}
         return new{T, V}(id, conductors, dielectrics, dielectric_ranges, mu_r_ins,
-            assembly_ranges, positions, interior_ranges)
+            assembly_ranges, positions, interior_ranges, members)
     end
 end
 
@@ -113,14 +151,19 @@ isannular(shape::AbstractShape) = isannular([shape])
 $(TYPEDSIGNATURES)
 
 Reduce a cable design to its [`CableBlueprint`](@ref). Each row of the assemblies of the
-design is a concentric assembly about its center. Each terminal becomes a tube about the
-center of its assembly. The tube spans the conductive regions of the terminal and the fills
-between them, from their nearest to their farthest extent.
+design is a concentric assembly about its axis. Each terminal becomes a tube about the axis
+of its assembly. The cable lies about its origin. A member lies about the centroid of the
+regions of its first terminal, or about its placement when it has no terminal. The tube
+spans the conductive regions of the terminal and the fills between them, from their nearest
+to their farthest extent.
 
 The regions of the same row outside the tube, up to its next terminal or its last region,
 become the layers of its dielectric interval. The regions of a row around its members form
-the interior of the assembly. Regions inside the first terminal of a row without members lie
-in no interval.
+the interior of the assembly. The annuli about the axis outside its other regions are its
+outer layers, from the inside out. The other regions form its filler, one layer from their
+nearest to their farthest extent. A sub-cable without a terminal gives its members to its
+container and its regions to the filler of its container. Regions inside the first terminal
+of a row without members lie in no interval.
 
 The conductive regions ``i`` of a terminal carry direct current in parallel. A region of
 resistivity ``\\rho_i``, cross-section ``A_i`` and overlength ``\\ell_i`` along its helices has
@@ -183,16 +226,9 @@ reaches from ``a_k`` to ``b_k``. The interval has
 and ``\\mu_{ins} = 1`` without layers.
 
 Several dielectric regions that tile an annulus, such as an open tape and its fill, form one
-layer. Under a radial field they act in parallel. The layer takes the area fractions ``f_k``
-of the regions in a composite material:
-
-```math
-\\frac{1}{\\rho} = \\sum_k \\frac{f_k}{\\rho_k}, \\qquad
-\\varepsilon_r = \\sum_k f_k \\varepsilon_k, \\qquad
-\\varepsilon_r \\tan\\delta = \\sum_k f_k \\varepsilon_k \\tan\\delta_k.
-```
-
-The layer is an insulator when every region is one, and a semiconductor otherwise.
+layer. Under a radial field they act in parallel. The layer takes their composite material
+by their area fractions, the rule of [`BlueprintDielectric`](@ref). The filler of an
+interior homogenizes its regions by the same area fractions.
 
 # Returns
 
@@ -205,7 +241,7 @@ The layer is an insulator when every region is one, and a semiconductor otherwis
   row, or of none.
 - Throws `ArgumentError` when the regions of a terminal are not contiguous from the inside
   out.
-- Throws `ArgumentError` when a layer of an interval is no annulus about the center of its
+- Throws `ArgumentError` when a layer of an interval is no annulus about the axis of its
   assembly and tiles none.
 - Throws `ArgumentError` when the conductive regions of one terminal have different reference
   temperatures.
@@ -228,10 +264,16 @@ function flatten(design::CableDesign)
                       if !isempty(intersect(fill.contents, assigned)) &&
                          issubset(intersect(fill.contents, assigned), row.regions)]])
               for row in design.terminals]
-    validate(design, flatten, blocks)
     owners = [isempty(row.scope) ? 1 : last(row.scope) for row in design.terminals]
-    centered = [[k == 1 ? placed.shape : resolve(inv(row.at), placed.shape)
-                 for placed in regions] for (k, row) in enumerate(design.assemblies)]
+    positions = map(enumerate(design.assemblies)) do (k, row)
+        (k == 1 || k ∉ owners) && return (row.at.x, row.at.y)
+        terminal = design.terminals[findfirst(==(k), owners)]
+        return centroid([regions[index].shape for index in terminal.regions])
+    end
+    centered = [[k == 1 ? placed.shape :
+                 resolve(inv(Placement(positions[k]...)), placed.shape)
+                 for placed in regions] for k in eachindex(design.assemblies)]
+    validate(design, flatten, blocks, centered)
     stops = [maximum([index
                       for index in design.assemblies[owners[k]].regions
                       if all(
@@ -300,26 +342,13 @@ function flatten(design::CableDesign)
             pieces = isempty(tiled) ? [index] : [only(tiled).contents; index]
             bands = [centered[owners[k]][i] for i in pieces]
             media = [regions[i].source.material for i in pieces]
-            layer_material = if isempty(tiled)
-                regions[index].source.material
-            else
-                fractions = area.(bands) ./ sum(area, bands)
-                permittivity = sum(fractions .* [item.eps_r for item in media])
-                base = regions[index].source.material
-                values = (
-                    inv(sum(fractions ./ [item.rho for item in media])), permittivity,
-                    base.mu_r, base.T0, base.alpha, base.rho_thermal, base.theta_max,
-                    sum(fractions .* [item.eps_r * item.tan_delta for item in media]) /
-                    permittivity, base.sigma_solar)
-                foldl((merged, medium) -> Material(merged, medium, values...), media)
-            end
             lower = convert(T,
                 annular ? minimum(distance, bands) :
                 (isempty(interval) ? outer : last(interval).r_ex))
             upper = convert(
                 T, annular ? maximum(support, bands) :
                    lower + dimension(centered[owners[k]][index]))
-            push!(interval, BlueprintDielectric(lower, upper, layer_material))
+            push!(interval, BlueprintDielectric(lower, upper, media, bands))
         end
         N = sum(shares .* [turns[index] for index in members])
         relative = if isempty(interval)
@@ -332,12 +361,49 @@ function flatten(design::CableDesign)
         return (conductor = BlueprintConductor{T}(k, owners[k], inner, outer, material),
             interval = interval, relative = convert(T, relative))
     end
-    interiors = [[BlueprintDielectric(convert(T, distance(centered[k][index])),
-                      convert(T, support(centered[k][index])), regions[index].source.material)
-                  for index in row.regions
-                  if !isempty(row.members) &&
-                     all(j -> owners[j] != k || index < first(blocks[j]), eachindex(blocks))]
-                 for (k, row) in enumerate(design.assemblies)]
+    hosts = collect(eachindex(design.assemblies))
+    contained = [Int[] for _ in design.assemblies]
+    for (k, row) in enumerate(design.assemblies)
+        for member in row.members
+            if member in owners
+                push!(contained[hosts[k]], member)
+            else
+                hosts[member] = hosts[k]
+            end
+        end
+    end
+    heads = [minimum([first(blocks[j]) for j in eachindex(blocks) if owners[j] == k];
+                 init = length(regions) + 1) for k in eachindex(design.assemblies)]
+    interiors = map(eachindex(design.assemblies)) do k
+        shapes = centered[k]
+        indices = isempty(contained[k]) ? Int[] :
+                  sort!([index
+                         for m in eachindex(design.assemblies) if hosts[m] == k
+                         for index in design.assemblies[m].regions if index < heads[m]])
+        tilings = [fill
+                   for fill in design.fills
+                   if fill.region in indices && all(in(indices), fill.contents)]
+        grouped = [index for fill in tilings for index in fill.contents]
+        bands = map([head for head in indices if head ∉ grouped]) do head
+            tiled = [fill for fill in tilings if fill.region == head]
+            return isempty(tiled) ? [head] : [only(tiled).contents; head]
+        end
+        annuli = Vector{Int}[]
+        while length(bands) > 1
+            outside = shapes[last(bands)]
+            reach = nominal(maximum(support, shapes[reduce(vcat, bands[1:(end - 1)])]))
+            nearest = nominal(minimum(distance, outside))
+            isannular(outside) && (nearest >= reach || isapprox(nearest, reach)) || break
+            pushfirst!(annuli, pop!(bands))
+        end
+        isempty(bands) && return BlueprintDielectric[]
+        return BlueprintDielectric[BlueprintDielectric(
+                                       convert(T, minimum(distance, shapes[band])),
+                                       convert(T, maximum(support, shapes[band])),
+                                       [placed.source.material for placed in regions[band]],
+                                       shapes[band])
+                                   for band in [[sort!(reduce(vcat, bands))]; annuli]]
+    end
     ends = [maximum(row.regions; init = 0) for row in design.assemblies]
     for k in reverse(eachindex(design.assemblies))
         ends[k] = maximum([ends[k]; ends[design.assemblies[k].members]])
@@ -364,12 +430,13 @@ function flatten(design::CableDesign)
     return CableBlueprint{T}(
         design.id, BlueprintConductor{T}[item.conductor for item in reduced],
         collect(Union{map(typeof, layers)...}, layers), dielectric_ranges,
-        T[item.relative for item in reduced], assembly_ranges,
-        [(row.at.x, row.at.y) for row in design.assemblies], interior_ranges)
+        T[item.relative for item in reduced], assembly_ranges, positions, interior_ranges,
+        contained)
 end
 
 function validate(design::CableDesign, ::typeof(flatten),
-        blocks::AbstractVector{<:AbstractVector{Int}})
+        blocks::AbstractVector{<:AbstractVector{Int}},
+        centered::AbstractVector{<:AbstractVector{<:AbstractShape}})
     owners = [isempty(row.scope) ? 1 : last(row.scope) for row in design.terminals]
     tubes = reduce(vcat, blocks; init = Int[])
     for row in design.fills
@@ -402,8 +469,7 @@ function validate(design::CableDesign, ::typeof(flatten),
             "share one reference temperature"))
     end
     for (k, assembly) in enumerate(design.assemblies)
-        shapes = [k == 1 ? placed.shape : resolve(inv(assembly.at), placed.shape)
-                  for placed in design.regions]
+        shapes = centered[k]
         for index in assembly.regions
             (index in tubes || all(j -> owners[j] != k || first(blocks[j]) > index,
                 eachindex(blocks))) && continue

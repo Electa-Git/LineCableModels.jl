@@ -170,6 +170,12 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test all(centroid(moved) .≈ (1.0e-3 - 2.0e-3 / 15, 0))
     end
 
+    @testset "disjoint shapes have the area-weighted centroid of their centroids" begin
+        shapes = [Circle(1.0e-3), Circle(2.0e-3, Placement(3.0e-3, -3.0e-3))]
+        @test all(centroid(shapes) .≈ (2.4e-3, -2.4e-3))
+        @test all(centroid(shapes[2:2]) .≈ centroid(shapes[2]))
+    end
+
     @testset "a lay lengthens the helical path" begin
         helix = Helix(LayRatio(12))
         @test overlength(helix, 3.0e-3) ≈ sqrt(1 + (π / 12)^2)

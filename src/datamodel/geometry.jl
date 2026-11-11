@@ -576,9 +576,11 @@ end
 
 """
     centroid(shape)
+    centroid(shapes)
 
-Return the centroid `(x, y)` of `shape` in the cable cross-section \\[m\\]. For an annular
-sector, the centroid lies on its symmetry axis at the distance
+Return the centroid `(x, y)` of `shape`, or of the disjoint `shapes` together, in the cable
+cross-section \\[m\\]. For an annular sector, the centroid lies on its symmetry axis at the
+distance
 
 ```math
 d = \\frac{4 \\sin(\\Delta\\phi / 2) \\left(r_o^3 - r_i^3\\right)}
@@ -600,6 +602,8 @@ A rounded sector or an arc polygon takes the centroid of its contour.
 An ellipse's centroid is its center. A polygon uses
 ``c=\\sum_i(v_i+v_{i+1})(v_i\\times v_{i+1})/(6A)``, then applies its placement.
 The layer's centroid subtracts the wrapped outline's moment and divides by its area.
+Disjoint shapes of areas ``A_i`` and centroids ``\\mathbf c_i`` have together the centroid
+``\\mathbf c = \\sum_i A_i \\mathbf c_i / \\sum_i A_i``.
 """
 centroid(shape::Union{Circle, Annulus}) = (shape.at.x, shape.at.y)
 
@@ -618,6 +622,12 @@ function centroid(shape::PerforatedShape{T}) where {T}
         x, y = (x, y) .- (area(hole)::T) .* (centroid(hole)::Tuple{T, T})
     end
     return (x, y) ./ area(shape)
+end
+
+function centroid(shapes::AbstractVector{<:AbstractShape})
+    x = sum(shape -> area(shape) * first(centroid(shape)), shapes) / sum(area, shapes)
+    y = sum(shape -> area(shape) * last(centroid(shape)), shapes) / sum(area, shapes)
+    return (x, y)
 end
 
 """
