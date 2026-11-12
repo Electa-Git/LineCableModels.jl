@@ -331,6 +331,10 @@ order there. A change of topology whose first derivative vanishes is such a bran
 shortcut that drops a parameter with a nonzero derivative at the branch point tests the
 exact value. Measure the derivative before a test moves to the `nominal` value.
 
+At a cusp, where the exact value has no derivative, the branch tests the `nominal` value and
+the derivative is zero. A distance at the origin is such a cusp. A rounding residue is not
+the derivative of a parameter.
+
 ### Geometry
 
 A geometric quantity is one computation over the outline, `Contour(shape)`, and every

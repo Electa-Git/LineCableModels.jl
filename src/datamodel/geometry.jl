@@ -599,10 +599,9 @@ where ``\\mathbf c_o`` is the centroid of its outer cross-section, and ``A_h`` a
 ``\\mathbf c_h`` are the area and centroid of each hole. A rectangle's centroid is its
 center. A rounded sector or an arc polygon takes the centroid of its contour.
 
-An ellipse's centroid is its center. A polygon uses
-``c=\\sum_i(v_i+v_{i+1})(v_i\\times v_{i+1})/(6A)``, then applies its placement.
-The layer's centroid subtracts the wrapped outline's moment and divides by its area.
-Disjoint shapes of areas ``A_i`` and centroids ``\\mathbf c_i`` have together the centroid
+An ellipse's centroid is its center. A polygon uses ``c=\\sum_i(v_i+v_{i+1})(v_i\\times
+v_{i+1})/(6A)``, then applies its placement. Disjoint shapes of areas ``A_i`` and centroids
+``\\mathbf c_i`` have together the centroid
 
 ```math
 \\mathbf c = \\mathbf c_1 + \\frac{1}{A} \\sum_i A_i \\left(\\mathbf c_i - \\mathbf c_1\\right),

@@ -170,11 +170,65 @@ end
         result = stranded(ForwardDiff.Dual(3.0e-3, 1.0), θ)
         @test all(isfinite(ForwardDiff.partials(part(q))[1])
         for Q in (result.Z, result.Y) for q in Q for part in (real, imag))
-        # The reference is a central difference of two Float64 runs 1e-8 m apart. On this build
-        # the largest relative gap of the three positions is 3.4e-11.
+        # The reference is a central difference of two Float64 runs 1e-8 m apart. Its own
+        # error is the round-off of those runs: ε |Z| / (h |Z′|) = 2.7e-11 for each unit
+        # ε = 1.1e-16 of round-off in Z. The bound leaves room for 368 such units.
         up, down = stranded(3.0e-3 + 1.0e-8, θ), stranded(3.0e-3 - 1.0e-8, θ)
         slope = (real(up.Z[1, 1, 1]) - real(down.Z[1, 1, 1])) / 2.0e-8
         partial = ForwardDiff.partials(real(result.Z[1, 1, 1]))[1]
-        @test isapprox(partial, slope; rtol = 1.0e-10)
+        @test isapprox(partial, slope; rtol = 1.0e-8)
+    end
+end
+
+# The lay at radius zero preserves the strand's resistivity and its zero partial.
+@testset "a lay over a strand at the radius 0 keeps it straight at a Dual radius" begin
+    r = ForwardDiff.Dual(3.0e-3, 1.0)
+    copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+    polymer = Material(:insulator, 1.0e14, 2.3)
+    strand = Repeat(CircularPattern(1; r = 0), Region(:core_metal, Circle(r), copper))
+    laid = build(CableDesign, "laid_wire",
+        Terminal(:core, Lay(Helix(LayRatio(12)), strand)),
+        Region(:core_insulation, Offset(1.0e-3), polymer))
+    straight = build(CableDesign, "straight_wire", Terminal(:core, strand),
+        Region(:core_insulation, Offset(1.0e-3), polymer))
+    @test only(only(laid.lays).pitches) == Inf
+    @test only(only(laid.lays).overlengths) == 1
+    rho = only(LineCableModels.flatten(laid).conductors).material.rho
+    expected = only(LineCableModels.flatten(straight).conductors).material.rho
+    @test ForwardDiff.value(rho) == ForwardDiff.value(expected)
+    @test ForwardDiff.partials(rho) == ForwardDiff.partials(expected)
+    @test iszero(ForwardDiff.partials(rho)[1])
+end
+
+# The matrices agree for both declarations of the centre strand.
+# Their values and partials agree separately.
+@testset "seven laid wires agree with a straight centre strand at a Dual radius" begin
+    copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+    polymer = Material(:insulator, 1.0e14, 2.5)
+    r = ForwardDiff.Dual(3.0e-3, 1.0)
+    results = map((true, false)) do centre_laid
+        centre = Repeat(CircularPattern(1; r = 0), Region(:core_centre, Circle(r), copper))
+        wires = Lay(Helix(LayRatio(12)),
+            Repeat(CircularPattern(6; r = 2r), Region(:core_wires, Circle(r), copper)))
+        design = build(CableDesign, "core",
+            Terminal(:core,
+                Enclosure(Region(:core_fill, Circle(3r), polymer),
+                    Stack(centre_laid ? Lay(Helix(LayRatio(12)), centre) : centre, wires))),
+            Region(:core_insulation, Offset(3.0e-3), polymer))
+        system = build(CableSystem, [design], [Placement(0.0, -1.0)];
+            connections = [(core = 1,)], id = "core", line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+            frequencies = [50.0, 1.0e3, 1.0e5])
+        compute(problem, CoaxialFormulation())
+    end
+    laid, straight = results
+    for (a, b) in ((laid.Z, straight.Z), (laid.Y, straight.Y))
+        @test all(isfinite(ForwardDiff.value(part(q))) &&
+                  all(isfinite, ForwardDiff.partials(part(q)))
+        for Q in (a, b) for q in Q for part in (real, imag))
+        @test all(ForwardDiff.value(part(q)) == ForwardDiff.value(part(p))
+        for (q, p) in zip(a, b) for part in (real, imag))
+        @test all(ForwardDiff.partials(part(q)) == ForwardDiff.partials(part(p))
+        for (q, p) in zip(a, b) for part in (real, imag))
     end
 end

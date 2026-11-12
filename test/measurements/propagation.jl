@@ -205,7 +205,8 @@ end
         @test all(isfinite(Measurements.uncertainty(radius))
         for layer in (blueprint.conductors..., blueprint.dielectrics...)
         for radius in (layer.r_in, layer.r_ex))
-        @test all(tube.r_ex.val == r.val && tube.r_ex.err == r.err
+        @test all(Measurements.value(tube.r_ex) == Measurements.value(r) &&
+                  Measurements.uncertainty(tube.r_ex) == Measurements.uncertainty(r)
         for tube in blueprint.conductors[1:3])
         system = build(CableSystem, [design], [Placement(0, -1)];
             connections = [(a = 1, b = 2, c = 3, pipe = 4)], id = "pipe", line_length = 1.0)

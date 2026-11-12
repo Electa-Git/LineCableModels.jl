@@ -351,13 +351,13 @@ Lay the copies of a repeat along the cable. Each copy follows the helix about th
 the repeat, at the lay radius of its centroid:
 
 ```math
-r = \\left| \\frac{\\sum_i A_i \\mathbf c_i}{\\sum_i A_i} \\right|,
+r = \\lvert \\mathbf c \\rvert,
 ```
 
-where ``A_i`` \\[m²\\] and ``\\mathbf c_i`` \\[m\\] are the area and centroid of each region of the
-copy. The helix has the [`pitch`](@ref) and [`overlength`](@ref) at that radius, the pitch
-signed by the direction of the helix. A copy at the radius 0 lies straight, with an infinite
-pitch and an overlength of 1.
+where ``\\mathbf c`` is the centroid of the regions of the copy, in \\[m\\] from that center.
+The helix has the [`pitch`](@ref) and [`overlength`](@ref) at that radius, the pitch signed
+by the direction of the helix. A copy at the radius 0 lies straight, with an infinite pitch
+and an overlength of 1.
 
 $(TYPEDFIELDS)
 """
@@ -377,7 +377,7 @@ function resolve(described::NamedTuple, lay::Lay)
     index = length(described.repeats) + 1
     radii = map(inner.repeats[index].copies) do indices
         shapes = [inner.regions[region].shape for region in indices]
-        return hypot(centroid(shapes)...)
+        return distance(centroid(shapes))
     end
     row = (regions = inner.repeats[index].copies, radii = radii,
         pitches = [lay.helix.dir * pitch(lay.helix, radius) for radius in radii],
