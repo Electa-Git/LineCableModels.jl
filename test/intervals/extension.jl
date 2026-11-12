@@ -62,5 +62,10 @@ end
         end
     end
 
+    @testset "the distance of an interval point about the origin encloses its range" begin
+        d = distance((interval(-1.0e-3, 1.0e-3), interval(0.0, 0.0)))
+        @test inf(d) <= 0 && sup(d) >= 1.0e-3
+    end
+
     @test nominal(interval(1, 2)) == 1.5
 end

@@ -191,6 +191,17 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test all(centroid(shapes[2:2]) .≈ centroid(shapes[2]))
     end
 
+    # The centroid takes the first moments about the centroid of `first(shapes)`. A circle off the
+    # origin keeps its centroid to the bit, and at a measured radius a zero spread.
+    @testset "the centroid of one shape is the centroid of that shape" begin
+        at = Placement(-28.0e-3, 16.0e-3)
+        @test centroid([Circle(19.5e-3, at)]) === centroid(Circle(19.5e-3, at))
+        r = measurement(19.5e-3, 1.0e-4)
+        x, y = centroid([Circle(r, at)])
+        @test (x, y) == centroid(Circle(r, at))
+        @test Measurements.uncertainty(x) == 0 && Measurements.uncertainty(y) == 0
+    end
+
     @testset "a lay lengthens the helical path" begin
         helix = Helix(LayRatio(12))
         @test overlength(helix, 3.0e-3) ≈ sqrt(1 + (π / 12)^2)

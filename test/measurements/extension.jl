@@ -5,6 +5,11 @@ using SpecialFunctions: besselix, besselkx, besseljx, besselk
     @test nominal(measurement(1.0, 0.1)) === 1.0
     @test nominal(complex(1.0 ± 0.1, 2.0 ± 0.2)) === complex(1.0, 2.0)
 
+    @testset "the distance of a point measured about the origin is zero, with no spread" begin
+        d = distance(Placement(0.0 ± 1.0e-4, 0.0))
+        @test Measurements.value(d) == 0 && Measurements.uncertainty(d) == 0
+    end
+
     z = 0.8 + 0.6im
     σ = 0.01
     h = 1e-6

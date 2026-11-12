@@ -592,18 +592,23 @@ are its inner and outer radii. A circle and an annulus have their centroid at th
 [`PerforatedShape`](@ref) of area ``A`` has the centroid
 
 ```math
-\\mathbf c = \\frac{A_o \\mathbf c_o - \\sum_h A_h \\mathbf c_h}{A},
+\\mathbf c = \\mathbf c_o - \\frac{1}{A} \\sum_h A_h \\left(\\mathbf c_h - \\mathbf c_o\\right),
 ```
 
-where ``A_o`` and ``\\mathbf c_o`` are the area and centroid of its outer cross-section, and
-``A_h`` and ``\\mathbf c_h`` those of each hole. A rectangle's centroid is its center.
-A rounded sector or an arc polygon takes the centroid of its contour.
+where ``\\mathbf c_o`` is the centroid of its outer cross-section, and ``A_h`` and
+``\\mathbf c_h`` are the area and centroid of each hole. A rectangle's centroid is its
+center. A rounded sector or an arc polygon takes the centroid of its contour.
 
 An ellipse's centroid is its center. A polygon uses
 ``c=\\sum_i(v_i+v_{i+1})(v_i\\times v_{i+1})/(6A)``, then applies its placement.
 The layer's centroid subtracts the wrapped outline's moment and divides by its area.
 Disjoint shapes of areas ``A_i`` and centroids ``\\mathbf c_i`` have together the centroid
-``\\mathbf c = \\sum_i A_i \\mathbf c_i / \\sum_i A_i``.
+
+```math
+\\mathbf c = \\mathbf c_1 + \\frac{1}{A} \\sum_i A_i \\left(\\mathbf c_i - \\mathbf c_1\\right),
+```
+
+where ``A = \\sum_i A_i`` and ``\\mathbf c_1`` is the centroid of `first(shapes)`.
 """
 centroid(shape::Union{Circle, Annulus}) = (shape.at.x, shape.at.y)
 
@@ -617,16 +622,19 @@ function centroid(sector::Sector)
 end
 
 function centroid(shape::PerforatedShape{T}) where {T}
-    x, y = area(shape.outer) .* centroid(shape.outer)
+    x₀, y₀ = centroid(shape.outer)
+    x, y = zero(T), zero(T)
     for hole in shape.holes
-        x, y = (x, y) .- (area(hole)::T) .* (centroid(hole)::Tuple{T, T})
+        x, y = (x, y) .- (area(hole)::T) .* ((centroid(hole)::Tuple{T, T}) .- (x₀, y₀))
     end
-    return (x, y) ./ area(shape)
+    return (x₀, y₀) .+ (x, y) ./ area(shape)
 end
 
 function centroid(shapes::AbstractVector{<:AbstractShape})
-    x = sum(shape -> area(shape) * first(centroid(shape)), shapes) / sum(area, shapes)
-    y = sum(shape -> area(shape) * last(centroid(shape)), shapes) / sum(area, shapes)
+    x₀, y₀ = centroid(first(shapes))
+    total = sum(area, shapes)
+    x = x₀ + sum(shape -> area(shape) * (first(centroid(shape)) - x₀), shapes) / total
+    y = y₀ + sum(shape -> area(shape) * (last(centroid(shape)) - y₀), shapes) / total
     return (x, y)
 end
 

@@ -184,6 +184,71 @@ end
         for k in axes(one_source.Z, 3) for part in (real, imag))
     end
 
+    # The cores of a pipe-type cable at a measured radius, 120° apart in a steel pipe. Each member
+    # lies on the centroid of its core, so its radii and its matrices take the spread of that
+    # radius alone.
+    @testset "the members of a pipe at a measured core radius" begin
+        r = measurement(19.5e-3, 1.0e-4)
+        copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+        polymer = Material(:insulator, 1.0e14, 2.5)
+        steel = Material(:conductor, 7.0e-8, 1.0, 10.0, 20.0, 0.0045)
+        offset = 2 * 28.0e-3 / sqrt(3)
+        members = [Placement(offset * cos(θ),
+                       offset * sin(θ)) => Stack(Terminal(n, Region(n, Circle(r), copper)),
+                       Region(Symbol(n, :_insulation), Offset(28.0e-3 - r), polymer))
+                   for (n, θ) in zip((:a, :b, :c), (0.0, 2π / 3, 4π / 3))]
+        design = build(CableDesign, "pipe",
+            Enclosure(Region(:fill, Circle(62.0e-3), polymer), Assembly(Tuple(members))),
+            Terminal(:pipe, Region(:pipe, Offset(3.0e-3), steel)),
+            Region(:coating, Offset(5.0e-3), polymer))
+        blueprint = LineCableModels.flatten(design)
+        @test all(isfinite(Measurements.uncertainty(radius))
+        for layer in (blueprint.conductors..., blueprint.dielectrics...)
+        for radius in (layer.r_in, layer.r_ex))
+        @test all(tube.r_ex.val == r.val && tube.r_ex.err == r.err
+        for tube in blueprint.conductors[1:3])
+        system = build(CableSystem, [design], [Placement(0, -1)];
+            connections = [(a = 1, b = 2, c = 3, pipe = 4)], id = "pipe", line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+            frequencies = [50.0, 1.0e3, 1.0e5])
+        for order in (0, 20)
+            result = compute(problem, CoaxialFormulation(; order))
+            @test all(isfinite(Measurements.uncertainty(part(q)))
+            for Q in (result.Z, result.Y) for q in Q for part in (real, imag))
+        end
+    end
+
+    # A core of seven wires in a steel pipe at a measured wire radius, at the three positions of
+    # a three-core cable.
+    @testset "a member of seven wires at a measured wire radius" begin
+        copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+        polymer = Material(:insulator, 1.0e14, 2.5)
+        steel = Material(:conductor, 7.0e-8, 1.0, 10.0, 20.0, 0.0045)
+        function stranded(r, θ)
+            member = Stack(
+                Terminal(:a,
+                    Enclosure(Region(:a_fill, Circle(3r), polymer),
+                        Stack(Region(:a_centre, Circle(r), copper),
+                            Repeat(CircularPattern(6; r = 2r), Region(:a_wires, Circle(r), copper))))),
+                Region(:a_insulation, Offset(3.0e-3), polymer))
+            design = build(CableDesign, "stranded",
+                Enclosure(Region(:fill, Circle(45.0e-3), polymer),
+                    Assembly((Placement(22.0e-3 * cos(θ), 22.0e-3 * sin(θ)) => member,))),
+                Terminal(:pipe, Region(:pipe, Offset(3.0e-3), steel)),
+                Region(:coating, Offset(5.0e-3), polymer))
+            system = build(CableSystem, [design], [Placement(0.0, -1.0)];
+                connections = [(a = 1, pipe = 2)], id = "stranded", line_length = 1.0)
+            problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+                frequencies = [50.0])
+            return compute(problem, CoaxialFormulation())
+        end
+        for θ in (0.0, 2π / 3, 4π / 3)
+            result = stranded(measurement(3.0e-3, 1.0e-5), θ)
+            @test all(isfinite(Measurements.uncertainty(part(q)))
+            for Q in (result.Z, result.Y) for q in Q for part in (real, imag))
+        end
+    end
+
     @testset "JET" begin
         Engine = LineCableModels.Engine
         sources = (;

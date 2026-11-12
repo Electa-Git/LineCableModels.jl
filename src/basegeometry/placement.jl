@@ -49,13 +49,13 @@ Return, in \\[m\\], the distance of `point` from the origin:
 d = \\sqrt{x^2 + y^2},
 ```
 
-where ``x`` and ``y`` are the coordinates of `point`, in \\[m\\]. When `iszero` is true for
-both coordinates, the result is the exact zero `zero(x)`. A number type with derivatives,
-such as a dual number, then has zero derivatives there, where those of `hypot` are
-undefined.
+where ``x`` and ``y`` are the coordinates of `point`, in \\[m\\]. At a point whose nominal
+value is the origin, the result is the exact zero. A number type with derivatives, such as a
+dual number, has zero derivatives there, where those of `hypot` are undefined.
 """
 function distance(point::Tuple{Real, Real})
-    iszero(point[1]) && iszero(point[2]) ? zero(point[1]) : hypot(point...)
+    d = hypot(point...)
+    return iszero(nominal(d)) ? zero(d) : d
 end
 
 """

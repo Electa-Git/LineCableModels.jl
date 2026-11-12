@@ -112,3 +112,69 @@ end
     JET.@test_opt target_modules=(LineCableModels,) Engine.domain(input)
     JET.@test_opt target_modules=(LineCableModels,) LineCableModels.validate(presented, formulation)
 end
+
+# The cores of a pipe-type cable, each 3 mm off the origin of its own turned frame. Each member
+# lies on the centroid of its core, which the core radius does not move, and its tube ends at
+# that radius.
+@testset "a member off the origin of its frame has the derivatives of its core radius" begin
+    copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+    polymer = Material(:insulator, 1.0e14, 2.5)
+    steel = Material(:conductor, 7.0e-8, 1.0, 10.0, 20.0, 0.0045)
+    function blueprint(r)
+        members = [Placement(30.0e-3 * cos(θ),
+                       30.0e-3 * sin(θ),
+                       θ) => Stack(
+                       Terminal(n, Region(n, Circle(r, Placement(3.0e-3, 0.0)), copper)),
+                       Region(Symbol(n, :_insulation), Offset(4.0e-3), polymer))
+                   for (n, θ) in zip((:a, :b, :c), (0.0, 2π / 3, 4π / 3))]
+        design = build(CableDesign, "pipe",
+            Enclosure(Region(:fill, Circle(62.0e-3), polymer), Assembly(Tuple(members))),
+            Terminal(:pipe, Region(:pipe, Offset(3.0e-3), steel)),
+            Region(:coating, Offset(5.0e-3), polymer))
+        return LineCableModels.flatten(design)
+    end
+    axis_partials = ForwardDiff.derivative(
+        r -> reduce(vcat, [collect(axis) for axis in blueprint(r).positions[2:end]]), 10.0e-3)
+    @test all(iszero, axis_partials)
+    tube_partials = ForwardDiff.derivative(
+        r -> [tube.r_ex for tube in blueprint(r).conductors[1:3]], 10.0e-3)
+    @test all(==(1), tube_partials)
+end
+
+# A core of seven wires in a steel pipe, at the three positions of a three-core cable. At one
+# of them the centre wire lies on the computed axis to the bit. Its distance from the axis then
+# takes the derivative zero.
+@testset "a member of seven wires has the derivatives of its wire radius" begin
+    copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+    polymer = Material(:insulator, 1.0e14, 2.5)
+    steel = Material(:conductor, 7.0e-8, 1.0, 10.0, 20.0, 0.0045)
+    function stranded(r, θ)
+        member = Stack(
+            Terminal(:a,
+                Enclosure(Region(:a_fill, Circle(3r), polymer),
+                    Stack(Region(:a_centre, Circle(r), copper),
+                        Repeat(CircularPattern(6; r = 2r), Region(:a_wires, Circle(r), copper))))),
+            Region(:a_insulation, Offset(3.0e-3), polymer))
+        design = build(CableDesign, "stranded",
+            Enclosure(Region(:fill, Circle(45.0e-3), polymer),
+                Assembly((Placement(22.0e-3 * cos(θ), 22.0e-3 * sin(θ)) => member,))),
+            Terminal(:pipe, Region(:pipe, Offset(3.0e-3), steel)),
+            Region(:coating, Offset(5.0e-3), polymer))
+        system = build(CableSystem, [design], [Placement(0.0, -1.0)];
+            connections = [(a = 1, pipe = 2)], id = "stranded", line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+            frequencies = [50.0])
+        return compute(problem, CoaxialFormulation())
+    end
+    for θ in (0.0, 2π / 3, 4π / 3)
+        result = stranded(ForwardDiff.Dual(3.0e-3, 1.0), θ)
+        @test all(isfinite(ForwardDiff.partials(part(q))[1])
+        for Q in (result.Z, result.Y) for q in Q for part in (real, imag))
+        # The reference is a central difference of two Float64 runs 1e-8 m apart. On this build
+        # the largest relative gap of the three positions is 3.4e-11.
+        up, down = stranded(3.0e-3 + 1.0e-8, θ), stranded(3.0e-3 - 1.0e-8, θ)
+        slope = (real(up.Z[1, 1, 1]) - real(down.Z[1, 1, 1])) / 2.0e-8
+        partial = ForwardDiff.partials(real(result.Z[1, 1, 1]))[1]
+        @test isapprox(partial, slope; rtol = 1.0e-10)
+    end
+end
