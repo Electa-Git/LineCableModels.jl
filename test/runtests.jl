@@ -41,6 +41,7 @@ using ForwardDiff
     include("engine/xue2018.jl")
     include("engine/formulation.jl")
     include("engine/compute.jl")
+    include("engine/interior.jl")
     include("engine/result.jl")
     include("measurements/extension.jl")
     include("measurements/propagation.jl")

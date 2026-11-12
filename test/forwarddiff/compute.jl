@@ -95,6 +95,7 @@ end
     @test all(isfinite, J)
 end
 
+# The order counts the terms of a sum and keeps its integer type.
 @testset "the check reads the nominal values of a Dual problem" begin
     Engine = LineCableModels.Engine
     problem = trefoil_problem(ForwardDiff.Dual.([10.0e-3, 8.0e-3, 100.0], 1.0))
@@ -103,7 +104,9 @@ end
     given = @inferred Engine.domain(problem, formulation.options)
     tubes = @inferred Engine.domain(input)
     presented = merge(given, tubes)
-    @test all(interval -> eltype(interval) === Float64, presented)
+    @test all(eltype(presented[key]) === Float64
+    for key in keys(presented) if key !== :order)
+    @test eltype(presented.order) === Int
     @test (@inferred LineCableModels.validate(presented, formulation)) === presented
     JET.@test_opt target_modules=(LineCableModels,) Engine.domain(problem, formulation.options)
     JET.@test_opt target_modules=(LineCableModels,) Engine.domain(input)

@@ -107,14 +107,14 @@ impedances of the inner and outer surfaces and the transfer impedance between th
 - `μ_r`: relative permeability \\[dimensionless\\].
 - `s`: complex frequency, `j 2π f` \\[1/s\\].
 
-It throws `DomainError` unless the radii are finite with `0 ≤ r_in < r_ex`, `ρ` and `μ_r`
-are positive and finite, and `s` is finite and nonzero.
+The radii are finite with `0 ≤ r_in < r_ex`, `ρ` and `μ_r` are positive and finite, and `s` is
+finite and nonzero. A computation refuses a terminal whose conductor regions all have infinite
+resistivity.
 
 `formula(n, r_in, r_ex, ρ, μ_r, s)` returns that record at the harmonic order `n`
 \\[Ω/m\\]. The order `n` \\[dimensionless\\] is a nonnegative integer, and the other
 arguments are those of the first form. At `n = 0` it returns
-`formula(r_in, r_ex, ρ, μ_r, s)`. It throws `DomainError` for `n < 0` and for the inputs
-that the first form refuses.
+`formula(r_in, r_ex, ρ, μ_r, s)`.
 
 ## `Formula{:wedepohl1973}`
 
@@ -136,7 +136,8 @@ where ``\\Delta = r_\\mathrm{ex} - r_\\mathrm{in}`` is the thickness of the tube
 other symbols are as in `Formula{:schelkunoff1934}`. At zero frequency each of the three
 impedances equals the direct-current resistance of the annulus. The paper states good accuracy
 for ``\\Delta / (r_\\mathrm{in} + r_\\mathrm{ex}) < 1/8``, and a computation warns for a thicker
-tube.
+tube. The closed forms are those of a net current, at order 0 alone. A computation at a higher
+`order` warns, and refuses the members of an interior.
 
 A solid conductor, with ``r_\\mathrm{in} = 0``, has no inner surface: its inner and transfer
 impedances are zero, and its outer impedance is equation (3) of the paper:
@@ -161,11 +162,13 @@ impedances of the inner and outer surfaces and the transfer impedance between th
 module InternalImpedance
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ...Commons: defaults
+import ...Commons: defaults, validate
 using ...Commons: FormulationOptions, nominal
-using ..Engine: AbstractInternalImpedance
+using ..Engine: AbstractInternalImpedance, LineParametersProblem
 using ..Engine: μ₀
+using ...Materials: Material
 import ..Engine: domain
+using ..Engine: impedance!
 using IntervalSets: (..)
 using SpecialFunctions: besselix, besselkx
 
@@ -218,6 +221,29 @@ Formula(::Val{ID}; kw...) where {ID} = Formula{ID}(FormulationOptions(Formula{ID
 function defaults(::Type{Formula{ID}}) where {ID}
     throw(ArgumentError(
         "unknown internal-impedance formula :$ID; the formulas are $FORMULAS"))
+end
+
+# A computation refuses a terminal whose conductor regions all have infinite resistivity. Its
+# tube has no conductance, and a material admits an infinite resistivity.
+function validate(problem::LineParametersProblem, formula::Formula)
+    (; designs, regions, terminals) = problem.system
+    for row in terminals
+        rho = [region.source.material.rho
+               for region in regions[row.regions]
+               if region.source.material isa Material{<:Real, :conductor}]
+        any(isfinite, rho) && continue
+        design = designs[row.cable]
+        throw(DomainError(rho,
+            "the internal-impedance formula :$(nameof(formula)) computes the surfaces of a tube of finite resistivity; the terminal $(design.terminals[row.terminal].name) of the cable $(design.id) has no region of finite resistivity"))
+    end
+    return problem
+end
+
+# A formula gives the surfaces at the orders it has a method for. The recipe of the interiors
+# above order 0 refuses a formula that gives order 0 alone.
+function validate(formula::Formula, ::typeof(impedance!))
+    throw(ArgumentError(
+        "the formula :$(nameof(formula)) gives the surface impedances at order 0 alone; the coaxial formulation computes the members of an interior above order 0 with a formula that gives every order, or at order = 0"))
 end
 
 include("schelkunoff1934.jl")

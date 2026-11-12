@@ -1,12 +1,8 @@
 defaults(::Type{Formula{:schelkunoff1934}}) = (;)
+validate(formula::Formula{:schelkunoff1934}, ::typeof(impedance!)) = formula
 
 function (::Formula{:schelkunoff1934})(
         r_in::T, r_ex::T, ρ::T, μ_r::T, s::Complex{T}) where {T <: Real}
-    isfinite(r_in) && isfinite(r_ex) && zero(T) <= r_in < r_ex ||
-        throw(DomainError((r_in, r_ex), "conductor radii must satisfy 0 ≤ r_in < r_ex [m]"))
-    isfinite(ρ) && ρ > zero(T) && isfinite(μ_r) && μ_r > zero(T) ||
-        throw(DomainError((ρ, μ_r), "conductor resistivity and permeability must be positive and finite"))
-    isfinite(s) && !iszero(s) || throw(DomainError(s, "jω must be finite and nonzero"))
     mu = μ₀ * μ_r
     sigma = inv(ρ)
     m = sqrt(s * mu * sigma)
@@ -44,13 +40,7 @@ end
 
 function (f::Formula{:schelkunoff1934})(
         n::Int, r_in::T, r_ex::T, ρ::T, μ_r::T, s::Complex{T}) where {T <: Real}
-    n >= 0 || throw(DomainError(n, "the harmonic order must be nonnegative"))
     iszero(n) && return f(r_in, r_ex, ρ, μ_r, s)
-    isfinite(r_in) && isfinite(r_ex) && zero(T) <= r_in < r_ex ||
-        throw(DomainError((r_in, r_ex), "conductor radii must satisfy 0 ≤ r_in < r_ex [m]"))
-    isfinite(ρ) && ρ > zero(T) && isfinite(μ_r) && μ_r > zero(T) ||
-        throw(DomainError((ρ, μ_r), "conductor resistivity and permeability must be positive and finite"))
-    isfinite(s) && !iszero(s) || throw(DomainError(s, "jω must be finite and nonzero"))
     μ = μ₀ * μ_r
     σ = inv(ρ)
     m = sqrt(s * μ * σ)

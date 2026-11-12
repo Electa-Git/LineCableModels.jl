@@ -1,5 +1,5 @@
 defaults(::Type{Formula{:wedepohl1973}}) = (;)
-domain(::Formula{:wedepohl1973}) = (wall = 0.0 .. 0.125,)
+domain(::Formula{:wedepohl1973}) = (wall = 0.0 .. 0.125, order = 0 .. 0)
 
 function (::Formula{:wedepohl1973})(
         r_in::T, r_ex::T, ρ::T, μ_r::T, s::Complex{T}) where {T <: Real}

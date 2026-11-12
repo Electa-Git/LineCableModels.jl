@@ -90,6 +90,7 @@ validate(problem::LineParametersProblem, ::AbstractFormulation)
 validate(problem::LineParametersProblem, options::FormulationOptions{<:Union{CoaxialFormulation, FEM}})
 validate(problem::LineParametersProblem, formulation::CoaxialFormulation)
 validate(input::Engine.CoaxialInput, formulation::CoaxialFormulation)
+validate(input::Engine.CoaxialInput, formulation::CoaxialFormulation, problem::LineParametersProblem)
 validate(presented::NamedTuple, formulation::Union{CoaxialFormulation, FEM})
 validate(earth::Tuple{Engine.EarthReturn.Formula{ID}, Engine.EarthReturn.Formula{ID}}, ::Type{CoaxialFormulation}) where {ID}
 ```

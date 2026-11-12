@@ -56,7 +56,7 @@ vflat = "flat"
 nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "formulation",
     "options", "backend", "insulation", "system", "line_length", "terminals", "assemblies",
     "layer", "model", "problem", "center", "label", "base_geometry", "holes",
-    "positions", "dielectric", "ranges", "arc", "span", "offset"]
+    "positions", "dielectric", "ranges", "arc", "span", "offset", "members", "interior"]
 qualifiers = ["cable", "outer", "equivalent"]
 symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "mu_r_ins", "φ", "φ0", "r", "a", "b", "q"]
 prepositions = ["at"]
@@ -87,7 +87,7 @@ nouns = ["shape", "primitive", "circle", "annulus", "rectangle", "sector",
     "repeat", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
     "regions", "id", "tree", "repeats", "lays", "compactions", "fills",
     "designs", "connections", "blueprint", "conductor", "conductors",
-    "dielectrics", "assembly", "members", "interior", "core", "screen", "sheath", "bedding",
+    "dielectrics", "assembly", "core", "screen", "sheath", "bedding",
     "jacket", "tape", "wires", "spacing", "trefoil", "apex", "fillet",
     "polygon", "ellipse", "vertices"]
 qualifiers = ["circular", "empty", "perforated", "placed", "stranded",
@@ -289,7 +289,7 @@ Formula = "an insulation-impedance formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
 
 [register."Engine.InsulationImpedance".formulas]
-ametani1980 = "s μ₀ μ_r ln(r_ex / r_in) / 2π across an annular dielectric (Ametani 1980; commit 989af96c, insulationimpedance/formulas/ametani1980.jl)"
+ametani1980 = "s μ₀ μ_r ln(r_ex / r_in) / 2π across an annular dielectric (Ametani 1980; commit 989af96c, insulationimpedance/formulas/ametani1980.jl); and the surfaces of the layer at a harmonic order above 0 (Schelkunoff 1934, (127))"
 
 [register."Engine.InsulationAdmittance".public]
 Formula = "an insulation-admittance formula, its identifier the type parameter"
@@ -334,7 +334,7 @@ Formula = "a shunt formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
 
 [register."Engine.Shunt".formulas]
-series = "the series chain of the potential coefficients s ln(r_ex / r_in) / 2πκ of the annular layers, summed from each conductor outward (commit 989af96c, src/engine/admittance.jl)"
+series = "the series chain of the potential coefficients s ln(r_ex / r_in) / 2πκ of the annular layers, summed from each conductor outward (commit 989af96c, src/engine/admittance.jl); and the surfaces of the layer at a harmonic order above 0"
 
 [register."Engine.Resistivity".public]
 Formula = "a resistivity formula, its identifier the type parameter"

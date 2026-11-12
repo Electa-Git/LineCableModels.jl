@@ -135,6 +135,7 @@ formula of the formulation.
 | `mD` | the product ``m D`` of the deepest layer | \\[dimensionless\\] | `problem` |
 | `Δθ` | the distance of the temperature from `T0` of each conductor material | \\[K\\] | `problem` |
 | `wall` | ``(r_\\mathrm{ex} - r_\\mathrm{in}) / (r_\\mathrm{ex} + r_\\mathrm{in})`` of each tube with a hole | \\[dimensionless\\] | `input` |
+| `order` | the highest harmonic order of the field around each member that the recipes keep | \\[dimensionless\\] | `options` |
 
 The key `mD` bounds the product ``m D``, where
 
@@ -150,7 +151,8 @@ radius of one \\[m\\].
 
 - `formula`: formula of a family.
 - `problem`: line-parameters problem.
-- `options`: options of a coaxial or finite-element formulation, with `Γ` \\[1/m\\].
+- `options`: options of a coaxial or finite-element formulation, with `Γ` \\[1/m\\]. The
+  coaxial formulation adds `order`.
 - `input`: numerical input of a coaxial computation.
 
 # Returns

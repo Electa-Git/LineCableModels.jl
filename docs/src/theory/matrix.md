@@ -157,12 +157,20 @@ coefficients of the layers. The earth-return formula gives ``\mathbf Z_{\mathrm{
 ``\mathbf P_{\mathrm{env}}``, the matrices `Zg` and `Pg` by cable, as
 [Earth return](earth.md) describes.
 
+A cable can hold cables in the bore of a conductor, such as three cores in a steel pipe. Each
+loop of the bore's chain then includes the currents of these members, and the gap around each
+member adds its terms. At order 0 they are the logarithms of the distances between the axes.
+Above order 0, up to the option `order`, each member and the bore return the field that the
+other currents set up around them [Hoidalen2025](@cite). That field accounts for their
+proximity. The members of a cable that has no conductor around them are cables of
+their own, each with its own earth return.
+
 ```@meta
 CurrentModule = LineCableModels.Engine
 ```
 
 ```@docs
-impedance!(internal::InternalImpedance.Formula, insulation::InsulationImpedance.Formula, Zin::AbstractMatrix{Complex{T}}, input::CoaxialInput{T}, rho::AbstractVector{T}, s::Complex{T}) where {T <: Real}
+impedance!(internal::InternalImpedance.Formula, insulation::InsulationImpedance.Formula, Zin::AbstractMatrix{Complex{T}}, buffers, input::CoaxialInput{T}, rho::AbstractVector{T}, s::Complex{T}) where {T <: Real}
 ```
 
 ```@autodocs
@@ -173,7 +181,7 @@ Private = false
 ```
 
 ```@docs
-potential!(shunt::Shunt.Formula{:series}, Pin::AbstractMatrix{Complex{T}}, input::CoaxialInput{T}, kappa::AbstractVector{Complex{T}}, s::Complex{T}) where {T <: Real}
+potential!(shunt::Shunt.Formula{:series}, Pin::AbstractMatrix{Complex{T}}, buffers, input::CoaxialInput{T}, kappa::AbstractVector{Complex{T}}, s::Complex{T}) where {T <: Real}
 ```
 
 ## Reductions

@@ -10,7 +10,40 @@
               copper.rho * (1 + 70 * copper.alpha) rtol = 1.0e-15
         @test law(copper, copper.T0 + 180) ≈
               copper.rho * (1 + 180 * copper.alpha) rtol = 1.0e-15
-        @test_throws DomainError law(copper, copper.T0 - 300)
+    end
+
+    # The coaxial formulation refuses a negative factor of the linear law, and a terminal whose
+    # conductor regions all have infinite resistivity.
+    @testset "the coaxial formulation refuses a conductor that it cannot compute" begin
+        problems = [LineParametersProblem(
+                        build(CableSystem,
+                            [build(CableDesign, "bare_wire",
+                                Terminal(:core, Region(:core_metal, Circle(0.0425), metal)))],
+                            [Placement(0.0, -1.0)]; connections = [(core = 1,)],
+                            id = "bare_wire", line_length = 1.0),
+                        homogeneous(rho = 0.1); frequencies = [50.0], temperature)
+                    for (metal, temperature) in
+                        ((copper, copper.T0 - 300), (Material(:conductor, Inf), 20.0))]
+        @test_throws "the factor 1 + α (θ − T0) of the linear law must be positive and finite" compute(
+            problems[1], CoaxialFormulation())
+        @test_throws "the internal-impedance formula :schelkunoff1934 computes the surfaces of a tube of finite resistivity; the terminal core of the cable bare_wire has no region of finite resistivity" compute(
+            problems[2], CoaxialFormulation())
+    end
+
+    # The tube of a terminal of copper and a layer of infinite resistivity takes its conductance
+    # from the copper alone.
+    @testset "a terminal with one region of finite resistivity computes" begin
+        core = Stack(Region(:core_metal, Circle(10.0e-3), copper),
+            Region(:core_layer, Offset(1.0e-3), Material(:conductor, Inf)))
+        design = build(CableDesign, "wire", Terminal(:core, core),
+            Region(:core_insulation, Offset(2.0e-3), Material(:insulator, 1.0e14, 2.3)))
+        system = build(CableSystem, [design], [Placement(0.0, -1.0)];
+            connections = [(core = 1,)], id = "wire", line_length = 1.0)
+        result = compute(
+            LineParametersProblem(system, homogeneous(rho = 100.0);
+                frequencies = [50.0, 1.0e3, 1.0e5]),
+            CoaxialFormulation())
+        @test all(isfinite, result.Z) && all(isfinite, result.Y)
     end
 
     @testset "the constant properties of the earth" begin

@@ -10,6 +10,7 @@
 
     @testset "$case against its stage targets" for (case, problem) in first(REFERENCES, 6)
         input = Engine.CoaxialInput(problem, reductions)
+        buffers = Engine.initialize_buffers(CoaxialFormulation(), problem, input)
         n = length(input.cable)
         c = length(input.radius)
         targets = Dict(matrix => zeros(ComplexF64, rows, rows, length(problem.frequencies))
@@ -41,8 +42,8 @@
             s = im * (2π * f)
             kappa = ComplexF64[(i in semicons ? semiconducting : insulating)(dielectric, f)
                                for (i, dielectric) in enumerate(input.dielectric_material)]
-            Engine.impedance!(internal, term, view(Zin,:,:,k), input, rho, s)
-            Engine.potential!(shunt, view(Pin,:,:,k), input, kappa, s)
+            Engine.impedance!(internal, term, view(Zin,:,:,k), buffers, input, rho, s)
+            Engine.potential!(shunt, view(Pin,:,:,k), buffers, input, kappa, s)
         end
         for (computed, target) in ((Zin, targets["Zin"]), (Pin, targets["Pin"]))
             @test all(maximum(abs, computed[:, :, k] - target[:, :, k]) <=

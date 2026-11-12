@@ -258,13 +258,14 @@ function flatten(design::CableDesign)
         turns[index] += inv(row.pitches[member])
     end
     assigned = [index for row in design.terminals for index in row.regions]
+    owners = [isempty(row.scope) ? 1 : last(row.scope) for row in design.terminals]
     blocks = [sort!([row.regions;
                      [fill.region
                       for fill in design.fills
-                      if !isempty(intersect(fill.contents, assigned)) &&
+                      if fill.region in design.assemblies[owners[k]].regions &&
+                         !isempty(intersect(fill.contents, assigned)) &&
                          issubset(intersect(fill.contents, assigned), row.regions)]])
-              for row in design.terminals]
-    owners = [isempty(row.scope) ? 1 : last(row.scope) for row in design.terminals]
+              for (k, row) in enumerate(design.terminals)]
     positions = map(enumerate(design.assemblies)) do (k, row)
         (k == 1 || k ∉ owners) && return (row.at.x, row.at.y)
         terminal = design.terminals[findfirst(==(k), owners)]

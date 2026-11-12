@@ -82,7 +82,7 @@ struct CoaxialFormulation{
 end
 
 function defaults(::Type{CoaxialFormulation})
-    return (Γ = complex(0.0), bundle = true, kron = true, transposition = false)
+    return (Γ = complex(0.0), bundle = true, kron = true, transposition = false, order = 0)
 end
 
 """
@@ -113,10 +113,18 @@ equal formulas.
 - `kron`: remove conductors with connection index zero by [`eliminate!`](@ref). Default:
   `true`.
 - `transposition`: apply ideal cyclic transposition. Default: `false`.
+- `order`: highest harmonic order of the field around each member of an interior that the
+  recipes keep. Default: `0`.
 
 # Returns
 
 - A [`CoaxialFormulation`](@ref) with typed formula slots and options.
+
+# Notes
+
+At `order = 0` the recipes keep the field that is uniform around each conductor. That field
+leaves out the proximity of the members to each other and to their bore. A system of
+concentric cables does not read `order`.
 
 # Errors
 
@@ -127,6 +135,7 @@ equal formulas.
 - Throws `DomainError` for a model of the equivalent earth in `earth_properties`, or a law in
   `equivalent_earth`.
 - Throws `DomainError` when `Γ` is empty or nonfinite.
+- Throws `DomainError` when `order` is negative.
 """
 function CoaxialFormulation(;
         internal_impedance = :default, insulation_impedance = :default,
@@ -378,6 +387,14 @@ function validate(options::FormulationOptions{<:Union{CoaxialFormulation, FEM}})
     return options
 end
 
+# The highest order is a nonnegative integer, and the method of every formulation checks Γ.
+function validate(options::FormulationOptions{CoaxialFormulation})
+    options.order >= 0 || throw(DomainError(options.order,
+        "the option order must be a nonnegative integer: the highest harmonic order of the field around a member that the recipes keep"))
+    invoke(validate, Tuple{FormulationOptions{<:Union{CoaxialFormulation, FEM}}}, options)
+    return options
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -470,6 +487,85 @@ function validate(input::CoaxialInput, formulation::CoaxialFormulation)
     return input
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Check the interiors of the input for the recipes of the formulation at the frequencies of the
+problem, before the loop. The check compares positions and radii on their `nominal` values.
+Circles overlap when the distance of their centers is below the sum of their radii and not
+`isapprox` to it.
+
+The body of a member is its conductors and the layers of its interval out to the last one
+whose medium differs from the filler's. A medium differs by its relative permeability, or by
+its admittivity at a frequency of the problem. The body of the bore begins at the innermost
+interior layer outside the filler whose medium differs, else at the bore's inner radius.
+Above order 0, the expansions about the members' axes converge outside these bodies. It warns
+once for each member with members of its own above order 0, whose interior it computes as
+shielded by that member's conductor.
+
+# Arguments
+
+- `input`: numerical input of the cables, with the members of each assembly.
+- `formulation`: coaxial formulation, with the option `order` and its formulas.
+- `problem`: line-parameters problem, with its frequencies and temperature.
+
+# Returns
+
+- `input`, unchanged.
+
+# Errors
+
+- Throws `ArgumentError` when `order ≥ 1` and the bodies of two members overlap, or a
+  member's body overlaps the bore's.
+- Throws `ArgumentError` when `order ≥ 1`, an interior has members, and the formula of the
+  slot `internal_impedance` gives the surface impedances at order 0 alone.
+"""
+function validate(input::CoaxialInput, formulation::CoaxialFormulation,
+        problem::LineParametersProblem)
+    N = formulation.options.order
+    θ = problem.temperature
+    for (a, members) in enumerate(input.members)
+        (isempty(members) || isempty(input.assemblies[a])) && continue
+        N == 0 && continue
+        bore = input.label[first(input.assemblies[a])]
+        labels = [input.label[last(input.assemblies[m])] for m in members]
+        centers = [nominal.(input.positions[m] .- input.positions[a]) for m in members]
+        validate(formulation.internal_impedance, impedance!)
+        filler = input.dielectric_material[first(input.interior_ranges[a])]
+        κ_f = [nominal(admittivity(formulation, filler, f, θ)) for f in problem.frequencies]
+        distinct = [nominal(medium.mu_r) != nominal(filler.mu_r) ||
+                    any(nominal(admittivity(formulation, medium, f, θ)) != κ
+                    for (f, κ) in zip(problem.frequencies, κ_f))
+                    for medium in input.dielectric_material]
+        radii = [nominal(maximum(
+                     (input.dielectric_r_ex[l]
+                     for l in input.dielectric_ranges[last(input.assemblies[m])]
+                     if distinct[l]);
+                     init = input.r_ex[last(input.assemblies[m])])) for m in members]
+        c = nominal(minimum(
+            (input.dielectric_r_in[l]
+            for l in input.interior_ranges[a][2:end] if distinct[l]);
+            init = input.r_in[first(input.assemblies[a])]))
+        for j in eachindex(members)
+            for i in 1:(j - 1)
+                d = hypot((centers[i] .- centers[j])...)
+                d < radii[i] + radii[j] && !isapprox(d, radii[i] + radii[j]) &&
+                    throw(ArgumentError(
+                        "the body of the member $(labels[i]), of radius $(radii[i]) m, reaches the body of the member $(labels[j]), of radius $(radii[j]) m, at $d m between their axes in the interior of $bore: the expansions about their axes diverge above order 0; order = 0 computes them"))
+            end
+            reach = hypot(centers[j]...) + radii[j]
+            reach > c && !isapprox(reach, c) &&
+                throw(ArgumentError(
+                    "the body of the member $(labels[j]), of radius $(radii[j]) m at $(hypot(centers[j]...)) m from the axis, reaches the body of its bore $bore, of inner radius $c m: the expansions about the axes diverge above order 0; order = 0 computes them"))
+        end
+        for m in members
+            isempty(input.members[m]) ||
+                @warn("the coaxial formulation computes the impedances above order 0 of the interior of $(input.label[first(input.assemblies[m])]) as shielded by that conductor from the interior around it: the field that crosses that conductor is left out")
+        end
+    end
+    return input
+end
+
 # The quantities of a problem and of a formulation's Γ: the hull of each one's nominal values,
 # empty where the problem has none.
 function domain(problem::LineParametersProblem{T},
@@ -496,6 +592,15 @@ function domain(problem::LineParametersProblem{T},
                                       for region in system.regions
                                       if region.source.material isa
                                          Material{<:Real, :conductor}])...))
+end
+
+# The quantities of every formulation, and the highest order that the recipes keep.
+function domain(problem::LineParametersProblem,
+        options::FormulationOptions{CoaxialFormulation})
+    presented = invoke(domain,
+        Tuple{LineParametersProblem, FormulationOptions{<:Union{CoaxialFormulation, FEM}}},
+        problem, options)
+    return merge(presented, (order = ClosedInterval(options.order, options.order),))
 end
 
 # A formula without a declaration holds for every value.

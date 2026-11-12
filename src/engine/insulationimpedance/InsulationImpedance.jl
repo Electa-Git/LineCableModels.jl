@@ -20,6 +20,19 @@ relative permeability \\[dimensionless\\]. The constant ``\\mu_0`` is
 [`μ₀`](@ref). The term is zero when ``r_\\mathrm{in}`` is zero or equals
 ``r_\\mathrm{ex}``.
 
+At a harmonic order ``n \\geq 1``, the field varies as ``\\cos n\\varphi`` around the axis.
+The layer is then a line of the powers ``r^{\\pm n}`` of the radius, with the surface
+impedances of Schelkunoff's equation (127) [Schelkunoff1934](@cite):
+
+```math
+z_\\mathrm{inner} = z_\\mathrm{outer} = z_n \\frac{1 + \\rho}{1 - \\rho}, \\qquad
+z_\\mathrm{transfer} = \\frac{2 z_n (r_\\mathrm{in} / r_\\mathrm{ex})^n}{1 - \\rho},
+```
+
+where ``z_n = s \\mu_0 \\mu_r / (2 \\pi n)`` and ``\\rho = (r_\\mathrm{in} / r_\\mathrm{ex})^{2n}``.
+A medium without an outer bound, ``r_\\mathrm{ex} = \\infty``, has
+``z_\\mathrm{inner} = z_\\mathrm{outer} = z_n`` and no transfer impedance.
+
 ### Callable
 
 `formula(r_in, r_ex, μ_r, s)` returns ``z`` \\[Ω/m\\].
@@ -28,6 +41,11 @@ relative permeability \\[dimensionless\\]. The constant ``\\mu_0`` is
 - `r_ex`: outer radius, in \\[m\\].
 - `μ_r`: relative permeability \\[dimensionless\\].
 - `s`: complex frequency, `j 2π f` \\[1/s\\].
+
+`formula(n, r_in, r_ex, μ_r, s)` returns the record `(; inner, outer, transfer)` of the
+layer at the harmonic order `n` \\[Ω/m\\]. The order `n` \\[dimensionless\\] is a positive
+integer, and the first form gives the term at order 0. The radii satisfy
+`0 ≤ r_in < r_ex ≤ Inf`, and `r_ex = Inf` gives a medium without an outer bound.
 """
 module InsulationImpedance
 

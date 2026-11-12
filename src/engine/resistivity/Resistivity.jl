@@ -26,15 +26,15 @@ within 150 K of ``T_0`` and returns an infinite resistivity unchanged.
 - `material`: material of the conductor.
 - `θ`: temperature of the conductor \\[°C\\].
 
-It throws `DomainError` when the factor in brackets is nonpositive or nonfinite. A computation
-warns for a temperature more than 150 K from `T0`.
+A computation refuses a conductor whose factor in brackets is nonpositive or nonfinite at the
+operating temperature. It warns for a temperature more than 150 K from `T0`.
 """
 module Resistivity
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ...Commons: defaults
+import ...Commons: defaults, validate
 using ...Commons: FormulationOptions
-using ..Engine: AbstractResistivity
+using ..Engine: AbstractResistivity, LineParametersProblem
 import ..Engine: domain
 using IntervalSets: (..)
 using ...Materials: Material

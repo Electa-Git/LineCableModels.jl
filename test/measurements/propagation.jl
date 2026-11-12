@@ -205,11 +205,14 @@ end
         options = LineCableModels.ComputationOptions(Engine.LCMBackend; trace = true)
         JET.@test_opt target_modules=(LineCableModels,) Engine.solve!(
             Z, Y, trace, problem, input, formulation, buffers, options)
-        # The check reads the nominal values of an uncertain problem.
+        # The check reads the nominal values of an uncertain problem. The order counts the terms
+        # of a sum and keeps its integer type.
         given = @inferred Engine.domain(problem, formulation.options)
         tubes = @inferred Engine.domain(input)
         presented = merge(given, tubes)
-        @test all(interval -> eltype(interval) === Float64, presented)
+        @test all(eltype(presented[key]) === Float64
+        for key in keys(presented) if key !== :order)
+        @test eltype(presented.order) === Int
         @test (@inferred LineCableModels.validate(presented, formulation)) === presented
         JET.@test_opt target_modules=(LineCableModels,) Engine.domain(problem, formulation.options)
         JET.@test_opt target_modules=(LineCableModels,) Engine.domain(input)

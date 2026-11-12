@@ -75,14 +75,6 @@ using SpecialFunctions: besseli, besselk, besselkx
         @test iszero(ametani(10.5e-3, 10.5e-3, 1.0, im * (2π * 50.0)))
     end
 
-    @testset "a tube has ordered radii, a conductive material and a frequency" begin
-        s = im * (2π * 50.0)
-        @test_throws DomainError schelkunoff(2.0e-3, 1.0e-3, 1.7241e-8, 1.0, s)
-        @test_throws DomainError schelkunoff(0.0, 1.0e-3, 0.0, 1.0, s)
-        @test_throws DomainError schelkunoff(0.0, 1.0e-3, 1.7241e-8, -1.0, s)
-        @test_throws DomainError schelkunoff(0.0, 1.0e-3, 1.7241e-8, 1.0, 0.0im)
-    end
-
     @testset "the impedances are inferred" begin
         s = im * (2π * 50.0)
         @test @inferred(schelkunoff(tubes["sheath"]..., s)).outer isa ComplexF64
@@ -221,14 +213,49 @@ using SpecialFunctions: besseli, besselk, besselkx
         end
     end
 
-    @testset "a tube at an order has a nonnegative order and the checks of a net current" begin
+    @testset "the surfaces of a tube at an order are inferred" begin
         s = im * (2π * 50.0)
-        @test_throws DomainError schelkunoff(-1, 20.5e-3, 21.5e-3, 1.7241e-8, 1.0, s)
-        @test_throws DomainError schelkunoff(2, 2.0e-3, 1.0e-3, 1.7241e-8, 1.0, s)
-        @test_throws DomainError schelkunoff(2, 0.0, 1.0e-3, 0.0, 1.0, s)
-        @test_throws DomainError schelkunoff(2, 0.0, 1.0e-3, 1.7241e-8, -1.0, s)
-        @test_throws DomainError schelkunoff(2, 0.0, 1.0e-3, 1.7241e-8, 1.0, 0.0im)
         @test @inferred(schelkunoff(20, walls[1]..., s)).transfer isa ComplexF64
+    end
+
+    # A dielectric layer at an order is a line of the harmonic field. Layers in a row join as the
+    # layer between the outer radii of the row. Measured: 1.1e-15.
+    @testset "the layers at an order join as one layer" begin
+        series = Engine.Shunt.Formula(Val(:series))
+        s = im * (2π * 50.0)
+        κ = 1.0e-14 + s * LineCableModels.ε₀ * 2.3
+        for n in (1, 2, 5, 20, 40)
+            core = schelkunoff(n, 0.0, 5.0e-3, 1.7241e-8, 1.0, s).outer
+            for (inner, outer, whole, load) in (
+                (ametani(n, 5.0e-3, 8.0e-3, 2.0, s), ametani(n, 8.0e-3, 12.0e-3, 2.0, s),
+                    ametani(n, 5.0e-3, 12.0e-3, 2.0, s), core),
+                (series(n, 5.0e-3, 8.0e-3, κ, s), series(n, 8.0e-3, 12.0e-3, κ, s),
+                    series(n, 5.0e-3, 12.0e-3, κ, s), zero(s)))
+                z = inner.outer - inner.transfer^2 / (inner.inner + load)
+                z = outer.outer - outer.transfer^2 / (outer.inner + z)
+                @test isapprox(z, whole.outer - whole.transfer^2 / (whole.inner + load);
+                    rtol = 2.0e-15)
+            end
+            z = s * μ₀ * 2.0 / (2π * n)
+            @test ametani(n, 8.0e-3, Inf, 2.0, s) ==
+                  (inner = z, outer = z, transfer = zero(z))
+            p = s / (2π * n * κ)
+            @test series(n, 8.0e-3, Inf, κ, s) == (inner = p, outer = p, transfer = zero(p))
+        end
+    end
+
+    # A wall that conducts nothing is a dielectric layer of its permeability. The deviation
+    # falls as the resistivity grows, 8.0e-10 at 1e2 Ω·m and 9.6e-16 at 1e8 Ω·m at 50 Hz.
+    @testset "the surfaces of a wall tend to its layer as its resistivity grows" begin
+        s = im * (2π * 50.0)
+        for n in (1, 2, 5, 20)
+            layer = ametani(n, 8.0e-3, 12.0e-3, 2.0, s)
+            for (ρ, bound) in ((1.0e2, 1.0e-9), (1.0e8, 2.0e-15))
+                wall = schelkunoff(n, 8.0e-3, 12.0e-3, ρ, 2.0, s)
+                @test all(isapprox(getfield(wall, key), getfield(layer, key); rtol = bound)
+                for key in (:inner, :outer, :transfer))
+            end
+        end
     end
 end
 

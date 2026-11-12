@@ -276,9 +276,16 @@
             connections = [(core = 1, screen = 0, pipe = 0)], id = "pipe", line_length = 1.0)
         problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
             frequencies = [50.0])
-        @test_throws ArgumentError(
-            "the coaxial formulation computes one concentric assembly per cable; the cable pipe holds 4 assemblies") compute(
-            problem, CoaxialFormulation())
+        # The jackets touch each other and the pipe, in air. Measured against order 80, as the
+        # largest entry, Zin differs by 4.2e-13 at order 20 and Pin by 5.6e-8 at order 40. The
+        # asymmetry of Pin is 4.9e-16.
+        results = Dict(order => compute(problem, CoaxialFormulation(; order); trace = true)
+        for order in (20, 40, 80))
+        (; Zin, Pin) = results[80].trace
+        @test maximum(abs, results[20].trace.Zin - Zin) <= 1.0e-12 * maximum(abs, Zin)
+        @test maximum(abs, results[40].trace.Pin - Pin) <= 1.0e-7 * maximum(abs, Pin)
+        @test maximum(abs, Pin[:, :, 1] - transpose(Pin[:, :, 1])) <=
+              1.0e-15 * maximum(abs, Pin)
     end
 
     # Construction 16: three round cores in a steel pipe, the geometry of the reference
@@ -415,6 +422,25 @@
         @test [tube.r_in, tube.r_ex] ≈ [0, 7.5e-3] rtol = 1e-12
         resistance = copper.rho * sqrt(1 + (π / 12)^2) / (18π * 1.5e-3^2)
         @test tube.material.rho / (π * 7.5e-3^2) ≈ resistance rtol = 1e-12
+    end
+
+    # Construction 21: one insulated core in a steel pipe, on its axis and 6 mm off it. The
+    # pipe's fill is the interior of the root, from the nearest point of the core's insulation.
+    @testset "a single core in a pipe has the pipe's fill as its filler" begin
+        core = Stack(Terminal(:core, Region(:core, Circle(10.0e-3), copper)),
+            Region(:insulation, Offset(2.0e-3), polymer))
+        for (offset, nearest) in ((0.0, 12.0e-3), (6.0e-3, 6.0e-3))
+            blueprint = flatten(build(CableDesign, "pipe",
+                Enclosure(Region(:fill, Circle(30.0e-3), air),
+                    Assembly((Placement(offset, 0.0) => core,))),
+                Terminal(:pipe, Region(:pipe, Offset(3.0e-3), steel)),
+                Region(:coating, Offset(2.0e-3), polymer)))
+            @test [[tube.r_in, tube.r_ex] for tube in blueprint.conductors] ≈
+                  [[0.0, 10.0e-3], [30.0e-3, 33.0e-3]] rtol = 1e-12
+            filler = only(blueprint.dielectrics[blueprint.interior_ranges[1]])
+            @test [filler.r_in, filler.r_ex] ≈ [nearest, 30.0e-3] rtol = 1e-12
+            @test collect(blueprint.positions[2]) ≈ [offset, 0.0] rtol = 1e-12
+        end
     end
 
     # Construction 20: one coaxial in a steel pipe, on its axis and 5 mm off it. The filler is

@@ -9,6 +9,8 @@ once from the blueprints of the designs and from the placements and the connecti
 system. The values have the problem's type `T`, and the conductors follow the terminals of
 the system, cable by cable and from the inside out.
 
+The members of a cable that has no conductor around them count as cables.
+
 $(TYPEDFIELDS)
 """
 struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
@@ -44,6 +46,12 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     dielectric_material::L
     "Range of the conductors of each concentric assembly."
     assemblies::Vector{UnitRange{Int}}
+    "Assemblies in the interior of each assembly, its members in the blueprints."
+    members::Vector{Vector{Int}}
+    "Axis of each assembly in the frame of its cable, in \\[m\\]."
+    positions::Vector{Tuple{T, T}}
+    "Range of the interior layers of each assembly, from its filler around its members."
+    interior_ranges::Vector{UnitRange{Int}}
     "Horizontal coordinate of the center of each cable in the frame of the system \\[m\\]."
     x::Vector{T}
     "Vertical coordinate of the center of each cable in the frame of the system \\[m\\]."
@@ -78,7 +86,6 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
         dielectric_starts = cumsum([0;
                                     [length(blueprint.dielectrics)
                                      for blueprint in blueprints]])
-        cable = [row.cable for row in system.terminals]
         connection = [row.connection for row in system.terminals]
         (; label, bundles, kept, eliminated, terminals) = reductions(system, options)
         r_in = [convert(T, tube.r_in) for tube in tubes]
@@ -98,15 +105,34 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
         assemblies = [span .+ tube_starts[k]
                       for (k, blueprint) in enumerate(blueprints)
                       for span in blueprint.assembly_ranges]
-        for blueprint in blueprints
-            length(blueprint.positions) == 1 ||
-                throw(ArgumentError("the coaxial formulation computes one concentric assembly per cable; the cable $(blueprint.id) holds $(length(blueprint.positions)) assemblies"))
-        end
-        centers = [system.placements[k] * Placement(only(blueprint.positions)...)
-                   for (k, blueprint) in enumerate(blueprints)]
+        assembly_starts = cumsum([0;
+                                  [length(blueprint.assembly_ranges)
+                                   for blueprint in blueprints]])
+        members = [indices .+ assembly_starts[k]
+                   for (k, blueprint) in enumerate(blueprints)
+                   for indices in blueprint.members]
+        positions = [convert.(T, position)
+                     for blueprint in blueprints for position in blueprint.positions]
+        interior_ranges = [span .+ dielectric_starts[k]
+                           for (k, blueprint) in enumerate(blueprints)
+                           for span in blueprint.interior_ranges]
+        # The cables, each the row of its blueprint that the earth formulas see: the root, or
+        # each member of a root without a conductor.
+        rows = [(k, row) for (k, blueprint) in enumerate(blueprints)
+                for row in (isempty(first(blueprint.assembly_ranges)) &&
+                     !isempty(first(blueprint.members)) ? first(blueprint.members) : [1])]
+        centers = [system.placements[k] * Placement(blueprints[k].positions[row]...)
+                   for (k, row) in rows]
         x = [convert(T, center.x) for center in centers]
         y = [convert(T, center.y) for center in centers]
-        radius = [convert(T, support(design.outer)) for design in system.designs]
+        radius = [isone(row) ? convert(T, support(system.designs[k].outer)) :
+                  r_ins_ex[last(assemblies[assembly_starts[k] + row])]
+                  for (k, row) in rows]
+        # Each cable's conductors end at its last one, and the cables follow the conductors.
+        ends = [isone(row) ? tube_starts[k + 1] :
+                last(assemblies[assembly_starts[k] + row])
+                for (k, row) in rows]
+        cable = [searchsortedfirst(ends, i) for i in eachindex(tubes)]
         depths = cumsum([stratum.thickness for stratum in Base.tail(problem.earth.layers)])
         earth_layer = [center > 0 ? 1 : 1 + searchsortedfirst(depths, -center)
                        for center in y]
@@ -114,7 +140,7 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
             cable, connection, label, r_in, r_ex, material,
             r_ins_ex, mu_r_ins, dielectric_ranges, dielectric_r_in,
             dielectric_r_ex, dielectric_material, assemblies,
-            x, y, radius, earth_layer, bundles, kept,
+            members, positions, interior_ranges, x, y, radius, earth_layer, bundles, kept,
             eliminated, terminals)
     end
 end
