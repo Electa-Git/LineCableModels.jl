@@ -160,10 +160,10 @@ The members of an [`Assembly`](@ref) and the copies of a repeated part are sub-c
 assembly about its axis, the centroid of the regions of its first terminal. The regions of
 an assembly around its members, such as the fill inside a pipe, form its interior, whose
 layers `interior_ranges` gives. The interior is a filler around the members, then the
-annuli outside it. A sub-cable without a terminal, such as a three-core cable without metal
-in a duct, gives its members and regions to its container. The coaxial formulation computes
-each member about its axis in the interior of its container, and the finite element model
-computes every region as declared.
+annuli outside it. A sub-cable with no conductor of its own, such as a metal-free three-core
+cable in a duct, gives its members and regions to its container. The coaxial formulation
+computes each member about its axis in the interior of its container, and the finite element
+model computes every region as declared.
 
 ## Cable systems
 

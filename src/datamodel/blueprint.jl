@@ -119,8 +119,8 @@ struct CableBlueprint{T <: Real, V <: AbstractVector{<:BlueprintDielectric}}
     """
     interior_ranges::Vector{UnitRange{Int}}
     """
-    Rows of the members of each assembly. A sub-cable without a terminal gives its members
-    to its container.
+    Rows of the members of each assembly, in the order of their conductors. A sub-cable with
+    no conductor of its own gives its members to its container.
     """
     members::Vector{Vector{Int}}
     function CableBlueprint{T}(id::String, conductors::Vector{BlueprintConductor{T}},
@@ -161,9 +161,9 @@ The regions of the same row outside the tube, up to its next terminal or its las
 become the layers of its dielectric interval. The regions of a row around its members form
 the interior of the assembly. The annuli about the axis outside its other regions are its
 outer layers, from the inside out. The other regions form its filler, one layer from their
-nearest to their farthest extent. A sub-cable without a terminal gives its members to its
-container and its regions to the filler of its container. Regions inside the first terminal
-of a row without members lie in no interval.
+nearest to their farthest extent. A sub-cable with no conductor of its own gives its members
+to its container and its regions to the filler of its container. Regions inside the first
+terminal of a row without members lie in no interval.
 
 The conductive regions ``i`` of a terminal carry direct current in parallel. A region of
 resistivity ``\\rho_i``, cross-section ``A_i`` and overlength ``\\ell_i`` along its helices has
@@ -413,6 +413,8 @@ function flatten(design::CableDesign)
         ends[k] = maximum([ends[k]; ends[design.assemblies[k].members]])
     end
     order = sortperm(eachindex(design.assemblies); by = k -> (ends[k], -k))
+    # Each row lists its members in the order of their conductors.
+    foreach(rows -> sort!(rows; by = m -> (ends[m], -m)), contained)
     layers = BlueprintDielectric[]
     dielectric_ranges = Vector{UnitRange{Int}}(undef, length(reduced))
     interior_ranges = Vector{UnitRange{Int}}(undef, length(design.assemblies))

@@ -515,6 +515,8 @@ shielded by that member's conductor.
 
 # Errors
 
+- Throws `ArgumentError` when an assembly has members and a conductor, and no region around
+  the members.
 - Throws `ArgumentError` when `order ≥ 1` and the bodies of two members overlap, or a
   member's body overlaps the bore's.
 - Throws `ArgumentError` when `order ≥ 1`, an interior has members, and the formula of the
@@ -526,8 +528,10 @@ function validate(input::CoaxialInput, formulation::CoaxialFormulation,
     θ = problem.temperature
     for (a, members) in enumerate(input.members)
         (isempty(members) || isempty(input.assemblies[a])) && continue
-        N == 0 && continue
         bore = input.label[first(input.assemblies[a])]
+        isempty(input.interior_ranges[a]) && throw(ArgumentError(
+            "no region lies around the members of $bore: the coaxial formulation takes the medium of the gap between the members and that conductor from it"))
+        N == 0 && continue
         labels = [input.label[last(input.assemblies[m])] for m in members]
         centers = [nominal.(input.positions[m] .- input.positions[a]) for m in members]
         validate(formulation.internal_impedance, impedance!)

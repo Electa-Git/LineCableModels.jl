@@ -32,6 +32,79 @@ looped(M, k, rows) = [M[i, j] - M[i, k] - M[k, j] + M[k, k] for i in rows, j in 
     oil = Material(:insulator, 1.0e14, 2.2)
     single = (a = 1, pipe = 2)
 
+    # A sub-cable declared before a core gives the same pipe matrices as its wires declared directly.
+    # Measured: 0 for Z and 1.66e-17 for Y at order 0.
+    # Measured: 1.44e-20 for Z and 3.13e-17 for Y at order 20.
+    @testset "a sub-cable before a core gives the pipe matrices of its wires declared directly" begin
+        wires = [Stack(Terminal(name, Region(name, Circle(1.5e-3), copper)),
+                     Region(Symbol(name, :_insulation), Offset(0.5e-3), polymer))
+                 for name in (:w1, :w2)]
+        cable = Stack(
+            Enclosure(Region(:t_fill, Circle(6.0e-3), air),
+                Assembly((Placement(3.0e-3, 0.0) => wires[1],
+                    Placement(-3.0e-3, 0.0) => wires[2]))),
+            Region(:t_jacket, Offset(1.0e-3), air))
+        core = Stack(Terminal(:core, Region(:core, Circle(6.0e-3), copper)),
+            Region(:core_insulation, Offset(2.0e-3), polymer))
+        members = ([Placement(-12.0e-3, 0.0) => cable,
+                Placement(14.0e-3, 0.0) => core],
+            [Placement(-9.0e-3, 0.0) => wires[1],
+                Placement(-15.0e-3, 0.0) => wires[2],
+                Placement(14.0e-3, 0.0) => core])
+        for order in (0, 20)
+            results = [interior_result(
+                           [piped_design("pipe", rows, air, steel, polymer)],
+                           [Placement(0, -1)], [(w1 = 1, w2 = 2, core = 3, pipe = 4)]; order)
+                       for rows in members]
+            @test isapprox(results[1].Z, results[2].Z; rtol = 1.0e-15)
+            @test isapprox(results[1].Y, results[2].Y; rtol = 1.0e-15)
+        end
+    end
+
+    # In a jacket without metal, the sub-cable's wires and the core compute as three cables.
+    # Measured: 1.22e-20 for Z and 0 for Y at order 0.
+    @testset "a sub-cable before a core in a jacket gives the matrices of its wires declared directly" begin
+        wires = [Stack(Terminal(name, Region(name, Circle(1.5e-3), copper)),
+                     Region(Symbol(name, :_insulation), Offset(0.5e-3), polymer))
+                 for name in (:w1, :w2)]
+        cable = Stack(
+            Enclosure(Region(:t_fill, Circle(6.0e-3), air),
+                Assembly((Placement(3.0e-3, 0.0) => wires[1],
+                    Placement(-3.0e-3, 0.0) => wires[2]))),
+            Region(:t_jacket, Offset(1.0e-3), air))
+        core = Stack(Terminal(:core, Region(:core, Circle(6.0e-3), copper)),
+            Region(:core_insulation, Offset(2.0e-3), polymer))
+        members = ([Placement(-12.0e-3, 0.0) => cable,
+                Placement(14.0e-3, 0.0) => core],
+            [Placement(-9.0e-3, 0.0) => wires[1],
+                Placement(-15.0e-3, 0.0) => wires[2],
+                Placement(14.0e-3, 0.0) => core])
+        designs = [build(CableDesign, "jacketed",
+                       Stack(
+                           Enclosure(Region(:fill, Circle(30.0e-3), air), Assembly(Tuple(rows))),
+                           Region(:jacket, Offset(2.0e-3), polymer))) for rows in members]
+        results = [interior_result([design], [Placement(0, -1)],
+                       [(w1 = 1, w2 = 2, core = 3)]) for design in designs]
+        @test size(results[1].trace.Zg) == (3, 3, 4)
+        @test isapprox(results[1].Z, results[2].Z; rtol = 1.0e-15)
+        @test isapprox(results[1].Y, results[2].Y; rtol = 1.0e-15)
+    end
+
+    # At order 0 the coaxial formulation refuses a screen with a member and no region
+    # around it.
+    # Measured: the refusal names cable:1:screen and its missing region.
+    @testset "a conductor with members and no region around them is refused at order 0" begin
+        core = Stack(Terminal(:core, Region(:core, Circle(10.0e-3), copper)),
+            Region(:insulation, Offset(2.0e-3), polymer))
+        tight = build(CableDesign,
+            "tight",
+            Stack(Assembly((Placement(0.0, 0.0) => core,)),
+                Terminal(:screen, Region(:screen, Offset(1.0e-3), copper)), Region(
+                    :jacket, Offset(2.0e-3), polymer)))
+        @test_throws ArgumentError("no region lies around the members of cable:1:screen: the coaxial formulation takes the medium of the gap between the members and that conductor from it") interior_result(
+            [tight], [Placement(0, -1)], [(core = 1, screen = 2)])
+    end
+
     # A core of radius `a` lies at `b` from the axis of a bore of radius `c`, in one dielectric.
     # Its coefficient is `acosh((a^2 + c^2 - b^2) / (2a * c)) / (2π * ε)`, and its insulation
     # has the filler's medium. Measured: 4.4e-16 at 12 mm and order 20, 6.0e-15 at 17 mm and

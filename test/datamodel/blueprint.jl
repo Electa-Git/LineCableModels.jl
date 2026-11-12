@@ -371,7 +371,7 @@
     # of 3 mm. The filler starts at that outline, 1 mm from the axis. With the cable on the
     # duct's axis, its fill contains the axis. Its jacket and the duct's fill are then annuli
     # outside the filler.
-    @testset "a sub-cable without a terminal gives its members and regions to its container" begin
+    @testset "a sub-cable with no conductor of its own gives its members and regions to its container" begin
         d = 2 * 3.0e-3 / sqrt(3)
         angles = (π / 2, 7π / 6, 11π / 6)
         core = Stack(Terminal(:core, Region(:core, Circle(2.0e-3), copper)),
@@ -402,6 +402,28 @@
               [[0, 7.0e-3], [7.0e-3, 8.0e-3], [8.0e-3, 12.0e-3]] rtol = 1e-12
         @test [layer.material.eps_r for layer in interior] ≈
               [air.eps_r, polymer.eps_r, air.eps_r] rtol = 1e-14
+    end
+
+    # A sub-cable before a core gives the pipe's members in conductor order.
+    # Measured: the pipe lists rows 3, 4, and 5, in that order.
+    @testset "a sub-cable before a core gives its container members in conductor order" begin
+        wires = [Stack(Terminal(name, Region(name, Circle(1.5e-3), copper)),
+                     Region(Symbol(name, :_insulation), Offset(0.5e-3), polymer))
+                 for name in (:w1, :w2)]
+        cable = Stack(
+            Enclosure(Region(:t_fill, Circle(6.0e-3), air),
+                Assembly((Placement(3.0e-3, 0.0) => wires[1],
+                    Placement(-3.0e-3, 0.0) => wires[2]))),
+            Region(:t_jacket, Offset(1.0e-3), air))
+        core = Stack(Terminal(:core, Region(:core, Circle(6.0e-3), copper)),
+            Region(:core_insulation, Offset(2.0e-3), polymer))
+        members = [Placement(-12.0e-3, 0.0) => cable,
+            Placement(14.0e-3, 0.0) => core]
+        blueprint = flatten(build(CableDesign, "pipe",
+            Enclosure(Region(:fill, Circle(30.0e-3), air), Assembly(Tuple(members))),
+            Terminal(:pipe, Region(:pipe, Offset(3.0e-3), steel)),
+            Region(:coating, Offset(2.0e-3), polymer)))
+        @test blueprint.members == [[3, 4, 5], Int[], Int[], Int[], Int[]]
     end
 
     # Construction 19: a terminal of two courses of 6 and 12 wires at the lay ratio 12, around
