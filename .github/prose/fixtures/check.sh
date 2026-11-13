@@ -72,6 +72,23 @@ grep -Fq '"Match": ": Ordinary"' "$scratch/fields.json"
 grep -Fq 'Project.Semicolons' "$scratch/fields.json"
 grep -Fq 'Project.BannedTerms' "$scratch/fields.json"
 
+# The cap of 20 words on a list item holds in a Markdown file. A docstring is exempt from it, in its
+# source and on a page of the build. The cap of 25 words on a sentence holds in all three.
+item='`radius`: Outer radius of the conductor that the first argument gives, from the center of the core to the outside of the wires.'
+long='`x`: Value that the function reads from the first file, then from the second file, then from the third file, and writes to the last file of the list of the caller.'
+printf -- '- %s\n- %s\n' "$item" "$long" > "$scratch/items.md"
+printf '"""\n    f(x)\n\nReturn the value.\n\n- %s\n- %s\n"""\nf(x) = x\n' "$item" "$long" > "$scratch/items.jl"
+printf '<details class="docstring"><section><ul><li>%s</li><li>%s</li></ul></section></details>\n' "$item" "$long" > "$scratch/items.html"
+for input in items.md items.jl items.html; do
+    vale "${vale_args[@]}" "$scratch/$input" > "$scratch/$input.json" || true
+    test "$(grep -c '"Check": "Project.SentenceLength"' "$scratch/$input.json")" -eq 1
+done
+test "$(grep -c '"Check": "Project.ProcedureLength"' "$scratch/items.md.json")" -eq 2
+if grep -Fq 'Project.ProcedureLength' "$scratch/items.jl.json" "$scratch/items.html.json"; then
+    echo 'Vale applied the cap on a list item to a docstring.' >&2
+    exit 1
+fi
+
 cat > "$scratch/signature.jl" <<'JULIA'
 """
     f(x; contract=1)
