@@ -242,9 +242,22 @@ analytical model treats each sector as its equivalent tube. The model places eac
 current at its centroid for terms between cores and omits the proximity effect.
 
 Its e_Y stays near 11.3 % from 0.1 Hz to 1 kHz, then reaches 11.6 % at 39.8 kHz. It rises to
-14.2 % at 251 kHz, 28.9 % at 1.58 MHz and 40.6 % at 10 MHz, in Y22 throughout. At order 0, the
-analytical model treats each sector as its equivalent tube. It also treats the 30 neutral
-wires as a tube. FEM represents the sectors and the individual neutral wires.
+14.2 % at 251 kHz, 28.9 % at 1.58 MHz and 40.6 % at 10 MHz, in `Y22` throughout. The largest
+difference is in the self-admittance of a core. With `C_ij = Im Y_ij / ω`, FEM gives `C22` of 1099 pF/m
+against the analytical 592 pF/m at all 11 frequencies. Most of the difference is between
+cores: `C21` and `C23` are each −309 pF/m in FEM against −122 pF/m analytically at all
+11 frequencies.
+
+The analytical model treats the 30 neutral wires as a tube. The insulation, the filler and
+the neutral fill are the same PVC. A FEM run at commit `e5d71008` draws the neutral as its tube.
+It gives e_Y near 11.9 % up to 1 kHz and 42.8 % at 10 MHz, in `Y22`.
+The variant's analytical rows are those of the case. The sector taken as its tube remains the
+difference between the models.
+
+The capacitance difference `|ΔY22| / ω` stays at 507 pF/m at all 11 frequencies, while `|ΔY22|`
+grows with ω. The scale of e_Y is the largest magnitude on the analytical diagonal, here `|Y44|`
+of the neutral. That scale grows with ω at every frequency, in proportion to ω below 1 kHz.
+At high frequency, `|Y44| / ω` falls. This fall raises e_Y.
 
 For `three_cores_steel_pipe` at `order = 20`, e_Z rises from 0.0508 % at 0.1 Hz to 0.403 % at
 25.1 Hz, in Z44. It decreases to 0.373 % at 1 kHz in Z22, then to 0.207 % at 10 MHz in Z33. Its
