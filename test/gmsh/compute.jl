@@ -246,7 +246,9 @@
         "overhead_bare_wires" => (Z = 0.00610, Y = 0.00817),
         "mixed_bare_wires" => (Z = 0.00609, Y = 0.00617),
         "one_insulated_sector" => (Z = 0.0762, Y = 0.0685),
-        "milliken_solid_segments" => (Z = 0.0268, Y = 0.407))
+        "milliken_solid_segments" => (Z = 0.0268, Y = 0.407),
+        "three_insulated_sectors" => (Z = 0.0612, Y = 0.406),
+        "three_cores_steel_pipe" => (Z = 0.00403, Y = 0.00121))
     tolerances = Dict(("milliken_solid_segments", "Y") => 2.18e-6)
     @testset "$case" for (case, reference) in REFERENCES
         problem = LineParametersProblem(reference.system, reference.earth;
@@ -296,27 +298,11 @@
                         @test maximum(abs, computed[:, :, k] - target[:, :, k]) <=
                               bound skip = !recorded
                     end
-                    case in FEM_ALONE && continue
                     analytical = targets[("analytical", quantity)]
                     errors = [maximum(abs, computed[:, :, k] - analytical[:, :, k]) /
                               maximum(abs(analytical[i, i, k]) for i in 1:n)
                               for k in eachindex(problem.frequencies)]
                     @test abs(maximum(errors) - facts[case][Symbol(quantity)]) <= 0.002
-                end
-                # A case without analytical rows checks each terminal's resistance at 0.1 Hz.
-                # On the build of record, each ratio lies within 7.2e-4 of one.
-                if case in FEM_ALONE
-                    for (i, row) in enumerate(problem.system.terminals)
-                        metals = [region
-                                  for region in problem.system.regions[row.regions]
-                                  if region.source.material isa
-                                     Material{<:Real, :conductor}]
-                        conductance = sum(area(region.shape) / region.source.material.rho
-                        for region in metals)
-                        resistance = 1 / conductance +
-                                     2π * problem.frequencies[1] * LineCableModels.μ₀ / 8
-                        @test abs(real(result.Z[i, i, 1]) / resistance - 1) <= 2e-3
-                    end
                 end
                 @test size(result.trace.Z) == (n, n, 11)
                 @test size(result.trace.P) == (n, n, 11)

@@ -141,6 +141,3 @@ const REFERENCES = let
     end
     cases
 end
-
-# The cases whose `matrices.csv` holds the fem rows alone.
-const FEM_ALONE = ("three_insulated_sectors", "three_cores_steel_pipe")

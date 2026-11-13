@@ -4,11 +4,16 @@ Per-unit-length line parameters of the ten cable systems of this release, comput
 earth-return formula `:martins2026` and with FEM. The tests compare the package against them.
 
 Each case is a problem of `test/references/problems.jl`. Commit `bee50049` computed the rows of
-the first six cases, and the commit that adds each later case computed its rows. The analytical
-rows come from `compute(problem, CoaxialFormulation())` at the 101
-frequencies of the problem. The FEM rows come from the formulation of the FEM test of the suite,
-`FEM(; bundle = false, kron = false, transposition = false)`. They hold 11 of the frequencies,
-and the table gives their run.
+the first six cases. The commit that adds each later case computed its FEM rows. It also
+computed the analytical rows of `one_insulated_sector` and `milliken_solid_segments`. For
+`three_insulated_sectors` and `three_cores_steel_pipe`, the commit that adds their analytical
+rows computed those rows.
+
+The analytical rows come from `compute(problem, CoaxialFormulation())` at the 101 frequencies
+of the problem.
+The case `three_cores_steel_pipe` uses `order = 20`. The FEM rows come from the formulation of
+the FEM test of the suite, `FEM(; bundle = false, kron = false, transposition = false)`. They
+hold 11 of the frequencies, and the table gives their run.
 
 The build of record is GetDP 3.5.0 and Gmsh 4.15.2 on x86_64 Linux. On it, a second run gives
 the FEM rows of every case within 3e-8 of the largest diagonal entry, except `Y` of
@@ -30,8 +35,8 @@ run's incidental state, while the node and element counts stay equal. Over seven
 | `mixed_bare_wires` | the same wires at (0, 1) m and (1, −1) m, one overhead and one buried | `bee50049` | `20261109-083138-c7w6` |
 | `one_insulated_sector` | one aluminum sector core with its PVC insulation and a PVC jacket, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-144108-sx0a` |
 | `milliken_solid_segments` | one 220 kV cable with a core of six solid aluminum segments, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-172637-kmpa` |
-| `three_insulated_sectors` | one 1 kV cable of three aluminum sectors and 30 copper neutral wires, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-172647-9ggu` |
-| `three_cores_steel_pipe` | one 36 kV pipe-type cable of three round aluminum cores in a steel pipe, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-172801-k1bl` |
+| `three_insulated_sectors` | one 1 kV cable of three aluminum sectors and 30 copper neutral wires, buried 1 m deep in earth of 100 Ω·m (εr 10) | FEM: the one that adds the case. Analytical: the one that adds the analytical rows. | `20261109-172647-9ggu` |
+| `three_cores_steel_pipe` | one 36 kV pipe-type cable of three round aluminum cores in a steel pipe, buried 1 m deep in earth of 100 Ω·m (εr 10) | FEM: the one that adds the case. Analytical: the one that adds the analytical rows. | `20261109-172801-k1bl` |
 
 The coaxial cable, from the center out:
 
@@ -70,15 +75,13 @@ The cable of `three_insulated_sectors` has three cores at 0°, 120° and 240°, 
 `one_insulated_sector` with its PVC layer of 1.1 mm. The layers of adjacent cores touch at their
 inner ends, inside a PVC filler of radius 13.57 mm. A neutral of 30 copper wires of 1.58 mm in a
 PVC fill follows, with the wire centers at 14.36 mm. A PVC jacket follows to 17.25 mm. Each core
-and the neutral is a terminal of the cable. Its `matrices.csv` gives FEM rows, and its
-`# Sources:` line names FEM alone.
+and the neutral is a terminal of the cable.
 
 The cable of `three_cores_steel_pipe` is the 36 kV cable of 3 × 1000 mm² in Table 1 of
 Høidalen (2013). Its aluminum cores of radius 19.5 mm and 3.365e-8 Ω·m lie 120° apart, each under
 XLPE to a radius of 28 mm. Each core center lies 32.33 mm from the center of the cable, the
 distance at which the insulations touch. XLPE fills the steel pipe of 62 mm to 65 mm, with 7e-8 Ω·m and relative
-permeability 10. A PE jacket of 5 mm follows, and each core and the pipe is a terminal. Its
-`matrices.csv` gives FEM rows, and its `# Sources:` line names FEM alone.
+permeability 10. A PE jacket of 5 mm follows, and each core and the pipe is a terminal.
 
 ## Files
 
@@ -151,6 +154,8 @@ The port's run gives these maxima against the analytical rows:
 | `mixed_bare_wires` | 0.609 % | 0.617 % |
 | `one_insulated_sector` | 7.62 % | 6.85 % |
 | `milliken_solid_segments` | 2.68 % | 40.7 % |
+| `three_insulated_sectors` | 6.12 % | 40.6 % |
+| `three_cores_steel_pipe` | 0.403 % | 0.121 % |
 
 The file `two_bare_wires/xue2021.csv` gives `analytical` and `fem` rows of `Z` and `Y` at 1 kHz
 for the wires of `two_bare_wires` on a layered earth. The upper layer is 100 Ω·m and 5 m thick
@@ -231,10 +236,21 @@ round wires touch the PE layer under the foil only at their crowns. Its e_Z is 2
 in Z22. That is the lay correction of the screen, which the analytical equivalent conductor
 includes and a two-dimensional FEM model does not.
 
-For `three_insulated_sectors` and `three_cores_steel_pipe`, the real part of each Z_ii at 0.1 Hz
-is ρ/A + ωμ₀/8 within 7.2e-4. Here A is the metal area of the terminal and ωμ₀/8 the earth return
-resistance. In each cable, the cores agree within 6.5e-6 of their mean Z_ii, and within 4.4e-4
-of their mean Y_ii.
+For `three_insulated_sectors`, e_Z rises from 0.0660 % at 0.1 Hz to 4.02 % at 6.31 kHz, in Z33.
+It stays near 4.02 % through 39.8 kHz, then rises to 6.12 % at 10 MHz, in Z22. At order 0, the
+analytical model treats each sector as its equivalent tube. The model places each sector's
+current at its centroid for terms between cores and omits the proximity effect.
+
+Its e_Y stays near 11.3 % from 0.1 Hz to 1 kHz, then reaches 11.6 % at 39.8 kHz. It rises to
+14.2 % at 251 kHz, 28.9 % at 1.58 MHz and 40.6 % at 10 MHz, in Y22 throughout. At order 0, the
+analytical model treats each sector as its equivalent tube. It also treats the 30 neutral
+wires as a tube. FEM represents the sectors and the individual neutral wires.
+
+For `three_cores_steel_pipe` at `order = 20`, e_Z rises from 0.0508 % at 0.1 Hz to 0.403 % at
+25.1 Hz, in Z44. It decreases to 0.373 % at 1 kHz in Z22, then to 0.207 % at 10 MHz in Z33. Its
+e_Y stays near 0.121 % from 0.1 Hz to 158 Hz, then drops to 0.0617 % at 1 kHz, in Y44. It
+returns to 0.121 % at 6.31 kHz, then decreases to 0.0904 % at 1.58 MHz, in Y44. At 10 MHz, it
+reaches 0.0421 % in Y24. Both deviations lie within the FEM accuracy level of 1 %.
 
 ## Cable systems of the case scripts
 

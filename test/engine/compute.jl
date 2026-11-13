@@ -329,7 +329,7 @@ end
 
     @testset "no warning on the references with the default formulations" begin
         for (case, problem) in REFERENCES
-            case in FEM_ALONE || @test_logs compute(problem, CoaxialFormulation())
+            @test_logs compute(problem, CoaxialFormulation())
             @test_logs LineCableModels.validate(Engine.domain(problem, FEM().options), FEM())
         end
     end
