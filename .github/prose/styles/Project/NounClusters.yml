@@ -1,0 +1,22 @@
+extends: STE.NounClusters
+# The tagger gives each bracket of a unit the tag of a noun. A noun before a unit, "its cable [m]", is no noun
+# cluster. So no token of the cluster is a bracket.
+tokens:
+  - tag: NN|NNS|NNP
+    pattern: '[^\[\]]+'
+  - tag: NN|NNS|NNP
+    pattern: '[^\[\]]+'
+  - tag: NN|NNS|NNP
+    pattern: '[^\[\]]+'
+  - tag: NN|NNS|NNP
+    pattern: '[^\[\]]+'
+tests:
+  - name: unit in brackets after a noun
+    input: "Axis of each assembly in the frame of its cable [m]."
+    want: ""
+  - name: noun cluster
+    input: "The customer feedback analysis pipeline stalled."
+    contains: Project.NounClusters
+  - name: noun cluster before a unit in brackets
+    input: "The customer feedback analysis pipeline [m] stalled."
+    contains: Project.NounClusters

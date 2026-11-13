@@ -48,7 +48,7 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     assemblies::Vector{UnitRange{Int}}
     "Assemblies in the interior of each assembly, its members in the blueprints."
     members::Vector{Vector{Int}}
-    "Axis of each assembly in the frame of its cable, in \\[m\\]."
+    "Axis of each assembly in the frame of its cable \\[m\\]."
     positions::Vector{Tuple{T, T}}
     "Range of the interior layers of each assembly, from its filler around its members."
     interior_ranges::Vector{UnitRange{Int}}

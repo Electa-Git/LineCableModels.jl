@@ -1,4 +1,17 @@
 extends: ai-tells.NounString
+# The tagger gives each bracket of a unit the tag of a noun. A noun before a unit, "its cable [m]", is no noun
+# stack. So no token of the stack is a bracket.
+tokens:
+  - negate: true
+    tag: ^NNS?$
+  - pattern: '(?i)(?!(?:yesterday|today|tomorrow|tonight|\[|\])$)\S+'
+    tag: ^NNS?$
+  - pattern: '(?i)(?!(?:yesterday|today|tomorrow|tonight|\[|\])$)\S+'
+    tag: ^NNS?$
+  - pattern: '(?i)(?!(?:yesterday|today|tomorrow|tonight|\[|\])$)\S+'
+    tag: ^NNS?$
+  - pattern: '(?i)(?!(?:yesterday|today|tomorrow|tonight|\[|\])$)\S+'
+    tag: ^NNS?$
 exceptions:
   # Exact French title of Gary's 1976 paper.
   - 'Approche\s+complète\s+de\s+la\s+propagation\s+multifilaire\s+en\s+haute\s+fréquence\s+par\s+utilisation\s+des\s+matrices\s+complexes'
@@ -8,4 +21,10 @@ tests:
     want: ""
   - name: noun stack
     input: "The customer feedback analysis pipeline stalled."
+    contains: Project.NounString
+  - name: unit in brackets after a noun
+    input: "- Axis of each assembly in the frame of its cable [m]."
+    want: ""
+  - name: noun stack before a unit in brackets
+    input: "The customer feedback analysis pipeline [m] stalled."
     contains: Project.NounString
