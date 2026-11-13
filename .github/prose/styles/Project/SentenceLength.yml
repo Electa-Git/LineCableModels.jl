@@ -1,0 +1,14 @@
+extends: STE.SentenceLength
+# A number with a decimal point, "0.47", "1.58" or "2.18e-6", is one word. The rule of STE counts each run of digits
+# as a word, so a sentence of 22 words with seven such numbers counted 28.
+token: '\d+(?:[.,]\d+)+(?:[eE][-+]?\d+)?|[\w''’-]+'
+tests:
+  - name: decimal numbers count once
+    input: "The corrected domain gives 0.47% to 0.54% in Z and 0.65% to 0.70% in Y over 0.1, 1, 1.58 and 10 MHz."
+    want: ""
+  - name: long sentence
+    input: "The first check reads every one of the files that the step changed and then it reads each of the other files that name them in the tree."
+    contains: Project.SentenceLength
+  - name: long sentence with decimal numbers
+    input: "The first check reads every one of the files that the step changed at 0.47 and then it reads each of the other files at 1.58 in the tree."
+    contains: Project.SentenceLength

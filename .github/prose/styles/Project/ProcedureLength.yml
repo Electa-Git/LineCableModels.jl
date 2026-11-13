@@ -1,0 +1,10 @@
+extends: STE.ProcedureLength
+# A number with a decimal point, "0.47" or "2.18e-6", is one word, as in Project.SentenceLength. The cap stays 20.
+token: '\d+(?:[.,]\d+)+(?:[eE][-+]?\d+)?|[\w''’-]+'
+tests:
+  - name: decimal numbers count once
+    input: "- The domain gives 0.47% to 0.54% in Z and 0.65% to 0.70% in Y at 1.58 MHz."
+    want: ""
+  - name: long list item
+    input: "- The first check reads every one of the files that the step changed and then it reads each of the other files."
+    contains: Project.ProcedureLength
