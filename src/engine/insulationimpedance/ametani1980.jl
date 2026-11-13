@@ -1,4 +1,5 @@
 defaults(::Type{Formula{:ametani1980}}) = (;)
+validate(formula::Formula{:ametani1980}, ::typeof(impedance!), ::Int) = formula
 
 function (::Formula{:ametani1980})(
         r_in::T, r_ex::T, μ_r::T, s::Complex{T}) where {T <: Real}

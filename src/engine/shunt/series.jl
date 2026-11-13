@@ -1,4 +1,5 @@
 defaults(::Type{Formula{:series}}) = (;)
+validate(formula::Formula{:series}, ::typeof(potential!), ::Int) = formula
 
 function (::Formula{:series})(
         r_in::T, r_ex::T, κ::Complex{T}, s::Complex{T}) where {T <: Real}

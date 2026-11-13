@@ -1,5 +1,5 @@
 defaults(::Type{Formula{:schelkunoff1934}}) = (;)
-validate(formula::Formula{:schelkunoff1934}, ::typeof(impedance!)) = formula
+validate(formula::Formula{:schelkunoff1934}, ::typeof(impedance!), ::Int) = formula
 
 function (::Formula{:schelkunoff1934})(
         r_in::T, r_ex::T, ρ::T, μ_r::T, s::Complex{T}) where {T <: Real}

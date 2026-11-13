@@ -343,6 +343,28 @@ looped(M, k, rows) = [M[i, j] - M[i, k] - M[k, j] + M[k, k] for i in rows, j in 
         @test_throws DomainError CoaxialFormulation(order = -1)
     end
 
+    @testset "the order checks agree with the formula callables" begin
+        for (slot, family, verb, signature) in (
+            (:internal_impedance, LineCableModels.Engine.InternalImpedance,
+                LineCableModels.Engine.impedance!,
+                Tuple{Int, Float64, Float64, Float64, Float64, ComplexF64}),
+            (:insulation_impedance, LineCableModels.Engine.InsulationImpedance,
+                LineCableModels.Engine.impedance!,
+                Tuple{Int, Float64, Float64, Float64, ComplexF64}),
+            (:shunt, LineCableModels.Engine.Shunt, LineCableModels.Engine.potential!,
+                Tuple{Int, Float64, Float64, ComplexF64, ComplexF64}))
+            for id in family.FORMULAS
+                f = getproperty(CoaxialFormulation(; slot => id), slot)
+                @test LineCableModels.validate(f, verb, 0) === f
+                if hasmethod(f, signature)
+                    @test LineCableModels.validate(f, verb, 1) === f
+                else
+                    @test_throws ArgumentError LineCableModels.validate(f, verb, 1)
+                end
+            end
+        end
+    end
+
     # On a concentric cable only the domains of the formulas read the option order.
     @testset "a formula of order 0 alone warns at a higher order" begin
         problem = first(REFERENCES)[2]

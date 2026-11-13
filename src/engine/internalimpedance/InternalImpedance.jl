@@ -239,9 +239,10 @@ function validate(problem::LineParametersProblem, formula::Formula)
     return problem
 end
 
-# A formula gives the surfaces at the orders it has a method for. The recipe of the interiors
-# above order 0 refuses a formula that gives order 0 alone.
-function validate(formula::Formula, ::typeof(impedance!))
+# A formula gives the surfaces at order 0, and at every order when it has a callable at an
+# order. The recipe of the interiors above order 0 refuses a formula that gives order 0 alone.
+function validate(formula::Formula, ::typeof(impedance!), n::Int)
+    iszero(n) && return formula
     throw(ArgumentError(
         "the formula :$(nameof(formula)) gives the surface impedances at order 0 alone; the coaxial formulation computes the members of an interior above order 0 with a formula that gives every order, or at order = 0"))
 end

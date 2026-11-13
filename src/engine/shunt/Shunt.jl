@@ -70,7 +70,7 @@ integer, and the first form gives the coefficient at order 0. The radii satisfy
 module Shunt
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ...Commons: defaults
+import ...Commons: defaults, validate
 using ...Commons: FormulationOptions
 using ..Engine: AbstractShunt
 import ..Engine: potential!
@@ -96,6 +96,12 @@ struct Formula{ID, O <: FormulationOptions} <: AbstractShunt
     function Formula{ID}(options::O) where {ID, O <: FormulationOptions{Formula{ID}}}
         return new{ID, O}(options)
     end
+end
+
+function validate(formula::Formula, ::typeof(potential!), n::Int)
+    iszero(n) && return formula
+    throw(ArgumentError(
+        "the formula :$(nameof(formula)) gives the potential coefficient of a layer at order 0 alone; the coaxial formulation computes the gap of an interior up to order $n with a formula that gives every order"))
 end
 
 """
