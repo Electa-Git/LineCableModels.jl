@@ -40,7 +40,7 @@ EndFor
 FEMOmega = 2*Pi*FrequencyHz;
 FEMLayoutRadius = 5;
 For cable In {0:NumCables-1}
-  FEMLayoutRadius = Max[FEMLayoutRadius,Sqrt[(CableX(cable)-Xcenter)^2+CableY(cable)^2]+CableRadius(cable)];
+  FEMLayoutRadius = Max[FEMLayoutRadius,2*Sqrt[(CableX(cable)-Xcenter)^2+CableY(cable)^2]+CableRadius(cable)];
   For other In {cable+1:NumCables-1}
     FEMLayoutRadius = Max[FEMLayoutRadius,2*Sqrt[(CableX(cable)-CableX(other))^2+(CableY(cable)-CableY(other))^2]];
   EndFor

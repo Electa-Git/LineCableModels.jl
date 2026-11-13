@@ -149,9 +149,9 @@ For each medium ``m``, the base root ``q_{0,m} = \sqrt{\mathrm{j}\omega\mu_m\wid
 ``q_m = a_m + \mathrm{j} b_m`` of
 ``q_m^2 = \mathrm{j}\omega\mu_m\widehat\sigma_m - \Gamma^2`` has ``b_m \geq 0`` when
 ``\operatorname{Im}\Gamma < b_{0,m}`` and ``a_m \geq 0`` otherwise. The layout radius
-``R_l`` is the largest of 5 m, of the distance from ``(x_c, 0)`` to each cable plus its
-radius, and of twice the distance between each pair of cables, where ``x_c`` is the mean
-horizontal position of the cables. The sizing length of the earth ``L`` and the half-width
+``R_l`` equals the largest of 5 m, twice each cable's distance from ``(x_c, 0)`` plus its radius,
+and twice each pair's separation.
+The coordinate ``x_c`` is the mean horizontal position of the cables. The sizing length of the earth ``L`` and the half-width
 ``D`` of the physical domain ``|x - x_c| \leq D``, ``|y| \leq D`` are
 
 ```math
@@ -256,7 +256,13 @@ the relative error of the area of a circle by ``\tau``, the override
 annulus, ``\min(w, h_\square)/5`` for a rectangle of width ``w`` and height ``h_\square``,
 and ``\min(w, h_\square)/2`` for a rectangular strand. A sector of radii ``r_i`` and ``r_o``
 and angle ``\varphi`` takes the target of the rectangle of width ``r_o - r_i`` and height
-``\varphi (r_o + r_i)/2``. A thin passive annulus is meshed as a
+``\varphi (r_o + r_i)/2``.
+
+An ellipse takes ``m_h r/5`` laid alone and ``m_h r`` as a strand.
+Here, ``r`` is half its distance across. A polygon or arc polygon takes ``m_h d/5`` laid alone and ``m_h d/2`` as a strand.
+Here, ``d`` is its distance across. A layer around another outline takes ``m_h`` times half its thickness.
+
+A thin passive annulus is meshed as a
 strip of ``\max(2, \lceil 2/m_h \rceil)`` radial intervals, with the target of the region at
 least ``2\pi r_o/n_c``. Where a circle touches the inside of a larger one and either
 bounds a passive annulus, the larger circle's arc takes the smaller interval angle.
@@ -265,9 +271,8 @@ The parallel of an ellipse enters the geometry as a spline through points at equ
 of the angle of its normal. The spline takes ``n_c`` intervals per turn and at least two in
 each quarter of the ellipse.
 
-In a conductor, the width ``w`` is the radius of a circle and the thickness of an annulus or
-of a layer around another outline. For every other outline, ``w`` is the distance across the
-metal. The skin depth ``\delta`` and the phase rate ``\beta`` follow from
+In a conductor, a circle uses its radius as the width ``w``. An ellipse uses half its distance across the metal.
+An annulus or a layer around another outline uses its thickness. Sectors, rectangles, polygons and arc polygons use the distance across the metal. The skin depth ``\delta`` and the phase rate ``\beta`` follow from
 ``\sqrt{\mathrm{j}\omega\mu\widehat\sigma} = 1/\delta + \mathrm{j}\beta``. A graded layer of
 elements along the contour of the conductor, of depth ``e`` and ``N`` intervals growing by
 the ratio ``g``, starts at the first size ``h_1``:
@@ -281,12 +286,12 @@ h_1^\ast = \min\left(\frac{m_h\delta}{n_\delta}, \frac{m_h w}{n_t}\right),
 
 where ``n_s``, ``n_\delta``, ``g`` and, for an annulus, ``n_t`` are the overrides
 `ConductorSkinDepths`, `ConductorSkinDepthElements`, `ConductorMeshGrowth` and
-`ConductorThicknessElements`. For every other outline, ``n_t = 5``. A circle, an annulus or
-a layer takes the graded layer when its width ``w`` exceeds ``\delta``. Gmsh extrudes it
-inward from the contour, with ``f`` equal to 0.5 for a circle and 0.45 otherwise.
+`ConductorThicknessElements`. For every other outline, ``n_t = 5``. A circle, an ellipse, an annulus or a layer takes the graded layer when its width ``w`` exceeds ``\delta``.
+Gmsh extrudes it inward from the contour. Circles and ellipses use ``f = 0.5``. Annuli and layers use ``f = 0.45``.
 
-The other conductors take the layer at every frequency, as four-sided strips of the depth
-``e = 0.45 w`` in place of ``\min(n_s\delta, f w)``. Each curve of each path of the contour
+Ellipses have no strips.
+
+Sectors, rectangles, polygons and arc polygons use four-sided strips of depth ``e = 0.45 w`` at every frequency. Each curve of each path of the contour
 bounds one strip with the piece of its parallel inside the metal. A straight line joins each
 junction of the contour to the junction of the parallels. These lines take the ``N``
 intervals of the layer, which grow by the ratio ``g`` from the contour. The parallel takes
@@ -373,7 +378,7 @@ result.Y[1, 1, :] # [S/m]
 
 ## Accuracy
 
-The test suite compares the finite-element results with the analytical ones for the six
+The test suite compares the finite-element results with the analytical ones for the
 reference cases, at each frequency, by means of the relative errors
 
 ```math
@@ -381,17 +386,18 @@ e_Z = \frac{\max_{ij} |\Delta Z_{ij}|}{\max_i |Z_{ii}|}, \qquad
 e_Y = \frac{\max_{ij} |\Delta Y_{ij}|}{\max_i |Y_{ii}|}.
 ```
 
-The accuracy level of the finite-element computation is 1 %. The maximum errors over the
-eleven finite-element frequencies of each case are:
+The accuracy level of the finite-element computation is 1 %. The table gives the maximum errors over the
+eleven finite-element frequencies for seven of the reference cases:
 
 | Case | ``e_Z`` | ``e_Y`` |
 | --- | --- | --- |
 | `two_bare_wires` | 0.568 % | 0.798 % |
 | `two_insulated_wires` | 0.407 % | 0.0447 % |
 | `coaxial_circular_strands` | 4.92 % | 10.5 % |
-| `coaxial_rectangular_strands` | 5.22 % | 10.4 % |
+| `coaxial_rectangular_strands` | 5.20 % | 10.4 % |
 | `overhead_bare_wires` | 0.610 % | 0.817 % |
 | `mixed_bare_wires` | 0.609 % | 0.617 % |
+| `one_bare_wire` | 0.549 % | 0.713 % |
 
 The differences in the coaxial cases result from the different representations of the cable
 in the two models:
@@ -404,8 +410,8 @@ in the two models:
 - ``e_Z`` above about 40 kHz: the lay correction of the core, for the same reason.
 - ``e_Z`` from 25 Hz to 40 kHz: the magnetic armor wires compared with the equivalent tube.
 
-For the four wire cases, the finite-element results of this package agree with those of the
-reference computation within 1e-6 of the largest diagonal entry.
+For `two_bare_wires`, `two_insulated_wires`, `overhead_bare_wires` and `mixed_bare_wires`, this package's
+finite-element results agree with the reference computation within 1e-6 of the largest diagonal entry.
 
 ## Continuous integration
 

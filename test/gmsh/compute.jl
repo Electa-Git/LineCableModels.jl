@@ -215,22 +215,27 @@
             end
         end
     end
-    # One build computed the frozen fem rows: GetDP 3.5.0 and Gmsh 4.15.2 on x86_64
-    # Linux. Gmsh's meshing decisions depend on floating point, so a build is the platform
-    # and the versions of Gmsh and GetDP together. The build of record computes the rows
-    # again within 3e-8 of the largest diagonal entry. This testset compares them at 1e-6.
+    # One build computed the frozen fem rows: GetDP 3.5.0 and Gmsh 4.15.2 on x86_64 Linux.
+    # Gmsh's meshing decisions depend on floating point, so a build is the platform and the
+    # versions of Gmsh and GetDP together. The build of record computes the rows again
+    # within 3e-8 of the largest diagonal entry. The references' testset compares them at
+    # 1e-6.
     #
     # Y of milliken_solid_segments at 10 MHz is the exception. The fem rows of record come
     # from solves with MUMPS's iterative refinement, whose steps follow the rounding of a
     # run. Over seven such runs, that Y moved by up to 2.18e-6 of the largest diagonal
     # entry. The default solve takes no refinement step and gives it 1.03e-6 from its row.
-    # This testset compares it at 2.18e-6, its known status.
+    # The references' testset compares it at 2.18e-6, its known status.
     #
     # Another build meshes the same geometry slightly differently. Pull request 67 measured
     # deviations up to 6e-4 of the diagonal on Apple silicon, Intel macOS and Windows. With
-    # Gmsh 4.13.1 on x86_64 Linux, they reach 2.7e-4. On such a build, this testset skips
-    # the comparison with the fem rows and warns with both builds. The comparison with the
-    # analytical rows and the known status runs on every build and is the physics check.
+    # Gmsh 4.13.1 on x86_64 Linux, they reach 2.7e-4.
+    #
+    # On such a build, the references' testset skips the comparison with the fem rows. The
+    # build check below warns once and names both builds. The comparison with the analytical
+    # rows and the known status runs on every build and is the physics check. The bent
+    # tape's testset below shares this build check and skips its impedance comparison on
+    # another build too.
     record = "x86_64 Linux, Gmsh 4.15.2, GetDP 3.5.0"
     version = pkgversion(getdp_jll)
     found = "$(Sys.ARCH) $(Sys.KERNEL), Gmsh $(gmsh.GMSH_API_VERSION), " *
@@ -239,6 +244,29 @@
     recorded ||
         @warn "The build $record computed the fem rows of the references. This build is " *
               "$found, and the suite skips their comparison."
+    @testset "a bent tape meshes and solves at high frequencies" begin
+        copper = Material(:conductor, 1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
+        shape = LineCableModels.Sector(14.95e-3, 15.05e-3, 5π / 3, 0, 0, Placement(0, 0))
+        design = build(CableDesign, "bent-tape", Terminal(:core, Region(:core, shape, copper)))
+        system = build(CableSystem, [design], [Placement(0.0, 10.0)];
+            connections = [(core = 1,)], id = "bent-tape", line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+            frequencies = [10.0^6.2, 1.0e7])
+        mktempdir() do folder
+            cd(folder) do
+                result = compute(problem, FEM())
+                # The bound is the references' 1e-6 of the entry's modulus.
+                # On the build of record, the run folders under `.linecablemodels/fem` had
+                # paths of 131 to 162 characters.
+                # Across those runs, Z moved by at most 3.2e-10 of its modulus.
+                expected = [0.8867502542985508 + 14.961351021167678im,
+                    24.397262180957043 + 71.8328540494561im]
+                for k in 1:2
+                    @test abs(result.Z[1, 1, k] - expected[k]) <= 1e-6 * abs(expected[k]) skip = !recorded
+                end
+            end
+        end
+    end
     facts = Dict(
         "two_bare_wires" => (Z = 0.00568, Y = 0.00798),
         "two_insulated_wires" => (Z = 0.00407, Y = 0.000447),
@@ -246,6 +274,7 @@
         "coaxial_rectangular_strands" => (Z = 0.0520, Y = 0.104),
         "overhead_bare_wires" => (Z = 0.00610, Y = 0.00817),
         "mixed_bare_wires" => (Z = 0.00609, Y = 0.00617),
+        "one_bare_wire" => (Z = 0.00549, Y = 0.00713),
         "one_insulated_sector" => (Z = 0.0762, Y = 0.0685),
         "milliken_solid_segments" => (Z = 0.0268, Y = 0.407),
         "three_insulated_sectors" => (Z = 0.0612, Y = 0.406),

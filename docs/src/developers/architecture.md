@@ -505,5 +505,5 @@ A baseline, a ratchet or a count does not exist.
 
 A set of planted probes, the negative controls, proves that each guard reports a violation.
 Beside the guards, Aqua checks the project, JET and `@inferred` check the inference of
-`compute`, and the loop's allocation is measured exactly. Under `test/references/`, ten reference cases hold
+`compute`, and the loop's allocation is measured exactly. Under `test/references/`, eleven reference cases hold
 the physics to their rows of record, analytical and finite-element.

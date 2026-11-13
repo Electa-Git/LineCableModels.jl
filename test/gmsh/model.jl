@@ -16,6 +16,7 @@ using LineCableModels.Engine: admittivity, reductions
                 :sheath_bedding, :armour_jacket], [false]),
         "overhead_bare_wires" => (2, 1, 0, Symbol[], [true, true]),
         "mixed_bare_wires" => (2, 1, 0, Symbol[], [true, false]),
+        "one_bare_wire" => (1, 1, 0, Symbol[], [true]),
         "one_insulated_sector" => (3, 2, 0, Symbol[], [false]),
         "milliken_solid_segments" => (81, 5, 7,
             [:binder, :semicon_inner, :xlpe, :semicon_outer, :bedding_inner,

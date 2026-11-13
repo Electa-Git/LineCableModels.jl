@@ -1,11 +1,11 @@
 # Reference results
 
-Per-unit-length line parameters of the ten cable systems of this release, computed with the
+Per-unit-length line parameters of the eleven cable systems of this release, computed with the
 earth-return formula `:martins2026` and with FEM. The tests compare the package against them.
 
 Each case is a problem of `test/references/problems.jl`. Commit `bee50049` computed the rows of
 the first six cases. The commit that adds each later case computed its FEM rows. It also
-computed the analytical rows of `one_insulated_sector` and `milliken_solid_segments`. For
+computed the analytical rows of `one_bare_wire`, `one_insulated_sector` and `milliken_solid_segments`. For
 `three_insulated_sectors` and `three_cores_steel_pipe`, the commit that adds their analytical
 rows computed those rows.
 
@@ -34,6 +34,7 @@ its known status.
 | `coaxial_rectangular_strands` | the same cable with a core of rectangular strands | `bee50049` | `20261109-083248-j17k` |
 | `overhead_bare_wires` | two bare copper wires of radius 42.5 mm, 1 m apart, 1 m above earth of 0.1 Ω·m (εr 1) | `bee50049` | `20261109-083138-xbye` |
 | `mixed_bare_wires` | the same wires at (0, 1) m and (1, −1) m, one overhead and one buried | `bee50049` | `20261109-083138-c7w6` |
+| `one_bare_wire` | one bare copper wire of radius 42.5 mm, 10 m above earth of 0.1 Ω·m (εr 1) | the one that adds it | `20261113-065154-zlq2` |
 | `one_insulated_sector` | one aluminum sector core with its PVC insulation and a PVC jacket, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-144108-sx0a` |
 | `milliken_solid_segments` | one 220 kV cable with a core of six solid aluminum segments, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-172637-kmpa` |
 | `three_insulated_sectors` | one 1 kV cable of three aluminum sectors and 30 copper neutral wires, buried 1 m deep in earth of 100 Ω·m (εr 10) | FEM: the one that adds the case. Analytical: the one that adds the analytical rows. | `20261109-172647-9ggu` |
@@ -153,6 +154,7 @@ The port's run gives these maxima against the analytical rows:
 | `coaxial_rectangular_strands` | 5.20 % | 10.4 % |
 | `overhead_bare_wires` | 0.610 % | 0.817 % |
 | `mixed_bare_wires` | 0.609 % | 0.617 % |
+| `one_bare_wire` | 0.549 % | 0.713 % |
 | `one_insulated_sector` | 7.62 % | 6.85 % |
 | `milliken_solid_segments` | 2.68 % | 40.7 % |
 | `three_insulated_sectors` | 6.12 % | 40.6 % |
