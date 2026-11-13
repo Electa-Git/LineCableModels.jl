@@ -20,10 +20,11 @@ the FEM rows of every case within 3e-8 of the largest diagonal entry, except `Y`
 `milliken_solid_segments` at 10 MHz. The suite compares them at 1e-6. On another build, the suite
 skips that comparison and warns with both builds.
 
-The triangulation of the screen wires and the foil of `milliken_solid_segments` changes with a
-run's incidental state, while the node and element counts stay equal. Over seven runs, its `Y` at
-10 MHz moves by up to 2.18e-6 of the largest diagonal entry. The suite compares that `Y` at
-2.18e-6, its known status.
+The FEM rows of record come from solves with MUMPS's iterative refinement, `MumpsRefinementMax` 2.
+A refinement step follows the rounding of a run. In `milliken_solid_segments`, it moved `Y` at
+10 MHz by up to 2.18e-6 of the largest diagonal entry over seven runs. The default solve takes no
+refinement step and gives that `Y` 1.03e-6 from its row. The suite compares that `Y` at 2.18e-6,
+its known status.
 
 | Case | System | Commit | Run |
 |---|---|---|---|

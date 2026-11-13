@@ -24,9 +24,9 @@ const OVERRIDES = (
     MumpsOrdering = (default = 0, range = (-1, 0, 2, 3, 4, 5, 6, 7)),
     PetscPrealloc = (default = 0, range = 0:typemax(Cint)),
     MumpsErrorAnalysis = (default = 2, range = (0, 1, 2)),
-    MumpsRefinementMax = (default = 2, range = 0:typemax(Cint)),
+    MumpsRefinementMax = (default = 0, range = 0:typemax(Cint)),
     MumpsBackwardErrorTolerance = (
-        default = 1e-12, range = Interval{:open, :open}(0.0, Inf)),
+        default = 1e-9, range = Interval{:open, :open}(0.0, Inf)),
     ThinLayerStrips = (default = 1, range = (0, 1)))
 
 """

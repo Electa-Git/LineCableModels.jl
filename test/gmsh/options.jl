@@ -33,8 +33,8 @@ using LineCableModels.Engine: GmshBackend
         MumpsOrdering = 0,
         PetscPrealloc = 0,
         MumpsErrorAnalysis = 2,
-        MumpsRefinementMax = 2,
-        MumpsBackwardErrorTolerance = 1e-12,
+        MumpsRefinementMax = 0,
+        MumpsBackwardErrorTolerance = 1e-9,
         ThinLayerStrips = 1)
     @test defaults(GmshBackend).overrides == native
 

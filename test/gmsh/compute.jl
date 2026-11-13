@@ -220,10 +220,11 @@
     # and the versions of Gmsh and GetDP together. The build of record computes the rows
     # again within 3e-8 of the largest diagonal entry. This testset compares them at 1e-6.
     #
-    # Y of milliken_solid_segments at 10 MHz is the exception. The triangulation of its screen
-    # wires and foil changes with a run's incidental state, while the node and element counts
-    # stay equal. Over seven runs on the build of record, that Y moves by up to 2.18e-6 of the
-    # largest diagonal entry. This testset compares it at 2.18e-6, its known status.
+    # Y of milliken_solid_segments at 10 MHz is the exception. The fem rows of record come
+    # from solves with MUMPS's iterative refinement, whose steps follow the rounding of a
+    # run. Over seven such runs, that Y moved by up to 2.18e-6 of the largest diagonal
+    # entry. The default solve takes no refinement step and gives it 1.03e-6 from its row.
+    # This testset compares it at 2.18e-6, its known status.
     #
     # Another build meshes the same geometry slightly differently. Pull request 67 measured
     # deviations up to 6e-4 of the diagonal on Apple silicon, Intel macOS and Windows. With

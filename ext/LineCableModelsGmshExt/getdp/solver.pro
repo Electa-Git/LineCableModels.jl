@@ -6,8 +6,8 @@ If(!Exists(GmresAbsoluteTolerance)) GmresAbsoluteTolerance = 0.; EndIf
 If(!Exists(MumpsOrdering)) MumpsOrdering = 0; EndIf // AMD
 If(!Exists(PetscPrealloc)) PetscPrealloc = 0; EndIf
 If(!Exists(MumpsErrorAnalysis)) MumpsErrorAnalysis = 2; EndIf
-If(!Exists(MumpsRefinementMax)) MumpsRefinementMax = 2; EndIf
-If(!Exists(MumpsBackwardErrorTolerance)) MumpsBackwardErrorTolerance = 1.e-12; EndIf
+If(!Exists(MumpsRefinementMax)) MumpsRefinementMax = 0; EndIf
+If(!Exists(MumpsBackwardErrorTolerance)) MumpsBackwardErrorTolerance = 1.e-9; EndIf
 If(LinearSolver != 0 && LinearSolver != 1)
   Error("LinearSolver must be 0 (MUMPS) or 1 (GMRES)");
 EndIf
