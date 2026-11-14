@@ -11,8 +11,10 @@ same way as in the coaxial computation.
 
 ## Loading the extension
 
-The extension is loaded by `using LineCableModels, Gmsh, getdp_jll`, and the Julia package
-Gmsh.jl provides the Gmsh library with it. The field equations are solved by GetDP 3.5.0 in
+The extension is loaded by `using LineCableModels, Gmsh, getdp_jll`.
+Its triggers are Gmsh, getdp_jll, OpenBLAS32_jll and OpenBLAS_jll.
+Both OpenBLAS packages load automatically.
+Gmsh.jl provides the Gmsh library. The field equations are solved by GetDP 3.5.0 in
 complex arithmetic, provided by getdp_jll as described below. The
 finite-element computation is tested on Linux, macOS and Windows.
 
@@ -32,11 +34,10 @@ set_preferences!(getdp_jll, "getdp_path" => "/opt/getdp/bin/getdp")
 
 Restart Julia after setting the preference: JLLWrappers reads it when getdp_jll loads.
 
-Before a computation, the extension runs the executable with `-info` and checks that the
-`Version` line reports GetDP 3.5 or later and the `PETSc version` line reports complex
-arithmetic. The executable path must be shorter than 256 bytes, a limit of the native path
-arguments. In a kept run directory, `logs/getdp-info.log` records the executable path and
-its `-info` report.
+The extension sets `LBT_DEFAULT_LIBS` to the ILP64 and LP64 OpenBLAS libraries for PETSc and
+MUMPS in each GetDP process. This includes a build selected through getdp_jll's `getdp_path` preference.
+
+The executable path must be shorter than 256 bytes, a limit of the native path arguments.
 
 ## Finite-element formulation
 
@@ -342,9 +343,8 @@ Markdown.parse(join(["| Control | Default | Range |", "| :-- | :-- | :-- |", row
 Each computation writes its inputs and outputs under the current directory, in
 `.linecablemodels/fem/<system id>/<yyyymmdd-HHMMSS>-<4 random characters>/`. The run
 directory contains the native sources and the geometry under `input/`, the meshes under
-`mesh/`, the matrices `results/Z.tsv` and `results/P.tsv`, and the logs under `logs/`, where
-`logs/getdp-info.log` records the executable used in the computation. With the default
-`keep_run_directory = false`, the run directory is removed after the result is built. With
+`mesh/`, the matrices `results/Z.tsv` and `results/P.tsv`, and the logs under `logs/`.
+With the default `keep_run_directory = false`, the run directory is removed after the result is built. With
 `keep_run_directory = true`, the directory is kept and its path is logged. When a native
 process fails, the run directory is kept, and the error message gives the frequency and the
 log file with its last twenty lines.

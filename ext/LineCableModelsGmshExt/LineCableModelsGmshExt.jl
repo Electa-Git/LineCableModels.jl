@@ -11,6 +11,8 @@ using Gmsh: Gmsh, gmsh
 using IntervalSets: Interval
 using Printf: @sprintf
 using LinearAlgebra: ldiv!
+using OpenBLAS32_jll: OpenBLAS32_jll
+using OpenBLAS_jll: OpenBLAS_jll
 using getdp_jll: getdp_jll
 import LineCableModels.Commons: build, compute, defaults, validate
 using LineCableModels.Commons: ComputationOptions, resolve, nominal, tolerance

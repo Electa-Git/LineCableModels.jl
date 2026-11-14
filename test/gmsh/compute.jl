@@ -308,8 +308,6 @@
                     problem, formulation; trace = true, keep_run_directory = true)
                 root = dirname(path)
                 retained = only(readdir(root; join = true))
-                lines = readlines(joinpath(retained, "logs", "getdp-info.log"))
-                @test lines[1] == getdp_jll.getdp().exec[1]
                 @test result.frequencies == problem.frequencies
                 @test result.terminals ==
                       ["cable:$(row.cable):$(problem.system.designs[row.cable].terminals[row.terminal].name)"

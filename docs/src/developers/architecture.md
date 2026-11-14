@@ -380,7 +380,10 @@ unsupported: SpecialFunctions has no Bessel methods for it, and the honest error
 
 ### Finite-element backend
 
-`using Gmsh` loads `LineCableModelsGmshExt`. The extension reads the engine's problem, the
+`using Gmsh, getdp_jll` loads `LineCableModelsGmshExt`.
+Its triggers are Gmsh, getdp_jll, OpenBLAS32_jll and OpenBLAS_jll.
+Both OpenBLAS packages load automatically.
+The extension reads the engine's problem, the
 laws of `FEM` and the reduction plan of `reductions`. From the data model it reads the
 placed regions, their cross-sections and the curves of their outlines. It defines
 `defaults(::Type{GmshBackend})` and the `compute` method of `GmshBackend` for `FEM`.

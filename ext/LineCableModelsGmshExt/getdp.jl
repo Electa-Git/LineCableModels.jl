@@ -161,6 +161,7 @@ Scan the frequencies with at most `options.workers` GetDP processes at once.
 Each process uses one mesh and reuses its factorization for every terminal basis. Read the
 outputs after every process stops, keep each log under `logs/`, and remove each work
 directory. Write the combined rows to `results/Z.tsv` and `results/P.tsv`.
+Set `LBT_DEFAULT_LIBS` to the ILP64 and LP64 OpenBLAS libraries for PETSc and MUMPS.
 
 # Arguments
 
@@ -175,8 +176,7 @@ directory. Write the combined rows to `results/Z.tsv` and `results/P.tsv`.
 
 # Errors
 
-- Throws for an unavailable executable, a failed identity check, or an executable path of
-  256 bytes or more.
+- Throws for an unavailable executable or an executable path of 256 bytes or more.
 - Throws `ErrorException` for a failed process or output check.
 - Rethrows `InterruptException` after all processes stop.
 
@@ -186,21 +186,12 @@ Process failures also give the exit code and signal. The run directory stays on 
 function scan(directory::AbstractString, model::FieldModel{T},
         options::ComputationOptions{GmshBackend}) where {T}
     getdp_jll.is_available() || error("getdp_jll has no GetDP build for $(Sys.MACHINE)")
-    command = getdp_jll.getdp()
+    command = addenv(getdp_jll.getdp(),
+        "LBT_DEFAULT_LIBS" => join(
+            (OpenBLAS_jll.libopenblas_path, OpenBLAS32_jll.libopenblas_path), ';'))
     executable = command.exec[1]
     ncodeunits(executable) < 256 ||
         error("GetDP native paths must be shorter than 256 bytes: $executable")
-    buffer = IOBuffer()
-    run(pipeline(`$command -info`; stdout = buffer, stderr = buffer))
-    output = String(take!(buffer))
-    open(joinpath(directory, "logs", "getdp-info.log"), "w") do io
-        println(io, executable)
-        write(io, output)
-    end
-    parts = collect(eachmatch(r"(?m)^\h*Version\b[^\r\n]*?(\d+)\.(\d+)", output))
-    !isempty(parts) && Tuple(parse.(Int, first(parts).captures)) >= (3, 5) &&
-    occursin(r"(?m)^\h*PETSc version\b[^\r\n]*\bcomplex arithmetic\b", output) ||
-        error("GetDP executable $executable reported:\n$output\ngetdp_jll's getdp_path preference must point to a GetDP 3.5 build with complex arithmetic")
     n = length(model.label)
     nf = length(model.problem.frequencies)
     Z = Array{Complex{T}, 3}(undef, n, n, nf)

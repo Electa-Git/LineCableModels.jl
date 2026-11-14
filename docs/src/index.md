@@ -84,7 +84,8 @@ add a backend or a number type to the same problems and results.
 ### Gmsh.jl
 
 Finite-element capabilities are introduced with `using Gmsh, getdp_jll`, which loads the
-finite-element extension. Gmsh.jl provides the Gmsh library that meshes the cross-section,
+finite-element extension. Its OpenBLAS32_jll and OpenBLAS_jll triggers load automatically.
+Gmsh.jl provides the Gmsh library that meshes the cross-section,
 and getdp_jll provides the GetDP 3.5.0 executable that solves the field equations in complex
 arithmetic. A build of your own is selected through getdp_jll's `getdp_path` preference,
 and the same problem is computed by `compute(problem, FEM())`. The
