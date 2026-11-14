@@ -242,7 +242,7 @@ looped(M, k, rows) = [M[i, j] - M[i, k] - M[k, j] + M[k, k] for i in rows, j in 
 
     # Insulated cores in a common jacket, with no conductor around them, are cables of the
     # system. Each has its own earth return.
-    @testset "members that no conductor surrounds are cables of their own" begin
+    let
         angles, names = (0, 2π / 3, 4π / 3), (:a, :b, :c)
         cores = [Stack(Terminal(name, Region(name, Circle(3.0e-3), copper)),
                      Region(Symbol(name, :_insulation), Offset(1.0e-3), polymer))
@@ -253,14 +253,33 @@ looped(M, k, rows) = [M[i, j] - M[i, k] - M[k, j] + M[k, k] for i in rows, j in 
                     Assembly(Tuple(Placement(8.0e-3 * cos(φ), 8.0e-3 * sin(φ)) => core
                     for (φ, core) in zip(angles, cores)))),
                 Region(:jacket, Offset(2.0e-3), polymer)))
-        result = interior_result([design], [Placement(0, -1)], [(a = 1, b = 2, c = 3)])
-        apart = interior_result(
-            [build(CableDesign, string(name), core) for (name, core) in zip(names, cores)],
-            [Placement(8.0e-3 * cos(φ), -1 + 8.0e-3 * sin(φ)) for φ in angles],
-            [(; name => k) for (k, name) in enumerate(names)])
-        @test size(result.trace.Zg) == (3, 3, 4)
-        @test result.trace.Zg == apart.trace.Zg && result.trace.Pg == apart.trace.Pg
-        @test result.Z == apart.Z && result.Y == apart.Y
+        @testset "members that no conductor surrounds are cables of their own" begin
+            result = interior_result([design], [Placement(0, -1)], [(a = 1, b = 2, c = 3)])
+            apart = interior_result(
+                [build(CableDesign, string(name), core)
+                 for (name, core) in zip(names, cores)],
+                [Placement(8.0e-3 * cos(φ), -1 + 8.0e-3 * sin(φ)) for φ in angles],
+                [(; name => k) for (k, name) in enumerate(names)])
+            @test size(result.trace.Zg) == (3, 3, 4)
+            @test result.trace.Zg == apart.trace.Zg && result.trace.Pg == apart.trace.Pg
+            @test result.Z == apart.Z && result.Y == apart.Y
+        end
+
+        @testset "the buried members present mD on their centers and tube radii" begin
+            system = build(CableSystem, [design], [Placement(0, -1)];
+                connections = [(a = 1, b = 2, c = 3)], id = "interior", line_length = 1.0)
+            problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+                frequencies = [50.0, 1.0e3, 1.0e5, 1.0e6])
+            input = LineCableModels.Engine.CoaxialInput(problem, CoaxialFormulation().options)
+            presented = LineCableModels.Engine.domain(input, problem).mD
+            deepest = last(problem.earth.layers)
+            m_high = sqrt(2π * last(problem.frequencies) * LineCableModels.μ₀ *
+                          deepest.mu_r / deepest.rho)
+            reach = maximum([input.radius;
+                             [hypot(input.x[i] - input.x[j], input.y[i] - input.y[j])
+                              for i in eachindex(input.x) for j in 1:(i - 1)]])
+            @test isapprox(maximum(presented), m_high * reach; rtol = 1.0e-12)
+        end
     end
 
     # Construction 10 of the blueprints: sector cores with no conductor around them.

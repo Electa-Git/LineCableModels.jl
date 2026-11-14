@@ -102,14 +102,14 @@ end
     formulation = CoaxialFormulation()
     input = Engine.CoaxialInput(problem, formulation.options)
     given = @inferred Engine.domain(problem, formulation.options)
-    tubes = @inferred Engine.domain(input)
+    tubes = @inferred Engine.domain(input, problem)
     presented = merge(given, tubes)
     @test all(eltype(presented[key]) === Float64
     for key in keys(presented) if key !== :order)
     @test eltype(presented.order) === Int
     @test (@inferred LineCableModels.validate(presented, formulation)) === presented
     JET.@test_opt target_modules=(LineCableModels,) Engine.domain(problem, formulation.options)
-    JET.@test_opt target_modules=(LineCableModels,) Engine.domain(input)
+    JET.@test_opt target_modules=(LineCableModels,) Engine.domain(input, problem)
     JET.@test_opt target_modules=(LineCableModels,) LineCableModels.validate(presented, formulation)
 end
 

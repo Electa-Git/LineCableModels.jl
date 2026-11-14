@@ -327,6 +327,21 @@ end
             Engine.domain(hot, finite.options), finite)
     end
 
+    @testset "the domain of a sector cable takes its tube radius" begin
+        problem = Dict(REFERENCES)["one_insulated_sector"]
+        input = Engine.CoaxialInput(problem, CoaxialFormulation().options)
+        presented = Engine.domain(input, problem).mD
+        deepest = last(problem.earth.layers)
+        m_low,
+        m_high = map(f -> sqrt(2π * f * LineCableModels.μ₀ * deepest.mu_r / deepest.rho),
+            (first(problem.frequencies), last(problem.frequencies)))
+        @test isapprox(minimum(presented), m_low * input.radius[1]; rtol = 1.0e-12)
+        @test isapprox(maximum(presented), m_high * input.radius[1]; rtol = 1.0e-12)
+        radius = LineCableModels.support(first(problem.system.designs).outer)
+        @test minimum(presented) < m_low * radius
+        @test maximum(presented) < m_high * radius
+    end
+
     @testset "no warning on the references with the default formulations" begin
         for (case, problem) in REFERENCES
             @test_logs compute(problem, CoaxialFormulation())
@@ -366,7 +381,7 @@ end
         reference = Dict(REFERENCES)["coaxial_circular_strands"]
         coaxial = CoaxialFormulation()
         presented = keys(merge(Engine.domain(reference, coaxial.options),
-            Engine.domain(Engine.CoaxialInput(reference, coaxial.options))))
+            Engine.domain(Engine.CoaxialInput(reference, coaxial.options), reference)))
         for family in (Engine.InternalImpedance, Engine.InsulationImpedance,
                 Engine.InsulationAdmittance, Engine.SemiconAdmittance, Engine.EarthReturn,
                 Engine.Shunt, Engine.Resistivity, Engine.EarthProperties),
@@ -388,11 +403,11 @@ end
         formulation = CoaxialFormulation()
         input = Engine.CoaxialInput(problem, formulation.options)
         given = @inferred Engine.domain(problem, formulation.options)
-        tubes = @inferred Engine.domain(input)
+        tubes = @inferred Engine.domain(input, problem)
         presented = merge(given, tubes)
         @test (@inferred LineCableModels.validate(presented, formulation)) === presented
         JET.@test_opt target_modules=(LineCableModels,) Engine.domain(problem, formulation.options)
-        JET.@test_opt target_modules=(LineCableModels,) Engine.domain(input)
+        JET.@test_opt target_modules=(LineCableModels,) Engine.domain(input, problem)
         JET.@test_opt target_modules=(LineCableModels,) LineCableModels.validate(presented, formulation)
         finite = FEM()
         given = @inferred Engine.domain(problem, finite.options)

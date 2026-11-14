@@ -501,7 +501,7 @@ function compute(
     input = CoaxialInput(problem, formulation.options)
     validate(input, formulation)
     validate(input, formulation, problem)
-    validate(merge(domain(problem, formulation.options), domain(input)), formulation)
+    validate(merge(domain(problem, formulation.options), domain(input, problem)), formulation)
     buffers = initialize_buffers(formulation, problem, input)
     validate(buffers.earth, formulation.equivalent_earth, problem.frequencies)
     n = length(input.cable)

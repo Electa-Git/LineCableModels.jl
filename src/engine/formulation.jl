@@ -579,23 +579,11 @@ end
 function domain(problem::LineParametersProblem{T},
         options::FormulationOptions{<:Union{CoaxialFormulation, FEM}}) where {T <: Real}
     N = typeof(nominal(zero(T)))
-    none = (typemax(N), typemin(N))
     (; system, earth, frequencies, temperature) = problem
-    deepest = last(earth.layers)
-    buried = findall(placement -> nominal(placement.y) < 0, system.placements)
-    reach = extrema(
-        (i == j ? nominal(support(system.designs[i].outer)) :
-         nominal(hypot(system.placements[i].x - system.placements[j].x,
-             system.placements[i].y - system.placements[j].y))
-        for i in buried, j in buried); init = none)
-    m = map(f -> nominal(sqrt(2π * f * μ₀ * deepest.mu_r / deepest.rho)),
-        (first(frequencies), last(frequencies)))
     return (
         frequencies = ClosedInterval(nominal(first(frequencies)), nominal(last(frequencies))),
         mu_r_earth = ClosedInterval(extrema(layer -> nominal(layer.mu_r), Base.tail(earth.layers))...),
         Γ = ClosedInterval(extrema(z -> abs(nominal(z)), options.Γ)...),
-        mD = isempty(buried) ? ClosedInterval(none...) :
-             ClosedInterval(first(m) * first(reach), last(m) * last(reach)),
         Δθ = ClosedInterval(extrema(N[nominal(abs(temperature - region.source.material.T0))
                                       for region in system.regions
                                       if region.source.material isa

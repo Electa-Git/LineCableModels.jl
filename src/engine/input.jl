@@ -146,12 +146,23 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     end
 end
 
-# The tubes with a hole that the coaxial input reduces its conductors to.
-function domain(input::CoaxialInput{T}) where {T <: Real}
+# The walls of tubes with a hole, and m·D from the centers and tube radii of buried cables.
+function domain(input::CoaxialInput{T}, problem::LineParametersProblem) where {T <: Real}
     N = typeof(nominal(zero(T)))
     none = (typemax(N), typemin(N))
     wall = extrema(
         nominal((input.r_ex[i] - input.r_in[i]) / (input.r_ex[i] + input.r_in[i]))
         for i in eachindex(input.r_in) if !iszero(input.r_in[i]); init = none)
-    return (wall = ClosedInterval(wall...),)
+    (; earth, frequencies) = problem
+    deepest = last(earth.layers)
+    buried = findall(i -> nominal(input.y[i]) < 0, eachindex(input.y))
+    reach = extrema(
+        (i == j ? nominal(input.radius[i]) :
+         nominal(hypot(input.x[i] - input.x[j], input.y[i] - input.y[j]))
+        for i in buried, j in buried); init = none)
+    m = map(f -> nominal(sqrt(2π * f * μ₀ * deepest.mu_r / deepest.rho)),
+        (first(frequencies), last(frequencies)))
+    return (wall = ClosedInterval(wall...),
+        mD = isempty(buried) ? ClosedInterval(none...) :
+             ClosedInterval(first(m) * first(reach), last(m) * last(reach)))
 end

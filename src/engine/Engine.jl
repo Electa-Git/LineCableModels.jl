@@ -116,7 +116,7 @@ function admittivity end
 """
     domain(formula)
     domain(problem, options)
-    domain(input)
+    domain(input, problem)
 
 Return the closed interval of each quantity by its key: where a formula holds, or what a
 computation presents to the formulas of its formulation.
@@ -132,7 +132,7 @@ formula of the formulation.
 | `frequencies` | the frequencies of the scan | \\[Hz\\] | `problem` |
 | `mu_r_earth` | the relative permeability of each earth layer below the air | \\[dimensionless\\] | `problem` |
 | `Γ` | the modulus of the longitudinal wavenumber | \\[1/m\\] | `options` |
-| `mD` | the product ``m D`` of the deepest layer | \\[dimensionless\\] | `problem` |
+| `mD` | the product ``m D`` of the deepest layer | \\[dimensionless\\] | `input`, `problem` |
 | `Δθ` | the distance of the temperature from `T0` of each conductor material | \\[K\\] | `problem` |
 | `wall` | ``(r_\\mathrm{ex} - r_\\mathrm{in}) / (r_\\mathrm{ex} + r_\\mathrm{in})`` of each tube with a hole | \\[dimensionless\\] | `input` |
 | `order` | the highest harmonic order of the field around each member that the recipes keep | \\[dimensionless\\] | `options` |
@@ -144,8 +144,9 @@ m = \\sqrt{2 \\pi f \\mu_0 \\mu_r / \\rho}
 ```
 
 takes the static resistivity and permeability of the deepest layer at the lowest and the
-highest frequency. The length ``D`` is the distance between two buried cables or the outer
-radius of one \\[m\\].
+highest frequency. The length ``D`` is the distance between the centers of two buried cables
+or the radius of one \\[m\\]. The earth formulas take these centers and, for each cable, the
+outer radius of its tube.
 
 # Arguments
 
