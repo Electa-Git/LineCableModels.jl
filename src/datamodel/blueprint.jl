@@ -177,22 +177,23 @@ signed by their direction. Its geometric mean radius ``g`` follows from
 \\log g = \\sum_i w_i^2 \\log g_i + 2 \\sum_{i < j} w_i w_j \\log d_{ij}.
 ```
 
-An annulus about the center of inner radius ``a`` and outer radius ``b`` has the self term
+A disk or annulus ``S_i`` about the center, of outer radius ``b``, has the own term
 
 ```math
-\\log g_i = \\log b - \\mu_i \\left[\\frac{a^4}{(b^2 - a^2)^2} \\log\\frac{b}{a}
-    - \\frac{3a^2 - b^2}{4 (b^2 - a^2)}\\right],
+\\log g_i = \\log b - \\mu_i (\\log b - \\log \\operatorname{gmd}(S_i,S_i)).
 ```
 
-which is ``\\log b - \\mu_i / 4`` for a circle and ``\\log b`` for a thin shell,
-``a = b``. Any other region has the self term
-``\\log \\sqrt{A_i / \\pi} - \\mu_i / 4`` of the circle of its area. The mutual distance
-``d_{ij}`` is the distance between the centroids. For a region inside the hole of an annulus, it
-is the mean distance of Rosa (1908), Eq. (57):
+The difference in parentheses is the tube's internal term, equal to ``1/4``
+for a disk. A thin shell at equal inner and outer radii has the own term ``\\log b``.
+Any other region ``S_i`` has the own term
+``\\log g_i = \\log \\operatorname{gmd}(S_i,S_i) - (\\mu_i-1)/4``.
+Its geometric mean distance comes from its outline through [`gmd`](@ref), with the
+circle's convention for the permeability correction. Every pair of regions contributes the cross term
+``\\log d_{ij} = \\log \\operatorname{gmd}(S_i,S_j)``.
 
-```math
-\\log d_{ij} = \\frac{b^2 \\log b - a^2 \\log a}{b^2 - a^2} - \\frac{1}{2}.
-```
+The calculation evaluates the own term once for each position within a repeated part.
+That position in each copy takes the value from the first copy. The copies are rigid images under the repeat's placements.
+A region outside every repeat takes its own term.
 
 A block that tiles an annulus takes that tube. Any other block takes the tube
 of its metal area ``S`` and of the perimeter ``l`` of its outline, Ametani's equivalent:
@@ -280,6 +281,32 @@ function flatten(design::CableDesign)
                       if all(
                  j -> owners[j] != owners[k] || j <= k || index < first(blocks[j]),
                  eachindex(blocks))]) for k in eachindex(blocks)]
+    representatives = collect(eachindex(regions))
+    for row in design.repeats, copy in row.copies
+
+        for (index, firstindex) in zip(copy, first(row.copies))
+            representatives[index] = min(representatives[index], firstindex)
+        end
+    end
+    for index in eachindex(representatives)
+        representatives[index] = representatives[representatives[index]]
+    end
+    terms = zeros(T, length(regions))
+    for index in unique(representatives[assigned])
+        terminal = findfirst(row -> index in row.regions, design.terminals)
+        shape = centered[owners[terminal]][index]
+        μ = regions[index].source.material.mu_r
+        terms[index] = if isannular(shape)
+            a, b = distance(shape), support(shape)
+            if isapprox(a, b)
+                log(b)
+            else
+                log(b) - μ * (log(b) - log(gmd(shape, shape)))
+            end
+        else
+            log(gmd(shape, shape)) - (μ - 1) / 4
+        end
+    end
     reduced = map(eachindex(design.terminals)) do k
         members = design.terminals[k].regions
         shapes = [centered[owners[k]][index] for index in members]
@@ -287,30 +314,9 @@ function flatten(design::CableDesign)
         conductances = [area(shapes[i]) / (materials[i].rho * overlengths[members[i]])
                         for i in eachindex(members)]
         shares = conductances ./ sum(conductances)
-        rings = [isannular(shape) for shape in shapes]
-        own = map(eachindex(shapes)) do i
-            a, b, μ = distance(shapes[i]), support(shapes[i]), materials[i].mu_r
-            rings[i] || return log(area(shapes[i]) / π) / 2 - μ / 4
-            iszero(a) && return log(b) - μ / 4
-            isapprox(a, b) && return log(b)
-            return log(b) -
-                   μ * (a^4 / (b^2 - a^2)^2 * log(b / a) - (3a^2 - b^2) / (4(b^2 - a^2)))
-        end
+        own = [terms[representatives[index]] for index in members]
         cross = sum(
-            (begin
-                 a, b = distance(shapes[i]), support(shapes[i])
-                 c, d = distance(shapes[j]), support(shapes[j])
-                 mean = if rings[i] && a > zero(a) &&
-                           support(shapes[j]) <= a + tolerance(a)
-                     (b^2 * log(b) - a^2 * log(a)) / (b^2 - a^2) - one(a) / 2
-                 elseif rings[j] && c > zero(c) &&
-                        support(shapes[i]) <= c + tolerance(c)
-                     (d^2 * log(d) - c^2 * log(c)) / (d^2 - c^2) - one(c) / 2
-                 else
-                     log(hypot((centroid(shapes[i]) .- centroid(shapes[j]))...))
-                 end
-                 shares[i] * shares[j] * mean
-             end
+            (shares[i] * shares[j] * log(gmd(shapes[i], shapes[j]))
             for i in eachindex(shapes) for j in (i + 1):length(shapes));
             init = zero(eltype(shares)))
         gmr = sum(shares .^ 2 .* own) + 2cross

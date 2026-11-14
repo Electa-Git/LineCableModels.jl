@@ -60,7 +60,7 @@ that layer.
 
 The analytical rows of that case come from the equivalent tube of the sector: 2.585 mm to
 5.849 mm, of the same area. Its resistivity gives the sector's conductance, and its
-permeability gives the geometric mean radius of the circle of the same area. So the case compares
+permeability gives the sector's own geometric mean distance from its outline. So the case compares
 that equivalent section of a sector with FEM.
 
 The cable of `milliken_solid_segments` has a core of six solid aluminum segments of 60° in a PE
@@ -157,7 +157,7 @@ The port's run gives these maxima against the analytical rows:
 | `one_bare_wire` | 0.549 % | 0.713 % |
 | `one_insulated_sector` | 7.62 % | 6.85 % |
 | `milliken_solid_segments` | 2.68 % | 40.7 % |
-| `three_insulated_sectors` | 6.12 % | 40.6 % |
+| `three_insulated_sectors` | 6.11 % | 40.6 % |
 | `three_cores_steel_pipe` | 0.403 % | 0.121 % |
 
 The file `two_bare_wires/xue2021.csv` gives `analytical` and `fem` rows of `Z` and `Y` at 1 kHz

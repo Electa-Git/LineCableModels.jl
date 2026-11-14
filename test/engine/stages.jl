@@ -45,12 +45,16 @@
             Engine.impedance!(internal, term, view(Zin,:,:,k), buffers, input, rho, s)
             Engine.potential!(shunt, view(Pin,:,:,k), buffers, input, kappa, s)
         end
+        # The rectangular core's Zin targets use gmd at τ = 1e-6,
+        # measured on Julia 1.12.7, x86_64 Linux.
         for (computed, target) in ((Zin, targets["Zin"]), (Pin, targets["Pin"]))
             @test all(maximum(abs, computed[:, :, k] - target[:, :, k]) <=
                       1.0e-12 * maximum(abs(target[i, i, k]) for i in 1:n)
             for k in eachindex(problem.frequencies))
         end
         result = compute(problem, CoaxialFormulation(); trace = true)
+        # The trace uses the same Zin targets measured with gmd at τ = 1e-6
+        # on Julia 1.12.7, x86_64 Linux, and the same 1e-12 bound.
         for (matrix, computed, tolerance) in (("Z", result.Z, 1e-9), ("Y", result.Y, 1e-9),
             ("Zin", result.trace.Zin, 1e-12), ("Pin", result.trace.Pin, 1e-12),
             ("Zg", result.trace.Zg, 1e-9), ("Pg", result.trace.Pg, 1e-9))

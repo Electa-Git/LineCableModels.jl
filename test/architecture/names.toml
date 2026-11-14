@@ -123,7 +123,7 @@ symbols = ["i0m1"]
 [modules.BaseGeometry]
 nouns = ["placement", "segment", "curve", "contour", "area", "centroid", "perimeter", "support",
     "distance", "dimension", "parallel", "clearance", "turn", "direction", "overlap", "vertex",
-    "apsides", "winding", "moment", "parameter"]
+    "apsides", "winding", "moment", "parameter", "derivative", "gmd"]
 qualifiers = ["elliptic", "lowest", "stationary", "tangent"]
 symbols = ["p"]
 
@@ -363,6 +363,7 @@ martins2020 = "the equivalent conductivity of the described layers by Martins-Br
 xue2021 = "the equivalent propagation constant of the described layers by Xue and coauthors (2021, commit 49c5bb69, earthprops/ehem/formulas/xue2021.jl)"
 
 [register.BaseGeometry.public]
+gmd = "the geometric mean distance of two regions, each bounded by a contour, or of one region with itself"
 Placement = "a planar translation and rotation relative to a parent frame"
 Segment = "a straight curve from its point p to its point q in the cross-section plane"
 Arc = "a circular curve of a radius about a placement, from its x-axis over a signed angular span"
@@ -389,6 +390,7 @@ dimension = "the distance across the metal of a shape: twice the depth at which 
 draw = "draw a system, a design, a placed region, a shape, a contour or a path on a target as the curves the target draws, returning what the target made"
 
 [register.BaseGeometry.private]
+derivative = "the derivative of a curve's position with respect to its parameter"
 parameter = "the parameter of a curve at an angle of its parametrization, an arc's direction about its center or an elliptic arc's parametric angle: the angle from its start in the sense of its span, modulo a revolution, over the span, at most 1 on the curve"
 stationary = "the pairs of parameters inside two curves at which their squared distance is stationary, the common normals and the crossings, and one point of a parallel or concentric overlap, each with its distance"
 bisect = "the two parameters, adjacent in nominal value, between which a predicate changes from true to false, by halving their bracket; read by the apsides of an elliptic arc, the depth of `dimension` and the crossings of `stationary`"

@@ -16,8 +16,9 @@ using ..Materials: Material
 using ..Commons: nominal, tolerance
 using SpecialFunctions: ellipe
 import ..BaseGeometry: Contour, area, perimeter, centroid, support, distance, dimension,
-                       draw, istangent
-using ..BaseGeometry: Placement, Segment, Arc, EllipticArc, Curve, parallel, direction
+                       draw, istangent, gmd
+using ..BaseGeometry: Placement, Segment, Arc, EllipticArc, Curve, parallel, direction,
+                      apsides
 
 export AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
 export Sector, Ellipse, Polygon
@@ -35,6 +36,7 @@ export @design, @terminal, core, insulation, screen, sheath, bedding, jacket, st
 include("geometry.jl")
 include("contour.jl")
 include("placement.jl")
+include("gmd.jl")
 include("parts.jl")
 include("design.jl")
 include("system.jl")

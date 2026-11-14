@@ -277,7 +277,7 @@
         "one_bare_wire" => (Z = 0.00549, Y = 0.00713),
         "one_insulated_sector" => (Z = 0.0762, Y = 0.0685),
         "milliken_solid_segments" => (Z = 0.0268, Y = 0.407),
-        "three_insulated_sectors" => (Z = 0.0612, Y = 0.406),
+        "three_insulated_sectors" => (Z = 0.0611, Y = 0.406),
         "three_cores_steel_pipe" => (Z = 0.00403, Y = 0.00121))
     tolerances = Dict(("milliken_solid_segments", "Y") => 2.18e-6)
     @testset "$case" for (case, reference) in REFERENCES

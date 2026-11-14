@@ -12,7 +12,8 @@ module BaseGeometry
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..Commons: resolve, validate
 using ..Commons: nominal, tolerance
-using QuadGK: quadgk
+using QuadGK: QuadGK, quadgk
+using LinearAlgebra: dot
 using IntervalSets: ClosedInterval, leftendpoint, rightendpoint
 
 export Placement, area, perimeter, centroid, support, distance
@@ -21,6 +22,8 @@ public Segment, Arc, EllipticArc, Curve, Contour, turn, parallel, clearance, dim
 
 include("placement.jl")
 include("contour.jl")
+include("gmd.jl")
+public gmd
 
 """
 $(TYPEDSIGNATURES)
