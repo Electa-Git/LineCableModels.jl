@@ -92,6 +92,25 @@
         end
     end
 
+    @testset "the insulated sector's earth radius" begin
+        aluminum = Material(:conductor, 2.8264e-8, 1, 1, 20, 0.00429)
+        pvc = Material(:insulator, Inf, 8.0)
+        span, t = deg2rad(119.0), 1.1e-3
+        sector = LineCableModels.Sector(
+            0, 10.24e-3, span, t / sind(60), 1.02e-3, Placement(0, 0))
+        design = build(CableDesign, "insulated_sector",
+            Terminal(:core, Region(:core, sector, aluminum)),
+            Region(:core_insulation, Offset(t), pvc),
+            Region(:jacket, Offset(3.0e-3), pvc))
+        system = build(CableSystem, [design], [Placement(0.0, -1.0)];
+            connections = [(core = 1,)], id = "one_insulated_sector", line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 100, eps_r = 10);
+            frequencies = 10.0 .^ range(-1, 7; length = 101))
+        input = CoaxialInput(problem, options)
+        @test only(input.radius) ≈ 9.949e-3 rtol = 1e-3
+        @test only(input.radius) < support(design.outer)
+    end
+
     @testset "the reduction plan" begin
         design = build(CableDesign, "three_tubes",
             Terminal(:core, Region(:core_metal, Circle(10.0e-3), copper)),

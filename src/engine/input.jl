@@ -56,7 +56,10 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     x::Vector{T}
     "Vertical coordinate of the center of each cable in the frame of the system \\[m\\]."
     y::Vector{T}
-    "Outer radius \\[m\\] of each cable."
+    """
+    The outer radius of the tube of each cable: the outer radius of the dielectric interval
+    of its last conductor \\[m\\].
+    """
     radius::Vector{T}
     "Layer of the earth model at the center of each cable: 1 for the air, `k` for the `(k - 1)`-th earth layer."
     earth_layer::Vector{Int}
@@ -125,9 +128,7 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
                    for (k, row) in rows]
         x = [convert(T, center.x) for center in centers]
         y = [convert(T, center.y) for center in centers]
-        radius = [isone(row) ? convert(T, support(system.designs[k].outer)) :
-                  r_ins_ex[last(assemblies[assembly_starts[k] + row])]
-                  for (k, row) in rows]
+        radius = [r_ins_ex[last(assemblies[assembly_starts[k] + row])] for (k, row) in rows]
         # Each cable's conductors end at its last one, and the cables follow the conductors.
         ends = [isone(row) ? tube_starts[k + 1] :
                 last(assemblies[assembly_starts[k] + row])

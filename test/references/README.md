@@ -3,11 +3,8 @@
 Per-unit-length line parameters of the eleven cable systems of this release, computed with the
 earth-return formula `:martins2026` and with FEM. The tests compare the package against them.
 
-Each case is a problem of `test/references/problems.jl`. Commit `bee50049` computed the rows of
-the first six cases. The commit that adds each later case computed its FEM rows. It also
-computed the analytical rows of `one_bare_wire`, `one_insulated_sector` and `milliken_solid_segments`. For
-`three_insulated_sectors` and `three_cores_steel_pipe`, the commit that adds their analytical
-rows computed those rows.
+Each case is a problem of `test/references/problems.jl`. Commit `bee50049` computed the FEM rows
+of the first six cases, and the commit that adds each later case computed its FEM rows.
 
 The analytical rows come from `compute(problem, CoaxialFormulation())` at the 101 frequencies
 of the problem.
@@ -26,7 +23,7 @@ A refinement step follows the rounding of a run. In `milliken_solid_segments`, i
 refinement step and gives that `Y` 1.03e-6 from its row. The suite compares that `Y` at 2.18e-6,
 its known status.
 
-| Case | System | Commit | Run |
+| Case | System | FEM commit | Run |
 |---|---|---|---|
 | `two_bare_wires` | two copper wires of radius 42.5 mm, 1 m apart, buried 1 m deep in earth of 0.1 Ω·m (εr 1) | `bee50049` | `20261109-083033-ipgl` |
 | `two_insulated_wires` | the same wires with 1 mm of insulation (εr 2.3) | `bee50049` | `20261109-083034-ksru` |
@@ -37,8 +34,8 @@ its known status.
 | `one_bare_wire` | one bare copper wire of radius 42.5 mm, 10 m above earth of 0.1 Ω·m (εr 1) | the one that adds it | `20261113-065154-zlq2` |
 | `one_insulated_sector` | one aluminum sector core with its PVC insulation and a PVC jacket, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-144108-sx0a` |
 | `milliken_solid_segments` | one 220 kV cable with a core of six solid aluminum segments, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-172637-kmpa` |
-| `three_insulated_sectors` | one 1 kV cable of three aluminum sectors and 30 copper neutral wires, buried 1 m deep in earth of 100 Ω·m (εr 10) | FEM: the one that adds the case. Analytical: the one that adds the analytical rows. | `20261109-172647-9ggu` |
-| `three_cores_steel_pipe` | one 36 kV pipe-type cable of three round aluminum cores in a steel pipe, buried 1 m deep in earth of 100 Ω·m (εr 10) | FEM: the one that adds the case. Analytical: the one that adds the analytical rows. | `20261109-172801-k1bl` |
+| `three_insulated_sectors` | one 1 kV cable of three aluminum sectors and 30 copper neutral wires, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-172647-9ggu` |
+| `three_cores_steel_pipe` | one 36 kV pipe-type cable of three round aluminum cores in a steel pipe, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-172801-k1bl` |
 
 The coaxial cable, from the center out:
 
@@ -155,7 +152,7 @@ The port's run gives these maxima against the analytical rows:
 | `overhead_bare_wires` | 0.610 % | 0.817 % |
 | `mixed_bare_wires` | 0.609 % | 0.617 % |
 | `one_bare_wire` | 0.549 % | 0.713 % |
-| `one_insulated_sector` | 7.62 % | 6.85 % |
+| `one_insulated_sector` | 0.548 % | 1.33 % |
 | `milliken_solid_segments` | 2.68 % | 40.7 % |
 | `three_insulated_sectors` | 6.11 % | 40.6 % |
 | `three_cores_steel_pipe` | 0.403 % | 0.121 % |
@@ -230,8 +227,9 @@ The source gives the following results against the analytical rows:
   - With the armor as a tube and a straight core, e_Z is at most 0.42 % and e_Y at most
     0.094 % for the rectangular strands, and 0.63 % and 0.13 % for the circular strands.
 
-For `one_insulated_sector`, e_Z rises from 0.057 % at 0.1 Hz to 7.62 % at 10 MHz. Its e_Y is
-1.3 % up to 40 kHz and 6.85 % at 10 MHz.
+For `one_insulated_sector`, e_Z rises from 0.057 % (0.1 Hz) to 0.548 % (1 kHz), falls to
+0.101 % (251 kHz), then reaches 0.332 % (10 MHz). Its e_Y is about 1.3 % up to 40 kHz, then
+falls to 0.692 % at 10 MHz.
 
 For `milliken_solid_segments`, e_Y is 36 % from 0.1 Hz to 40 kHz and 40.7 % at 10 MHz, in Y22.
 The analytical model treats the 65 screen wires as a tube 0.73 mm from the aluminum foil. The

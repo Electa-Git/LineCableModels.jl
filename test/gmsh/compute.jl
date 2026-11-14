@@ -275,7 +275,7 @@
         "overhead_bare_wires" => (Z = 0.00610, Y = 0.00817),
         "mixed_bare_wires" => (Z = 0.00609, Y = 0.00617),
         "one_bare_wire" => (Z = 0.00549, Y = 0.00713),
-        "one_insulated_sector" => (Z = 0.0762, Y = 0.0685),
+        "one_insulated_sector" => (Z = 0.00548, Y = 0.0133),
         "milliken_solid_segments" => (Z = 0.0268, Y = 0.407),
         "three_insulated_sectors" => (Z = 0.0611, Y = 0.406),
         "three_cores_steel_pipe" => (Z = 0.00403, Y = 0.00121))
