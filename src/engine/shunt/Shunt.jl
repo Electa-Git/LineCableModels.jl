@@ -52,6 +52,31 @@ p_\\mathrm{inner} = p_\\mathrm{outer} = p_n \\frac{1 + \\rho}{1 - \\rho}, \\qqua
 p_\\mathrm{transfer} = \\frac{2 p_n (a_l / b_l)^n}{1 - \\rho}.
 ```
 
+For a finite annulus with positive inner radius, set ``L = \\ln(b_l / a_l)``.
+The same record is
+
+```math
+p_\\mathrm{inner} = p_\\mathrm{outer} = p_n \\coth(nL), \\qquad
+p_\\mathrm{transfer} = \\frac{p_n}{\\sinh(nL)}.
+```
+
+In the continuous limit ``n \\to 0``, each entry grows as ``1/n^2``, while
+
+```math
+p_\\mathrm{inner} + p_\\mathrm{outer} - 2 p_\\mathrm{transfer}
+\\longrightarrow \\frac{s L}{2 \\pi \\kappa_l} = p_l.
+```
+
+This limit is the call without an order. For a load with finite potential coefficient
+``P`` \\[m/F\\], the cascade has the limit
+
+```math
+p_\\mathrm{outer} - \\frac{p_\\mathrm{transfer}^2}{p_\\mathrm{inner} + P}
+\\longrightarrow P + \\frac{s L}{2 \\pi \\kappa_l},
+```
+
+the layer in series that the order-0 recipe adds.
+
 ### Callable
 
 `formula(r_in, r_ex, κ, s)` returns ``p_l`` \\[m/F\\], zero when `r_in` is zero or equals

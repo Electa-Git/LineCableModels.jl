@@ -1662,6 +1662,33 @@ function constructed_name(node)
     return isempty(name) ? nothing : last(name)
 end
 
+const SIGNATURE_ABBREVIATIONS = (:TYPEDSIGNATURES, :SIGNATURES)
+
+# Constructor docstrings. Per file, line and type, each docstring of a constructor of a type
+# that the files declare, written before the method or after `@doc`, that does not open with
+# `$(TYPEDSIGNATURES)` or `$(SIGNATURES)`.
+function constructor_docstrings(files, directory)
+    found = Dict{String, Int}()
+    trees = [(relative(file, directory), parse_source(file)) for file in files]
+    types = declared_types(trees)
+    for (path, tree) in trees
+        visit(tree) do node
+            kind(node) == K"doc" ||
+                kind(node) == K"macrocall" && syntax_name(node[1]) == (Symbol("@doc"),) ||
+                return true
+            numchildren(node) >= 2 || return true
+            text, definition = children(node)[(end - 1):end]
+            name = constructed_name(definition)
+            name in types && kind(text) == K"string" || return true
+            opening = numchildren(text) > 0 ? syntax_name(text[1]) : ()
+            !isempty(opening) && last(opening) in SIGNATURE_ABBREVIATIONS ||
+                count!(found, string(path, ":", JuliaSyntax.source_line(node), " | ", name))
+            return true
+        end
+    end
+    return found
+end
+
 # The file and line of each method whose callee is a formula or a formulation: its first
 # signature parameter is a subtype of `AbstractFormulation` of `Commons`.
 function physics_lines(methods, tree::PackageTree)

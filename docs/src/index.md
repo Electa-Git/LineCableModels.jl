@@ -105,8 +105,7 @@ tests that verify it.
 Many further features have already been prototyped, tested and validated in the development
 versions of the package, and are being progressively migrated to the stable release. These include:
 
-- **Cable components.** Pipe-type cables and ducts, sector and Milliken conductors, tapes,
-  rectangular armor wires and compacted conductors.
+- **Cable components.** Rectangular armor wires and compacted conductors.
 - **Line and cable constants.** DC and AC parameters of cable designs, modal decomposition and
   propagation along lines of finite length.
 - **Parametric studies.** Parameter grids, Monte Carlo evaluation, observables, plotting

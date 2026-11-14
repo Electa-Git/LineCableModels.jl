@@ -73,6 +73,7 @@ buried system refuses it. The remaining keywords are the options of the formulat
 | `bundle` | `true` | merge the conductors that share a positive connection index |
 | `kron` | `true` | remove the conductors of connection index zero by [`eliminate!`](@ref) |
 | `transposition` | `false` | apply the ideal cyclic transposition |
+| `order` | `0` | highest harmonic order of the field around each member of an interior that the recipes keep |
 
 A nonzero `Γ` needs a formula that reads it in each place of both earth slots, and the
 constructor refuses any other.

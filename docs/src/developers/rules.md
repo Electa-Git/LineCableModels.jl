@@ -209,6 +209,14 @@ see, and each one hides a default. The one admitted home of a Symbol or string
 comparison is the module that owns external data. The Gmsh extension decodes the native
 outputs of its own solver runs, and no package module decodes external data.
 
+### Conditions test problem data
+
+Loops over elements written in the code, such as tuple elements or ranges between literals,
+apply one computation to each. Differences between listed elements belong in a value listed
+beside each, a statement for each, or a method per type. No condition tests the position of a
+listed element, a literal listed for it, or which listed element a variable holds. Nor does
+a method branch on a parameter that every call supplies as a literal.
+
 ### No value stands for absence
 
 Absence is a value of the result's own domain. An empty set, such as an empty interval, is
@@ -323,8 +331,9 @@ physical sanity of a computed medium or of a result is a report that the user ju
 ### Numbers
 
 Parametric types where they matter, type stability, and no over-constrained `<:Real`. Every
-constructor promotes its numbers with `Float64`. A parametric layer passes its number types
-through that promotion.
+constructor promotes its physical quantities to one type, at least `Float64`. An integer that
+counts or controls a computation stays an integer. Julia's conversion decides a value given
+for it, with no added check. A parametric layer passes its number types through that promotion.
 
 At a degenerate value, a branch tests the `nominal` value where its branches agree to first
 order there. A change of topology whose first derivative vanishes is such a branch. A

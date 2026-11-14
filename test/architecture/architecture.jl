@@ -149,6 +149,10 @@ end
         @test Guards.forwarders(tree) == Dict{String, Int}()
     end
 
+    @testset "constructor docstrings" begin
+        @test Guards.constructor_docstrings(files, directory) == Dict{String, Int}()
+    end
+
     @testset "root module" begin
         @test Guards.root_definitions(tree) == Dict{String, Int}()
     end
@@ -255,6 +259,11 @@ end
             "src/storage.jl | work" => 2)
         @test Guards.repeated_access_names(files, directory) ==
               Dict{String, Int}("src/repeats.jl" => 3)
+        @test Guards.constructor_docstrings(files, directory) == Dict{String, Int}(
+            "src/docstrings.jl:3 | Layer" => 1,
+            "src/docstrings.jl:11 | Layer" => 1,
+            "src/docstrings.jl:17 | Layer" => 1,
+            "src/docstrings.jl:24 | Wire" => 1)
         @test Guards.symbol_switches(
             filter(file -> basename(file) == "curves.jl", files), directory, curve_members) ==
               Dict{String, Int}("src/curves.jl | type test" => 6, "src/curves.jl | negation" => 1)
@@ -286,6 +295,7 @@ end
         @test Guards.reserved_verbs(files, directory) == Dict{String, Int}()
         @test Guards.storage_vocabulary(files, directory) == Dict{String, Int}()
         @test Guards.repeated_access_names(files, directory) == Dict{String, Int}()
+        @test Guards.constructor_docstrings(files, directory) == Dict{String, Int}()
         @test Guards.symbol_switches(files, directory, curve_members) == Dict{String, Int}()
         @test Guards.symbol_switches(
             filter(file -> basename(file) == "curves.jl", files), directory, curve_members) ==

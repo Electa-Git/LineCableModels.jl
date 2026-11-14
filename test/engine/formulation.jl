@@ -3,6 +3,36 @@ function LineCableModels.defaults(::Type{LineCableModels.Engine.EarthReturn.Form
     (;)
 end
 
+@testset "the computing page lists every formulation option" begin
+    page = read(joinpath(pkgdir(LineCableModels), "docs", "src", "computing.md"), String)
+    table = split(split(page, "| Option | Default | Meaning |"; limit = 2)[2],
+        "\n\n"; limit = 2)[1]
+    options = [strip(split(row, '|')[2])
+               for row in split(table, '\n') if startswith(row, "|")]
+    for key in keys(LineCableModels.defaults(CoaxialFormulation))
+        @testset "$key" begin
+            @test "`$key`" in options
+        end
+    end
+end
+
+@testset "the architecture page lists every formula call" begin
+    page = readlines(joinpath(pkgdir(LineCableModels), "docs", "src", "developers",
+        "architecture.md"))
+    for Family in (LineCableModels.Engine.InternalImpedance,
+        LineCableModels.Engine.InsulationImpedance, LineCableModels.Engine.Shunt)
+        row = only(filter(line -> startswith(line, "| `$(nameof(Family))` |"), page))
+        for id in Family.FORMULAS, method in methods(Family.Formula(Val(id)))
+
+            call = "formula(" * join(Base.method_argnames(method)[2:(method.nargs)], ", ") *
+                   ")"
+            @testset "$(nameof(Family)) :$id $call" begin
+                @test occursin(call, row)
+            end
+        end
+    end
+end
+
 @testset "Engine formulations" begin
     Engine = LineCableModels.Engine
     backend = LineCableModels.backend

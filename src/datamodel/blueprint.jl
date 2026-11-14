@@ -38,7 +38,7 @@ struct BlueprintDielectric{T <: Real, M <: Material}
     r_in::T
     "Outer radius of the layer \\[m\\]."
     r_ex::T
-    "Material of the layer, as the design declares it."
+    "Material of one region, or the composite material of several regions."
     material::M
     function BlueprintDielectric(r_in::T, r_ex::T,
             material::M) where {T <: Real, M <: Material}
@@ -47,11 +47,11 @@ struct BlueprintDielectric{T <: Real, M <: Material}
 end
 
 """
-    BlueprintDielectric(r_in, r_ex, media, bands)
+$(TYPEDSIGNATURES)
 
-Build the layer from `r_in` to `r_ex` of the dielectric regions of materials `media` and
-cross-sections `bands` as one composite material. Each region weighs by its area fraction
-``f_k``:
+Build the layer from `r_in` to `r_ex`, both in \\[m\\], of the dielectric regions of
+materials `media` and cross-sections `bands` as one composite material. Each region weighs
+by its area fraction ``f_k``:
 
 ```math
 \\frac{1}{\\rho} = \\sum_k \\frac{f_k}{\\rho_k}, \\qquad
@@ -161,9 +161,11 @@ The regions of the same row outside the tube, up to its next terminal or its las
 become the layers of its dielectric interval. The regions of a row around its members form
 the interior of the assembly. The annuli about the axis outside its other regions are its
 outer layers, from the inside out. The other regions form its filler, one layer from their
-nearest to their farthest extent. A sub-cable with no conductor of its own gives its members
-to its container and its regions to the filler of its container. Regions inside the first
-terminal of a row without members lie in no interval.
+nearest to their farthest extent. Regions inside the first terminal of a row without members
+lie in no interval.
+
+A sub-cable with no conductor of its own gives its members to its container, and its regions
+join the container's interior.
 
 The conductive regions ``i`` of a terminal carry direct current in parallel. A region of
 resistivity ``\\rho_i``, cross-section ``A_i`` and overlength ``\\ell_i`` along its helices has

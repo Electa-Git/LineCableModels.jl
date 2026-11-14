@@ -78,6 +78,15 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     `+`.
     """
     terminals::Vector{String}
+    @doc """
+    $(TYPEDSIGNATURES)
+
+    Build the blueprints from the problem's cable designs with [`flatten`](@ref).
+
+    # Errors
+
+    - Throws the errors of [`flatten`](@ref).
+    """
     function CoaxialInput(
             problem::LineParametersProblem{T}, options::FormulationOptions) where {T <:
                                                                                    Real}

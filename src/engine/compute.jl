@@ -479,10 +479,9 @@ buffers, and solve the coaxial line parameters at each frequency.
 
 # Errors
 
-- Throws `DimensionMismatch` when a longitudinal-wavenumber vector has a different length
-  than the frequencies.
-- Throws `DomainError` when a cable touches the interface for the earth-return formula
-  `:martins2026`.
+- Throws the errors of [`validate(problem, formulation)`](@ref validate),
+  the [`CoaxialInput`](@ref) constructor, [`validate(input, formulation)`](@ref validate),
+  and [`validate(input, formulation, problem)`](@ref validate).
 """
 function compute(
         ::LCMBackend, problem::LineParametersProblem{T},

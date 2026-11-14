@@ -441,9 +441,12 @@ formula of the formulation.
 
 # Errors
 
-- Throws `DimensionMismatch` when a `Γ` vector and the frequency vector have different lengths.
-- Throws `DomainError` when a cable touches the interface for the earth-return formula
-  `:martins2026`.
+- Throws the errors of [`validate(problem, options)`](@ref validate) and
+  [`validate(problem, ::EarthReturn.Formula{:martins2026})`](@ref validate).
+- Throws `DomainError` when a terminal has no conductor region of finite resistivity.
+  The internal-impedance formula computes the surfaces of a tube of finite resistivity.
+- Throws `DomainError` when the factor `1 + α (θ − T0)` of the linear law is not positive
+  and finite.
 """
 function validate(problem::LineParametersProblem,
         formulation::Union{CoaxialFormulation, FEM})

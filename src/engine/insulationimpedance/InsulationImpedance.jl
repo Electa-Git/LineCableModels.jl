@@ -33,6 +33,31 @@ where ``z_n = s \\mu_0 \\mu_r / (2 \\pi n)`` and ``\\rho = (r_\\mathrm{in} / r_\
 A medium without an outer bound, ``r_\\mathrm{ex} = \\infty``, has
 ``z_\\mathrm{inner} = z_\\mathrm{outer} = z_n`` and no transfer impedance.
 
+For a finite annulus with positive inner radius, set
+``L = \\ln(r_\\mathrm{ex} / r_\\mathrm{in})``. The same record is
+
+```math
+z_\\mathrm{inner} = z_\\mathrm{outer} = z_n \\coth(nL), \\qquad
+z_\\mathrm{transfer} = \\frac{z_n}{\\sinh(nL)}.
+```
+
+In the continuous limit ``n \\to 0``, each entry grows as ``1/n^2``, while
+
+```math
+z_\\mathrm{inner} + z_\\mathrm{outer} - 2 z_\\mathrm{transfer}
+\\longrightarrow \\frac{s \\mu_0 \\mu_r L}{2 \\pi} = z.
+```
+
+This limit is the call without an order. For a finite load impedance ``Z`` \\[Ω/m\\],
+the cascade has the limit
+
+```math
+z_\\mathrm{outer} - \\frac{z_\\mathrm{transfer}^2}{z_\\mathrm{inner} + Z}
+\\longrightarrow Z + \\frac{s \\mu_0 \\mu_r L}{2 \\pi},
+```
+
+the layer in series that the order-0 recipe adds.
+
 ### Callable
 
 `formula(r_in, r_ex, μ_r, s)` returns ``z`` \\[Ω/m\\].

@@ -218,7 +218,7 @@ validity. The fallback `(;)` in `Engine` stands for a formula without bounds.
 
 | Family | Formula | Callable |
 | --- | --- | --- |
-| `InternalImpedance` | `:schelkunoff1934`, `:wedepohl1973` | `formula(r_in, r_ex, ρ, μ_r, s)`, the inner, outer and transfer surface impedances |
+| `InternalImpedance` | `:schelkunoff1934`, `:wedepohl1973` | `formula(r_in, r_ex, ρ, μ_r, s)`, the inner, outer and transfer surface impedances, and `formula(n, r_in, r_ex, ρ, μ_r, s)`, the surfaces at harmonic order `n`. Only `:schelkunoff1934` defines the order form. |
 | `InsulationImpedance` | `:ametani1980` | `formula(r_in, r_ex, μ_r, s)`, the magnetic term of an annular dielectric, and `formula(n, r_in, r_ex, μ_r, s)`, its surfaces at an order |
 | `InsulationAdmittance` | `:lossless`, `:lossy` | `formula(material, f)`, the admittivity of an insulator |
 | `SemiconAdmittance` | `:lossless`, `:lossy` | `formula(material, f)`, the admittivity of a semicon |
@@ -243,15 +243,16 @@ validity. The fallback `(;)` in `Engine` stands for a formula without bounds.
 one options record. A slot accepts `:id`, `:id => (key = value, ...)`, a `Formula` of its family
 or `:default`. The keyword constructor lifts each selection once, through the slot-tagged
 `select`, and one method of `select` per slot names its default formula. The options are `Γ`,
-the longitudinal wavenumber the computation assumes, and the reductions `bundle`, `kron` and
-`transposition`.
+the longitudinal wavenumber the computation assumes, the reductions `bundle`, `kron` and
+`transposition`, and `order`. The option `order`, default `0`, is the highest harmonic order
+the recipes keep for the field around each member of an interior.
 
 ```julia
 CoaxialFormulation(; internal_impedance = :default, insulation_impedance = :default,
     insulation_admittance = :default, semicon_admittance = :default,
     earth_impedance = :default, earth_admittance = :default, shunt = :default,
     resistivity = :default, earth_properties = :default, equivalent_earth = :default,
-    Γ = complex(0.0), bundle = true, kron = true, transposition = false)
+    Γ = complex(0.0), bundle = true, kron = true, transposition = false, order = 0)
 ```
 
 Both earth slots are typed by one family, `EarthReturn`. Each records one formula per domain of
@@ -319,11 +320,15 @@ it arrives, calls it per point, never the reverse. Its steps are fixed.
    the reduction plan from `reductions(system, options)`.
 3. `validate(input, formulation)`: the formula of each earth place against the pairs of layers
    of the input.
-4. `validate(presented, formulation)`: one warning for each quantity of the problem and the
+4. `validate(input, formulation, problem)`: interior media and formulas at the requested
+   order, with body separation above order 0.
+5. `validate(presented, formulation)`: one warning for each quantity of the problem and the
    input outside the `domain` of a formula.
-5. `initialize_buffers(formulation, problem, input)`: every array once, before the loop.
-6. The loop `solve!`, its own method, over the frequencies.
-7. `LineParameters` from the filled arrays, validated once.
+6. `initialize_buffers(formulation, problem, input)`: every array once, before the loop.
+7. `validate(buffers.earth, formulation.equivalent_earth, problem.frequencies)`: one warning
+   if the equivalent earth has nonpositive resistivity at any frequency.
+8. The loop `solve!`, its own method, over the frequencies.
+9. `LineParameters` from the filled arrays, validated once.
 
 At each frequency the loop runs these steps in order.
 
