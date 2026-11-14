@@ -83,8 +83,7 @@ function impedance!(internal::InternalImpedance.Formula,
     for (a, conductors) in enumerate(input.assemblies)
         # The loops of the chain carry the currents of its members, whose conductors precede
         # the chain's from the first conductor of its first member.
-        start = isempty(input.members[a]) ? first(conductors) :
-                first(first(buffers.interiors[a].ranges))
+        start = first(input.enclosed[a])
         inside = zero(s)
         for position in length(conductors):-1:1
             i = conductors[position]
@@ -104,7 +103,7 @@ function impedance!(internal::InternalImpedance.Formula,
             Zin[i, i] += loop
             inside = surfaces.inner
         end
-        (isempty(input.members[a]) || isempty(conductors)) && continue
+        isempty(input.members[a]) && continue
         # The members' outermost loops and their returned fields, in the bore of the chain.
         f = first(input.interior_ranges[a])
         c = input.dielectric_r_ex[f]
@@ -114,11 +113,11 @@ function impedance!(internal::InternalImpedance.Formula,
             insulation(input.dielectric_r_in[l], input.dielectric_r_ex[l],
                 input.dielectric_material[l].mu_r, s)
             for l in input.interior_ranges[a][2:end]; init = zero(s))
-        (; impedance, ranges, d) = buffers.interiors[a]
-        for κ in eachindex(ranges), β in eachindex(ranges)
+        (; impedance, d) = buffers.interiors[a]
+        for (κ, n) in enumerate(input.members[a]), (β, m) in enumerate(input.members[a])
 
             term = insulation(d[β, κ], c, μ_f, s) + shell + z_1 * impedance[β, κ]
-            for column in ranges[κ], row in ranges[β]
+            for column in input.enclosed[n], row in input.enclosed[m]
 
                 Zin[row, column] += term
             end

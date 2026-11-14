@@ -254,6 +254,13 @@ looped(M, k, rows) = [M[i, j] - M[i, k] - M[k, j] + M[k, k] for i in rows, j in 
                     for (φ, core) in zip(angles, cores)))),
                 Region(:jacket, Offset(2.0e-3), polymer)))
         @testset "members that no conductor surrounds are cables of their own" begin
+            problem = LineParametersProblem(
+                build(CableSystem, [design], [Placement(0, -1)];
+                    connections = [(a = 1, b = 2, c = 3)], id = "interior", line_length = 1.0),
+                homogeneous(rho = 100.0, eps_r = 10.0); frequencies = [50.0])
+            input = LineCableModels.Engine.CoaxialInput(problem, CoaxialFormulation().options)
+            @test isempty(input.members[1])
+            @test isempty(input.enclosed[1])
             result = interior_result([design], [Placement(0, -1)], [(a = 1, b = 2, c = 3)])
             apart = interior_result(
                 [build(CableDesign, string(name), core)
@@ -343,10 +350,8 @@ looped(M, k, rows) = [M[i, j] - M[i, k] - M[k, j] + M[k, k] for i in rows, j in 
                 id = "nested", line_length = 1.0), homogeneous(rho = 100.0, eps_r = 10.0);
             frequencies = [50.0])
         input = LineCableModels.Engine.CoaxialInput(problem, CoaxialFormulation().options)
-        buffers = LineCableModels.Engine.initialize_buffers(
-            CoaxialFormulation(order = 1), problem, input)
-        @test [interior.ranges for interior in buffers.interiors] ==
-              [[1:3, 4:5], [1:1, 2:2], UnitRange{Int}[], UnitRange{Int}[], UnitRange{Int}[]]
+        @test input.enclosed == [1:6, 1:3, 1:1, 2:2, 4:5]
+        @test input.members == [[2, 5], [3, 4], Int[], Int[], Int[]]
         @test input.assemblies == [6:6, 3:3, 1:1, 2:2, 4:5]
     end
 

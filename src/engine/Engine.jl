@@ -18,7 +18,7 @@ using ..Commons: AbstractFormulation, AbstractBackend, FormulationOptions,
 using ..Materials: Material
 using ..Earth: EarthLayer, EquivalentEarthLayer, EarthModel
 using ..BaseGeometry: Placement, support
-using ..DataModel: CableSystem, flatten
+using ..DataModel: CableSystem, Circle, flatten
 using IntervalSets: ClosedInterval
 using LinearAlgebra: BlasFloat, BlasInt, Hermitian, I, LAPACK, LU, SingularException,
                      checksquare, isposdef!, ldiv!, lu!, mul!

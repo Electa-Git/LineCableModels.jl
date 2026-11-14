@@ -492,8 +492,8 @@ $(TYPEDSIGNATURES)
 
 Check the interiors of the input for the recipes of the formulation at the frequencies of the
 problem, before the loop. The check compares positions and radii on their `nominal` values.
-Circles overlap when the distance of their centers is below the sum of their radii and not
-`isapprox` to it.
+The data model's `isdisjoint` and `⊆` predicates decide whether the circles overlap, within
+`tolerance`.
 
 The body of a member is its conductors and the layers of its interval out to the last one
 whose medium differs from the filler's. A medium differs by its relative permeability, or by
@@ -529,7 +529,7 @@ function validate(input::CoaxialInput, formulation::CoaxialFormulation,
     N = formulation.options.order
     θ = problem.temperature
     for (a, members) in enumerate(input.members)
-        (isempty(members) || isempty(input.assemblies[a])) && continue
+        isempty(members) && continue
         bore = input.label[first(input.assemblies[a])]
         isempty(input.interior_ranges[a]) && throw(ArgumentError(
             "no region lies around the members of $bore: the coaxial formulation takes the medium of the gap between the members and that conductor from it"))
@@ -554,15 +554,15 @@ function validate(input::CoaxialInput, formulation::CoaxialFormulation,
             (input.dielectric_r_in[l]
             for l in input.interior_ranges[a][2:end] if distinct[l]);
             init = input.r_in[first(input.assemblies[a])]))
+        bodies = [Circle(radius, Placement(center...))
+                  for (radius, center) in zip(radii, centers)]
         for j in eachindex(members)
             for i in 1:(j - 1)
-                d = hypot((centers[i] .- centers[j])...)
-                d < radii[i] + radii[j] && !isapprox(d, radii[i] + radii[j]) &&
+                isdisjoint(bodies[i], bodies[j]) ||
                     throw(ArgumentError(
-                        "the body of the member $(labels[i]), of radius $(radii[i]) m, reaches the body of the member $(labels[j]), of radius $(radii[j]) m, at $d m between their axes in the interior of $bore: the expansions about their axes diverge above order 0; order = 0 computes them"))
+                        "the body of the member $(labels[i]), of radius $(radii[i]) m, reaches the body of the member $(labels[j]), of radius $(radii[j]) m, at $(hypot((centers[i] .- centers[j])...)) m between their axes in the interior of $bore: the expansions about their axes diverge above order 0; order = 0 computes them"))
             end
-            reach = hypot(centers[j]...) + radii[j]
-            reach > c && !isapprox(reach, c) &&
+            bodies[j] ⊆ Circle(c) ||
                 throw(ArgumentError(
                     "the body of the member $(labels[j]), of radius $(radii[j]) m at $(hypot(centers[j]...)) m from the axis, reaches the body of its bore $bore, of inner radius $c m: the expansions about the axes diverge above order 0; order = 0 computes them"))
         end

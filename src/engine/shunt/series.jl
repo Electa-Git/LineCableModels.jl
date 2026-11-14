@@ -41,8 +41,7 @@ function potential!(shunt::Formula{:series}, Pin::AbstractMatrix{Complex{T}}, bu
     for (a, conductors) in enumerate(input.assemblies)
         # The members' conductors precede the chain's from the first conductor of its first
         # member, and each charge inside a layer adds the layer's coefficient.
-        start = isempty(input.members[a]) ? first(conductors) :
-                first(first(buffers.interiors[a].ranges))
+        start = first(input.enclosed[a])
         count = length(conductors)
         running = zero(s)
         for position in count:-1:1
@@ -59,7 +58,7 @@ function potential!(shunt::Formula{:series}, Pin::AbstractMatrix{Complex{T}}, bu
                 Pin[i, column] += running
             end
         end
-        (isempty(input.members[a]) || isempty(conductors)) && continue
+        isempty(input.members[a]) && continue
         # The gap between the members and the bore, and the returned fields, in the bore.
         f = first(input.interior_ranges[a])
         c = input.dielectric_r_ex[f]
@@ -67,11 +66,11 @@ function potential!(shunt::Formula{:series}, Pin::AbstractMatrix{Complex{T}}, bu
         shell = running + sum(
             shunt(input.dielectric_r_in[l], input.dielectric_r_ex[l], kappa[l], s)
             for l in input.interior_ranges[a][2:end]; init = zero(s))
-        (; potential, ranges, d) = buffers.interiors[a]
-        for κ in eachindex(ranges), β in eachindex(ranges)
+        (; potential, d) = buffers.interiors[a]
+        for (κ, n) in enumerate(input.members[a]), (β, m) in enumerate(input.members[a])
 
             term = shunt(d[β, κ], c, kappa[f], s) + shell + p_1 * potential[β, κ]
-            for column in ranges[κ], row in ranges[β]
+            for column in input.enclosed[n], row in input.enclosed[m]
 
                 Pin[row, column] += term
             end

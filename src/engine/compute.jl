@@ -110,10 +110,11 @@ the formulation.
   identity matrix, and formula-specific arrays.
 - The same tuple contains `interiors`, the record of each assembly's interior.
 
-A record of `interiors` is empty where no conductor holds members. Otherwise, `ranges` gives
-the conductors of each member with its members' conductors, and `d` the radius in \\[m\\] of
-each gap term of [`impedance!`](@ref). The translations, sources and observations give the
-returned fields in closed form.
+A record of `interiors` is empty where an assembly has no members. Otherwise, it holds the
+arrays for the translations, sources, observations, reflections and returned fields.
+It also holds the factorization and its pivots, and the impedance and potential image
+matrices. The key `d` holds the radius in \\[m\\] of each gap term of [`impedance!`](@ref).
+The translations, sources and observations give the returned fields in closed form.
 
 # Notes
 
@@ -139,16 +140,8 @@ function initialize_buffers(
     N = formulation.options.order
     # Each interior has its members and its bore as bodies. An assembly where no conductor
     # holds members has none.
-    bodies = [isempty(members) || isempty(conductors) ? 0 : length(members) + 1
-              for (members, conductors) in zip(input.members, input.assemblies)]
-    # The first conductor of each assembly with its members, whose conductors precede its own.
-    starts = map(eachindex(input.assemblies)) do a
-        head = a
-        while !isempty(input.members[head])
-            head = first(input.members[head])
-        end
-        return first(input.assemblies[head])
-    end
+    bodies = [isempty(input.members[a]) ? 0 : length(input.members[a]) + 1
+              for a in eachindex(input.assemblies)]
     interiors = [(translations = zeros(T, 2N * B, 2N * B),
                      sources = zeros(T, 2N * B, max(B - 1, 0)),
                      observations = zeros(T, 2N * B, max(B - 1, 0)),
@@ -158,13 +151,12 @@ function initialize_buffers(
                      returned = Matrix{Complex{T}}(undef, 2N * B, max(B - 1, 0)),
                      impedance = zeros(Complex{T}, max(B - 1, 0), max(B - 1, 0)),
                      potential = zeros(Complex{T}, max(B - 1, 0), max(B - 1, 0)),
-                     ranges = [starts[m]:last(input.assemblies[m]) for m in members],
                      d = zeros(T, max(B - 1, 0), max(B - 1, 0)))
-                 for (B, members) in zip(bodies, input.members)]
+                 for B in bodies]
     # The translations, sources and observations of the fields of the members and the bore,
     # in closed form. Each is a 2 × 2 block that acts on the cos and sin amplitudes of an order.
     for (a, interior) in enumerate(interiors)
-        bodies[a] == 0 && continue
+        isempty(input.members[a]) && continue
         (; translations, sources, observations, d) = interior
         P = bodies[a] - 1
         c_f = input.dielectric_r_ex[first(input.interior_ranges[a])]
@@ -271,8 +263,8 @@ function to_buffer!(
     (; internal_impedance, insulation_impedance, shunt) = formulation
     (; rho, kappa) = buffers
     for (a, interior) in enumerate(buffers.interiors)
-        bodies = size(interior.reflections, 3)
-        bodies == 0 && continue
+        isempty(input.members[a]) && continue
+        bodies = length(input.members[a]) + 1
         (; translations, sources, observations,
             reflections, factor, pivots, returned) = interior
         U = 2N * bodies
@@ -280,7 +272,7 @@ function to_buffer!(
         μ_f = input.dielectric_material[f].mu_r
         # Beyond the assembly lies the filler of the interior around it, or free space.
         container = findfirst(members -> a in members, input.members)
-        μ_beyond = isnothing(container) || isempty(input.assemblies[container]) ?
+        μ_beyond = isnothing(container) ?
                    oneunit(μ_f) :
                    input.dielectric_material[first(input.interior_ranges[container])].mu_r
         # The first pass reflects the magnetic field, the second the electric field.

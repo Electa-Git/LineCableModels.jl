@@ -103,7 +103,7 @@ nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resist
     "line_parameters", "gmsh", "fem", "earth_return", "shunt", "buffers", "trace",
     "frequencies", "input", "connection", "radius", "bundles",
     "transposition", "integral", "integrand", "reductions", "air", "domain"]
-qualifiers = ["coaxial", "internal", "kept", "eliminated", "spectral", "lcm", "mixed"]
+qualifiers = ["coaxial", "internal", "kept", "eliminated", "enclosed", "spectral", "lcm", "mixed"]
 symbols = ["Z", "Y", "r_ins_ex", "Λ", "ζ", "ε₀", "μ₀"]
 
 [modules.Engine.verbs]
@@ -261,7 +261,7 @@ domain = "the closed interval of each quantity by its key: where a formula holds
 "to_buffer!" = "move a formula's per-frequency terms into its block of the buffers, or the formulation's into the base buffers, at one frequency"
 from_buffer = "the block of the buffers that holds a formula's terms, keyed by its identifier"
 initialize_buffers = "build the preallocated arrays of a computation once, before its loop"
-CoaxialInput = "the numerical input of a computation in the coaxial model: each cable's equivalent tubular conductors and dielectric layers, the cables' centers and radii, and the reduction plan for the formulation's bundle and kron"
+CoaxialInput = "the numerical input of a computation in the coaxial model: each cable's equivalent tubular conductors and dielectric layers, its assemblies with their members, axes and interior layers, the centers and radii of the bodies the earth formulas see, and the reduction plan for the formulation's bundle and kron"
 "bundle!" = "merge each other conductor of a bundle into the first conductor of its index, in the rows and columns of a matrix"
 "eliminate!" = "the Kron elimination: the Schur complement of the kept rows and columns of a matrix, written into a matrix the caller gives"
 "factorize!" = "the LU factorization of a square matrix, written over it, its row interchanges into the pivots the caller gives"

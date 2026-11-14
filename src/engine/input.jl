@@ -46,8 +46,10 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     dielectric_material::L
     "Range of the conductors of each concentric assembly."
     assemblies::Vector{UnitRange{Int}}
-    "Assemblies in the interior of each assembly, its members in the blueprints."
+    "Assemblies in the interior of each assembly with a conductor, empty for an assembly without one."
     members::Vector{Vector{Int}}
+    "Range of the conductors that the outermost conductor of each assembly encloses, itself included."
+    enclosed::Vector{UnitRange{Int}}
     "Axis of each assembly in the frame of its cable \\[m\\]."
     positions::Vector{Tuple{T, T}}
     "Range of the interior layers of each assembly, from its filler around its members."
@@ -111,9 +113,17 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
         assembly_starts = cumsum([0;
                                   [length(blueprint.assembly_ranges)
                                    for blueprint in blueprints]])
-        members = [indices .+ assembly_starts[k]
+        members = [isempty(assemblies[assembly_starts[k] + a]) ? Int[] :
+                   indices .+ assembly_starts[k]
                    for (k, blueprint) in enumerate(blueprints)
-                   for indices in blueprint.members]
+                   for (a, indices) in enumerate(blueprint.members)]
+        enclosed = map(eachindex(assemblies)) do a
+            head = a
+            while !isempty(members[head])
+                head = first(members[head])
+            end
+            return first(assemblies[head]):last(assemblies[a])
+        end
         positions = [convert.(T, position)
                      for blueprint in blueprints for position in blueprint.positions]
         interior_ranges = [span .+ dielectric_starts[k]
@@ -141,7 +151,7 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
             cable, connection, label, r_in, r_ex, material,
             r_ins_ex, mu_r_ins, dielectric_ranges, dielectric_r_in,
             dielectric_r_ex, dielectric_material, assemblies,
-            members, positions, interior_ranges, x, y, radius, earth_layer, bundles, kept,
+            members, enclosed, positions, interior_ranges, x, y, radius, earth_layer, bundles, kept,
             eliminated, terminals)
     end
 end
