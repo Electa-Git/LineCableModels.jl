@@ -74,10 +74,6 @@ If(!Exists(RawDirectory)) RawDirectory = StrCat[RunDirectory, "/raw"]; EndIf
 RawJobDirectory = StrCat[RawDirectory, "/jobs"];
 MapDirectory = StrCat[RunDirectory, "/maps"];
 
-// Managed meshes include the same tree selected with a faster disjoint-set pass.
-// Detached execution retains GetDP's native tree construction.
-If(!Exists(PreparedGaugeTree)) PreparedGaugeTree = 0; EndIf
-
 Group {
   Air = Region[{AIR_EM}];
   Earth = Region[{EARTH_EM}];
@@ -122,13 +118,9 @@ Group {
 }
 
 Group {
-  If(PreparedGaugeTree)
-    VoltageSamplingNodes = Region[{VOLTAGE_SAMPLING_NODES}];
-    // One-ring band around the elements crossed by the floating lines.
-    VoltageSamplingElements = ElementsOf[DomainMedia_Ele, OnOneSideOf VoltageSamplingNodes];
-  Else
-    VoltageSamplingElements = Region[{DomainMedia_Ele}];
-  EndIf
+  VoltageSamplingNodes = Region[{VOLTAGE_SAMPLING_NODES}];
+  // One-ring band around the elements crossed by the floating lines.
+  VoltageSamplingElements = ElementsOf[DomainMedia_Ele, OnOneSideOf VoltageSamplingNodes];
 }
 
 Function {
@@ -173,11 +165,7 @@ Constraint {
   }
   { Name FEMTransverseGauge; Type Assign;
     Case {
-      If(PreparedGaugeTree)
-        { Region Region[{GAUGE_TREE}]; Value 0.; }
-      Else
-        { Region DomainMedia_Ele; SubRegion GaugeBoundary; Value 0.; }
-      EndIf
+      { Region DomainMedia_Ele; SubRegion GaugeBoundary; Value 0.; }
     }
   }
   { Name FEMScalarPotential; Type Assign;
@@ -236,13 +224,8 @@ FunctionSpace {
     Constraint {
       { NameOfCoef be; EntityType EdgesOf;
         NameOfConstraint FEMTransverseBoundary; }
-      If(PreparedGaugeTree)
-        { NameOfCoef be; EntityType EdgesOf;
-          NameOfConstraint FEMTransverseGauge; }
-      Else
-        { NameOfCoef be; EntityType EdgesOfTreeIn; EntitySubType StartingOn;
-          NameOfConstraint FEMTransverseGauge; }
-      EndIf
+      { NameOfCoef be; EntityType EdgesOfTreeIn; EntitySubType StartingOn;
+        NameOfConstraint FEMTransverseGauge; }
     }
   }
   { Name Hgrad_v_FEM_2D; Type Form0;

@@ -45,7 +45,6 @@ end
                 @test extension.validate(path, model) == path
                 gmsh.model.add("mesh-counts")
                 gmsh.merge(path)
-                @test (1, 9001) in gmsh.model.getPhysicalGroups(1)
                 @test (0, 9002) in gmsh.model.getPhysicalGroups(0)
                 gmsh.model.remove()
             finally

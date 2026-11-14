@@ -13,7 +13,7 @@ SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 
 [sources]
 # Interim until getdp_jll is in General.
-getdp_jll = {url = "https://github.com/amaurigmartins/getdp_jll.jl"}
+getdp_jll = {url = "https://github.com/amaurigmartins/getdp_jll.jl", rev = "fe7a297736e53840407551a42cd1800207737cde"}
 
 [weakdeps]
 Arblib = "fb37089c-8514-4489-9461-98f9c8763369"
@@ -51,7 +51,7 @@ QuadGK = "2.11"
 SpecialFunctions = "2.5"
 TOML = "1"
 Test = "1"
-getdp_jll = "3.5"
+getdp_jll = "3.5.1"
 julia = "1.12"
 
 [extras]

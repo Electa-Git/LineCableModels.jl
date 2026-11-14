@@ -16,7 +16,6 @@ const TAGS = (air = 1_001,
     passive = 6_002,
     field_maps = 6_003,
     measurement_line_base = 7_000,
-    gauge_tree = 9_001,
     sampling_nodes = 9_002,
     material_base = 10_000)
 

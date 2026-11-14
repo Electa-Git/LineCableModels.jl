@@ -76,7 +76,7 @@ $(TYPEDSIGNATURES)
 
 Write the meshes of `model` at every frequency \\[Hz\\] under `directory`, with at most
 `options.workers` native Gmsh processes at once. Keep each process's log under `logs/`.
-After every process ends, validate each mesh and add its gauge tree in the caller's
+After every process ends, validate each mesh and add its voltage sampling nodes in the caller's
 initialized Gmsh session. Return the mesh paths in frequency order.
 
 # Errors
@@ -124,7 +124,7 @@ function mesh(directory::AbstractString, model::FieldModel,
         log_path = joinpath(directory, "logs", stem * ".log")
         try
             validate(path, model)
-            gauge!(path, model)
+            voltage_nodes!(path, model)
         catch exception
             exception isa InterruptException && rethrow()
             tail = join(last(readlines(log_path), 20), '\n')
@@ -353,118 +353,69 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Add the gauge tree, physical curve 9001, and voltage sampling nodes, physical point 9002,
-to the mesh at `path` when those groups are absent. Process boundary elements before media
-elements, in GetDP 3.5 element and edge order, with union by size and path compression.
+Add voltage sampling nodes, physical point 9002, to the mesh at `path` when absent.
 Select the vertices of media elements whose coordinate ranges cross a measurement line.
 The model's geometry and mesh coordinates are in \\[m\\].
 
 Write the mesh in binary version 4.1 with `Mesh.SaveAll` to keep unlabelled curves.
 Return `path` and restore the caller's current Gmsh model and mesh output options.
 """
-function gauge!(path::AbstractString, model::FieldModel)
+function voltage_nodes!(path::AbstractString, model::FieldModel)
     current = gmsh.model.getCurrent()
     saved = Dict(name => gmsh.option.getNumber(name)
     for name in ("Mesh.Binary", "Mesh.SaveAll", "Mesh.MshFileVersion"))
-    gmsh.model.add("LineCableModels-gauge-$(time_ns())")
+    gmsh.model.add("LineCableModels-voltage-nodes-$(time_ns())")
     try
         gmsh.merge(path)
-        tree_ready = (1, TAGS.gauge_tree) in gmsh.model.getPhysicalGroups(1)
         sampling_ready = (0, TAGS.sampling_nodes) in gmsh.model.getPhysicalGroups(0)
-        tree_ready && sampling_ready && return path
-        boundaries = Set([TAGS.outer_boundary;
-                          TAGS.terminal_contour_base .+ eachindex(model.label)])
+        sampling_ready && return path
         media = Set([TAGS.air, TAGS.earth, TAGS.air_pml, TAGS.earth_pml])
         union!(media, (material.tag for material in model.materials if !material.conductor))
-        _, all_tags, _ = gmsh.model.mesh.getElements()
-        last_tag = maximum(maximum, all_tags)
-        boundary = @NamedTuple{tag::Int, nodes::Vector{Int}}[]
-        domain = @NamedTuple{tag::Int, nodes::Vector{Int}}[]
+        domain = Vector{Int}[]
         for (dim, entity) in gmsh.model.getEntities()
             kinds, tags, nodes = gmsh.model.mesh.getElements(dim, entity)
             physical = gmsh.model.getPhysicalGroupsForEntity(dim, entity)
-            for (p, tag) in enumerate(physical), block in eachindex(kinds)
+            for tag in physical, block in eachindex(kinds)
 
                 n_elements = length(tags[block])
-                if (dim == 1 && tag in boundaries) || (dim == 2 && tag in media)
-                    selected = dim == 1 ? boundary : domain
+                if dim == 2 && tag in media
                     element_properties = gmsh.model.mesh.getElementProperties(kinds[block])
                     _, _, _, n, _, primary = element_properties
                     for i in 1:n_elements
-                        id = p == 1 ? Int(tags[block][i]) : last_tag + i
                         connectivity = Int[nodes[block][(i - 1) * n + j] for j in 1:primary]
-                        push!(selected, (tag = id, nodes = connectivity))
+                        push!(domain, connectivity)
                     end
                 end
-                p > 1 && (last_tag += n_elements)
             end
         end
-        sort!(boundary; by = cell -> cell.tag)
-        sort!(domain; by = cell -> cell.tag)
-        if !tree_ready
-            largest = maximum(maximum(cell.nodes) for cells in (boundary, domain)
-            for cell in cells)
-            parents, sizes = collect(1:largest), ones(Int, largest)
-            tree = NTuple{2, Int}[]
-            for cells in (boundary, domain), cell in cells
-
-                n = length(cell.nodes)
-                for i in 1:n, j in (i + 1):n
-
-                    (j == i + 1 || (i == 1 && j == n)) || continue
-                    a, b = cell.nodes[i], cell.nodes[j]
-                    ra, rb = a, b
-                    while parents[ra] != ra
-                        parents[ra] = parents[parents[ra]]
-                        ra = parents[ra]
-                    end
-                    while parents[rb] != rb
-                        parents[rb] = parents[parents[rb]]
-                        rb = parents[rb]
-                    end
-                    ra == rb && continue
-                    push!(tree, minmax(a, b))
-                    sizes[ra] < sizes[rb] && ((ra, rb) = (rb, ra))
-                    parents[rb] = ra
-                    sizes[ra] += sizes[rb]
-                end
-            end
-            curve = gmsh.model.addDiscreteEntity(1)
-            edges = collect(Iterators.flatten(tree))
-            gmsh.model.mesh.addElementsByType(curve, 1, Int[], edges)
-            name = "LCM/gauge_tree/GetDP-3.5"
-            gmsh.model.addPhysicalGroup(1, [curve], TAGS.gauge_tree, name)
+        tags, coordinates, _ = gmsh.model.mesh.getNodes()
+        x, y = zeros(maximum(tags)), zeros(maximum(tags))
+        for (i, tag) in enumerate(tags)
+            x[tag], y[tag] = coordinates[3i - 2], coordinates[3i - 1]
         end
-        if !sampling_ready
-            tags, coordinates, _ = gmsh.model.mesh.getNodes()
-            x, y = zeros(maximum(tags)), zeros(maximum(tags))
-            for (i, tag) in enumerate(tags)
-                x[tag], y[tag] = coordinates[3i - 2], coordinates[3i - 1]
-            end
-            paths = NTuple{3, Float64}[]
-            for i in eachindex(model.label)
-                tag = TAGS.measurement_line_base + i
-                _, xyz = gmsh.model.mesh.getNodesForPhysicalGroup(1, tag)
-                low = minimum(@view(xyz[2:3:end]))
-                high = maximum(@view(xyz[2:3:end]))
-                push!(paths, (xyz[1], low, high))
-            end
-            selected_nodes = Set{Int}()
-            for cell in domain
-                xmin = minimum(x[node] for node in cell.nodes)
-                xmax = maximum(x[node] for node in cell.nodes)
-                ymin = minimum(y[node] for node in cell.nodes)
-                ymax = maximum(y[node] for node in cell.nodes)
-                any(xmin <= px <= xmax && ymin <= hi && ymax >= lo
-                for (px, lo, hi) in paths) || continue
-                union!(selected_nodes, cell.nodes)
-            end
-            points = gmsh.model.addDiscreteEntity(0)
-            sampling_vertices = sort!(collect(selected_nodes))
-            gmsh.model.mesh.addElementsByType(points, 15, Int[], sampling_vertices)
-            name = "LCM/voltage_sampling_nodes"
-            gmsh.model.addPhysicalGroup(0, [points], TAGS.sampling_nodes, name)
+        paths = NTuple{3, Float64}[]
+        for i in eachindex(model.label)
+            tag = TAGS.measurement_line_base + i
+            _, xyz = gmsh.model.mesh.getNodesForPhysicalGroup(1, tag)
+            low = minimum(@view(xyz[2:3:end]))
+            high = maximum(@view(xyz[2:3:end]))
+            push!(paths, (xyz[1], low, high))
         end
+        selected_nodes = Set{Int}()
+        for cell in domain
+            xmin = minimum(x[node] for node in cell)
+            xmax = maximum(x[node] for node in cell)
+            ymin = minimum(y[node] for node in cell)
+            ymax = maximum(y[node] for node in cell)
+            any(xmin <= px <= xmax && ymin <= hi && ymax >= lo
+            for (px, lo, hi) in paths) || continue
+            union!(selected_nodes, cell)
+        end
+        points = gmsh.model.addDiscreteEntity(0)
+        sampling_vertices = sort!(collect(selected_nodes))
+        gmsh.model.mesh.addElementsByType(points, 15, Int[], sampling_vertices)
+        name = "LCM/voltage_sampling_nodes"
+        gmsh.model.addPhysicalGroup(0, [points], TAGS.sampling_nodes, name)
         gmsh.option.setNumber("Mesh.Binary", 1)
         gmsh.option.setNumber("Mesh.SaveAll", 1)
         gmsh.option.setNumber("Mesh.MshFileVersion", 4.1)

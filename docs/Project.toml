@@ -20,7 +20,7 @@ getdp_jll = "748e3284-65fd-5b96-9e8f-f6d9cd1a6898"
 [sources]
 LineCableModels = {path = ".."}
 # Interim until getdp_jll is in General.
-getdp_jll = {url = "https://github.com/amaurigmartins/getdp_jll.jl"}
+getdp_jll = {url = "https://github.com/amaurigmartins/getdp_jll.jl", rev = "fe7a297736e53840407551a42cd1800207737cde"}
 
 [compat]
 Arblib = "1"

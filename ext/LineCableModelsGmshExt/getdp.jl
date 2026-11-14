@@ -105,7 +105,7 @@ function Base.write(path::AbstractString, model::FieldModel,
             ("INNER_PML_BND", TAGS.pml_inner_boundary),
             ("TERMINAL", TAGS.terminal_base + 1),
             ("TERMINAL_CONTOUR", TAGS.terminal_contour_base + 1),
-            ("GAUGE_TREE", TAGS.gauge_tree), sampling_tag,
+            sampling_tag,
             ("MEASUREMENT_LINE", TAGS.measurement_line_base + 1))
             println(io, name, " = ", @sprintf("%.17g", tag), ";")
         end
@@ -214,7 +214,7 @@ function scan(directory::AbstractString, model::FieldModel{T},
         controls = options.overrides
         tolerance = string(controls.MumpsBackwardErrorTolerance)
         arguments = ["model.pro", "-solve", "LineCableModelsFEMScan",
-            "-setnumber", "Physics", "1", "-setnumber", "PreparedGaugeTree", "1",
+            "-setnumber", "Physics", "1",
             "-msh", mesh_path, "-name", "solver", "-v", string(options.getdp_verbosity),
             "-setstring", "ModelDataPath", "model_data.pro",
             "-setstring", "RunDirectory", ".", "-setstring", "RawDirectory", "results",

@@ -14,14 +14,14 @@ same way as in the coaxial computation.
 The extension is loaded by `using LineCableModels, Gmsh, getdp_jll`.
 Its triggers are Gmsh, getdp_jll, OpenBLAS32_jll and OpenBLAS_jll.
 Both OpenBLAS packages load automatically.
-Gmsh.jl provides the Gmsh library. The field equations are solved by GetDP 3.5.0 in
+Gmsh.jl provides the Gmsh library. The field equations are solved by GetDP in
 complex arithmetic, provided by getdp_jll as described below. The
 finite-element computation is tested on Linux, macOS and Windows.
 
 ## GetDP executable
 
-getdp_jll provides GetDP 3.5.0 with PETSc in complex arithmetic and MUMPS for the platforms
-of its Yggdrasil recipe. On a platform without a getdp_jll build, the finite-element backend
+getdp_jll 3.5.1 provides GetDP master `065ad5d0` with PETSc in complex arithmetic and MUMPS
+for the platforms of its Yggdrasil recipe. On a platform without a getdp_jll build, the finite-element backend
 is unavailable.
 
 The backend runs getdp_jll's GetDP through `getdp_jll.getdp()`. A build of your own is
