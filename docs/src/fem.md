@@ -252,7 +252,8 @@ with ``h`` the target of its region and
 ``n_c = 12 \cdot 2^{\max(0, \lceil \log_2(\sqrt{2\pi^2/(3\tau)}/12) \rceil)}``, which bounds
 the relative error of the area of a circle by ``\tau``, the override
 `ConductorGeometryTolerance`. A straight side of length ``L`` of a conductor takes
-``\lceil L/h \rceil`` intervals. Each region has the target ``h`` equal to ``m_h`` times
+at least ``\lceil L/h \rceil`` intervals. When the skin depth is below the conductor's width, Gmsh grades
+toward the corners as described below. Each region has the target ``h`` equal to ``m_h`` times
 ``r/5`` for a solid circle of radius ``r``, ``r`` for a round strand, ``(r_o - r_i)/2`` for an
 annulus, ``\min(w, h_\square)/5`` for a rectangle of width ``w`` and height ``h_\square``,
 and ``\min(w, h_\square)/2`` for a rectangular strand. A sector of radii ``r_i`` and ``r_o``
@@ -295,10 +296,27 @@ Ellipses have no strips.
 Sectors, rectangles, polygons and arc polygons use four-sided strips of depth ``e = 0.45 w`` at every frequency. Each curve of each path of the contour
 bounds one strip with the piece of its parallel inside the metal. A straight line joins each
 junction of the contour to the junction of the parallels. These lines take the ``N``
-intervals of the layer, which grow by the ratio ``g`` from the contour. The parallel takes
-as many intervals as its curve, shared among its pieces by their lengths. An outline with a
+intervals of the layer, which grow by the ratio ``g`` from the contour.
+
+The extension cuts each arc parallel at its outline's junction angles.
+Where the outline and parallel have as many pieces, each parallel piece takes its outline
+piece's interval count and grading. Otherwise the parallel takes as many intervals as its
+outline. Its pieces share those intervals in proportion to their lengths. An outline with a
 corner whose interior angle exceeds ``\pi`` has no strips, and the computation stops with an
 error.
+
+When a conductor region has strips and ``\delta < w``, a straight line between junctions
+that exceeds the strip depth
+identifies a vertex. When the first layer size ``h_1`` is below a side's uniform spacing,
+Gmsh grades the side from ``h_1``. It uses a Bump for two vertices and a Progression for one
+vertex. A side whose ends are corners of two different regions takes the same Bump.
+Outside the region, the target
+grows from each vertex with distance ``d`` as
+``\min(\mathtt{MeshRemoteMax}, h_1 + \mathtt{MeshGrowthSlope}\,d)``.
+
+A conductor curve left ungraded that touches a vertex starts from the smallest first layer
+there, and adjacent intervals grow by at most `ConductorMeshGrowth`. An arc of a thin
+layer's structured patch keeps the patch's uniform count, shared by its paired arcs.
 
 The interior of a conductor, inside the parallels where it has strips, has the target
 ``\min(h, m_h w / n_t)``. That target is at most ``2\pi m_h / (12\beta)`` when
@@ -394,7 +412,7 @@ eleven finite-element frequencies for seven of the reference cases:
 | `two_bare_wires` | 0.568 % | 0.798 % |
 | `two_insulated_wires` | 0.407 % | 0.0447 % |
 | `coaxial_circular_strands` | 4.92 % | 10.5 % |
-| `coaxial_rectangular_strands` | 5.20 % | 10.4 % |
+| `coaxial_rectangular_strands` | 5.20 % | 10.6 % |
 | `overhead_bare_wires` | 0.610 % | 0.817 % |
 | `mixed_bare_wires` | 0.609 % | 0.617 % |
 | `one_bare_wire` | 0.549 % | 0.713 % |
@@ -410,8 +428,6 @@ in the two models:
 - ``e_Z`` above about 40 kHz: the lay correction of the core, for the same reason.
 - ``e_Z`` from 25 Hz to 40 kHz: the magnetic armor wires compared with the equivalent tube.
 
-For `two_bare_wires`, `two_insulated_wires`, `overhead_bare_wires` and `mixed_bare_wires`, this package's
-finite-element results agree with the reference computation within 1e-6 of the largest diagonal entry.
 
 ## Continuous integration
 

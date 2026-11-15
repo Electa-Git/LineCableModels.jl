@@ -16,13 +16,14 @@ function LineCableModels.BaseGeometry.draw(target::RecordingTarget, arc::Arc)
 end
 
 @testset "BaseGeometry" begin
-    @testset "circle quadrants ignore the placement rotation" begin
+    @testset "circle arcs follow the placement rotation" begin
         for φ in (0.0, 0.7, -π / 3)
             circle = Circle(2.0e-3, Placement(1.0e-3, -3.0e-3, φ))
             contour = Contour(circle)
             @test length(contour.outer) == 4
             @test isempty(contour.holes)
-            for (arc, angle) in zip(contour.outer, (0.0, π / 2, Float64(π), 3π / 2))
+            for (k, arc) in enumerate(contour.outer)
+                angle = circle.at.φ + (k - 1) * π / 2
                 @test arc isa Arc
                 @test arc.r == circle.r
                 @test arc.span == π / 2
@@ -35,7 +36,7 @@ end
         end
     end
 
-    @testset "annulus quadrants" begin
+    @testset "annulus arcs follow the placement rotation" begin
         annulus = Annulus(1.0e-3, 2.0e-3, Placement(3.0e-3, -1.0e-3, 0.7))
         contour = Contour(annulus)
         @test length(contour.outer) == 4
@@ -43,7 +44,8 @@ end
         @test length(only(contour.holes)) == 4
         for (path, radius) in ((contour.outer, annulus.ro),
             (only(contour.holes), annulus.ri))
-            for (arc, angle) in zip(path, (0.0, π / 2, Float64(π), 3π / 2))
+            for (k, arc) in enumerate(path)
+                angle = annulus.at.φ + (k - 1) * π / 2
                 @test arc isa Arc
                 @test arc.r == radius
                 @test arc.span == π / 2
@@ -100,7 +102,7 @@ end
         end
     end
 
-    @testset "perforated contours and the three-core fill" begin
+    @testset "perforated contours and the three-core fill follow each placement" begin
         at = Placement(0.0, 0.0)
         shape = LineCableModels.PerforatedShape(Annulus(1.0e-3, 6.0e-3, at),
             [Circle(0.5e-3, Placement(3.0e-3, 0.0))])
@@ -130,7 +132,8 @@ end
         @test length(contour.holes) == 3
         for (hole, angle) in zip(contour.holes, (0, 2π / 3, 4π / 3))
             @test length(hole) == 4
-            for (arc, start) in zip(hole, (0.0, π / 2, Float64(π), 3π / 2))
+            for (k, arc) in enumerate(hole)
+                start = angle + (k - 1) * π / 2
                 @test arc isa Arc
                 @test arc.at.x ≈ 3.5e-3 * cos(angle)
                 @test arc.at.y ≈ 3.5e-3 * sin(angle)

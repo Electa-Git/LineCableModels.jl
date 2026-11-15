@@ -170,7 +170,11 @@ For terminal In {0:NumTerminals-1}
       For side In {0:1}
         FEMSeedY = FEMBounds(1+3*side);
         If(FEMSeedY > FEMStartY+CADGeometryTolerance && FEMSeedY < FEMReceiverY(terminal)-CADGeometryTolerance)
-          FEMMeasureY() += {FEMSeedY};
+          FEMMergeDistance = Abs(FEMSeedY-FEMMeasureY(0));
+          For i In {1:#FEMMeasureY()-1}
+            FEMMergeDistance = Min(FEMMergeDistance,Abs(FEMSeedY-FEMMeasureY(i)));
+          EndFor
+          If(FEMMergeDistance >= CADGeometryTolerance) FEMMeasureY() += {FEMSeedY}; EndIf
         EndIf
       EndFor
     EndIf

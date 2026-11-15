@@ -9,6 +9,7 @@ exceptions:
   - '(?i)(?:sector|ellipse|polygon|rectangle|stadium)-shaped'
   # A region of the cross-section, named in the prose of its geometric quantities.
   - '(?i)(?:any\s+other|perforated)\s+shapes?'
+  - '(?i)(?<=(?:frame|copies|copy|faces|pieces) of )(?:each|its|an?) shape'
 tests:
   - name: geometric outline
     input: "Use sector-shaped conductors."
@@ -25,3 +26,9 @@ tests:
   - name: a perforated region
     input: "When the origin lies in a hole of a perforated shape, the distance is that of the hole."
     want: ""
+  - name: frame of a geometric shape
+    input: "Cut every arc in the frame of its shape."
+    want: ""
+  - name: review metaphor
+    input: "Change the shape of the review."
+    contains: Project.FigurativeShape

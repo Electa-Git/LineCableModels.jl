@@ -43,16 +43,20 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
                       for (p, q) in zip([a.outer, a.holes...], [b.outer, b.holes...])
                       for (c, d) in zip(p, q)]
             @test all((c.at.x, c.at.y, c.r) === (d.at.x, d.at.y, d.r) for (c, d) in curves)
-            # The parallel takes its angles from `atan`. Its fourth arc starts at -π/2, and
-            # the circle's fourth arc at 3π/2. At the origin, the parallel's first arc starts
-            # at -2.4e-16 rad, and its span is one ulp above π/2.
-            @test all(isapprox(rem2pi(c.at.φ - d.at.φ, RoundNearest), 0; atol = eps(2π)) &&
-                      isapprox(c.span, d.span; atol = eps(2π)) for (c, d) in curves)
+            # The parallel takes its angles from `atan` of points known to eps(D), where
+            # D is the center's distance from the origin. The start-angle bound includes two such
+            # errors divided by the radius. The span bound includes two start-angle errors.
+            D = hypot(inner.at.x, inner.at.y)
+            @test all(isapprox(rem2pi(c.at.φ - d.at.φ, RoundNearest), 0;
+                          rtol = 0, atol = eps(2π) + 2eps(D) / c.r) &&
+                      isapprox(c.span, d.span;
+                          rtol = 0, atol = 2 * (eps(2π) + 2eps(D) / c.r))
+            for (c, d) in curves)
             # The general layer's area comes from Green's integrals, the annulus's from its
             # closed form. They differ by 1.6e-15 relative at most, at 0.1 mm on the placed
             # circle.
             @test area(layer) ≈ area(general) rtol = 4.0e-15
-            @test dimension(layer) === dimension(general)
+            @test dimension(layer)≈dimension(general) rtol=0 atol=2eps(D)
         end
         # Every typed offset method other than the generic one takes a probed type first.
         typed = [Base.unwrap_unionall(m.sig).parameters[2]

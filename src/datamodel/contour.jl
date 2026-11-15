@@ -176,14 +176,14 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Construct the four counterclockwise quadrant arcs of `circle`, whose radius and center
-coordinates are in \\[m\\]. Arc ``k = 0, \\ldots, 3`` starts at the angle ``k \\pi / 2`` and
-spans ``\\pi / 2`` \\[rad\\], independent of the placement's rotation. The contour has no
-holes.
+Construct four counterclockwise arcs of `circle`, whose radius and center coordinates
+are in \\[m\\]. Arc ``k = 0, \\ldots, 3`` starts at ``\\phi + k \\pi / 2`` and spans
+``\\pi / 2`` \\[rad\\], where ``\\phi`` is the placement's rotation \\[rad\\]. The
+contour has no holes.
 """
 function Contour(circle::Circle{T}) where {T}
     c = circle.at
-    outer = Curve{T}[Arc(Placement(c.x, c.y, T(k * π / 2)), circle.r, T(π / 2))
+    outer = Curve{T}[Arc(Placement(c.x, c.y, c.φ + T(k * π / 2)), circle.r, T(π / 2))
                      for k in 0:3]
     return Contour(outer, Vector{Curve{T}}[])
 end
@@ -191,9 +191,9 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Construct the counterclockwise quadrants of `annulus`: its outer radius bounds the outer
-path and its inner radius bounds one hole. Radii and center coordinates are in \\[m\\].
-Both paths start at angle zero, independent of the placement's rotation \\[rad\\].
+Construct four counterclockwise arcs on each circle of `annulus`. Its outer radius bounds
+the outer path and its inner radius bounds one hole. Radii and center coordinates are in \\[m\\].
+Both paths start at the placement's rotation and each arc spans a quarter turn \\[rad\\].
 """
 function Contour(annulus::Annulus)
     outer = Contour(Circle(annulus.ro, annulus.at)).outer

@@ -3,8 +3,8 @@
 Per-unit-length line parameters of the eleven cable systems of this release, computed with the
 earth-return formula `:martins2026` and with FEM. The tests compare the package against them.
 
-Each case is a problem of `test/references/problems.jl`. Commit `bee50049` computed the FEM rows
-of the first six cases, and the commit that adds each later case computed its FEM rows.
+One run of this tree computed the FEM rows of the eleven cases of
+`test/references/problems.jl`.
 
 The analytical rows come from `compute(problem, CoaxialFormulation())` at the 101 frequencies
 of the problem.
@@ -12,30 +12,24 @@ The case `three_cores_steel_pipe` uses `order = 20`. The FEM rows come from the 
 the FEM test of the suite, `FEM(; bundle = false, kron = false, transposition = false)`. They
 hold 11 of the frequencies, and the table gives their run.
 
-The build of record is GetDP 3.5.0 and Gmsh 4.15.2 on x86_64 Linux. On it, a second run gives
-the FEM rows of every case within 3e-8 of the largest diagonal entry, except `Y` of
-`milliken_solid_segments` at 10 MHz. The suite compares them at 1e-6. On another build, the suite
-skips that comparison and warns with both builds.
+The build of record is getdp_jll 3.5.1+0 and Gmsh 4.15.2 on x86_64 Linux. On it,
+a second run with one BLAS thread and a run directory's path of the same length reproduces
+every FEM entry exactly. The suite compares them at 1e-6. On another build,
+the suite skips that comparison and warns with both builds.
 
-The FEM rows of record come from solves with MUMPS's iterative refinement, `MumpsRefinementMax` 2.
-A refinement step follows the rounding of a run. In `milliken_solid_segments`, it moved `Y` at
-10 MHz by up to 2.18e-6 of the largest diagonal entry over seven runs. The default solve takes no
-refinement step and gives that `Y` 1.03e-6 from its row. The suite compares that `Y` at 2.18e-6,
-its known status.
-
-| Case | System | FEM commit | Run |
-|---|---|---|---|
-| `two_bare_wires` | two copper wires of radius 42.5 mm, 1 m apart, buried 1 m deep in earth of 0.1 Ω·m (εr 1) | `bee50049` | `20261109-083033-ipgl` |
-| `two_insulated_wires` | the same wires with 1 mm of insulation (εr 2.3) | `bee50049` | `20261109-083034-ksru` |
-| `coaxial_circular_strands` | one coaxial cable with a core of circular strands, buried 1 m deep in earth of 100 Ω·m (εr 10) | `bee50049` | `20261109-083248-mich` |
-| `coaxial_rectangular_strands` | the same cable with a core of rectangular strands | `bee50049` | `20261109-083248-j17k` |
-| `overhead_bare_wires` | two bare copper wires of radius 42.5 mm, 1 m apart, 1 m above earth of 0.1 Ω·m (εr 1) | `bee50049` | `20261109-083138-xbye` |
-| `mixed_bare_wires` | the same wires at (0, 1) m and (1, −1) m, one overhead and one buried | `bee50049` | `20261109-083138-c7w6` |
-| `one_bare_wire` | one bare copper wire of radius 42.5 mm, 10 m above earth of 0.1 Ω·m (εr 1) | the one that adds it | `20261113-065154-zlq2` |
-| `one_insulated_sector` | one aluminum sector core with its PVC insulation and a PVC jacket, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-144108-sx0a` |
-| `milliken_solid_segments` | one 220 kV cable with a core of six solid aluminum segments, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-172637-kmpa` |
-| `three_insulated_sectors` | one 1 kV cable of three aluminum sectors and 30 copper neutral wires, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-172647-9ggu` |
-| `three_cores_steel_pipe` | one 36 kV pipe-type cable of three round aluminum cores in a steel pipe, buried 1 m deep in earth of 100 Ω·m (εr 10) | the one that adds it | `20261109-172801-k1bl` |
+| Case | System | Run |
+|---|---|---|
+| `two_bare_wires` | two copper wires of radius 42.5 mm, 1 m apart, buried 1 m deep in earth of 0.1 Ω·m (εr 1) | `20261115-024314-ypj6` |
+| `two_insulated_wires` | the same wires with 1 mm of insulation (εr 2.3) | `20261115-024504-w8ag` |
+| `coaxial_circular_strands` | one coaxial cable with a core of circular strands, buried 1 m deep in earth of 100 Ω·m (εr 10) | `20261115-024635-jprg` |
+| `coaxial_rectangular_strands` | the same cable with a core of rectangular strands | `20261115-024851-ijuq` |
+| `overhead_bare_wires` | two bare copper wires of radius 42.5 mm, 1 m apart, 1 m above earth of 0.1 Ω·m (εr 1) | `20261115-025130-but1` |
+| `mixed_bare_wires` | the same wires at (0, 1) m and (1, −1) m, one overhead and one buried | `20261115-025257-b7b1` |
+| `one_bare_wire` | one bare copper wire of radius 42.5 mm, 10 m above earth of 0.1 Ω·m (εr 1) | `20261115-025424-ko4s` |
+| `one_insulated_sector` | one aluminum sector core with its PVC insulation and a PVC jacket, buried 1 m deep in earth of 100 Ω·m (εr 10) | `20261115-025551-5u10` |
+| `milliken_solid_segments` | one 220 kV cable with a core of six solid aluminum segments, buried 1 m deep in earth of 100 Ω·m (εr 10) | `20261115-025721-rr44` |
+| `three_insulated_sectors` | one 1 kV cable of three aluminum sectors and 30 copper neutral wires, buried 1 m deep in earth of 100 Ω·m (εr 10) | `20261115-030019-zly6` |
+| `three_cores_steel_pipe` | one 36 kV pipe-type cable of three round aluminum cores in a steel pipe, buried 1 m deep in earth of 100 Ω·m (εr 10) | `20261115-030209-woeo` |
 
 The coaxial cable, from the center out:
 
@@ -142,21 +136,21 @@ each copy gives its data rows again, byte for byte.
 FEM against the analytical results, per FEM frequency, as e_Z = max|ΔZ_ij| / max|Z_ii| and
 e_Y = max|ΔY_ij| / max|Y_ii|. The FEM accuracy level is 1 %.
 
-The port's run gives these maxima against the analytical rows:
+This tree's run gives these maxima against the analytical rows:
 
 | Case | e_Z | e_Y |
 |---|---|---|
 | `two_bare_wires` | 0.568 % | 0.798 % |
 | `two_insulated_wires` | 0.407 % | 0.0447 % |
 | `coaxial_circular_strands` | 4.92 % | 10.5 % |
-| `coaxial_rectangular_strands` | 5.20 % | 10.4 % |
+| `coaxial_rectangular_strands` | 5.20 % | 10.6 % |
 | `overhead_bare_wires` | 0.610 % | 0.817 % |
 | `mixed_bare_wires` | 0.609 % | 0.617 % |
 | `one_bare_wire` | 0.549 % | 0.713 % |
-| `one_insulated_sector` | 0.548 % | 1.33 % |
-| `milliken_solid_segments` | 2.68 % | 40.7 % |
+| `one_insulated_sector` | 0.550 % | 1.23 % |
+| `milliken_solid_segments` | 2.67 % | 40.3 % |
 | `three_insulated_sectors` | 6.11 % | 40.6 % |
-| `three_cores_steel_pipe` | 0.403 % | 0.121 % |
+| `three_cores_steel_pipe` | 0.403 % | 0.134 % |
 
 The file `two_bare_wires/xue2021.csv` gives `analytical` and `fem` rows of `Z` and `Y` at 1 kHz
 for the wires of `two_bare_wires` on a layered earth. The upper layer is 100 Ω·m and 5 m thick
@@ -166,93 +160,34 @@ frequency.
 
 The FEM row deviates by e_Z 0.503 % and e_Y 0.735 %, and the pair by 0.568 % and 0.798 % on its
 homogeneous earth. So the field solve computes with the negative permittivity of the equivalent
-layer within the FEM accuracy level. Both computations ran once, at the commit that adds the
-file. The test suite repeats the analytical one alone.
+layer within the FEM accuracy level. Both computations ran once on this tree.
+The test suite repeats the analytical one alone.
 
-For `two_bare_wires`, `two_insulated_wires`, `overhead_bare_wires` and
-`mixed_bare_wires`, the meshes coincide with the source meshes.
-Their rows agree with the `fem` rows of the source within 1e-6 scaled.
-For the coaxial cases, the maxima against the `fem` rows of the source are below. The source
-computed them at `989af96c` for the circular strands and at `2bff171d` for the rectangular
-strands.
+For `one_insulated_sector`, e_Z rises from 0.057 % (0.1 Hz) to 0.550 % (1 kHz), falls to
+0.0953 % (251 kHz), then reaches 0.333 % (10 MHz). Its e_Y is about 1.2 % up to 40 kHz, then
+falls to 0.717 % at 10 MHz.
 
-| Case | Scaled difference in Z | Scaled difference in Y |
-|---|---|---|
-| `coaxial_circular_strands` | 5.84e-5 | 3.53e-3 |
-| `coaxial_rectangular_strands` | 1.08e-5 | 1.36e-3 |
-
-The coaxial meshes are two discretizations of identical definitions.
-Many points of the core and armor wires lie on common circles.
-Triangulation breaks ties on those circles by round-off.
-The port coordinates and native size values differ from source values by one or two units in the last place.
-The port composes the data model definitions.
-The source evaluated each point at its construction site.
-
-All scaled differences and the spreads `D_Z` and `D_Y` below are dimensionless.
-Diagnostic A runs the port solve on the source meshes.
-Diagnostic B uses the source numbers in the port inputs and keeps the port names.
-It substitutes 367 lines of `physical.geo` for the circular case and 442 for the rectangular case.
-It substitutes 11 lines of `model_data.pro` for each case.
-The meshes are identical, with 57 816 nodes for the circular case and 45 353 for the rectangular case at the first frequency.
-The maximum scaled differences are:
-
-| Case | A, Z | A, Y | B, Z | B, Y |
-|---|---|---|---|---|
-| `coaxial_circular_strands` | 6.5e-11 | 6.5e-12 | 6.5e-11 | 6.1e-12 |
-| `coaxial_rectangular_strands` | 4.4e-10 | 3.2e-10 | 4.4e-10 | 8.2e-11 |
-
-Diagnostic C compares the default mesh with `mesh_size_factor = 0.5` at the first and last frequency.
-Across the two cases, D_Z reaches 1.8e-4 at the first frequency and 2.4e-3 at the last.
-D_Y is 3.1e-3 for the circular case and 1.1e-3 to 1.7e-3 for the rectangular case.
-The difference between the port and source is 0.24 to 1.26 times D_Y.
-
-The source gives the following results against the analytical rows:
-
-- `two_bare_wires`: e_Z at most 0.57 % and e_Y at most 0.80 %, under 1 %.
-- `two_insulated_wires`: e_Z at most 0.41 % and e_Y at most 0.045 %, under 1 %.
-- `coaxial_circular_strands` and `coaxial_rectangular_strands`: e_Y from 8.5 % to 10.5 %, e_Z up
-  to 5.2 %. Differences between the two models account for them. Variant runs of the
-  rectangular-strand case on `a7640beb` remove one difference at a time and show each part. The
-  last variant was run for both cases.
-  - e_Y, 8.5 % to 10.5 % at every frequency, in Y33: the analytical model treats the armor
-    wires as a tube. The wires meet the 3 mm bedding only at their crowns, with fill (εr 1) in
-    the wedges between them. With the armor as a steel tube, e_Y is at most 0.094 %.
-  - e_Z below about 25 Hz, up to 4.5 % in Z33: the armor lay correction, which the analytical
-    equivalent conductor includes and a two-dimensional FEM model does not. With straight armor
-    wires, e_Z at 0.1 Hz is 0.49 %.
-  - e_Z above about 40 kHz: the core lay correction, in the same way. In Z11 at 10 MHz, e_Z
-    reaches 5.2 % for the rectangular strands and 4.9 % for the circular strands. With a
-    straight core, at lay ratio 1e6, e_Z at 10 MHz is 0.55 %.
-  - e_Z from 25 Hz to 40 kHz, 1.1 % to 1.9 % with both lays straight: the magnetic armor wires
-    against the tube.
-  - With the armor as a tube and a straight core, e_Z is at most 0.42 % and e_Y at most
-    0.094 % for the rectangular strands, and 0.63 % and 0.13 % for the circular strands.
-
-For `one_insulated_sector`, e_Z rises from 0.057 % (0.1 Hz) to 0.548 % (1 kHz), falls to
-0.101 % (251 kHz), then reaches 0.332 % (10 MHz). Its e_Y is about 1.3 % up to 40 kHz, then
-falls to 0.692 % at 10 MHz.
-
-For `milliken_solid_segments`, e_Y is 36 % from 0.1 Hz to 40 kHz and 40.7 % at 10 MHz, in Y22.
+For `milliken_solid_segments`, e_Y is 36 % from 0.1 Hz to 40 kHz and 40.3 % at 10 MHz, in Y22.
 The analytical model treats the 65 screen wires as a tube 0.73 mm from the aluminum foil. The
-round wires touch the PE layer under the foil only at their crowns. Its e_Z is 2.68 % at 0.1 Hz
+round wires touch the PE layer under the foil only at their crowns. Its e_Z is 2.67 % at 0.1 Hz
 in Z22. That is the lay correction of the screen, which the analytical equivalent conductor
 includes and a two-dimensional FEM model does not.
 
-For `three_insulated_sectors`, e_Z rises from 0.0660 % at 0.1 Hz to 4.02 % at 6.31 kHz, in Z33.
-It stays near 4.02 % through 39.8 kHz, then rises to 6.12 % at 10 MHz, in Z22. At order 0, the
+For `three_insulated_sectors`, e_Z is 0.0649 % at 0.1 Hz in Z11. It rises to 3.92 % at 6.31 kHz in Z11.
+It reaches 3.98 % at 39.8 kHz, then rises to 6.11 % at 10 MHz, in Z33. At order 0, the
 analytical model treats each sector as its equivalent tube. The model places each sector's
 current at its centroid for terms between cores and omits the proximity effect.
 
 Its e_Y stays near 11.3 % from 0.1 Hz to 1 kHz, then reaches 11.6 % at 39.8 kHz. It rises to
-14.2 % at 251 kHz, 28.9 % at 1.58 MHz and 40.6 % at 10 MHz, in `Y22` throughout. The largest
-difference is in the self-admittance of a core. With `C_ij = Im Y_ij / ω`, FEM gives `C22` of 1099 pF/m
+14.3 % at 251 kHz, 28.9 % at 1.58 MHz and 40.6 % at 10 MHz, in `Y22` throughout. The largest
+difference is in the self-admittance of a core. With `C_ij = Im Y_ij / ω`, FEM gives `C22` of 1100 pF/m
 against the analytical 592 pF/m at all 11 frequencies. Most of the difference is between
-cores: `C21` and `C23` are each −309 pF/m in FEM against −122 pF/m analytically at all
+cores. FEM gives `C21` of −309 pF/m and `C23` of −308 pF/m, against −122 pF/m analytically at all
 11 frequencies.
 
 The analytical model treats the 30 neutral wires as a tube. The insulation, the filler and
-the neutral fill are the same PVC. A FEM run at commit `e5d71008` draws the neutral as its tube.
-It gives e_Y near 11.9 % up to 1 kHz and 42.8 % at 10 MHz, in `Y22`.
+the neutral fill are the same PVC. A FEM run on this tree draws the neutral as its tube.
+It gives e_Y near 12.0 % up to 1 kHz and 42.9 % at 10 MHz, in `Y11`.
 The variant's analytical rows are those of the case. The sector taken as its tube remains the
 difference between the models.
 
@@ -262,10 +197,10 @@ of the neutral. That scale grows with ω at every frequency, in proportion to ω
 At high frequency, `|Y44| / ω` falls. This fall raises e_Y.
 
 For `three_cores_steel_pipe` at `order = 20`, e_Z rises from 0.0508 % at 0.1 Hz to 0.403 % at
-25.1 Hz, in Z44. It decreases to 0.373 % at 1 kHz in Z22, then to 0.207 % at 10 MHz in Z33. Its
-e_Y stays near 0.121 % from 0.1 Hz to 158 Hz, then drops to 0.0617 % at 1 kHz, in Y44. It
-returns to 0.121 % at 6.31 kHz, then decreases to 0.0904 % at 1.58 MHz, in Y44. At 10 MHz, it
-reaches 0.0421 % in Y24. Both deviations lie within the FEM accuracy level of 1 %.
+25.1 Hz, in Z44. It decreases to 0.373 % at 1 kHz in Z22, then to 0.207 % at 10 MHz in Z11. Its
+e_Y stays near 0.134 % from 0.1 Hz to 158 Hz, then drops to 0.0748 % at 1 kHz, in Y44. It
+returns to 0.134 % at 6.31 kHz, then decreases to 0.0852 % at 1.58 MHz, in Y44. At 10 MHz, it
+reaches 0.0614 % in Y24. Both deviations lie within the FEM accuracy level of 1 %.
 
 ## Cable systems of the case scripts
 
@@ -276,17 +211,17 @@ terminal of its own.
 
 The fifth, `cable_30kv_630mm2_trefoil`, computes the cables of the example `examples/cable_30kv_630mm2_trefoil.jl` at
 the 50 multiples of 50 Hz up to 2500 Hz. Both formulations remove its grounded screens by Kron reduction and transpose its phases.
-Every system lies in earth of 100 Ω·m (εr 10). Each script ran once, with gmsh_jll 4.15.2, at the commit that adds its
-file. The run is the folder of its results under `.linecablemodels/cases/<case>/`. Run each script from the repository
+Every system lies in earth of 100 Ω·m (εr 10). Each script ran once on this tree, with Gmsh 4.15.2 and
+getdp_jll 3.5.1+0 on x86_64 Linux. The run is the folder of its results under `.linecablemodels/cases/<case>/`. Run each script from the repository
 root as `julia --project=docs test/manual/cases/<case>.jl`.
 
 | Case | System | Run |
 |---|---|---|
-| `cable_30kv_630mm2_trefoil` | three 18/30 kV cables with a solid aluminum core of 630 mm² and a copper screen 0.3 mm thick, in trefoil with the cables in contact, the lower two at 1 m depth | `20261104-004949` |
-| `cable_30kv_na2xs2y_630mm2_trefoil` | three 18/30 kV cables with a stranded aluminum core of 630 mm² and a screen of 60 copper wires under a copper tape, in trefoil with the cables in contact, about 1 m deep | `20261104-005450` |
-| `cable_132kv_630mm2_flathor` | three 132 kV cables with a stranded copper core of 630 mm², a screen of 19 copper wires under a copper tape and an aluminum tape under the jacket, 0.5 m apart in a row at 1 m depth | `20261104-010142` |
-| `cable_18kv_1000mm2_trefoil` | three 18 kV cables with a stranded aluminum core of 1000 mm², a screen of 49 copper wires under a copper tape and an aluminum tape under the jacket, in trefoil with 1.1 diameters between centers, about 1 m deep | `20261104-011055` |
-| `cable_380kv_2000mm2_flatver` | three 380 kV cables with a stranded copper core of 2000 mm², a screen of 14 copper wires under a copper tape and an aluminum tape under the jacket, 0.5 m apart in a column from 1 m to 2 m depth | `20261104-012742` |
+| `cable_30kv_630mm2_trefoil` | three 18/30 kV cables with a solid aluminum core of 630 mm² and a copper screen 0.3 mm thick, in trefoil with the cables in contact, the lower two at 1 m depth | `20261115-030629` |
+| `cable_30kv_na2xs2y_630mm2_trefoil` | three 18/30 kV cables with a stranded aluminum core of 630 mm² and a screen of 60 copper wires under a copper tape, in trefoil with the cables in contact, about 1 m deep | `20261115-031206` |
+| `cable_132kv_630mm2_flathor` | three 132 kV cables with a stranded copper core of 630 mm², a screen of 19 copper wires under a copper tape and an aluminum tape under the jacket, 0.5 m apart in a row at 1 m depth | `20261115-031931` |
+| `cable_18kv_1000mm2_trefoil` | three 18 kV cables with a stranded aluminum core of 1000 mm², a screen of 49 copper wires under a copper tape and an aluminum tape under the jacket, in trefoil with 1.1 diameters between centers, about 1 m deep | `20261115-032852` |
+| `cable_380kv_2000mm2_flatver` | three 380 kV cables with a stranded copper core of 2000 mm², a screen of 14 copper wires under a copper tape and an aluminum tape under the jacket, 0.5 m apart in a column from 1 m to 2 m depth | `20261115-034626` |
 
 Each stranded core has a central wire and courses of 6, 12, 18 and 24 wires. The courses of 12 and 24 wires start half
 a pitch from the others.
@@ -296,38 +231,38 @@ entry of each maximum and the RMS over the frequencies:
 
 | Case | e_Z | At | RMS | e_Y | At | RMS |
 |---|---|---|---|---|---|---|
-| `cable_30kv_630mm2_trefoil` | 5.21 % | 350 Hz, (1,1) | 3.34 % | 0.0209 % | all, (1,1) | 0.0209 % |
-| `cable_30kv_na2xs2y_630mm2_trefoil` | 10.5 % | 10 MHz, (1,1) | 5.86 % | 16.7 % | 10 MHz, (4,4) | 15.9 % |
-| `cable_132kv_630mm2_flathor` | 5.48 % | 10 MHz, (4,4) | 3.76 % | 91.4 % | 10 MHz, (5,5) | 90.6 % |
-| `cable_18kv_1000mm2_trefoil` | 9.48 % | 10 MHz, (1,1) | 5.53 % | 86.9 % | 10 MHz, (5,5) | 86.0 % |
-| `cable_380kv_2000mm2_flatver` | 5.60 % | 10 MHz, (4,4) | 3.74 % | 94.9 % | 10 MHz, (8,9) | 94.0 % |
+| `cable_30kv_630mm2_trefoil` | 5.21 % | 350 Hz, (1,1) | 3.34 % | 0.0215 % | 2.5 kHz, (1,1) | 0.0215 % |
+| `cable_30kv_na2xs2y_630mm2_trefoil` | 10.5 % | 10 MHz, (1,1) | 5.82 % | 16.7 % | 10 MHz, (4,4) | 15.8 % |
+| `cable_132kv_630mm2_flathor` | 5.48 % | 10 MHz, (4,4) | 3.75 % | 91.4 % | 10 MHz, (5,5) | 90.5 % |
+| `cable_18kv_1000mm2_trefoil` | 9.48 % | 10 MHz, (1,1) | 5.51 % | 86.9 % | 10 MHz, (5,5) | 86.0 % |
+| `cable_380kv_2000mm2_flatver` | 5.59 % | 10 MHz, (4,4) | 3.74 % | 94.9 % | 10 MHz, (2,2) | 94.0 % |
 
 The coaxial formulation takes a screen of wires with its copper tape as one tube. The tube shields the field between
 the wires. The capacitance of the wires surrounded by the tape stays out of the analytical `Y`, while the FEM
-keeps it. Below 10 kHz, this limitation of the coaxial formulation gives e_Y of 15.5 % in
-`cable_30kv_na2xs2y_630mm2_trefoil`. In the three cases with an aluminum tape over the screen, it gives 90.4 %, 85.9 %
+keeps it. Below 10 kHz, this limitation of the coaxial formulation gives e_Y of 15.4 % in
+`cable_30kv_na2xs2y_630mm2_trefoil`. In the three cases with an aluminum tape over the screen, it gives 90.4 %, 85.8 %
 and 93.8 %.
 
 The analytical rows correct the impedance of the helical core and screen wires for their lays, and the two-dimensional
 FEM model has no lay. With every lay straight in the analytical rows (lay ratio 10⁶), the maximum e_Z of the two flat
-formations is 1.81 % and 2.35 %. It lies in core entries between 25 Hz and 6.3 kHz. The maximum e_Z of the two
-trefoils is 7.51 % for `cable_18kv_1000mm2_trefoil` and 9.00 % for `cable_30kv_na2xs2y_630mm2_trefoil`, at 10 MHz. A FEM run of
-`cable_132kv_630mm2_flathor` with straight lays gives its `fem` rows again within 1.3e-8 of the largest diagonal entry,
+formations is 1.78 % and 2.34 %. It lies in core entries at 1 kHz and 158 Hz, respectively. The maximum e_Z of the two
+trefoils is 7.51 % for `cable_18kv_1000mm2_trefoil` and 8.99 % for `cable_30kv_na2xs2y_630mm2_trefoil`, at 10 MHz. A FEM run of
+`cable_132kv_630mm2_flathor` with straight lays gives its `fem` rows again within 2.1e-10 of the largest diagonal entry,
 at 0.1 Hz and 10 MHz.
 
 In an analytical run of `cable_132kv_630mm2_flathor` with straight lays, the 61 core wires become one solid copper core
 of their area, inside the same fill. Its e_Z exceeds the stranded core's at every FEM frequency from 0.63 Hz to
-39.8 kHz, at most 2.19 % at 158 Hz.
+39.8 kHz, at most 2.16 % at 158 Hz.
 
 Both trefoils keep their e_Z at 10 MHz from the proximity of the cables. The coaxial formulation distributes the
 current of each conductor uniformly around its axis, and the FEM resolves the currents that the neighbors induce. With
-the cables five diameters apart and straight lays, e_Z is at most 1.08 % in both, at 6.3 kHz.
+the cables five diameters apart and straight lays, e_Z is at most 0.998 % in both, at 6.3 kHz.
 
 For `cable_30kv_630mm2_trefoil`, the script also compares the positive-sequence parameters `z1 = zs - zm` and
 `y1 = ys - ym`. FEM against the analytical rows, the resistance `R1` deviates by +5.57 % at 50 Hz, -12.7 % at 650 Hz and
 -5.63 % at 2500 Hz. The reactance `X1` deviates by -7.93 % at 250 Hz to +1.42 % at 1950 Hz, and the susceptance `B1` by
--0.0209 % at every frequency. These deviations come from the proximity of the touching cables. With the cables five
-diameters apart, e_Z is at most 0.155 %, and `R1` and `X1` lie within 0.24 % and 0.28 % of the analytical values.
+-0.0215 % at every frequency. These deviations come from the proximity of the touching cables. With the cables five
+diameters apart, e_Z is at most 0.155 %, and `R1` and `X1` lie within 0.37 % and 0.28 % of the analytical values.
 
 ## A sector core against its equivalent tube
 
@@ -343,19 +278,19 @@ control.
 
 | Frequency | Core: e_Z | Core: e_Y | Control: e_Z | Control: e_Y |
 |---|---|---|---|---|
-| 0.1 Hz | 0.0625 % | 0.389 % | 0.0715 % | 0.765 % |
-| 1 Hz | 0.0620 % | 0.387 % | 0.0876 % | 0.712 % |
-| 10 Hz | 0.112 % | 0.387 % | 0.373 % | 0.701 % |
-| 100 Hz | 0.243 % | 0.396 % | 0.596 % | 0.746 % |
-| 1 kHz | 0.347 % | 0.386 % | 0.590 % | 0.736 % |
-| 10 kHz | 0.355 % | 0.371 % | 0.580 % | 0.706 % |
-| 100 kHz | 0.317 % | 0.210 % | 0.554 % | 0.653 % |
-| 1 MHz | 0.492 % | 0.479 % | 0.846 % | 0.940 % |
+| 0.1 Hz | 0.0674 % | 0.387 % | 0.0715 % | 0.765 % |
+| 1 Hz | 0.0673 % | 0.388 % | 0.0876 % | 0.712 % |
+| 10 Hz | 0.128 % | 0.422 % | 0.373 % | 0.701 % |
+| 100 Hz | 0.276 % | 0.420 % | 0.596 % | 0.746 % |
+| 1 kHz | 0.333 % | 0.477 % | 0.590 % | 0.736 % |
+| 10 kHz | 0.244 % | 0.385 % | 0.580 % | 0.706 % |
+| 100 kHz | 0.247 % | 0.295 % | 0.557 % | 0.569 % |
+| 1 MHz | 0.225 % | 0.280 % | 0.581 % | 0.589 % |
 
 The core and the tube agree within the FEM accuracy level at every frequency. The mesh of the core
-has the node counts of its curves and the interior target of a conductor, without the graded
-layer. At 0.1 Hz, the resistance of the core is 0.0624 % above `ρ/A` plus the earth return
-resistance `ωμ₀/8`. Each computation ran once, at the commit that adds this section.
+has the node counts of its curves and the interior target of a conductor, with strips along
+its outline. At 0.1 Hz, the resistance of the core is 0.0674 % above `ρ/A` plus the earth return
+resistance `ωμ₀/8`. Each computation ran once on this tree.
 
 ## Internal approximation
 
@@ -486,8 +421,8 @@ last two columns compare with the `fem` rows over the 11 FEM frequencies:
 | --- | --- | --- | --- | --- | --- | --- |
 | `two_bare_wires` | 0.568 | 0.126 | 1.95 | 0.374 | 0.567 | 0.788 |
 | `two_insulated_wires` | 0.565 | 0.126 | 0.00202 | 0.000336 | 0.564 | 0.00214 |
-| `coaxial_circular_strands` | 0.0778 | 0.0162 | 0.0668 | 0.0249 | 0.118 | 0.117 |
-| `coaxial_rectangular_strands` | 0.0779 | 0.0162 | 0.0668 | 0.0249 | 0.121 | 0.118 |
+| `coaxial_circular_strands` | 0.0778 | 0.0162 | 0.0668 | 0.0249 | 0.118 | 0.119 |
+| `coaxial_rectangular_strands` | 0.0779 | 0.0162 | 0.0668 | 0.0249 | 0.121 | 0.12 |
 
 `e_Z` follows from the filament and from the longitudinal constant. `e_Y` follows from the term `G` of
 equation (6c) of the source. On `two_bare_wires`, that term of a diagonal entry is 8 to 9 times the rest

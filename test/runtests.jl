@@ -12,6 +12,7 @@ using ForwardDiff
     include("materials/materials.jl")
     include("earth/earth.jl")
     include("datamodel/geometry.jl")
+    include("datamodel/rotated_contours.jl")
     include("datamodel/derivatives.jl")
     include("datamodel/design.jl")
     include("datamodel/system.jl")
@@ -55,6 +56,7 @@ using ForwardDiff
     include("gmsh/options.jl")
     include("gmsh/model.jl")
     include("gmsh/geometry.jl")
+    include("gmsh/rotated_pieces.jl")
     # The FEM workflow sets LINECABLEMODELS_FEM to run the tests that mesh and solve.
     if haskey(ENV, "LINECABLEMODELS_FEM")
         include("gmsh/mesh.jl")

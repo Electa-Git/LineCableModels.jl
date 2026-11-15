@@ -1641,7 +1641,9 @@ function distances_across(directory)
                 end
                 if kind(signature) == K"call" &&
                    !isempty(syntax_name(signature[1])) &&
-                   last(syntax_name(signature[1])) == :section
+                   last(syntax_name(signature[1])) == :section &&
+                   numchildren(signature) >= 2 && kind(signature[2]) == K"::" &&
+                   syntax_name(last_child(signature[2])) == (:Sector,)
                     return false
                 end
             end

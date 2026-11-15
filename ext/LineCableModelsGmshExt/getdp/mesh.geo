@@ -153,6 +153,7 @@ EndIf
 FEMAllSurfaces() = {};
 // Conductor contour targets are grouped by size to bound field evaluations.
 FEMContourGroups = 0;
+FEMJunctionVertices() = {}; FEMGradedCurves() = {};
 // Budgets belong to this prescription evaluation, including native reparses.
 For patch In {0:FEMAnnularPatches-1}
   For member In {0:1}
@@ -185,6 +186,41 @@ For region In {0:NumPhysicalRegions-1}
       FEMLayers = Ceil(Log(1+(ConductorMeshGrowth-1)*FEMExtent/FEMFirst)/Log(ConductorMeshGrowth));
       FEMFirst = FEMExtent*(ConductorMeshGrowth-1)/(ConductorMeshGrowth^FEMLayers-1);
     EndIf
+    // A corner's spoke is longer than the normal strip depth.
+    FEMVertices() = {};
+    If(FEMConductorStrips~{region} > 0 && FEMDelta < FEMWidth)
+      For strip In {0:FEMStrips-1}
+        If(FEMStripRegion~{strip} == region)
+          For member In {0:#FEMStripSpokes~{strip}()-1}
+            FEMCurve = Abs(FEMStripSpokes~{strip}(member));
+            FEMEnds() = Boundary{ Curve{FEMCurve}; };
+            FEMP() = Point{Abs(FEMEnds(0))}; FEMQ() = Point{Abs(FEMEnds(1))};
+            FEMLength = Sqrt((FEMP(0)-FEMQ(0))^2+(FEMP(1)-FEMQ(1))^2+(FEMP(2)-FEMQ(2))^2);
+            If(FEMLength > FEMExtent*(1+1e-8))
+              For point In {0:#FEMRegionPoints~{region}()-1}
+                FEMPoint = FEMRegionPoints~{region}(point);
+                If(FEMPoint == Abs(FEMEnds(0)) || FEMPoint == Abs(FEMEnds(1)))
+                  FEMVertices() += {FEMPoint};
+                EndIf
+              EndFor
+            EndIf
+          EndFor
+        EndIf
+      EndFor
+      FEMVertices() = Unique(FEMVertices());
+    EndIf
+    // Retain the smallest first layer at every corner across conductor regions.
+    For member In {0:#FEMVertices()-1}
+      FEMPoint = FEMVertices(member); FEMRecorded = 0;
+      For point In {0:#FEMJunctionVertices()-1}
+        If(FEMJunctionVertices(point) == FEMPoint) FEMRecorded = 1; EndIf
+      EndFor
+      If(FEMRecorded)
+        FEMVertexFirst~{FEMPoint} = Min(FEMVertexFirst~{FEMPoint},FEMFirst);
+      Else
+        FEMJunctionVertices() += {FEMPoint}; FEMVertexFirst~{FEMPoint} = FEMFirst;
+      EndIf
+    EndFor
     For arc In {0:#FEMRegionCurves~{region}()-1}
       FEMLocal = Ceil(FEMConductorArcLengths~{region}(arc)/RegionSize~{region})+1;
       FEMCurve = FEMRegionCurves~{region}(arc);
@@ -208,8 +244,51 @@ For region In {0:NumPhysicalRegions-1}
         FEMRadius = FEMConductorArcLengths~{region}(arc)/(2*Pi*FEMConductorArcFractions~{region}(arc));
         FEMCurveSegments~{FEMCurve} = Max(FEMCircleSegments,2*Pi*FEMRadius/RegionSize~{region});
       Else FEMArcNodes = FEMLocal; EndIf
+      FEMLength = FEMConductorArcLengths~{region}(arc);
+      FEMIntervals = FEMArcNodes-1; FEMSpacing = FEMLength/FEMIntervals;
+      FEMVertex() = {0,0};
+      If(#FEMVertices() && FEMFirst < FEMSpacing)
+        FEMEnds() = Boundary{ Curve{FEMCurve}; };
+        For point In {0:1}
+          For member In {0:#FEMVertices()-1}
+            If(Abs(FEMEnds(point)) == FEMVertices(member)) FEMVertex(point) = 1; EndIf
+          EndFor
+        EndFor
+      EndIf
+      // A side another region graded keeps that region's corners and takes this region's.
+      FEMRecorded = 0; FEMCurveFirst = FEMFirst;
+      For member In {0:#FEMGradedCurves()-1}
+        If(FEMGradedCurves(member) == FEMCurve) FEMRecorded = 1; EndIf
+      EndFor
+      If(FEMRecorded && (FEMVertex(0) || FEMVertex(1)))
+        For point In {0:1}
+          For member In {0:#FEMJunctionVertices()-1}
+            FEMPoint = FEMJunctionVertices(member);
+            If(Abs(FEMEnds(point)) == FEMPoint)
+              FEMVertex(point) = 1; FEMCurveFirst = Min(FEMCurveFirst,FEMVertexFirst~{FEMPoint});
+            EndIf
+          EndFor
+        EndFor
+      EndIf
+      If(FEMVertex(0) || FEMVertex(1)) FEMGradedCurves() += {FEMCurve}; EndIf
+      If(FEMRecorded && !FEMVertex(0) && !FEMVertex(1))
+        FEMArcNodes = FEMCurveNodes~{FEMCurve};
+      ElseIf(FEMVertex(0) && FEMVertex(1))
+        FEMBump = FEMCurveFirst/FEMSpacing;
+        FEMGrading = 4*(1-FEMBump)/FEMIntervals;
+        FEMBump *= FEMGrading/(Exp(FEMGrading)-1); FEMRoot = Sqrt(1-FEMBump);
+        FEMArcNodes = Ceil(FEMIntervals*Log((1+FEMRoot)/(1-FEMRoot))/(2*FEMRoot))+1;
+        Transfinite Curve {FEMCurve} = FEMArcNodes Using Bump FEMBump;
+        FEMCurveLaw~{FEMCurve} = 2; FEMCurveCoefficient~{FEMCurve} = FEMBump;
+      ElseIf(FEMVertex(0) || FEMVertex(1))
+        FEMIntervals = Max(2,FEMIntervals); FEMSpacing = FEMLength/FEMIntervals;
+        FEMGrading = (FEMLength-FEMCurveFirst)/(FEMLength-FEMSpacing);
+        FEMArcNodes = Ceil(1+Log(FEMSpacing/FEMCurveFirst)/Log(FEMGrading))+1;
+        If(FEMVertex(1)) FEMGrading = 1/FEMGrading; EndIf
+        Transfinite Curve {FEMCurve} = FEMArcNodes Using Progression FEMGrading;
+        FEMCurveLaw~{FEMCurve} = 1; FEMCurveCoefficient~{FEMCurve} = FEMGrading;
+      Else Transfinite Curve {FEMCurve} = FEMArcNodes; FEMCurveLaw~{FEMCurve} = 0; EndIf
       FEMCurveNodes~{FEMCurve} = FEMArcNodes;
-      Transfinite Curve {FEMCurve} = FEMArcNodes;
       FEMContourSize = Min(FEMContourSize,FEMConductorArcLengths~{region}(arc)/(FEMArcNodes-1));
     EndFor
     FEMLayer = FEMNextField; FEMNextField += 1; Field[FEMLayer] = BoundaryLayer;
@@ -217,6 +296,18 @@ For region In {0:NumPhysicalRegions-1}
     Field[FEMLayer].Size = FEMFirst; Field[FEMLayer].Ratio = ConductorMeshGrowth;
     Field[FEMLayer].Thickness = FEMExtent*(1+1e-8); Field[FEMLayer].Quads = 0;
     If(!#FEMAllSurfaces()) FEMAllSurfaces() = Surface{:}; EndIf
+    If(#FEMVertices())
+      FEMDistance = FEMNextField; FEMNextField += 1; Field[FEMDistance] = Distance;
+      Field[FEMDistance].PointsList = {FEMVertices()};
+      FEMExtension = FEMNextField; FEMNextField += 1; Field[FEMExtension] = Threshold;
+      Field[FEMExtension].InField = FEMDistance; Field[FEMExtension].SizeMin = FEMFirst;
+      Field[FEMExtension].SizeMax = MeshRemoteMax; Field[FEMExtension].DistMin = 0;
+      Field[FEMExtension].DistMax = (MeshRemoteMax-FEMFirst)/MeshGrowthSlope;
+      FEMExcluded() = {FEMAllSurfaces()}; FEMExcluded() -= {FEMRegionSurfaces~{region}()};
+      FEMField = FEMNextField; FEMNextField += 1; Field[FEMField] = Restrict;
+      Field[FEMField].InField = FEMExtension; Field[FEMField].IncludeBoundary = 0;
+      Field[FEMField].SurfacesList = {FEMExcluded()}; FEMBackground() += {FEMField};
+    EndIf
     FEMExcluded() = {FEMAllSurfaces()};
     If(FEMDelta < FEMWidth && !FEMConductorStrips~{region})
       FEMExcluded() -= {FEMRegionSurfaces~{region}()};
@@ -230,6 +321,72 @@ For region In {0:NumPhysicalRegions-1}
     // These passive constants are also retained for mesh-parity inspection.
     FEMConductorDelta~{region} = FEMDelta; FEMConductorFirst~{region} = FEMFirst;
     FEMConductorExtent~{region} = FEMExtent; FEMConductorBulk~{region} = FEMBulk;
+  EndIf
+EndFor
+// Complete corner grading after every conductor has contributed its vertices.
+FEMVisitedCurves() = {FEMGradedCurves()};
+For region In {0:NumPhysicalRegions-1}
+  If(FEMConductor~{region})
+    For arc In {0:#FEMRegionCurves~{region}()-1}
+      FEMCurve = FEMRegionCurves~{region}(arc); FEMRecorded = 0;
+      For member In {0:#FEMVisitedCurves()-1}
+        If(FEMVisitedCurves(member) == FEMCurve) FEMRecorded = 1; EndIf
+      EndFor
+      If(!FEMRecorded)
+        FEMVisitedCurves() += {FEMCurve};
+        FEMLength = FEMConductorArcLengths~{region}(arc);
+        FEMIntervals = FEMCurveNodes~{FEMCurve}-1; FEMSpacing = FEMLength/FEMIntervals;
+        FEMEnds() = Boundary{ Curve{FEMCurve}; };
+        FEMVertex() = {0,0}; FEMFirst = 1e300;
+        For point In {0:1}
+          For member In {0:#FEMJunctionVertices()-1}
+            FEMPoint = FEMJunctionVertices(member);
+            If(Abs(FEMEnds(point)) == FEMPoint)
+              FEMVertex(point) = 1; FEMFirst = Min(FEMFirst,FEMVertexFirst~{FEMPoint});
+            EndIf
+          EndFor
+        EndFor
+        If((FEMVertex(0) || FEMVertex(1)) && FEMFirst < FEMSpacing)
+          If(ConductorMeshGrowth == 1)
+            FEMArcNodes = Ceil(FEMLength/FEMFirst)+1;
+            Transfinite Curve {FEMCurve} = FEMArcNodes Using Bump 1;
+            FEMCurveLaw~{FEMCurve} = 2; FEMCurveCoefficient~{FEMCurve} = 1;
+          ElseIf(FEMVertex(0) && FEMVertex(1))
+            // The logarithmic derivative bounds every adjacent Bump ratio.
+            FEMIntervals = Max(FEMIntervals,Ceil(FEMLength/(FEMFirst+FEMLength*Log(ConductorMeshGrowth)/4)));
+            FEMGrading = ConductorMeshGrowth+1;
+            For(FEMIntervals:Ceil(FEMLength/FEMFirst))
+              If(FEMGrading > ConductorMeshGrowth)
+              FEMSpacing = FEMLength/FEMIntervals;
+              If(FEMSpacing <= FEMFirst)
+                FEMBump = 1; FEMArcNodes = FEMIntervals+1; FEMGrading = 1;
+              Else
+                FEMBump = FEMFirst/FEMSpacing;
+                FEMGrading = 4*(1-FEMBump)/FEMIntervals;
+                FEMBump *= FEMGrading/(Exp(FEMGrading)-1); FEMRoot = Sqrt(1-FEMBump);
+                FEMArcNodes = Ceil(FEMIntervals*Log((1+FEMRoot)/(1-FEMRoot))/(2*FEMRoot))+1;
+                FEMGrading = Exp(2*FEMRoot*Log((1+FEMRoot)/(1-FEMRoot))/(FEMArcNodes-1));
+              EndIf
+              If(FEMGrading > ConductorMeshGrowth) FEMIntervals += 1; EndIf
+              EndIf
+            EndFor
+            Transfinite Curve {FEMCurve} = FEMArcNodes Using Bump FEMBump;
+            FEMCurveLaw~{FEMCurve} = 2; FEMCurveCoefficient~{FEMCurve} = FEMBump;
+          Else
+            FEMIntervals = Max(2,FEMIntervals); FEMSpacing = FEMLength/FEMIntervals;
+            FEMGrading = Min(ConductorMeshGrowth,(FEMLength-FEMFirst)/(FEMLength-FEMSpacing));
+            FEMArcNodes = Ceil(Log(1+FEMLength*(FEMGrading-1)/FEMFirst)/Log(FEMGrading))+1;
+            // Spread the growth over another interval before rounding the count.
+            FEMGrading = FEMGrading^((FEMArcNodes-2)/(FEMArcNodes-1));
+            FEMArcNodes = Ceil(Log(1+FEMLength*(FEMGrading-1)/FEMFirst)/Log(FEMGrading))+1;
+            If(FEMVertex(1)) FEMGrading = 1/FEMGrading; EndIf
+            Transfinite Curve {FEMCurve} = FEMArcNodes Using Progression FEMGrading;
+            FEMCurveLaw~{FEMCurve} = 1; FEMCurveCoefficient~{FEMCurve} = FEMGrading;
+          EndIf
+          FEMCurveNodes~{FEMCurve} = FEMArcNodes;
+        EndIf
+      EndIf
+    EndFor
   EndIf
 EndFor
 If(ThinLayerStrips)
@@ -284,7 +441,7 @@ For sweep In {0:1}
           If(!Exists(FEMCurveNodes~{FEMSmaller}))
             FEMIntervals = FEMCircleSegments*FEMSmallerFraction;
             FEMCurveNodes~{FEMSmaller} = Ceil(FEMIntervals-64*2^(Floor(Log(FEMIntervals)/Log(2))-52))+1;
-            Transfinite Curve {FEMSmaller} = FEMCurveNodes~{FEMSmaller};
+            Transfinite Curve {FEMSmaller} = FEMCurveNodes~{FEMSmaller}; FEMCurveLaw~{FEMSmaller} = 0;
           EndIf
           FEMSmallerIntervals = FEMCurveNodes~{FEMSmaller}-1;
         EndIf
@@ -303,7 +460,7 @@ For sweep In {0:1}
             FEMCurveNodes~{FEMLarger} = Ceil(FEMIntervals-64*2^(Floor(Log(FEMIntervals)/Log(2))-52))+1;
           EndIf
           If(FEMCurveNodes~{FEMLarger}-1 < FEMLeast) FEMCurveNodes~{FEMLarger} = FEMLeast+1; EndIf
-          Transfinite Curve {FEMLarger} = FEMCurveNodes~{FEMLarger};
+          Transfinite Curve {FEMLarger} = FEMCurveNodes~{FEMLarger}; FEMCurveLaw~{FEMLarger} = 0;
         EndIf
       EndFor
     EndFor
@@ -314,7 +471,7 @@ For patch In {0:FEMAnnularPatches-1}
     FEMCurve = FEMAnnularArcs~{patch}(member);
     FEMIntervals = FEMCurveSegments~{FEMCurve}*FEMAnnularFraction~{patch};
     FEMCurveNodes~{FEMCurve} = Ceil(FEMIntervals-64*2^(Floor(Log(FEMIntervals)/Log(2))-52))+1;
-    Transfinite Curve {FEMCurve} = FEMCurveNodes~{FEMCurve};
+    Transfinite Curve {FEMCurve} = FEMCurveNodes~{FEMCurve}; FEMCurveLaw~{FEMCurve} = 0;
   EndFor
   FEMOuter = FEMAnnularArcs~{patch}(0); FEMAnnularNodes~{patch} = FEMCurveNodes~{FEMOuter};
   If(FEMAnnularThin~{patch})
@@ -335,11 +492,29 @@ For patch In {0:FEMAnnularPatches-1}
   EndFor
 EndFor
 EndIf
-// Each strip's parallel takes the intervals of its outline, shared among its pieces by their
-// lengths, each piece keeping one interval for every piece after it; its spokes take the layer
-// count of its region, graded from the outline.
+// Each strip's parallel takes the intervals of its outline: piece by piece with the outline's
+// law where both have as many pieces, so the strip's layers stay normal to the outline; else
+// shared among its pieces by their lengths, each piece keeping one interval for every piece
+// after it. Its spokes take the layer count of its region, graded from the outline.
 For strip In {0:FEMStrips-1}
   region = FEMStripRegion~{strip};
+  If(#FEMStripOuterCurves~{strip}() == #FEMStripInnerCurves~{strip}())
+  For member In {0:#FEMStripOuterCurves~{strip}()-1}
+    FEMCurve = FEMStripOuterCurves~{strip}(member); FEMPiece = FEMStripInnerCurves~{strip}(member);
+    FEMCurveNodes~{FEMPiece} = FEMCurveNodes~{FEMCurve}; FEMLaw = 0;
+    If(Exists(FEMCurveLaw~{FEMCurve})) FEMLaw = FEMCurveLaw~{FEMCurve}; EndIf
+    If(FEMLaw == 2)
+      Transfinite Curve {FEMPiece} = FEMCurveNodes~{FEMPiece} Using Bump FEMCurveCoefficient~{FEMCurve};
+    ElseIf(FEMLaw == 1)
+      // The piece and its outline run the same way when their chords agree.
+      FEMEnds() = Boundary{ Curve{FEMCurve}; }; FEMP() = Point{Abs(FEMEnds(0))}; FEMQ() = Point{Abs(FEMEnds(1))};
+      FEMEnds() = Boundary{ Curve{FEMPiece}; }; FEMR() = Point{Abs(FEMEnds(0))}; FEMS() = Point{Abs(FEMEnds(1))};
+      FEMGrading = FEMCurveCoefficient~{FEMCurve};
+      If((FEMQ(0)-FEMP(0))*(FEMS(0)-FEMR(0))+(FEMQ(1)-FEMP(1))*(FEMS(1)-FEMR(1)) < 0) FEMGrading = 1/FEMGrading; EndIf
+      Transfinite Curve {FEMPiece} = FEMCurveNodes~{FEMPiece} Using Progression FEMGrading;
+    Else Transfinite Curve {FEMPiece} = FEMCurveNodes~{FEMPiece}; EndIf
+  EndFor
+  Else
   FEMIntervals = 0;
   For member In {0:#FEMStripOuterCurves~{strip}()-1}
     FEMCurve = FEMStripOuterCurves~{strip}(member);
@@ -362,6 +537,7 @@ For strip In {0:FEMStrips-1}
   FEMCurve = FEMStripInnerCurves~{strip}(#FEMStripInnerCurves~{strip}()-1);
   FEMCurveNodes~{FEMCurve} = FEMRemainder+1;
   Transfinite Curve {FEMCurve} = FEMCurveNodes~{FEMCurve};
+  EndIf
   Transfinite Curve {FEMStripSpokes~{strip}()} = FEMConductorLayers~{region}+1 Using Progression ConductorMeshGrowth;
   Transfinite Surface {FEMStripSurface~{strip}} = {FEMStripCorners~{strip}()} AlternateLeft;
 EndFor

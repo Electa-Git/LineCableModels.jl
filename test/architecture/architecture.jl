@@ -119,8 +119,11 @@ end
         @test Guards.dimension_methods(clean, shapes) == Dict{String, Int}()
     end
 
-    @testset "no distance across outside dimension and section" begin
+    @testset "no distance across outside dimension and sector mesh targets" begin
         @test Guards.distances_across(directory) == Dict{String, Int}()
+        planted = joinpath(@__DIR__, "probes", "sources", "planted")
+        @test Guards.distances_across(planted) == Dict{String, Int}(
+            "ext/distances.jl:2 | x.ro - x.ri" => 1)
     end
 
     @testset "Commons admission" begin

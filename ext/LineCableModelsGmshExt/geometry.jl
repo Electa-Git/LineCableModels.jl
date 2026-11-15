@@ -204,13 +204,13 @@ end
 $(TYPEDSIGNATURES)
 
 Draw `arc`, whose center and radius are in \\[m\\] and signed span in \\[rad\\],
-split at its circle's breaks. Create the center before the points along the arc in its
-sense. Return oriented arc tags. Arc ends use exact registered contacts when present.
+split at its circle's breaks. Register its two ends, then draw. Create the center
+before the points along the arc in its sense. Return oriented arc tags. Arc ends use exact
+registered contacts when present.
 """
 function draw(geometry::Geometry, arc::Arc)
     cx, cy, radius = Float64(arc.at.x), Float64(arc.at.y), Float64(arc.r)
     circle = Circle(radius, Placement(cx, cy))
-    cut!(geometry, circle)
     cut!(geometry, circle, arc.at.φ)
     cut!(geometry, circle, arc.at.φ + arc.span)
     circle_key = key(cx, cy, radius)
@@ -304,12 +304,13 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Cut `circle`, whose center and radius are in \\[m\\], at its four quadrant angles.
+Cut `circle`, whose center and radius are in \\[m\\], at the four quarter turns from
+its placement's rotation \\[rad\\].
 Return `geometry`.
 """
 function cut!(geometry::Geometry, circle::Circle)
-    for a in (0.0, π / 2, π, 3π / 2)
-        cut!(geometry, circle, a)
+    for k in 0:3
+        cut!(geometry, circle, Float64(circle.at.φ + k * π / 2))
     end
     return geometry
 end
@@ -317,14 +318,42 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Cut the circle of `arc` at its quadrants and at the arc's endpoint angles \\[rad\\].
-The center and radius are in \\[m\\]. Return `geometry`.
+Cut the circle of `arc` at its ends and at equal parts between them of at most a quarter
+turn. The count allows the 1e-12 rad used to match a break. The center and radius are in
+\\[m\\], and the start angle and span are in \\[rad\\]. Return `geometry`.
 """
 function cut!(geometry::Geometry, arc::Arc)
     circle = Circle(arc.r, arc.at)
-    cut!(geometry, circle)
-    cut!(geometry, circle, arc.at.φ)
-    cut!(geometry, circle, arc.at.φ + arc.span)
+    n = max(1, ceil(Int, (abs(Float64(arc.span)) - 1e-12) / (π / 2)))
+    for k in 0:n
+        cut!(geometry, circle, arc.at.φ + k * arc.span / n)
+    end
+    return geometry
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Cut the circle of the parallel `arc` at the junction angles of the oriented outline
+pieces `outer`. Read each angle from its recorded arc, in \\[rad\\]. The parallel's
+center and radius are in \\[m\\]. Return `geometry`.
+"""
+function cut!(geometry::Geometry, arc::Arc, outer::AbstractVector{<:Integer})
+    circle = Circle(arc.r, arc.at)
+    for l in 1:(length(outer) - 1)
+        curve = geometry.curves[abs(outer[l])]::Arc
+        cut!(geometry, circle, curve.at.φ + (outer[l] > 0 ? curve.span : 0))
+    end
+    return geometry
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `geometry` unchanged: a parallel of another curve has no circle to cut at the
+outline pieces `outer`.
+"""
+function cut!(geometry::Geometry, ::Curve, outer::AbstractVector{<:Integer})
     return geometry
 end
 
@@ -364,9 +393,10 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Cut the contour of `shape` and the contacts of its course of wires. Dimensions and
-coordinates are in \\[m\\] and angles in \\[rad\\]. Contact points use the plan's
-radial placements exactly. Return `geometry`.
+Cut the contour of `shape` and the contacts of its course of wires.
+Cut the contact circle along each free span of its shell before any call to `draw`.
+Dimensions and coordinates are in \\[m\\] and angles in \\[rad\\]. Contact points use the
+plan's radial placements exactly. Return `geometry`.
 """
 function cut!(geometry::Geometry, shape::PerforatedShape)
     cut!(geometry, Contour(shape))
@@ -384,6 +414,9 @@ function cut!(geometry::Geometry, shape::PerforatedShape)
         cut!(geometry, wire, a + π, inner_xy)
         cut!(geometry, wire, a + π / 2)
         cut!(geometry, wire, a - π / 2)
+    end
+    for (start, span) in plan.outer_spans
+        cut!(geometry, Arc(Placement(cx, cy, start), plan.outer_radius, span))
     end
     return geometry
 end
@@ -479,8 +512,11 @@ touches the contact circle and the outer circle, by `istangent`. The contact cir
 the inner circle of the cutouts. Without cutouts, it is the outer circle when every wire
 touches it, else the circle through the outer point of the first wire. Record the center
 and inner, contact, and shell radii \\[m\\], the wires and their angles \\[rad\\], and the
-shell's free angular spans \\[rad\\]. Convert the cutouts of `shape` to `Float64` and
-calculate their free spans.
+shell's free angular spans \\[rad\\].
+
+Order the wires by their angle from the rotation of the outer annulus's placement.
+Convert the cutouts of `shape` to `Float64` and calculate their free spans in that frame.
+Record the free spans' start angles in the page's frame.
 """
 function compartments(shape::PerforatedShape, outer::Annulus)
     plan = invoke(compartments, Tuple{PerforatedShape, AbstractShape}, shape, outer)
@@ -507,12 +543,14 @@ function compartments(shape::PerforatedShape, outer::Annulus)
     all(wire -> istangent(wire, contact), wires) || return plan
     all(sector -> istangent(sector, contact) && istangent(sector, rim), cutouts) ||
         return plan
+    φ = Float64(outer.at.φ)
     entries = Tuple{Float64, Circle{Float64}}[]
     for wire in wires
         dx, dy = Float64(wire.at.x) - center[1], Float64(wire.at.y) - center[2]
-        a = mod(atan(dy, dx), 2π)
-        isapprox(a, 2π; rtol = 0, atol = 128eps(Float64)) && (a = 0.0)
-        push!(entries, (a, Circle(Float64(wire.r), convert(Placement{Float64}, wire.at))))
+        start = mod(atan(dy, dx) - φ, 2π)
+        isapprox(start, 2π; rtol = 0, atol = 128eps(Float64)) && (start = 0.0)
+        push!(entries, (
+            start, Circle(Float64(wire.r), convert(Placement{Float64}, wire.at))))
     end
     sectors = [Sector(
                    Float64(sector.ri), Float64(sector.ro), Float64(sector.span), 0.0, 0.0,
@@ -527,11 +565,11 @@ function compartments(shape::PerforatedShape, outer::Annulus)
     spans = NTuple{2, Float64}[]
     if shell
         if isempty(sectors)
-            push!(spans, (0.0, 2π))
+            push!(spans, (φ, 2π))
         else
             occupied = NTuple{2, Float64}[]
             for sector in sectors
-                a = mod(sector.at.φ - sector.span / 2, 2π)
+                a = mod(sector.at.φ - sector.span / 2 - φ, 2π)
                 isapprox(a, 2π; rtol = 0, atol = 128eps(Float64)) && (a = 0.0)
                 b = a + sector.span
                 if b <= 2π + 1e-12
@@ -554,10 +592,10 @@ function compartments(shape::PerforatedShape, outer::Annulus)
             cursor = 0.0
             for interval in merged
                 interval[1] - cursor > 1e-12 &&
-                    push!(spans, (cursor, interval[1] - cursor))
+                    push!(spans, (φ + cursor, interval[1] - cursor))
                 cursor = max(cursor, interval[2])
             end
-            2π - cursor > 1e-12 && push!(spans, (cursor, 2π - cursor))
+            2π - cursor > 1e-12 && push!(spans, (φ + cursor, 2π - cursor))
         end
     end
     sort!(entries; by = first)
@@ -569,7 +607,7 @@ function compartments(shape::PerforatedShape, outer::Annulus)
     end
     return (center = center, inner_radius = Float64(outer.ri),
         outer_radius = contact_radius, shell_outer_radius = Float64(outer.ro),
-        angles = first.(entries), holes = last.(entries), outer_spans = spans)
+        angles = φ .+ first.(entries), holes = last.(entries), outer_spans = spans)
 end
 
 """
@@ -844,7 +882,8 @@ Partition the conducting region `i` of `shape` into four-sided strips and a core
 lie between the contour and its `parallel` at the depth ``e`` \\[m\\] inside the metal, the
 depth of its region's [`section`](@ref). Each curve of each path of the contour bounds one
 strip. Its outer side is the curve's drawn pieces, and its inner side the drawn pieces of
-its parallel. A spoke joins each junction of the contour to the junction of the parallels.
+its parallel. Cut each arc parallel at its outline's junction angles, then draw it.
+A spoke joins each junction of the contour to the junction of the parallels.
 
 Each strip's loop runs counterclockwise. The parallels bound the core. Record each strip's
 region, surface, side curves, spokes, corners and depth ``e``. Return the tags of the strips
@@ -872,15 +911,16 @@ function strips!(geometry::Geometry, shape::AbstractShape, i::Int, depth::Real)
         tags = Int[]
         for j in eachindex(path)
             outer = draw(geometry, path[j])
+            cut!(geometry, innerpath[j], outer)
             pieces = draw(geometry, innerpath[j])
-            a, b = geometry.ends[abs(first(outer))]
-            p = first(outer) > 0 ? a : b
-            a, b = geometry.ends[abs(last(outer))]
-            q = last(outer) > 0 ? b : a
-            a, b = geometry.ends[abs(first(pieces))]
-            p′ = first(pieces) > 0 ? a : b
-            a, b = geometry.ends[abs(last(pieces))]
-            q′ = last(pieces) > 0 ? b : a
+            ends = geometry.ends[abs(first(outer))]
+            p = first(outer) > 0 ? ends[1] : ends[2]
+            ends = geometry.ends[abs(last(outer))]
+            q = last(outer) > 0 ? ends[2] : ends[1]
+            ends = geometry.ends[abs(first(pieces))]
+            p′ = first(pieces) > 0 ? ends[1] : ends[2]
+            ends = geometry.ends[abs(last(pieces))]
+            q′ = last(pieces) > 0 ? ends[2] : ends[1]
             s = only(draw(geometry, Segment(geometry.positions[p], geometry.positions[p′])))
             t = only(draw(geometry, Segment(geometry.positions[q], geometry.positions[q′])))
             loop = k == 1 ? [outer; t; -reverse(pieces); -s] :
@@ -1143,12 +1183,12 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the mesh parameters of the annular region `x`, with the radii ``r_i`` and ``r_o``
-\\[m\\] and the thickness ``w = r_o - r_i``. The target is ``w/2``, with the width ``w``,
+Return the mesh parameters of the annular region `x`, with the thickness
+``w = dimension(shape)`` \\[m\\] of its resolved `shape`. The target is ``w/2``, with the width ``w``,
 `ConductorThicknessElements` divisions, the fraction ``0.45`` and no strips.
 """
-function section(x::Annulus, ::AbstractShape, ::Union{Strand, Solid}, controls::NamedTuple)
-    w = x.ro - x.ri
+function section(x::Annulus, shape::AbstractShape, ::Union{Strand, Solid}, controls::NamedTuple)
+    w = dimension(shape)
     return (target = w / 2, width = w,
         divisions = controls.ConductorThicknessElements, fraction = 0.45, depth = zero(w))
 end

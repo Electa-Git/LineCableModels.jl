@@ -215,17 +215,11 @@
             end
         end
     end
-    # One build computed the frozen fem rows: GetDP 3.5.0 and Gmsh 4.15.2 on x86_64 Linux.
+    # One build computed the frozen fem rows: getdp_jll 3.5.1 and Gmsh 4.15.2 on x86_64 Linux.
     # Gmsh's meshing decisions depend on floating point, so a build is the platform and the
-    # versions of Gmsh and GetDP together. The build of record computes the rows again
-    # within 3e-8 of the largest diagonal entry. The references' testset compares them at
-    # 1e-6.
-    #
-    # Y of milliken_solid_segments at 10 MHz is the exception. The fem rows of record come
-    # from solves with MUMPS's iterative refinement, whose steps follow the rounding of a
-    # run. Over seven such runs, that Y moved by up to 2.18e-6 of the largest diagonal
-    # entry. The default solve takes no refinement step and gives it 1.03e-6 from its row.
-    # The references' testset compares it at 2.18e-6, its known status.
+    # versions of Gmsh and GetDP together. A second run of this build with one BLAS thread reproduces
+    # every entry exactly when its run directory's path has the same length. The references' testset
+    # compares them at 1e-6.
     #
     # Another build meshes the same geometry slightly differently. Pull request 67 measured
     # deviations up to 6e-4 of the diagonal on Apple silicon, Intel macOS and Windows. With
@@ -236,7 +230,7 @@
     # rows and the known status runs on every build and is the physics check. The bent
     # tape's testset below shares this build check and skips its impedance comparison on
     # another build too.
-    record = "x86_64 Linux, Gmsh 4.15.2, GetDP 3.5.0"
+    record = "x86_64 Linux, Gmsh 4.15.2, GetDP 3.5.1"
     version = pkgversion(getdp_jll)
     found = "$(Sys.ARCH) $(Sys.KERNEL), Gmsh $(gmsh.GMSH_API_VERSION), " *
             "GetDP $(version.major).$(version.minor).$(version.patch)"
@@ -257,10 +251,10 @@
                 result = compute(problem, FEM())
                 # The bound is the references' 1e-6 of the entry's modulus.
                 # On the build of record, the run folders under `.linecablemodels/fem` had
-                # paths of 131 to 162 characters.
-                # Across those runs, Z moved by at most 3.2e-10 of its modulus.
-                expected = [0.8867502542985508 + 14.961351021167678im,
-                    24.397262180957043 + 71.8328540494561im]
+                # paths of 147 to 179 characters.
+                # Across those runs, Z moved by at most 3.6e-12 of its modulus.
+                expected = [0.886738151430974 + 14.960649876297841im,
+                    24.39711591456388 + 71.83264075996762im]
                 for k in 1:2
                     @test abs(result.Z[1, 1, k] - expected[k]) <= 1e-6 * abs(expected[k]) skip = !recorded
                 end
@@ -271,15 +265,14 @@
         "two_bare_wires" => (Z = 0.00568, Y = 0.00798),
         "two_insulated_wires" => (Z = 0.00407, Y = 0.000447),
         "coaxial_circular_strands" => (Z = 0.0492, Y = 0.105),
-        "coaxial_rectangular_strands" => (Z = 0.0520, Y = 0.104),
+        "coaxial_rectangular_strands" => (Z = 0.0520, Y = 0.106),
         "overhead_bare_wires" => (Z = 0.00610, Y = 0.00817),
         "mixed_bare_wires" => (Z = 0.00609, Y = 0.00617),
         "one_bare_wire" => (Z = 0.00549, Y = 0.00713),
-        "one_insulated_sector" => (Z = 0.00548, Y = 0.0133),
-        "milliken_solid_segments" => (Z = 0.0268, Y = 0.407),
+        "one_insulated_sector" => (Z = 0.00550, Y = 0.0123),
+        "milliken_solid_segments" => (Z = 0.0267, Y = 0.403),
         "three_insulated_sectors" => (Z = 0.0611, Y = 0.406),
-        "three_cores_steel_pipe" => (Z = 0.00403, Y = 0.00121))
-    tolerances = Dict(("milliken_solid_segments", "Y") => 2.18e-6)
+        "three_cores_steel_pipe" => (Z = 0.00403, Y = 0.00134))
     @testset "$case" for (case, reference) in REFERENCES
         problem = LineParametersProblem(reference.system, reference.earth;
             temperature = reference.temperature, frequencies = reference.frequencies[1:10:end])
@@ -315,10 +308,9 @@
                 @test result.line_length == problem.system.line_length
                 for (quantity, computed) in (("Z", result.Z), ("Y", result.Y))
                     target = targets[("fem", quantity)]
-                    tolerance = get(tolerances, (case, quantity), 1e-6)
                     @testset "$quantity k=$k f=$(problem.frequencies[k]) Hz" for k in
                                                                                  eachindex(problem.frequencies)
-                        bound = tolerance * maximum(abs(target[i, i, k]) for i in 1:n)
+                        bound = 1e-6 * maximum(abs(target[i, i, k]) for i in 1:n)
                         @test maximum(abs, real.(computed[:, :, k] - target[:, :, k])) <=
                               bound skip = !recorded
                         @test maximum(abs, imag.(computed[:, :, k] - target[:, :, k])) <=
