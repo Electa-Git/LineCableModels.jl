@@ -104,13 +104,15 @@ and `Y`, at the same 101 frequencies:
 - `Pg`, per cable: the earth-return potential coefficients of the cables from their outer
   surfaces in m/F.
 
-Copies of the four original case scripts computed them at `989af96c`. Copies of the overhead
-and mixed scripts computed them at `9621e504`. The runs appear below. Each copy keeps the
-script's system and formulation without FEM, computes with `options = (trace = true,)`
-and writes the four matrices of `result.trace`. The comment lines give the
-conductors and the cables in row and column order, and the units. Each row is one entry of
-one matrix: `source` (`analytical`), `frequency_hz`, `matrix`, `row`, `column`, `real`,
-`imaginary`.
+Copies of the four original case scripts computed them at `989af96c`. Copies of the overhead and
+mixed scripts computed them at `9621e504`. The runs appear below. Each copy keeps the script's
+system and formulation without FEM, computes with `options = (trace = true,)` and writes the four
+matrices of `result.trace`. With the keyword `trace = true`, `compute` returns these four matrices
+in `result.trace`.
+
+The comment lines give the conductors and the cables in row and column order, and the units. Each
+row is one entry of one matrix: `source` (`analytical`), `frequency_hz`, `matrix`, `row`, `column`,
+`real`, `imaginary`.
 
 `Z` is `Zin` plus `Zg`, whose entry for two cables adds to every pair of their conductors, and `Y`
 is `jω (Pin + Pg)⁻¹`, with `Pg` added in the same way. Rebuilt so, each `stages.csv` gives the
