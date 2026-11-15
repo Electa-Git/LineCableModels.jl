@@ -344,6 +344,11 @@ At a cusp, where the exact value has no derivative, the branch tests the `nomina
 the derivative is zero. A distance at the origin is such a cusp. A rounding residue is not
 the derivative of a parameter.
 
+The cusp of an absolute value that another factor removes takes its derivative from the
+number type's own `abs`. An extension never writes a sign of its own there.
+One example is the product of a scaled Bessel function and the factor ``\exp(|x|)`` that
+removes its scaling.
+
 ### Geometry
 
 A geometric quantity is one computation over the outline, `Contour(shape)`, and every

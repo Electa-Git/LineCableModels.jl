@@ -1,5 +1,7 @@
 using LineCableModels: nominal
-using SpecialFunctions: besselix, besselkx, besseljx, besselk
+using ForwardDiff: Dual, partials
+using Measurements: Measurements, measurement
+using SpecialFunctions: besseli, besselj, besselix, besselkx, besseljx, besselk
 
 @testset "ForwardDiff extension" begin
     h = 1.0e-6
@@ -55,5 +57,35 @@ using SpecialFunctions: besselix, besselkx, besseljx, besselk
             @test isapprox(nominal(surface.outer), formula(n, r_in, r_ex, ρ, μ_r, s).outer;
                 rtol = 1.0e-14)
         end
+    end
+end
+
+# A scaled Bessel function times the factor that removes its scaling is the unscaled
+# function. That function has a derivative on the axis where the scaling has a cusp. Each
+# partial derivative of the product is a sum of at most four products of numbers below 1.
+# So it differs from the closed form by less than 16eps().
+@testset "a scaled Bessel function times its factor keeps the derivative of the unscaled one" begin
+    cases = (
+        (z -> besselix(0, z) * exp(abs(real(z))), z -> besseli(1, z), (0.0, 1.2)),
+        (z -> besselix(0, z) * exp(abs(real(z))), z -> besseli(1, z), (-0.0, 1.2)),
+        (z -> besselix(0, z) * exp(abs(real(z))), z -> besseli(1, z), (0.3, 1.2)),
+        (z -> besselix(1, z) * exp(abs(real(z))),
+            z -> (besseli(0, z) + besseli(2, z)) / 2, (0.0, 1.2)),
+        (z -> besselix(1, z) * exp(abs(real(z))),
+            z -> (besseli(0, z) + besseli(2, z)) / 2, (-0.0, 1.2)),
+        (z -> besseljx(0, z) * exp(abs(imag(z))), z -> -besselj(1, z), (1.2, 0.0)),
+        (z -> besseljx(0, z) * exp(abs(imag(z))), z -> -besselj(1, z), (1.2, -0.0)),
+        (z -> besseljx(0, z) * exp(abs(imag(z))), z -> -besselj(1, z), (1.2, -0.3)))
+    @testset "at $(complex(x, y))" for (product, derivative, (x, y)) in cases
+        exact = derivative(complex(x, y))
+        a, b = measurement(x, 0.1), measurement(y, 0.1)
+        w = product(complex(a, b))
+        @test complex(Measurements.derivative(real(w), a), Measurements.derivative(imag(w), a)) ≈
+              exact atol = 16eps()
+        @test complex(Measurements.derivative(real(w), b), Measurements.derivative(imag(w), b)) ≈
+              im * exact atol = 16eps()
+        w = product(complex(Dual(x, 1.0, 0.0), Dual(y, 0.0, 1.0)))
+        @test complex(partials(real(w), 1), partials(imag(w), 1)) ≈ exact atol = 16eps()
+        @test complex(partials(real(w), 2), partials(imag(w), 2)) ≈ im * exact atol = 16eps()
     end
 end
