@@ -88,13 +88,16 @@ Public = true
 Private = false
 ```
 
+```@autodocs
+Modules = [EarthReturn]
+Order = [:type, :function]
+Public = false
+Private = true
+Filter = f -> Base.ispublic(parentmodule(f), nameof(f))
+```
+
 ```@docs
 Λ
-defaults(::Type{EarthReturn.Formula{:martins2026}})
-validate(options::FormulationOptions{EarthReturn.Formula{:martins2026}})
-validate(problem::LineParametersProblem, formula::EarthReturn.Formula{:martins2026})
-initialize_buffers(formula::EarthReturn.Formula{:martins2026}, input::CoaxialInput{T}, buffers) where {T}
-to_buffer!(f::EarthReturn.Formula{:martins2026}, buffers, input::CoaxialInput, media, s, k)
 impedance!(formulation::CoaxialFormulation, Zg::AbstractMatrix, buffers, input::CoaxialInput, media, s, k)
 potential!(formulation::CoaxialFormulation, Pg::AbstractMatrix, buffers, input::CoaxialInput, media, s, k)
 ```
@@ -103,10 +106,8 @@ potential!(formulation::CoaxialFormulation, Pg::AbstractMatrix, buffers, input::
 
 ```@docs
 SpectralIntegral
+SpectralIntegral(integrand::F, buffers::NamedTuple, wavenumbers::Tuple, poles::Tuple, scales::Tuple, height::Number, reach::Number) where {F <: Function}
 integrate
-defaults(::typeof(integrate), ::Val{:quad})
-validate(section::NamedTuple, ::typeof(integrate), ::Val{:quad})
-select(default::Pair{typeof(integrate), Symbol}, given::NamedTuple)
 initialize_buffers(::Type{SpectralIntegral}, ::Val{:quad}, ::Type{T}, buffers) where {T}
 ```
 
@@ -117,6 +118,14 @@ Modules = [EarthProperties]
 Order = [:module, :constant, :type, :function]
 Public = true
 Private = false
+```
+
+```@autodocs
+Modules = [EarthProperties]
+Order = [:type, :function]
+Public = false
+Private = true
+Filter = f -> Base.ispublic(parentmodule(f), nameof(f))
 ```
 
 [Back to Contents](contents.md)

@@ -4,7 +4,7 @@ $(TYPEDSIGNATURES)
 Write the native model data of `model` to `path`, with the mesh controls in `options`.
 Write ``FEMCircleSegments=segments(τ)``, where ``τ=ConductorGeometryTolerance``.
 Use 17 significant digits for numbers and braces for numerical lists. Each region's mesh
-parameters come from [`section`](@ref), passive annuli from `model.layer`, and terminal
+parameters come from `section`, passive annuli from `model.layer`, and terminal
 names from the model's labels.
 
 The material data evaluates

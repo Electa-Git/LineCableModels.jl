@@ -41,6 +41,14 @@ Public = true
 Private = false
 ```
 
+```@autodocs
+Modules = [InternalImpedance]
+Order = [:type, :function]
+Public = false
+Private = true
+Filter = f -> Base.ispublic(parentmodule(f), nameof(f))
+```
+
 ## Resistivity
 
 ```@autodocs
@@ -48,6 +56,14 @@ Modules = [Resistivity]
 Order = [:module, :constant, :type, :function]
 Public = true
 Private = false
+```
+
+```@autodocs
+Modules = [Resistivity]
+Order = [:type, :function]
+Public = false
+Private = true
+Filter = f -> Base.ispublic(parentmodule(f), nameof(f))
 ```
 
 [Back to Contents](contents.md)

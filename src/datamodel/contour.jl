@@ -206,12 +206,11 @@ $(TYPEDSIGNATURES)
 
 Construct the closed path of `sector`, whose radii and center coordinates are in \\[m\\]
 and whose angular span and placement rotation are in \\[rad\\]. A partial turn of span
-``\\Delta\\phi`` about the rotation ``\\phi`` follows the outer arc from
-``\\phi - \\Delta\\phi / 2`` with span ``\\Delta\\phi``, the radial edge, the inner arc
-from ``\\phi + \\Delta\\phi / 2`` with span ``-\\Delta\\phi`` and the closing radial
-edge. With a
-zero inner radius, two segments join the outer arc to the center. A full turn gives the
-contour of a circle or annulus.
+``\\Delta\\phi`` about the rotation ``\\phi`` begins with the outer arc from
+``\\phi - \\Delta\\phi / 2`` with span ``\\Delta\\phi`` and the radial edge. The inner arc
+from ``\\phi + \\Delta\\phi / 2`` with span ``-\\Delta\\phi`` and the closing radial edge
+complete it. With a zero inner radius, two segments join the outer arc to the center. A
+full turn gives the contour of a circle or annulus.
 
 With displaced sides or fillets, let ``α=span/2``, ``g=apex\\sin α`` and ``ρ=fillet``.
 The upper fillet centers ``c`` satisfy ``(\\sin α,-\\cos α)\\cdot c=g+ρ``, with
@@ -341,8 +340,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the distance across the metal of `shape` \\[m\\]: the distance across the region
-that its contour bounds, twice the depth at which the inward parallel of its outline first
-degenerates.
+Return the distance across the metal of `shape` \\[m\\], which is the distance across the
+region that its contour bounds. It is twice the depth at which the inward parallel of its
+outline first degenerates.
 """
 dimension(shape::AbstractShape) = dimension(Contour(shape))

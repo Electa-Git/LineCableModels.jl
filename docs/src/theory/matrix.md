@@ -180,8 +180,12 @@ Public = true
 Private = false
 ```
 
-```@docs
-potential!(shunt::Shunt.Formula{:series}, Pin::AbstractMatrix{Complex{T}}, buffers, input::CoaxialInput{T}, kappa::AbstractVector{Complex{T}}, s::Complex{T}) where {T <: Real}
+```@autodocs
+Modules = [Shunt]
+Order = [:type, :function]
+Public = false
+Private = true
+Filter = f -> Base.ispublic(parentmodule(f), nameof(f))
 ```
 
 ## Reductions

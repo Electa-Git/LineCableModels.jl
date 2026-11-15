@@ -17,6 +17,14 @@ Public = true
 Private = false
 ```
 
+```@autodocs
+Modules = [LineCableModels]
+Order = [:type, :function]
+Public = false
+Private = true
+Filter = f -> Base.ispublic(parentmodule(f), nameof(f))
+```
+
 ## Commons
 
 ```@autodocs
@@ -24,6 +32,14 @@ Modules = [LineCableModels.Commons]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true
 Private = false
+```
+
+```@autodocs
+Modules = [LineCableModels.Commons]
+Order = [:type, :function]
+Public = false
+Private = true
+Filter = f -> Base.ispublic(parentmodule(f), nameof(f))
 ```
 
 ## Materials
@@ -35,6 +51,14 @@ Public = true
 Private = false
 ```
 
+```@autodocs
+Modules = [LineCableModels.Materials]
+Order = [:type, :function]
+Public = false
+Private = true
+Filter = f -> Base.ispublic(parentmodule(f), nameof(f))
+```
+
 ## Earth
 
 ```@autodocs
@@ -42,6 +66,14 @@ Modules = [LineCableModels.Earth]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true
 Private = false
+```
+
+```@autodocs
+Modules = [LineCableModels.Earth]
+Order = [:type, :function]
+Public = false
+Private = true
+Filter = f -> Base.ispublic(parentmodule(f), nameof(f))
 ```
 
 ## BaseGeometry
@@ -53,8 +85,12 @@ Public = true
 Private = false
 ```
 
-```@docs
-Base.:*(parent::Placement, child::Placement)
+```@autodocs
+Modules = [LineCableModels.BaseGeometry]
+Order = [:type, :function]
+Public = false
+Private = true
+Filter = f -> Base.ispublic(parentmodule(f), nameof(f))
 ```
 
 ## DataModel
@@ -66,10 +102,12 @@ Public = true
 Private = false
 ```
 
-```@docs
-build(::Type{CableDesign}, id::AbstractString, parts::AbstractCablePart...)
-build(::Type{CableSystem}, designs::AbstractVector{<:CableDesign}, placements::AbstractVector{<:Placement})
-istangent(::AbstractShape, ::Circle)
+```@autodocs
+Modules = [LineCableModels.DataModel]
+Order = [:type, :function]
+Public = false
+Private = true
+Filter = f -> Base.ispublic(parentmodule(f), nameof(f))
 ```
 
 ## Engine
@@ -82,17 +120,12 @@ Private = false
 Filter = t -> !(t in (LineCableModels.Engine.impedance!, LineCableModels.Engine.potential!, LineCableModels.Engine.to_buffer!, LineCableModels.Engine.from_buffer, LineCableModels.Engine.Λ, LineCableModels.Engine.initialize_buffers, LineCableModels.Engine.admittivity, LineCableModels.Engine.reductions, LineCableModels.Engine.bundle!, LineCableModels.Engine.eliminate!, LineCableModels.Engine.factorize!, LineCableModels.Engine.transposition!, LineCableModels.Engine.solve!, LineCableModels.Engine.SpectralIntegral, LineCableModels.Engine.integrate))
 ```
 
-```@docs
-compute(problem::LineParametersProblem, formulation::AbstractFormulation)
-compute(backend::AbstractBackend, problem::LineParametersProblem, formulation::AbstractFormulation)
-compute(::LCMBackend, problem::LineParametersProblem{T}, formulation::CoaxialFormulation, options::ComputationOptions{LCMBackend}) where {T <: Real}
-validate(problem::LineParametersProblem, ::AbstractFormulation)
-validate(problem::LineParametersProblem, options::FormulationOptions{<:Union{CoaxialFormulation, FEM}})
-validate(problem::LineParametersProblem, formulation::CoaxialFormulation)
-validate(input::Engine.CoaxialInput, formulation::CoaxialFormulation)
-validate(input::Engine.CoaxialInput, formulation::CoaxialFormulation, problem::LineParametersProblem)
-validate(presented::NamedTuple, formulation::Union{CoaxialFormulation, FEM})
-validate(earth::Tuple{Engine.EarthReturn.Formula{ID}, Engine.EarthReturn.Formula{ID}}, ::Type{CoaxialFormulation}) where {ID}
+```@autodocs
+Modules = [LineCableModels.Engine]
+Order = [:type, :function]
+Public = false
+Private = true
+Filter = f -> Base.ispublic(parentmodule(f), nameof(f))
 ```
 
 ## Gmsh extension
@@ -104,9 +137,12 @@ Public = true
 Private = false
 ```
 
-```@docs
-defaults(::Type{GmshBackend})
-compute(::GmshBackend, problem::LineParametersProblem, formulation::FEM, options::ComputationOptions{GmshBackend})
+```@autodocs
+Modules = [Main.GmshExt]
+Order = [:type, :function]
+Public = false
+Private = true
+Filter = f -> Base.ispublic(parentmodule(f), nameof(f))
 ```
 
 ## Index

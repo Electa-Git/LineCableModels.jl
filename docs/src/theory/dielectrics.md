@@ -27,6 +27,14 @@ Public = true
 Private = false
 ```
 
+```@autodocs
+Modules = [InsulationImpedance]
+Order = [:type, :function]
+Public = false
+Private = true
+Filter = f -> Base.ispublic(parentmodule(f), nameof(f))
+```
+
 ## Insulation admittance
 
 ```@autodocs
@@ -36,6 +44,14 @@ Public = true
 Private = false
 ```
 
+```@autodocs
+Modules = [InsulationAdmittance]
+Order = [:type, :function]
+Public = false
+Private = true
+Filter = f -> Base.ispublic(parentmodule(f), nameof(f))
+```
+
 ## Semicon admittance
 
 ```@autodocs
@@ -43,6 +59,14 @@ Modules = [SemiconAdmittance]
 Order = [:module, :constant, :type, :function]
 Public = true
 Private = false
+```
+
+```@autodocs
+Modules = [SemiconAdmittance]
+Order = [:type, :function]
+Public = false
+Private = true
+Filter = f -> Base.ispublic(parentmodule(f), nameof(f))
 ```
 
 [Back to Contents](contents.md)

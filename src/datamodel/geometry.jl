@@ -494,8 +494,8 @@ two consecutive normals both supports are smooth. A ternary search finds the lea
 exact for convex `A`.
 
 The arithmetic uses the promoted coordinate type. Decisions and the stop criterion use
-`nominal` values. The support tolerance is ``√eps(float(x))max(1,x)`` for the
-support ``x`` compared \\[m\\].
+`nominal` values. The comparison of a support ``x`` \\[m\\] uses the tolerance
+``√eps(float(x))max(1,x)``.
 
 A sector also requires ``distance(C)+tol≥A.ri``, with
 `C = resolve(Placement(-A.at.x, -A.at.y), B)` and the tolerance computed from `A.ri`.
@@ -551,11 +551,12 @@ A_\\mathrm{rectangle} = w h, \\qquad
 A_\\mathrm{sector} = \\frac{\\Delta\\phi}{2} \\left(r_o^2 - r_i^2\\right),
 ```
 
-where ``r`` is the radius of a circle, ``r_i`` and ``r_o`` are inner and outer radii, ``w``
-and ``h`` are the width and height of a rectangle \\[m\\], and ``\\Delta\\phi`` \\[rad\\] is
-the angular span of a sector. A [`PerforatedShape`](@ref) has the area of its outer
-cross-section less the areas of its holes. A sector with displaced sides or fillets, and
-an arc polygon, take the area of their contour by Green's theorem.
+where ``r`` is the radius of a circle and ``r_i`` and ``r_o`` are inner and outer radii
+\\[m\\]. The width and height of a rectangle are ``w`` and ``h`` \\[m\\], and
+``\\Delta\\phi`` \\[rad\\] is the angular span of a sector. A [`PerforatedShape`](@ref)
+has the area of its outer cross-section less the areas of its holes. A sector with
+displaced sides or fillets, and an arc polygon, take the area of their contour by Green's
+theorem.
 
 The area of an ellipse is ``A=πab``, and that of a polygon
 ``A=\\sum_i(x_i y_{i+1}-y_i x_{i+1})/2``.
