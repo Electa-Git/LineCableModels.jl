@@ -78,6 +78,14 @@ end
         @test Guards.symbol_switches(files, directory, curve_members) == Dict{String, Int}()
     end
 
+    @testset "listed values" begin
+        @test Guards.listed_values(files, directory) == Dict{String, Int}()
+    end
+
+    @testset "literal arguments" begin
+        @test Guards.literal_arguments(files, directory) == Dict{String, Int}()
+    end
+
     @testset "the method-table closure over the curves" begin
         @test Guards.closure(methods, tree, LineCableModels.BaseGeometry.Curve{Float64}) ==
               Dict{String, Int}()
@@ -275,6 +283,42 @@ end
             "src/switches.jl | negation" => 1,
             "src/switches.jl | symbol" => 9,
             "src/switches.jl | type test" => 9)
+        @test Guards.listed_values(files, directory) == Dict{String, Int}(
+            "src/listed.jl:3 | pass == 1" => 1,
+            "src/listed.jl:4 | pass == 1" => 1,
+            "src/listed.jl:9 | pass == 1" => 1,
+            "src/listed.jl:12 | magnetic" => 1,
+            "src/listed.jl:13 | !magnetic" => 1,
+            "src/listed.jl:18 | field.magnetic" => 1,
+            "src/listed.jl:19 | field[2]" => 1,
+            "src/listed.jl:24 | magnetic" => 1,
+            "src/listed.jl:31 | image === interior.impedance" => 1,
+            "src/listed.jl:32 | image == interior.potential" => 1,
+            "src/listed.jl:33 | image in (interior.impedance,)" => 1,
+            "src/listed.jl:34 | image !== first(interior)" => 1,
+            "src/listed.jl:40 | pass > 1" => 1,
+            "src/listed.jl:44 | k == 2" => 1,
+            "src/listed.jl:45 | flag" => 1,
+            "src/listed.jl:46 | isodd(pass)" => 1,
+            "src/listed.jl:47 | pass == 1" => 1,
+            "src/listed.jl:48 | pass - 1 == 0" => 1,
+            "src/listed.jl:49 | pass != 1" => 1,
+            "src/listed.jl:49 | pass == 1" => 1,
+            "src/listed.jl:50 | pass == 1" => 1,
+            "src/listed.jl:54 | i == j" => 1,
+            "src/listed.jl:58 | pass < 2" => 1,
+            "src/listed.jl:61 | pass == 1" => 1,
+            "src/listed.jl:63 | pass == 2" => 1,
+            "src/listed.jl:68 | pass == 1" => 1,
+            "src/listed.jl:71 | magnetic" => 1,
+            "src/listed.jl:74 | k == 1" => 1,
+            "src/listed.jl:89 | pass == 2" => 1)
+        @test Guards.literal_arguments(files, directory) == Dict{String, Int}(
+            "src/listed.jl:76 | reflected | 2 = false" => 1,
+            "src/listed.jl:76 | reflected | 2 = true" => 1,
+            "src/listed.jl:78 | optioned | mode = 1" => 1,
+            "src/listed.jl:78 | optioned | mode = 2" => 1,
+            "src/listed.jl:85 | ordered | 2 = 2" => 1)
         @test Guards.absences(files, directory) == Dict{String, Int}(
             "src/absence.jl | argument" => 9,
             "src/absence.jl | comparison" => 9,
@@ -300,6 +344,8 @@ end
         @test Guards.symbol_switches(
             filter(file -> basename(file) == "curves.jl", files), directory, curve_members) ==
               Dict{String, Int}()
+        @test Guards.listed_values(files, directory) == Dict{String, Int}()
+        @test Guards.literal_arguments(files, directory) == Dict{String, Int}()
         @test Guards.absences(files, directory) == Dict{String, Int}()
         @test Guards.file_hygiene(files, directory) == Dict{String, Int}()
 

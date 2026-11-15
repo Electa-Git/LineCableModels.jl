@@ -112,6 +112,7 @@ the formulation.
 
 A record of `interiors` is empty where an assembly has no members. Otherwise, it holds the
 arrays for the translations, sources, observations, reflections and returned fields.
+The last axis of `reflections` holds the fields: 1 for the impedances, 2 for the potentials.
 It also holds the factorization and its pivots, and the impedance and potential image
 matrices. The key `d` holds the radius in \\[m\\] of each gap term of [`impedance!`](@ref).
 The translations, sources and observations give the returned fields in closed form.
@@ -145,7 +146,7 @@ function initialize_buffers(
     interiors = [(translations = zeros(T, 2N * B, 2N * B),
                      sources = zeros(T, 2N * B, max(B - 1, 0)),
                      observations = zeros(T, 2N * B, max(B - 1, 0)),
-                     reflections = Array{Complex{T}, 3}(undef, 2, N, B),
+                     reflections = Array{Complex{T}, 4}(undef, 2, N, B, 2),
                      factor = Matrix{Complex{T}}(undef, 2N * B, 2N * B),
                      pivots = Vector{BlasInt}(undef, 2N * B),
                      returned = Matrix{Complex{T}}(undef, 2N * B, max(B - 1, 0)),
@@ -236,9 +237,11 @@ where ``\\rho_t`` is the resistivity \\[Ω·m\\], and ``\\varepsilon_{r,t}`` and
 relative permittivity and permeability \\[dimensionless\\] of medium ``t``.
 
 Above order 0, solve the image matrices of each interior at the orders 1 to `order`, for the
-impedances and for the potentials, as [`impedance!`](@ref) gives them. Each member presents
-its conductors and layers from the inside out, and the bore presents its conductors and
-layers from the outside in. A conductor presents zero to the potentials.
+impedances and for the potentials, as [`impedance!`](@ref) gives them. The magnetic field uses
+one outward fold per member, over surface impedances and layer impedances. The bore folds those
+impedances inward from the medium around the assembly. A conductor presents zero to the
+electric field. For that field, each member folds its outer dielectric layers outward, and
+the bore folds its interior layers inward. One solve per field gives its image matrix.
 
 # Arguments
 
@@ -271,86 +274,79 @@ function to_buffer!(
         f = first(input.interior_ranges[a])
         μ_f = input.dielectric_material[f].mu_r
         # Beyond the assembly lies the filler of the interior around it, or free space.
-        container = findfirst(members -> a in members, input.members)
-        μ_beyond = isnothing(container) ?
-                   oneunit(μ_f) :
-                   input.dielectric_material[first(input.interior_ranges[container])].mu_r
-        # The first pass reflects the magnetic field, the second the electric field.
-        for (pass, image) in enumerate((interior.impedance, interior.potential))
-            for n in 1:N
-                z_n = pass == 1 ?
-                      insulation_impedance(n, zero(μ_f), oftype(μ_f, Inf), μ_f, s).inner :
-                      shunt(n, zero(μ_f), oftype(μ_f, Inf), kappa[f], s).inner
-                for (β, m) in enumerate(input.members[a])
-                    # Each member from its axis outward, to the outer radius of its interval.
-                    Z = zero(s)
-                    if pass == 1
-                        inner = input.interior_ranges[m]
-                        Z = insulation_impedance(n, zero(μ_f), oftype(μ_f, Inf),
-                            isempty(inner) ? oneunit(μ_f) :
-                            input.dielectric_material[first(inner)].mu_r, s).inner
-                        for l in inner[2:end]
-                            layer = insulation_impedance(n, input.dielectric_r_in[l],
-                                input.dielectric_r_ex[l], input.dielectric_material[l].mu_r, s)
-                            Z = layer.outer - layer.transfer^2 / (layer.inner + Z)
-                        end
-                        for i in input.assemblies[m]
-                            surfaces = internal_impedance(n, input.r_in[i], input.r_ex[i],
-                                rho[i], input.material[i].mu_r, s)
-                            Z = surfaces.outer - surfaces.transfer^2 / (surfaces.inner + Z)
-                            for l in input.dielectric_ranges[i]
-                                layer = insulation_impedance(n, input.dielectric_r_in[l],
-                                    input.dielectric_r_ex[l],
-                                    input.dielectric_material[l].mu_r, s)
-                                Z = layer.outer - layer.transfer^2 / (layer.inner + Z)
-                            end
-                        end
-                    else
-                        for l in input.dielectric_ranges[last(input.assemblies[m])]
-                            layer = shunt(
-                                n, input.dielectric_r_in[l], input.dielectric_r_ex[l],
-                                kappa[l], s)
-                            Z = layer.outer - layer.transfer^2 / (layer.inner + Z)
-                        end
-                    end
-                    reflections[1, n, β] = reflections[2, n, β] = (Z - z_n) / (Z + z_n)
-                end
-                # The bore from beyond its assembly inward, to the outer radius of the filler.
-                Z = zero(s)
-                if pass == 1
-                    Z = insulation_impedance(n, zero(μ_f), oftype(μ_f, Inf), μ_beyond, s).inner
-                    for i in reverse(input.assemblies[a])
-                        for l in reverse(input.dielectric_ranges[i])
-                            layer = insulation_impedance(n, input.dielectric_r_in[l],
-                                input.dielectric_r_ex[l], input.dielectric_material[l].mu_r, s)
-                            Z = layer.inner - layer.transfer^2 / (layer.outer + Z)
-                        end
-                        surfaces = internal_impedance(
-                            n, input.r_in[i], input.r_ex[i], rho[i],
-                            input.material[i].mu_r, s)
-                        Z = surfaces.inner - surfaces.transfer^2 / (surfaces.outer + Z)
-                    end
-                end
-                for l in reverse(input.interior_ranges[a][2:end])
-                    layer = pass == 1 ?
-                            insulation_impedance(n, input.dielectric_r_in[l],
-                        input.dielectric_r_ex[l], input.dielectric_material[l].mu_r, s) :
-                            shunt(n, input.dielectric_r_in[l], input.dielectric_r_ex[l],
-                        kappa[l], s)
-                    Z = layer.inner - layer.transfer^2 / (layer.outer + Z)
-                end
-                reflections[1, n, bodies] = reflections[2, n, bodies] = (Z - z_n) /
-                                                                        (Z + z_n)
+        around = input.exterior_ranges[a]
+        μ_around = isempty(around) ? oneunit(μ_f) :
+                   input.dielectric_material[first(around)].mu_r
+        # The magnetic field reflects each member outward and the bore inward.
+        for n in 1:N
+            z_n = insulation_impedance(n, zero(μ_f), oftype(μ_f, Inf), μ_f, s).inner
+            for (β, m) in enumerate(input.members[a])
+                inner = input.interior_ranges[m]
+                Z = foldl((Z, layer) -> layer.outer - layer.transfer^2 / (layer.inner + Z),
+                    Iterators.flatten((
+                        (insulation_impedance(n, input.dielectric_r_in[l],
+                             input.dielectric_r_ex[l], input.dielectric_material[l].mu_r, s)
+                        for l in inner[2:end]),
+                        Iterators.flatten(Iterators.flatten((
+                                              (internal_impedance(
+                                                  n, input.r_in[i], input.r_ex[i],
+                                                  rho[i], input.material[i].mu_r, s),),
+                                              (insulation_impedance(
+                                                   n, input.dielectric_r_in[l],
+                                                   input.dielectric_r_ex[l], input.dielectric_material[l].mu_r, s)
+                                              for l in input.dielectric_ranges[i])))
+                        for i in input.assemblies[m])));
+                    init = insulation_impedance(n, zero(μ_f), oftype(μ_f, Inf),
+                        isempty(inner) ? oneunit(μ_f) :
+                        input.dielectric_material[first(inner)].mu_r, s).inner)
+                reflections[1, n, β, 1] = reflections[2, n, β, 1] = (Z - z_n) / (Z + z_n)
             end
+            Z = foldl((Z, layer) -> layer.inner - layer.transfer^2 / (layer.outer + Z),
+                Iterators.flatten((
+                    Iterators.flatten(Iterators.flatten((
+                                          (insulation_impedance(
+                                               n, input.dielectric_r_in[l],
+                                               input.dielectric_r_ex[l], input.dielectric_material[l].mu_r, s)
+                                          for l in reverse(input.dielectric_ranges[i])),
+                                          (internal_impedance(
+                                              n, input.r_in[i], input.r_ex[i],
+                                              rho[i], input.material[i].mu_r, s),)))
+                    for i in reverse(input.assemblies[a])),
+                    (insulation_impedance(n, input.dielectric_r_in[l],
+                         input.dielectric_r_ex[l], input.dielectric_material[l].mu_r, s)
+                    for l in reverse(input.interior_ranges[a][2:end]))));
+                init = insulation_impedance(n, zero(μ_f), oftype(μ_f, Inf), μ_around, s).inner)
+            reflections[1, n, bodies, 1] = reflections[2, n, bodies, 1] = (Z - z_n) /
+                                                                          (Z + z_n)
+        end
+        # A conductor presents zero to the electric field, which reflects its dielectric layers.
+        for n in 1:N
+            p_n = shunt(n, zero(μ_f), oftype(μ_f, Inf), kappa[f], s).inner
+            for (β, m) in enumerate(input.members[a])
+                Z = foldl((Z, layer) -> layer.outer - layer.transfer^2 / (layer.inner + Z),
+                    (shunt(n, input.dielectric_r_in[l],
+                         input.dielectric_r_ex[l], kappa[l], s)
+                    for l in input.dielectric_ranges[last(input.assemblies[m])]);
+                    init = zero(s))
+                reflections[1, n, β, 2] = reflections[2, n, β, 2] = (Z - p_n) / (Z + p_n)
+            end
+            Z = foldl((Z, layer) -> layer.inner - layer.transfer^2 / (layer.outer + Z),
+                (shunt(n, input.dielectric_r_in[l], input.dielectric_r_ex[l], kappa[l], s)
+                for l in reverse(input.interior_ranges[a][2:end])); init = zero(s))
+            reflections[1, n, bodies, 2] = reflections[2, n, bodies, 2] = (Z - p_n) /
+                                                                          (Z + p_n)
+        end
+        for (reflection, image) in zip(eachslice(reflections; dims = 4),
+            (interior.impedance, interior.potential))
             # The returned fields solve (I − R K) x = R t, one column per source member.
             for column in 1:U, row in 1:U
 
                 factor[row, column] = (row == column) -
-                                      reflections[row] * translations[row, column]
+                                      reflection[row] * translations[row, column]
             end
             for j in axes(returned, 2), row in 1:U
 
-                returned[row, j] = reflections[row] * sources[row, j]
+                returned[row, j] = reflection[row] * sources[row, j]
             end
             ldiv!(factorize!(factor, pivots), returned)
             for j in axes(image, 2), i in axes(image, 1)

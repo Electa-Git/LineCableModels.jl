@@ -54,6 +54,8 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     positions::Vector{Tuple{T, T}}
     "Range of the interior layers of each assembly, from its filler around its members."
     interior_ranges::Vector{UnitRange{Int}}
+    "Range of the layers around each assembly: the interior layers of the assembly that holds it, empty for an assembly in no interior."
+    exterior_ranges::Vector{UnitRange{Int}}
     "Horizontal coordinate of the center of each cable in the frame of the system \\[m\\]."
     x::Vector{T}
     "Vertical coordinate of the center of each cable in the frame of the system \\[m\\]."
@@ -138,6 +140,11 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
         interior_ranges = [span .+ dielectric_starts[k]
                            for (k, blueprint) in enumerate(blueprints)
                            for span in blueprint.interior_ranges]
+        exterior_ranges = fill(1:0, length(assemblies))
+        for (c, indices) in enumerate(members), m in indices
+
+            exterior_ranges[m] = interior_ranges[c]
+        end
         # The cables, each the row of its blueprint that the earth formulas see: the root, or
         # each member of a root without a conductor.
         rows = [(k, row) for (k, blueprint) in enumerate(blueprints)
@@ -160,7 +167,8 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
             cable, connection, label, r_in, r_ex, material,
             r_ins_ex, mu_r_ins, dielectric_ranges, dielectric_r_in,
             dielectric_r_ex, dielectric_material, assemblies,
-            members, enclosed, positions, interior_ranges, x, y, radius, earth_layer, bundles, kept,
+            members, enclosed, positions, interior_ranges, exterior_ranges,
+            x, y, radius, earth_layer, bundles, kept,
             eliminated, terminals)
     end
 end

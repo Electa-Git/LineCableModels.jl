@@ -907,6 +907,473 @@ function symbol_switches(files, directory, curve_members)
     return found
 end
 
+const ITERATIONS = (:enumerate, :pairs)
+const POSITIONS = (:eachindex, :keys)
+const PASSED = (:reverse, :collect, :values, :Tuple)
+# The calls that apply a function to each element of the collections after it.
+const APPLICATIONS = (:map, :foreach, :sum, :prod, :any, :all, :count, :filter, :findfirst,
+    :findall, :findlast, :maximum, :minimum, :argmin, :argmax, :ntuple)
+const IDENTITIES = (:(===), :(!==), :≡, :≢)
+const MEMBERSHIPS = (:(==), :(!=), :≠, :isequal, :in, :∈, :∉)
+const ORDERINGS = (IDENTITIES..., MEMBERSHIPS..., :<, :<=, :>, :>=, :≤, :≥, :isless)
+const ABSENT = (:nothing, :missing)
+
+# What the text of the code says of a value. `LISTED`: the value itself, a literal or the
+# position of an element. A vector of texts: the elements it is one of, as written. A named
+# tuple of `positional` and `named`: the components of a tuple. `DATA`: nothing.
+const DATA = :data
+const LISTED = :listed
+
+# A literal, with its sign: a number, a Boolean, a character, a string, a Symbol,
+# `nothing` or `missing`.
+function constant(node)
+    k = kind(node)
+    JuliaSyntax.is_literal(k) && return true
+    k in (K"string", K"char") && return all(constant, children(node))
+    symbol_literal(node) && return true
+    k == K"Identifier" && return node.val in ABSENT
+    return k == K"call" && numchildren(node) == 2 && !is_prefix_call(node) &&
+           syntax_name(node[1]) in ((:-,), (:+,)) && constant(node[2])
+end
+
+# The operators and the arguments of a call or of a comparison chain, as written.
+function operation(node)
+    k = kind(node)
+    if k == K"comparison"
+        return ([c.val for c in children(node)[2:2:end] if kind(c) == K"Identifier"],
+            children(node)[1:2:end])
+    end
+    k in (K"call", K"dotcall") && numchildren(node) > 0 || return nothing
+    if is_prefix_call(node) || JuliaSyntax.is_prefix_op_call(node)
+        callee, arguments = node[1], children(node)[2:end]
+    elseif JuliaSyntax.is_postfix_op_call(node)
+        callee, arguments = last_child(node), children(node)[1:(end - 1)]
+    else
+        callee, arguments = node[2], [node[1]; children(node)[3:end]]
+    end
+    name = syntax_name(callee)
+    return (isempty(name) ? Symbol[] : [last(name)], arguments)
+end
+
+# The elements of a collection written in the code: a tuple or a vector literal, or a
+# name that its method or a constant assigns a tuple, once. A literal with a splat has the
+# length that its data gives, and is none; so is a vector that a name holds, which may
+# grow after it is written.
+function elements(node, assigned, depth = 0)
+    k = kind(node)
+    k == K"parens" && numchildren(node) == 1 && return elements(node[1], assigned, depth)
+    if k in (K"tuple", K"vect")
+        k == K"vect" && depth > 0 && return nothing
+        any(c -> kind(c) == K"...", children(node)) && return nothing
+        entries = [kind(c) == K"=" && numchildren(c) == 2 ? c[2] : c
+                   for c in children(node) if kind(c) != K"parameters"]
+        return isempty(entries) ? nothing : entries
+    end
+    k == K"Identifier" && depth < 4 && haskey(assigned, node.val) &&
+        return elements(assigned[node.val], assigned, depth + 1)
+    return nothing
+end
+
+# What the text says of a value that is any one of several.
+function join_states(states)
+    isempty(states) && return DATA
+    all(==(LISTED), states) && return LISTED
+    all(s -> s isa Vector{String} || s == LISTED, states) &&
+        return reduce(vcat, [s for s in states if s isa Vector{String}]; init = String[])
+    if all(s -> s isa NamedTuple, states)
+        width = minimum(length(s.positional) for s in states)
+        names = reduce(intersect, [collect(keys(s.named)) for s in states])
+        return (
+            positional = Any[join_states([s.positional[i] for s in states])
+                             for i in 1:width],
+            named = Dict{Symbol, Any}(name => join_states([s.named[name] for s in states])
+            for name in names))
+    end
+    return DATA
+end
+
+# What the text says of one written value.
+function value_state(node)
+    constant(node) && return LISTED
+    kind(node) == K"parens" && numchildren(node) == 1 && return value_state(node[1])
+    kind(node) == K"tuple" || return [String(JuliaSyntax.sourcetext(node))]
+    positional, named = Any[], Dict{Symbol, Any}()
+    for child in children(node)
+        kind(child) in (K"parameters", K"...") && return DATA
+        if kind(child) == K"=" && numchildren(child) == 2 && kind(child[1]) == K"Identifier"
+            named[child[1].val] = value_state(child[2])
+            push!(positional, named[child[1].val])
+        else
+            push!(positional, value_state(child))
+        end
+    end
+    return (; positional, named)
+end
+
+# What the text says of each value that an iteration over `node` gives.
+function iteration_state(node, assigned, depth = 0)
+    k = kind(node)
+    k == K"parens" && numchildren(node) == 1 &&
+        return iteration_state(node[1], assigned, depth)
+    listed = elements(node, assigned, depth)
+    listed === nothing || return join_states(map(value_state, listed))
+    k == K"Identifier" && depth < 4 && haskey(assigned, node.val) &&
+        return iteration_state(assigned[node.val], assigned, depth + 1)
+    found = operation(node)
+    found === nothing && return DATA
+    names, arguments = found
+    length(names) == 1 || return DATA
+    name = only(names)
+    # A range between literals.
+    name == :(:) && return all(constant, arguments) ? LISTED : DATA
+    is_prefix_call(node) || return DATA
+    states = [iteration_state(argument, assigned, depth)
+              for argument in arguments if kind(argument) != K"parameters"]
+    isempty(states) && return DATA
+    name == :zip && return all(==(DATA), states) ? DATA :
+           (positional = Any[states...], named = Dict{Symbol, Any}())
+    length(states) == 1 || return DATA
+    state = only(states)
+    name in PASSED && return state
+    state == DATA && return DATA
+    name in POSITIONS && return LISTED
+    name in ITERATIONS &&
+        return (positional = Any[LISTED, state], named = Dict{Symbol, Any}())
+    return DATA
+end
+
+# Gives each name that `target` binds what the text says of its value.
+function bind!(roles, target, state)
+    k = kind(target)
+    component(at) = state isa NamedTuple ? at(state) : state == LISTED ? LISTED : DATA
+    if k == K"Identifier"
+        state == DATA ? delete!(roles, target.val) : (roles[target.val] = state)
+    elseif k == K"::" && numchildren(target) == 2
+        bind!(roles, target[1], state)
+    elseif k == K"tuple"
+        position = 0
+        for child in children(target)
+            if kind(child) == K"parameters"
+                for entry in children(child)
+                    kind(entry) == K"Identifier" &&
+                        bind!(roles, entry, component(s -> get(s.named, entry.val, DATA)))
+                end
+            else
+                position += 1
+                bind!(roles, child, component(s -> get(s.positional, position, DATA)))
+            end
+        end
+    end
+    return roles
+end
+
+# What the text says of the value of an expression: of a name by its role, and of a
+# component of a listed tuple by its place.
+function expression_state(node, roles)
+    k = kind(node)
+    k == K"parens" && numchildren(node) == 1 && return expression_state(node[1], roles)
+    k == K"Identifier" && return get(roles, node.val, DATA)
+    k in (K".", K"ref") && numchildren(node) == 2 && kind(node[1]) == K"Identifier" ||
+        return DATA
+    state = get(roles, node[1].val, DATA)
+    state isa NamedTuple || return DATA
+    member = node[2]
+    kind(member) == K"quote" && numchildren(member) == 1 && (member = member[1])
+    k == K"." && kind(member) == K"Identifier" && return get(state.named, member.val, DATA)
+    k == K"ref" && kind(member) == K"Integer" && member.val isa Integer &&
+        return get(state.positional, member.val, DATA)
+    return DATA
+end
+
+# Counts the listed values and the other values that an expression reads.
+function tally!(counts, node, roles)
+    constant(node) && return counts
+    if kind(node) in (K"parens", K"&&", K"||")
+        foreach(child -> tally!(counts, child, roles), children(node))
+        return counts
+    end
+    expression_state(node, roles) == LISTED && (counts[1] += 1; return counts)
+    found = operation(node)
+    found === nothing ? (counts[2] += 1) :
+    foreach(argument -> tally!(counts, argument, roles), found[2])
+    return counts
+end
+
+# Whether the text of the code gives the value of an expression: it reads a listed
+# value, and every other value it reads is listed or a literal.
+function decided(node, roles)
+    counts = tally!([0, 0], node, roles)
+    return counts[1] > 0 && counts[2] == 0
+end
+
+# The conditions of a node: the test of an `if`, an `elseif`, a ternary or a `while`, each
+# operand of a short circuit but the last, the filter of a comprehension, the first
+# argument of `ifelse`.
+function conditions(node)
+    k = kind(node)
+    k in (K"if", K"elseif", K"?", K"while") && numchildren(node) > 0 && return [node[1]]
+    k in (K"&&", K"||") && return children(node)[1:(end - 1)]
+    k == K"filter" && numchildren(node) > 0 && return [last_child(node)]
+    calls(node, (:ifelse,)) && numchildren(node) > 1 && return [node[2]]
+    return SyntaxNode[]
+end
+
+# Whether a comparison asks which listed element a value is: an identity with a value
+# that is no literal, or an equality with elements as written.
+function identified(node, roles)
+    found = operation(node)
+    found === nothing && return false
+    names, arguments = found
+    length(arguments) == 2 || return false
+    for (subject, other) in (arguments, reverse(arguments))
+        state = expression_state(subject, roles)
+        state isa Vector{String} || continue
+        any(in(IDENTITIES), names) && !constant(other) && return true
+        any(in(MEMBERSHIPS), names) || continue
+        texts = kind(other) in (K"tuple", K"vect") ?
+                [String(JuliaSyntax.sourcetext(c)) for c in children(other)] :
+                [String(JuliaSyntax.sourcetext(other))]
+        !isempty(texts) && all(in(state), texts) && return true
+    end
+    return false
+end
+
+# The names that `node` assigns once, outside the methods it holds, each with the value
+# it is given, added to `found`.
+function assignments!(found, node)
+    counts = Dict{Symbol, Int}()
+    visit(node) do child
+        child !== node && is_method(child) && return false
+        assigns(child) || return true
+        for name in assigned_names(child[1])
+            counts[name] = get(counts, name, 0) + 1
+            delete!(found, name)
+        end
+        kind(child) == K"=" && kind(child[1]) == K"Identifier" &&
+            counts[child[1].val] == 1 && (found[child[1].val] = child[2])
+        return true
+    end
+    return found
+end
+
+# Whether `node` assigns a value to names: no keyword of a call and no key of a tuple.
+function assigns(node)
+    kind(node) in (K"=", K"op=") && numchildren(node) >= 2 &&
+        !(node.parent !== nothing && kind(node.parent) in NOT_ASSIGNED)
+end
+
+# The names that `node` assigns, outside the methods it holds.
+function reassigned(node)
+    names = Symbol[]
+    visit(node) do child
+        child !== node && is_method(child) && return false
+        assigns(child) && append!(names, assigned_names(child[1]))
+        return true
+    end
+    return names
+end
+
+# The constants that `files` assign once, each with the value it is given.
+function constants(files)
+    found, counts = Dict{Symbol, SyntaxNode}(), Dict{Symbol, Int}()
+    for file in files
+        visit(parse_source(file)) do node
+            is_method(node) && return false
+            kind(node) == K"const" && numchildren(node) == 1 && kind(node[1]) == K"=" &&
+            numchildren(node[1]) == 2 && kind(node[1][1]) == K"Identifier" || return true
+            name = node[1][1].val
+            counts[name] = get(counts, name, 0) + 1
+            counts[name] == 1 ? (found[name] = node[1][2]) : delete!(found, name)
+            return true
+        end
+    end
+    return found
+end
+
+# The function that a call applies to each element, and the collections after it.
+function application(call)
+    found = operation(call)
+    found === nothing && return nothing
+    names, arguments = found
+    is_prefix_call(call) && length(names) == 1 && only(names) in APPLICATIONS ||
+        return nothing
+    arguments = [a for a in arguments if kind(a) != K"parameters"]
+    isempty(arguments) && return nothing
+    if kind(last(arguments)) == K"do"
+        return (applied = last(arguments), collections = arguments[1:(end - 1)],
+            name = only(names))
+    end
+    return (applied = first(arguments), collections = arguments[2:end], name = only(names))
+end
+
+# The expressions under `node` that decide on values the text of the code gives, added
+# to `found`. `roles` holds what the text says of each name, `assigned` the collections
+# that names hold.
+function decisions!(found, node, roles, assigned)
+    k = kind(node)
+    if is_method(node)
+        assigned = assignments!(copy(assigned), node)
+        roles = Dict{Symbol, Any}()
+    end
+    if k in (K"for", K"generator")
+        roles = copy(roles)
+        visit(node) do child
+            child !== node && kind(child) in (K"for", K"generator") && return false
+            kind(child) == K"in" && numchildren(child) == 2 && child.parent !== nothing &&
+                kind(child.parent) == K"iteration" &&
+                bind!(roles, child[1], iteration_state(child[2], assigned))
+            return true
+        end
+    elseif k in (K"->", K"do") && numchildren(node) > 0
+        roles = copy(roles)
+        targets = kind(node[1]) == K"tuple" ? children(node[1]) : [node[1]]
+        foreach(name -> delete!(roles, name), bound_names(node[1]))
+        applied = node.parent === nothing ? nothing : application(node.parent)
+        if applied !== nothing && applied.applied === node
+            for (target, collection) in zip(targets, applied.collections)
+                bind!(roles, target,
+                    applied.name == :ntuple ? (constant(collection) ? LISTED : DATA) :
+                    iteration_state(collection, assigned))
+            end
+        end
+    end
+    if k in (K"for", K"generator", K"->", K"do")
+        # A name that the body assigns again is no longer what the code listed.
+        foreach(name -> delete!(roles, name), reassigned(node))
+    end
+    if !isempty(roles)
+        tests = conditions(node)
+        append!(found, filter(test -> decided(test, roles), tests))
+        operators = operation(node)
+        if operators !== nothing && any(in(ORDERINGS), operators[1])
+            tested = node.parent !== nothing &&
+                     any(c -> c === node, conditions(node.parent))
+            (identified(node, roles) || (!tested && decided(node, roles))) &&
+                push!(found, node)
+        end
+    end
+    is_leaf(node) ||
+        foreach(child -> decisions!(found, child, roles, assigned), children(node))
+    return found
+end
+
+# Listed values. Per file and line, the expressions that decide on a value that the text
+# of the code gives. Such a value is the variable of a loop over literals, the position
+# of an element in a collection written in the code, or a literal listed beside an
+# element; the loop is a `for`, a comprehension, or a function applied to each element.
+# A condition or a comparison that reads such values and literals alone is counted. So is
+# a comparison that asks which listed element a variable is.
+function listed_values(files, directory)
+    found = Dict{String, Int}()
+    assigned = constants(files)
+    for file in files
+        path = relative(file, directory)
+        for node in
+            decisions!(SyntaxNode[], parse_source(file), Dict{Symbol, Any}(), assigned)
+            count!(found,
+                string(path, ":", JuliaSyntax.source_line(node), " | ",
+                    strip(JuliaSyntax.sourcetext(node))))
+        end
+    end
+    return found
+end
+
+# The name of a method, the fewest and the most positional arguments it takes, and the
+# positions and the keywords that its body decides on with literals alone. `nothing` for a
+# callable object and for a method with a splat.
+function flags(node, assigned)
+    signature = node[1]
+    while kind(signature) in (K"where", K"::") && numchildren(signature) == 2
+        signature = signature[1]
+    end
+    kind(signature) == K"call" && is_prefix_call(signature) || return nothing
+    name = syntax_name(signature[1])
+    isempty(name) && return nothing
+    positional, keywords, required = Symbol[], Symbol[], 0
+    for child in children(signature)[2:end]
+        if kind(child) == K"parameters"
+            append!(keywords, reduce(vcat, map(bound_names, children(child)); init = Symbol[]))
+        else
+            kind(child) == K"..." && return nothing
+            names = bound_names(child)
+            push!(positional, length(names) == 1 ? only(names) : :_)
+            kind(child) == K"=" || (required += 1)
+        end
+    end
+    # A parameter that the body assigns again is no longer what the call gave.
+    given = setdiff([positional; keywords], reassigned(node[2]))
+    decides(parameter) = parameter in given &&
+                         !isempty(decisions!(
+        SyntaxNode[], node[2], Dict{Symbol, Any}(parameter => LISTED), assigned))
+    return (name = last(name), required, most = length(positional),
+        positions = findall(decides, positional), keywords = filter(decides, keywords))
+end
+
+# Literal arguments. Per file and line, the calls that give a literal to a flag: a
+# parameter that a method defined in `files` decides on, with literals alone, and that
+# every call in `files` gives as a literal. A call reaches a method by its name and the
+# number of its positional arguments, or by its name and the keyword.
+function literal_arguments(files, directory)
+    found = Dict{String, Int}()
+    assigned = constants(files)
+    methods = NamedTuple[]
+    trees = [file => parse_source(file) for file in files]
+    for (_, tree) in trees
+        visit(tree) do node
+            is_method(node) || return true
+            method = flags(node, assigned)
+            method === nothing || push!(methods, method)
+            return false
+        end
+    end
+    given = NamedTuple[]
+    for (file, tree) in trees
+        visit(tree) do node
+            kind(node) == K"call" && is_prefix_call(node) || return true
+            node.parent !== nothing && is_method(node.parent) && node.parent[1] === node &&
+                return true
+            name = syntax_name(node[1])
+            isempty(name) && return true
+            positional, keywords = SyntaxNode[], Dict{Symbol, SyntaxNode}()
+            for child in children(node)[2:end],
+                argument in (kind(child) == K"parameters" ? children(child) : [child])
+
+                if kind(argument) == K"=" && numchildren(argument) == 2 &&
+                   kind(argument[1]) == K"Identifier"
+                    keywords[argument[1].val] = argument[2]
+                elseif kind(child) != K"parameters"
+                    push!(positional, argument)
+                end
+            end
+            any(argument -> kind(argument) == K"...", positional) ||
+                push!(given, (; name = last(name), positional, keywords, node, file))
+            return true
+        end
+    end
+    # One entry per call, however many methods of the name test the parameter.
+    entry(call,
+        what,
+        argument) = found[string(
+        relative(call.file, directory), ":", JuliaSyntax.source_line(call.node),
+        " | ", call.name, " | ", what, " = ", strip(JuliaSyntax.sourcetext(argument)))] = 1
+    for method in methods
+        named = filter(call -> call.name == method.name, given)
+        reached = filter(
+            call -> method.required <= length(call.positional) <= method.most, named)
+        for position in method.positions
+            passed = filter(call -> length(call.positional) >= position, reached)
+            all(call -> constant(call.positional[position]), passed) &&
+                foreach(call -> entry(call, position, call.positional[position]), passed)
+        end
+        for keyword in method.keywords
+            passed = filter(call -> haskey(call.keywords, keyword), named)
+            all(call -> constant(call.keywords[keyword]), passed) &&
+                foreach(call -> entry(call, keyword, call.keywords[keyword]), passed)
+        end
+    end
+    return found
+end
+
 # A signature with each type variable at Float64 where its bounds admit it, else at its
 # upper bound: the package's numbers are Float64 or wider.
 function instantiate(signature)

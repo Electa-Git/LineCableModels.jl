@@ -55,28 +55,29 @@ function Base.issubset(B::AbstractShape, A::Union{Rectangle, Polygon, Ellipse, A
                  for t in (0, 1), path in (container.outer, content.outer)]));
         by = nominal)
     push!(normals, first(normals) + 2π)
-    for search in (false, true), k in 1:(length(normals) - 1)
-
+    for k in 1:(length(normals) - 1)
+        φ = normals[k]
+        radius = support(container, φ)
+        nominal(support(content, φ)) <= nominal(radius) + tolerance(radius) || return false
+    end
+    for k in 1:(length(normals) - 1)
         low, high = normals[k], normals[k + 1]
-        φ = low
-        if search
-            nominal(high) > nominal(low) || continue
-            while true
-                left = low + (high - low) / 3
-                right = high - (high - low) / 3
-                (nominal(left) == nominal(low) || nominal(right) == nominal(high) ||
-                 nominal(left) == nominal(right)) && break
-                if nominal(support(container, left) - support(content, left)) <
-                   nominal(support(container, right) - support(content, right))
-                    high = right
-                else
-                    low = left
-                end
+        nominal(high) > nominal(low) || continue
+        while true
+            left = low + (high - low) / 3
+            right = high - (high - low) / 3
+            (nominal(left) == nominal(low) || nominal(right) == nominal(high) ||
+             nominal(left) == nominal(right)) && break
+            if nominal(support(container, left) - support(content, left)) <
+               nominal(support(container, right) - support(content, right))
+                high = right
+            else
+                low = left
             end
-            φ = argmin(
-                angle -> nominal(support(container, angle) - support(content, angle)),
-                (low, (low + high) / 2, high))
         end
+        φ = argmin(
+            angle -> nominal(support(container, angle) - support(content, angle)),
+            (low, (low + high) / 2, high))
         radius = support(container, φ)
         nominal(support(content, φ)) <= nominal(radius) + tolerance(radius) || return false
     end

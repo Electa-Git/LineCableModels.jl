@@ -234,7 +234,9 @@ function gmd(A::Contour{TA}, B::Contour{TB}) where {TA, TB}
                     sort!(unique!(ts))
                 end
                 subtotal = zero(T)
-                for nearorder in (3, 4, 5, 6, 7, 15)
+                pairerror = 0.0
+                for (nearorder, maxevals) in
+                    ((3, 0), (4, 0), (5, 0), (6, 0), (7, 0), (15, 10^7))
                     subtotal = zero(T)
                     pairerror = 0.0
                     for (u0, u1) in zip(ss[1:(end - 1)], ss[2:end]),
@@ -304,7 +306,7 @@ function gmd(A::Contour{TA}, B::Contour{TB}) where {TA, TB}
                                 (far ? (u0 .+ (u1 - u0) .* nodes,) : (u0, u1))...;
                                 (far ? (;) :
                                  (order = nearorder,
-                                    maxevals = nearorder == 15 ? 10^7 : 0,
+                                    maxevals = maxevals,
                                     rtol = cfg.rtol, atol = budget,
                                     segbuf = allocated[2], norm = abs ∘ nominal))...)
                             if far
@@ -334,7 +336,7 @@ function gmd(A::Contour{TA}, B::Contour{TB}) where {TA, TB}
                                         end,
                                         ends...;
                                         order = nearorder,
-                                        maxevals = nearorder == 15 ? 10^7 : 0,
+                                        maxevals = maxevals,
                                         rtol = cfg.rtol,
                                         atol = budget / (2 * (u1 - u0)), segbuf = allocated[1],
                                         norm = abs ∘ nominal)::Tuple{T, Float64}
@@ -344,7 +346,7 @@ function gmd(A::Contour{TA}, B::Contour{TB}) where {TA, TB}
                                 u0,
                                 u1;
                                 order = nearorder,
-                                maxevals = nearorder == 15 ? 10^7 : 0,
+                                maxevals = maxevals,
                                 rtol = cfg.rtol,
                                 atol = budget / 2, segbuf = allocated[2],
                                 norm = abs ∘ nominal)::Tuple{T, Float64}
@@ -356,9 +358,9 @@ function gmd(A::Contour{TA}, B::Contour{TB}) where {TA, TB}
                     if pairerror <= atol
                         break
                     end
-                    if nearorder == 15
-                        @warn "QuadGK error estimate exceeds the curve pair budget" estimate=pairerror budget=atol
-                    end
+                end
+                if pairerror > atol
+                    @warn "QuadGK error estimate exceeds the curve pair budget" estimate=pairerror budget=atol
                 end
                 total += orientation * subtotal
             end

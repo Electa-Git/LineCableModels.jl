@@ -261,6 +261,7 @@ looped(M, k, rows) = [M[i, j] - M[i, k] - M[k, j] + M[k, k] for i in rows, j in 
             input = LineCableModels.Engine.CoaxialInput(problem, CoaxialFormulation().options)
             @test isempty(input.members[1])
             @test isempty(input.enclosed[1])
+            @test all(isempty, input.exterior_ranges)
             result = interior_result([design], [Placement(0, -1)], [(a = 1, b = 2, c = 3)])
             apart = interior_result(
                 [build(CableDesign, string(name), core)
@@ -351,6 +352,7 @@ looped(M, k, rows) = [M[i, j] - M[i, k] - M[k, j] + M[k, k] for i in rows, j in 
             frequencies = [50.0])
         input = LineCableModels.Engine.CoaxialInput(problem, CoaxialFormulation().options)
         @test input.enclosed == [1:6, 1:3, 1:1, 2:2, 4:5]
+        @test input.exterior_ranges == [1:0, 7:7, 3:3, 3:3, 7:7]
         @test input.members == [[2, 5], [3, 4], Int[], Int[], Int[]]
         @test input.assemblies == [6:6, 3:3, 1:1, 2:2, 4:5]
     end

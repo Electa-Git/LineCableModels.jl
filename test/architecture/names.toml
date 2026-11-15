@@ -101,7 +101,7 @@ flatten = "reduce a cable design to the equivalent tubes and dielectric layers o
 nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resistivity",
     "properties", "admittance", "semicon", "temperature",
     "line_parameters", "gmsh", "fem", "earth_return", "shunt", "buffers", "trace",
-    "frequencies", "input", "connection", "radius", "bundles",
+    "frequencies", "input", "connection", "radius", "bundles", "exterior",
     "transposition", "integral", "integrand", "reductions", "air", "domain"]
 qualifiers = ["coaxial", "internal", "kept", "eliminated", "enclosed", "spectral", "lcm", "mixed"]
 symbols = ["Z", "Y", "r_ins_ex", "Λ", "ζ", "ε₀", "μ₀"]
