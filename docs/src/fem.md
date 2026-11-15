@@ -405,7 +405,7 @@ e_Y = \frac{\max_{ij} |\Delta Y_{ij}|}{\max_i |Y_{ii}|}.
 ```
 
 The accuracy level of the finite-element computation is 1 %. The table gives the maximum errors over the
-eleven finite-element frequencies for seven of the reference cases:
+eleven finite-element frequencies for eleven of the reference cases:
 
 | Case | ``e_Z`` | ``e_Y`` |
 | --- | --- | --- |
@@ -416,6 +416,10 @@ eleven finite-element frequencies for seven of the reference cases:
 | `overhead_bare_wires` | 0.610 % | 0.817 % |
 | `mixed_bare_wires` | 0.609 % | 0.617 % |
 | `one_bare_wire` | 0.549 % | 0.713 % |
+| `one_insulated_sector` | 0.550 % | 1.23 % |
+| `milliken_solid_segments` | 2.67 % | 40.3 % |
+| `three_insulated_sectors` | 6.11 % | 40.6 % |
+| `three_cores_steel_pipe` | 0.403 % | 0.134 % |
 
 The differences in the coaxial cases result from the different representations of the cable
 in the two models:
@@ -428,6 +432,8 @@ in the two models:
 - ``e_Z`` above about 40 kHz: the lay correction of the core, for the same reason.
 - ``e_Z`` from 25 Hz to 40 kHz: the magnetic armor wires compared with the equivalent tube.
 
+The README of `test/references/` explains the deviations of the four other cases frequency
+by frequency.
 
 ## Continuous integration
 

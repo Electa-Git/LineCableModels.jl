@@ -136,21 +136,8 @@ each copy gives its data rows again, byte for byte.
 FEM against the analytical results, per FEM frequency, as e_Z = max|ΔZ_ij| / max|Z_ii| and
 e_Y = max|ΔY_ij| / max|Y_ii|. The FEM accuracy level is 1 %.
 
-This tree's run gives these maxima against the analytical rows:
-
-| Case | e_Z | e_Y |
-|---|---|---|
-| `two_bare_wires` | 0.568 % | 0.798 % |
-| `two_insulated_wires` | 0.407 % | 0.0447 % |
-| `coaxial_circular_strands` | 4.92 % | 10.5 % |
-| `coaxial_rectangular_strands` | 5.20 % | 10.6 % |
-| `overhead_bare_wires` | 0.610 % | 0.817 % |
-| `mixed_bare_wires` | 0.609 % | 0.617 % |
-| `one_bare_wire` | 0.549 % | 0.713 % |
-| `one_insulated_sector` | 0.550 % | 1.23 % |
-| `milliken_solid_segments` | 2.67 % | 40.3 % |
-| `three_insulated_sectors` | 6.11 % | 40.6 % |
-| `three_cores_steel_pipe` | 0.403 % | 0.134 % |
+The table in [Finite element solver, Accuracy](../../docs/src/fem.md#accuracy) gives the maxima
+against the analytical rows.
 
 The file `two_bare_wires/xue2021.csv` gives `analytical` and `fem` rows of `Z` and `Y` at 1 kHz
 for the wires of `two_bare_wires` on a layered earth. The upper layer is 100 Ω·m and 5 m thick
