@@ -93,7 +93,8 @@ evenly spaced on a logarithmic scale. The FEM rows hold 11 of them, one per 0.8 
 Each case folder also holds `physical.geo`, the geometry file of the FEM run of its case. The
 geometry tests compare against these files.
 
-Computing a case again gives analytical values identical to the bit. FEM meshes depend on
+Computing a case again with OpenBLAS on one thread (`OPENBLAS_NUM_THREADS=1`)
+gives analytical values identical to the bit. FEM meshes depend on
 incidental state such as the length of the run directory's path.
 
 ## Intermediate matrices
