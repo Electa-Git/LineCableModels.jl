@@ -522,8 +522,6 @@ shielded by that member's conductor.
   the members.
 - Throws `ArgumentError` when `order ≥ 1` and the bodies of two members overlap, or a
   member's body overlaps the bore's.
-- Throws `ArgumentError` when an interior has members and the formula of the slot
-  `insulation_impedance` or `shunt` gives its layer at order 0 alone.
 - Throws `ArgumentError` when `order ≥ 1`, an interior has members, and the formula of the
   slot `internal_impedance` gives the surface impedances at order 0 alone.
 """
@@ -536,8 +534,6 @@ function validate(input::CoaxialInput, formulation::CoaxialFormulation,
         bore = input.label[first(input.assemblies[a])]
         isempty(input.interior_ranges[a]) && throw(ArgumentError(
             "no region lies around the members of $bore: the coaxial formulation takes the medium of the gap between the members and that conductor from it"))
-        validate(formulation.insulation_impedance, impedance!, max(N, 1))
-        validate(formulation.shunt, potential!, max(N, 1))
         N == 0 && continue
         labels = [input.label[last(input.assemblies[m])] for m in members]
         centers = [nominal.(input.positions[m] .- input.positions[a]) for m in members]

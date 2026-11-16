@@ -2,6 +2,7 @@
 # this repository, with s = j 2π f. They are the equivalent tubes
 # and the dielectric layers of the coaxial references.
 using SpecialFunctions: besseli, besselk, besselkx
+using IntervalArithmetic: interval, in_interval, inf, sup
 
 @testset "Engine impedances" begin
     Engine = LineCableModels.Engine
@@ -218,42 +219,104 @@ using SpecialFunctions: besseli, besselk, besselkx
         @test @inferred(schelkunoff(20, walls[1]..., s)).transfer isa ComplexF64
     end
 
-    # A dielectric layer at an order is a line of the harmonic field. Layers in a row join as the
-    # layer between the outer radii of the row. Measured: 1.1e-15.
+    # A dielectric layer at an order is a line of the harmonic field. Layers in a row join as
+    # the layer between the outer radii of the row.
+    # Measured on Julia 1.12.7 with Float64 for both families at 50 Hz and orders 1, 2, 5, 20, 40.
+    # Maximum relative differences: 3.05e-16 for composition and 1.35e-16 at zero width.
+    # The bound is 2.0e-15 for both.
     @testset "the layers at an order join as one layer" begin
         series = Engine.Shunt.Formula(Val(:series))
         s = im * (2π * 50.0)
         κ = 1.0e-14 + s * LineCableModels.ε₀ * 2.3
         for n in (1, 2, 5, 20, 40)
             core = schelkunoff(n, 0.0, 5.0e-3, 1.7241e-8, 1.0, s).outer
-            for (inner, outer, whole, load) in (
-                (ametani(n, 5.0e-3, 8.0e-3, 2.0, s), ametani(n, 8.0e-3, 12.0e-3, 2.0, s),
-                    ametani(n, 5.0e-3, 12.0e-3, 2.0, s), core),
-                (series(n, 5.0e-3, 8.0e-3, κ, s), series(n, 8.0e-3, 12.0e-3, κ, s),
-                    series(n, 5.0e-3, 12.0e-3, κ, s), zero(s)))
-                z = inner.outer - inner.transfer^2 / (inner.inner + load)
-                z = outer.outer - outer.transfer^2 / (outer.inner + z)
-                @test isapprox(z, whole.outer - whole.transfer^2 / (whole.inner + load);
-                    rtol = 2.0e-15)
+            for (formula, z, load) in ((ametani, s * μ₀ * 2.0 / (2π * n), core),
+                (series, s / (2π * n * κ), zero(s)))
+                inner = formula(n, 5.0e-3, 8.0e-3, z, load)
+                outer = formula(n, 8.0e-3, 12.0e-3, z, inner)
+                whole = formula(n, 5.0e-3, 12.0e-3, z, load)
+                @test isapprox(outer, whole; rtol = 2.0e-15)
+                @test isapprox(formula(n, 8.0e-3, 8.0e-3, z, load), load; rtol = 2.0e-15)
             end
-            z = s * μ₀ * 2.0 / (2π * n)
-            @test ametani(n, 8.0e-3, Inf, 2.0, s) ==
-                  (inner = z, outer = z, transfer = zero(z))
-            p = s / (2π * n * κ)
-            @test series(n, 8.0e-3, Inf, κ, s) == (inner = p, outer = p, transfer = zero(p))
         end
     end
 
-    # A wall that conducts nothing is a dielectric layer of its permeability. The deviation
-    # falls as the resistivity grows, 8.0e-10 at 1e2 Ω·m and 9.6e-16 at 1e8 Ω·m at 50 Hz.
+    # Measured on Julia 1.12.7 at 256-bit precision: relative value error at most 2.71e-16,
+    # and relative outer-radius slope error at most 2.47e-16. The bound is 3e-16 for both.
+    # Radii and widths are in m. The medium impedances represent magnetic and electric
+    # fields, in Ω/m and m/F, respectively. Each family inherits the same line.
+    @testset "the line at zero width and at rounding widths" begin
+        series = Engine.Shunt.Formula(Val(:series))
+        for formula in (ametani, series),
+            z in (complex(0.0, 3.0e-4), complex(2.0e9, -3.0e8)),
+            n in (1, 5, 20), c in (0.0, 0.5, 2.0, 1.0 + im),
+            width in (0.0, -6.94e-18, 1.0e-17)
+            r = 0.01
+            r_ex = r + width
+            Z = c * z
+            references = map((prevfloat(r_ex), r_ex, nextfloat(r_ex))) do radius
+                setprecision(BigFloat, 256) do
+                    τ = tanh(n * log(big(radius) / big(r)))
+                    big(z) * (big(Z) + big(z) * τ) / (big(z) + big(Z) * τ)
+                end
+            end
+            reference = references[2]
+            scale = iszero(reference) ? abs(big(z)) : abs(reference)
+            result = formula(n, r, r_ex, z, Z)
+            @test isfinite(result)
+            @test abs(result - reference) <= 3.0e-16 * scale
+
+            d = ForwardDiff.Dual(r_ex, 1.0)
+            T = typeof(d)
+            dual = formula(n, T(r), d, Complex{T}(z), Complex{T}(Z))
+            value = complex(ForwardDiff.value(real(dual)), ForwardDiff.value(imag(dual)))
+            @test isfinite(value)
+            @test abs(value - reference) <= 3.0e-16 * scale
+
+            m = measurement(r_ex, 1.0e-6)
+            T = typeof(m)
+            measured = formula(n, T(r), m, Complex{T}(z), Complex{T}(Z))
+            value = complex(Measurements.value(real(measured)), Measurements.value(imag(measured)))
+            @test isfinite(value)
+            @test abs(value - reference) <= 3.0e-16 * scale
+
+            enclosed = formula(n, interval(r), interval(prevfloat(r_ex), nextfloat(r_ex)),
+                complex(interval(real(z)), interval(imag(z))),
+                complex(interval(real(Z)), interval(imag(Z))))
+            @test all(isfinite,
+                (inf(real(enclosed)), sup(real(enclosed)),
+                    inf(imag(enclosed)), sup(imag(enclosed))))
+            @test all(in_interval(real(q), real(enclosed)) &&
+                      in_interval(imag(q), imag(enclosed)) for q in references)
+
+            if iszero(width)
+                slope = n * (z^2 - Z^2) / (z * r)
+                derivative = complex(ForwardDiff.partials(real(dual))[1],
+                    ForwardDiff.partials(imag(dual))[1])
+                @test isapprox(derivative, slope; rtol = 3.0e-16)
+                derivative = complex(Measurements.derivative(real(measured), m),
+                    Measurements.derivative(imag(measured), m))
+                @test isapprox(derivative, slope; rtol = 3.0e-16)
+            end
+        end
+    end
+
+    # Loaded comparisons against the layer's line at 50 Hz peak at 1.4654e-10
+    # (1e2 Ω·m) and 2.20e-15 (1e8 Ω·m, n = 1).
+    # The latter deviation comes from Float64 roundoff in the wall's own surfaces
+    # (1.92e-15 against the exact value at 512 bits).
     @testset "the surfaces of a wall tend to its layer as its resistivity grows" begin
         s = im * (2π * 50.0)
         for n in (1, 2, 5, 20)
-            layer = ametani(n, 8.0e-3, 12.0e-3, 2.0, s)
-            for (ρ, bound) in ((1.0e2, 1.0e-9), (1.0e8, 2.0e-15))
+            z = s * μ₀ * 2.0 / (2π * n)
+            load = schelkunoff(n, 0.0, 5.0e-3, 1.7241e-8, 1.0, s).outer
+            layer = ametani(n, 8.0e-3, 12.0e-3, z, load)
+            for (ρ, bound) in ((1.0e2, 1.0e-9), (1.0e8, 3.0e-15))
                 wall = schelkunoff(n, 8.0e-3, 12.0e-3, ρ, 2.0, s)
-                @test all(isapprox(getfield(wall, key), getfield(layer, key); rtol = bound)
-                for key in (:inner, :outer, :transfer))
+                @test isapprox(wall.outer - wall.transfer^2 / (wall.inner + load), layer;
+                    rtol = bound)
+                @test isapprox(wall.inner - wall.transfer^2 / (wall.outer + load), layer;
+                    rtol = bound)
             end
         end
     end

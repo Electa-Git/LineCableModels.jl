@@ -43,40 +43,6 @@ coefficients from the bore outward. The image matrix ``A`` holds the fields that
 and the bore return above order 0. The formulation solves it as for the impedances, with
 each conductor an equipotential.
 
-At a harmonic order ``n \\geq 1``, a layer is a line of the field that varies as
-``\\cos n\\varphi``. With ``p_n = s / (2 \\pi n \\kappa_l)`` and
-``\\rho = (a_l / b_l)^{2n}``, its record is
-
-```math
-p_\\mathrm{inner} = p_\\mathrm{outer} = p_n \\frac{1 + \\rho}{1 - \\rho}, \\qquad
-p_\\mathrm{transfer} = \\frac{2 p_n (a_l / b_l)^n}{1 - \\rho}.
-```
-
-For a finite annulus with positive inner radius, set ``L = \\ln(b_l / a_l)``.
-The same record is
-
-```math
-p_\\mathrm{inner} = p_\\mathrm{outer} = p_n \\coth(nL), \\qquad
-p_\\mathrm{transfer} = \\frac{p_n}{\\sinh(nL)}.
-```
-
-In the continuous limit ``n \\to 0``, each entry grows as ``1/n^2``, while
-
-```math
-p_\\mathrm{inner} + p_\\mathrm{outer} - 2 p_\\mathrm{transfer}
-\\longrightarrow \\frac{s L}{2 \\pi \\kappa_l} = p_l.
-```
-
-This limit is the call without an order. For a load with finite potential coefficient
-``P`` \\[m/F\\], the cascade has the limit
-
-```math
-p_\\mathrm{outer} - \\frac{p_\\mathrm{transfer}^2}{p_\\mathrm{inner} + P}
-\\longrightarrow P + \\frac{s L}{2 \\pi \\kappa_l},
-```
-
-the layer in series that the order-0 recipe adds.
-
 ### Callable
 
 `formula(r_in, r_ex, κ, s)` returns ``p_l`` \\[m/F\\], zero when `r_in` is zero or equals
@@ -86,16 +52,11 @@ the layer in series that the order-0 recipe adds.
 - `r_ex`: outer radius of the layer \\[m\\].
 - `κ`: admittivity of the layer \\[S/m\\].
 - `s`: complex frequency, `j 2π f` \\[1/s\\].
-
-`formula(n, r_in, r_ex, κ, s)` returns the record `(; inner, outer, transfer)` of the layer
-at the harmonic order `n` \\[m/F\\]. The order `n` \\[dimensionless\\] is a positive
-integer, and the first form gives the coefficient at order 0. The radii satisfy
-`0 ≤ r_in < r_ex ≤ Inf`, and `r_ex = Inf` gives a medium without an outer bound.
 """
 module Shunt
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ...Commons: defaults, validate
+import ...Commons: defaults
 using ...Commons: FormulationOptions
 using ..Engine: AbstractShunt
 import ..Engine: potential!
@@ -121,12 +82,6 @@ struct Formula{ID, O <: FormulationOptions} <: AbstractShunt
     function Formula{ID}(options::O) where {ID, O <: FormulationOptions{Formula{ID}}}
         return new{ID, O}(options)
     end
-end
-
-function validate(formula::Formula, ::typeof(potential!), n::Int)
-    iszero(n) && return formula
-    throw(ArgumentError(
-        "the formula :$(nameof(formula)) gives the potential coefficient of a layer at order 0 alone; the coaxial formulation computes the gap of an interior up to order $n with a formula that gives every order"))
 end
 
 """

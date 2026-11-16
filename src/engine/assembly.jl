@@ -108,7 +108,7 @@ function impedance!(internal::InternalImpedance.Formula,
         f = first(input.interior_ranges[a])
         c = input.dielectric_r_ex[f]
         μ_f = input.dielectric_material[f].mu_r
-        z_1 = insulation(1, zero(T), T(Inf), μ_f, s).inner
+        z_1 = s * μ₀ * μ_f / 2π
         shell = inside + sum(
             insulation(input.dielectric_r_in[l], input.dielectric_r_ex[l],
                 input.dielectric_material[l].mu_r, s)

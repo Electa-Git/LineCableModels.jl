@@ -239,11 +239,11 @@ LCMBackend = "this package's own implementation of a formulation, in process"
 GmshBackend = "the backend that runs the finite-element computation, defined by the Gmsh extension"
 backend = "the default backend of a formulation type; a backend passed first to compute chooses another"
 AbstractInternalImpedance = "the supertype of the formulas of the surface impedances of a tubular conductor"
-AbstractInsulationImpedance = "the supertype of the formulas of the magnetic term across an annular dielectric"
+AbstractInsulationImpedance = "the supertype of the formulas of the magnetic term across an annular dielectric, which gives every formula of its family the line of the layer at a harmonic order above 0 (Schelkunoff 1934, (127), for the medium's impedance)"
 AbstractInsulationAdmittance = "the supertype of the admittivity laws of insulating layers"
 AbstractSemiconAdmittance = "the supertype of the admittivity laws of semiconducting layers"
 AbstractEarthReturn = "the supertype of the formulas of the earth-return impedance and potential coefficients"
-AbstractShunt = "the supertype of the formulas that form the potential coefficients inside a cable"
+AbstractShunt = "the supertype of the formulas that form the potential coefficients inside a cable, which gives every formula of its family the line of the layer at a harmonic order above 0 (Schelkunoff 1934, (127), for the medium's impedance)"
 AbstractResistivity = "the supertype of the temperature laws of a conductor's resistivity"
 AbstractEarthProperties = "the supertype of the laws of the earth's properties and of the models of the equivalent earth"
 LineParametersProblem = "the cables of a line, the earth, the operating temperature and the frequencies of a scan"
@@ -289,7 +289,7 @@ Formula = "an insulation-impedance formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
 
 [register."Engine.InsulationImpedance".formulas]
-ametani1980 = "s μ₀ μ_r ln(r_ex / r_in) / 2π across an annular dielectric (Ametani 1980; commit 989af96c, insulationimpedance/formulas/ametani1980.jl); and the surfaces of the layer at a harmonic order above 0 (Schelkunoff 1934, (127))"
+ametani1980 = "s μ₀ μ_r ln(r_ex / r_in) / 2π across an annular dielectric (Ametani 1980; commit 989af96c, insulationimpedance/formulas/ametani1980.jl)"
 
 [register."Engine.InsulationAdmittance".public]
 Formula = "an insulation-admittance formula, its identifier the type parameter"
@@ -334,7 +334,7 @@ Formula = "a shunt formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
 
 [register."Engine.Shunt".formulas]
-series = "the series chain of the potential coefficients s ln(r_ex / r_in) / 2πκ of the annular layers, summed from each conductor outward (commit 989af96c, src/engine/admittance.jl); and the surfaces of the layer at a harmonic order above 0"
+series = "the series chain of the potential coefficients s ln(r_ex / r_in) / 2πκ of the annular layers, summed from each conductor outward (commit 989af96c, src/engine/admittance.jl)"
 
 [register."Engine.Resistivity".public]
 Formula = "a resistivity formula, its identifier the type parameter"

@@ -471,10 +471,11 @@ domain of the pair, `air`, `earth` or `mixed`. A formula declares each quantity 
 `validate(formula, impedance!)` or `validate(formula, potential!)`. The fallback of the family
 refuses it in the other slot at construction.
 
-A formula of the internal impedance, the insulation impedance or the shunt declares the orders
-it gives with `validate(formula, impedance!, n)` or `validate(formula, potential!, n)`. This
-declaration is true for every formula at `n = 0`. Above order 0, the fallback of its family
-refuses it.
+A formula of the internal impedance declares the orders it gives with
+`validate(formula, impedance!, n)`. This declaration is true for every formula at `n = 0`.
+Above order 0, the fallback of its family refuses it.
+A dielectric layer above order 0 is the line that the supertypes `AbstractInsulationImpedance`
+and `AbstractShunt` give to every formula of their families.
 
 A formula of the earth return declares the pairs it treats by one method
 `validate(formula, t::Int, s::Int)`. Its condition reads the layers of the target and the source,

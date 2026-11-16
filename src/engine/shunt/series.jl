@@ -1,17 +1,8 @@
 defaults(::Type{Formula{:series}}) = (;)
-validate(formula::Formula{:series}, ::typeof(potential!), ::Int) = formula
 
 function (::Formula{:series})(
         r_in::T, r_ex::T, κ::Complex{T}, s::Complex{T}) where {T <: Real}
     return iszero(r_in) || r_in == r_ex ? zero(s) : s / (2π * κ / log(r_ex / r_in))
-end
-
-function (::Formula{:series})(
-        n::Int, r_in::T, r_ex::T, κ::Complex{T}, s::Complex{T}) where {T <: Real}
-    p = s / (2π * n * κ)
-    ρ = (r_in / r_ex)^(2n)
-    inner = p * (1 + ρ) / (1 - ρ)
-    return (; inner, outer = inner, transfer = 2p * (r_in / r_ex)^n / (1 - ρ))
 end
 
 """
@@ -62,7 +53,7 @@ function potential!(shunt::Formula{:series}, Pin::AbstractMatrix{Complex{T}}, bu
         # The gap between the members and the bore, and the returned fields, in the bore.
         f = first(input.interior_ranges[a])
         c = input.dielectric_r_ex[f]
-        p_1 = shunt(1, zero(T), T(Inf), kappa[f], s).inner
+        p_1 = s / (2π * kappa[f])
         shell = running + sum(
             shunt(input.dielectric_r_in[l], input.dielectric_r_ex[l], kappa[l], s)
             for l in input.interior_ranges[a][2:end]; init = zero(s))
