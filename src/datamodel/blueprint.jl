@@ -204,6 +204,7 @@ of its metal area ``S`` and of the perimeter ``l`` of its outline, Ametani's equ
 r_e = \\frac{l}{2\\pi}, \\qquad r_i = \\sqrt{r_e^2 - \\frac{S}{\\pi}}.
 ```
 
+An inner radius within `tolerance(r_e)` of zero, decided on `nominal`, is zero.
 Each layer of its interval then lies around the previous radius, with the distance across
 the metal of its band as its thickness.
 
@@ -332,9 +333,11 @@ function flatten(design::CableDesign)
         outer = convert(T,
             annular ? maximum(support, tube) :
             perimeter(boundary(centered[owners[k]][last(blocks[k])])) / 2π)
-        inner = convert(T, annular ? minimum(distance, tube) :
-                           sqrt(outer^2 - sum(area, shapes) / π))
-        term = iszero(inner) ? zero(outer) :
+        inner = convert(T,
+            annular ? minimum(distance, tube) :
+            (nominal(outer^2 - sum(area, shapes) / π) <= tolerance(outer)^2 ? zero(outer) :
+             sqrt(outer^2 - sum(area, shapes) / π)))
+        term = iszero(nominal(inner)) ? zero(outer) :
                inner^4 / (outer^2 - inner^2)^2 * log(outer / inner)
         mu = (log(outer) - gmr) / (term - (3inner^2 - outer^2) / (4(outer^2 - inner^2)))
         material = Material(Val(:conductor),

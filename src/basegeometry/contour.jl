@@ -516,15 +516,14 @@ end
 $(TYPEDSIGNATURES)
 
 Return the stationary pairs `(s, t, d)` of two arcs, empty when they have none. Arcs of one
-center give the middle of their widest common interval, at ``|r_1-r_2|`` less the distance of
-their centers. Other arcs give the pairs along their line of centers, toward and away from each
+center give the middle of their widest common interval, at ``|r_1-r_2|``.
+Other arcs give the pairs along their line of centers, toward and away from each
 center, and the crossings of their circles, at ``d=0``.
 """
 function stationary(curve::Arc{S}, other::Arc{T}) where {S, T}
     R = promote_type(S, T)
     triples = Tuple{R, R, R}[]
     w = (other.at.x - curve.at.x, other.at.y - curve.at.y)
-    L = hypot(w...)
     if nominal(curve.at.x) == nominal(other.at.x) &&
        nominal(curve.at.y) == nominal(other.at.y)
         interval = overlap(curve, other)
@@ -532,7 +531,7 @@ function stationary(curve::Arc{S}, other::Arc{T}) where {S, T}
             φ = (leftendpoint(interval) + rightendpoint(interval)) / 2
             push!(triples,
                 (apsides(curve, φ).near, apsides(other, φ).near,
-                    abs(curve.r - other.r) - L))
+                    abs(curve.r - other.r)))
         end
     else
         for φ in (atan(w[2], w[1]), atan(w[2], w[1]) + π),

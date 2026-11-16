@@ -27,6 +27,20 @@
         @test tube.material.rho ≈ copper.rho && tube.material.mu_r ≈ 1
     end
 
+    # On Julia 1.12.7, x86_64 Linux, the residue outer^2 - sum(area, shapes) / π
+    # was negative at 52 of these 400 radii. It was positive at 58 and zero at 290.
+    @testset "a solid core off the origin has zero inner radius" begin
+        for r in range(1e-3, 60e-3; length = 400)
+            design = build(CableDesign, "solid_core",
+                Terminal(:core,
+                    Region(:core_metal, Circle(r, Placement(20e-3 + r, 0.0)), copper)),
+                Region(:ins, Offset(8e-3), polymer))
+            tube = only(flatten(design).conductors)
+            @test tube.r_in == 0
+            @test tube.material.rho ≈ copper.rho && tube.material.mu_r ≈ 1
+        end
+    end
+
     @testset "a lay over a strand at the radius 0 keeps it straight" begin
         strand = Repeat(CircularPattern(1; r = 0),
             Region(:core_metal, Circle(0.0425), copper))

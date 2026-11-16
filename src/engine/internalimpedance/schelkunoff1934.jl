@@ -7,7 +7,7 @@ function (::Formula{:schelkunoff1934})(
     sigma = inv(ρ)
     m = sqrt(s * mu * sigma)
     w_ex = m * r_ex
-    if iszero(r_in)
+    if iszero(nominal(r_in))
         numerator = besselix(0, w_ex)
         denominator = besselix(1, w_ex)
         outer = (s * mu / 2π) * (1 / w_ex) * (numerator / denominator)
@@ -52,7 +52,7 @@ function (f::Formula{:schelkunoff1934})(
         α_in = 2k + w_in^2 / α_in
         α_ex = 2k + w_ex^2 / α_ex
     end
-    if iszero(r_in)
+    if iszero(nominal(r_in))
         outer = (s * μ / 2π) / (α_ex - n)
         return (inner = zero(outer), outer, transfer = zero(outer))
     end
