@@ -245,8 +245,8 @@ interior homogenizes its regions by the same area fractions.
   row, or of none.
 - Throws `ArgumentError` when the regions of a terminal are not contiguous from the inside
   out.
-- Throws `ArgumentError` when a layer of an interval is no annulus about the axis of its
-  assembly and tiles none.
+- Throws `ArgumentError` when a layer of an interval would leave part of its annulus about
+  its assembly's axis uncovered and take that part as its material.
 - Throws `ArgumentError` when the conductive regions of one terminal have different reference
   temperatures.
 """
@@ -278,7 +278,14 @@ function flatten(design::CableDesign)
     centered = [[k == 1 ? placed.shape :
                  resolve(inv(Placement(positions[k]...)), placed.shape)
                  for placed in regions] for k in eachindex(design.assemblies)]
-    validate(design, flatten, blocks, centered)
+    bands = [first([[[fill.contents; index]
+                     for fill in design.fills
+                     if fill.region == index && isdisjoint(fill.contents, assigned)];
+                    [[index]]])
+             for index in eachindex(regions)
+             if !any(fill -> index in fill.contents && isdisjoint(fill.contents, assigned),
+        design.fills)]
+    validate(design, flatten, owners, blocks, centered, bands)
     stops = [maximum([index
                       for index in design.assemblies[owners[k]].regions
                       if all(
@@ -348,22 +355,18 @@ function flatten(design::CableDesign)
         indices = [index
                    for index in design.assemblies[owners[k]].regions
                    if last(blocks[k]) < index <= stops[k]]
-        grouped = [index for fill in design.fills if fill.region in indices
-                   for index in fill.contents]
         interval = BlueprintDielectric[]
-        for index in indices
-            index in grouped && continue
-            tiled = [fill for fill in design.fills if fill.region == index]
-            pieces = isempty(tiled) ? [index] : [only(tiled).contents; index]
-            bands = [centered[owners[k]][i] for i in pieces]
-            media = [regions[i].source.material for i in pieces]
+        for band in bands
+            last(band) in indices || continue
+            pieces = [centered[owners[k]][i] for i in band]
+            media = [regions[i].source.material for i in band]
             lower = convert(T,
-                annular ? minimum(distance, bands) :
+                annular ? minimum(distance, pieces) :
                 (isempty(interval) ? outer : last(interval).r_ex))
             upper = convert(
-                T, annular ? maximum(support, bands) :
-                   lower + dimension(centered[owners[k]][index]))
-            push!(interval, BlueprintDielectric(lower, upper, media, bands))
+                T, annular ? maximum(support, pieces) :
+                   lower + dimension(centered[owners[k]][last(band)]))
+            push!(interval, BlueprintDielectric(lower, upper, media, pieces))
         end
         N = sum(shares .* [turns[index] for index in members])
         relative = if isempty(interval)
@@ -395,29 +398,22 @@ function flatten(design::CableDesign)
                   sort!([index
                          for m in eachindex(design.assemblies) if hosts[m] == k
                          for index in design.assemblies[m].regions if index < heads[m]])
-        tilings = [fill
-                   for fill in design.fills
-                   if fill.region in indices && all(in(indices), fill.contents)]
-        grouped = [index for fill in tilings for index in fill.contents]
-        bands = map([head for head in indices if head ∉ grouped]) do head
-            tiled = [fill for fill in tilings if fill.region == head]
-            return isempty(tiled) ? [head] : [only(tiled).contents; head]
-        end
+        filler = [band for band in bands if last(band) in indices]
         annuli = Vector{Int}[]
-        while length(bands) > 1
-            outside = shapes[last(bands)]
-            reach = nominal(maximum(support, shapes[reduce(vcat, bands[1:(end - 1)])]))
+        while length(filler) > 1
+            outside = shapes[last(filler)]
+            reach = nominal(maximum(support, shapes[reduce(vcat, filler[1:(end - 1)])]))
             nearest = nominal(minimum(distance, outside))
             isannular(outside) && (nearest >= reach || isapprox(nearest, reach)) || break
-            pushfirst!(annuli, pop!(bands))
+            pushfirst!(annuli, pop!(filler))
         end
-        isempty(bands) && return BlueprintDielectric[]
+        isempty(filler) && return BlueprintDielectric[]
         return BlueprintDielectric[BlueprintDielectric(
                                        convert(T, minimum(distance, shapes[band])),
                                        convert(T, maximum(support, shapes[band])),
                                        [placed.source.material for placed in regions[band]],
                                        shapes[band])
-                                   for band in [[sort!(reduce(vcat, bands))]; annuli]]
+                                   for band in [[sort!(reduce(vcat, filler))]; annuli]]
     end
     ends = [maximum(row.regions; init = 0) for row in design.assemblies]
     for k in reverse(eachindex(design.assemblies))
@@ -451,10 +447,10 @@ function flatten(design::CableDesign)
         contained)
 end
 
-function validate(design::CableDesign, ::typeof(flatten),
+function validate(design::CableDesign, ::typeof(flatten), owners::AbstractVector{Int},
         blocks::AbstractVector{<:AbstractVector{Int}},
-        centered::AbstractVector{<:AbstractVector{<:AbstractShape}})
-    owners = [isempty(row.scope) ? 1 : last(row.scope) for row in design.terminals]
+        centered::AbstractVector{<:AbstractVector{<:AbstractShape}},
+        bands::AbstractVector{<:AbstractVector{Int}})
     tubes = reduce(vcat, blocks; init = Int[])
     for row in design.fills
         own = only([k
@@ -495,16 +491,13 @@ function validate(design::CableDesign, ::typeof(flatten),
                              if owners[j] == k && last(blocks[j]) < index])
             metal = [shapes[i] for i in blocks[previous]]
             isannular(metal) || continue
-            grouped = [fill
-                       for fill in design.fills
-                       if (fill.region == index || index in fill.contents) &&
-                          all(i -> i ∉ tubes, fill.contents)]
-            bands = isempty(grouped) ? [shapes[index]] :
-                    [shapes[i] for i in [only(grouped).contents; only(grouped).region]]
-            isannular(bands) ||
+            isannular([shapes[i] for i in only([band for band in bands if index in band])]) ||
                 throw(ArgumentError(
-                    "flatten reduces dielectric layers that are annuli about the center; " *
-                    ":$(design.regions[index].source.tag) of the cable $(design.id) is not"))
+                    "flatten assigns a dielectric layer an annulus about its assembly's axis, " *
+                    "between the layer's nearest and farthest radii. " *
+                    ":$(design.regions[index].source.tag) of the cable $(design.id) leaves " *
+                    "part of that annulus uncovered. " *
+                    "Its layer would take that part as its material."))
         end
     end
     return design

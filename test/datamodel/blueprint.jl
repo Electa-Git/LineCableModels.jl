@@ -192,6 +192,59 @@
         end
     end
 
+    # The same tape and fill give one layer in an interval and outside an interior's filler.
+    # The interior tape lies in a separate assembly without a dielectric lay record.
+    @testset "a tiled tape has the same layer in an interval and an interior" begin
+        polyester = material(kind = :insulator, rho = 1.0e15, eps_r = 3.3, tan_delta = 2.0e-3)
+        compound = material(kind = :insulator, rho = 1.0e13, eps_r = 2.2, tan_delta = 5.0e-4)
+        part = tape(polyester; w = 10.0e-3, t = 0.2e-3, lay = LayRatio(10), fill = compound)
+        design = build(CableDesign, "tape_geometry", Region(:seed, Circle(7.0e-3), air), part)
+        placed = only(filter(region -> region.source.tag == :tape, design.regions))
+        sector = Region(:tape, placed.shape, polyester)
+        band = Enclosure(part.fill, Assembly((Placement(0.0, 0.0) => sector,)))
+        interval = flatten(build(CableDesign, "interval_tape",
+            Terminal(:core, Region(:core, Circle(7.0e-3), copper)),
+            part, Region(:insulation, Offset(1.0e-3), polymer)))
+        d = 2 * 3.0e-3 / sqrt(3)
+        core = Stack(Terminal(:core, Region(:core, Circle(2.0e-3), copper)),
+            Region(:insulation, Offset(1.0e-3), polymer))
+        cable = Stack(
+            Enclosure(Region(:cable_fill, Circle(7.0e-3), air),
+                Assembly(Tuple(Placement(d * cos(θ), d * sin(θ)) => core
+                for θ in (π / 2, 7π / 6, 11π / 6)))),
+            band, Region(:cable_jacket, Offset(1.0e-3), polymer))
+        interior = flatten(build(CableDesign, "interior_tape", cable))
+        hosted = flatten(build(CableDesign, "hosted_tape",
+            Enclosure(Region(:duct_fill, Circle(12.0e-3), air),
+                Assembly((Placement(0.0, 0.0) => cable,))),
+            Terminal(:duct, Region(:duct, Offset(2.0e-3), steel)),
+            Region(:coating, Offset(1.0e-3), polymer)))
+        @test length(interval.dielectrics[only(interval.dielectric_ranges)]) == 2
+        @test length(interior.dielectrics[interior.interior_ranges[1]]) == 3
+        @test length(hosted.dielectrics[hosted.interior_ranges[1]]) == 4
+        expected = first(interval.dielectrics[only(interval.dielectric_ranges)])
+        f = 10.0e-3 * 0.2e-3 / (π * (7.2e-3^2 - 7.0e-3^2))
+        @test [expected.r_in, expected.r_ex] ≈ [7.0e-3, 7.2e-3] rtol = 1e-12
+        @test expected.material.eps_r ≈ f * 3.3 + (1 - f) * 2.2 rtol = 1e-12
+        @test 1 / expected.material.rho ≈ f / 1.0e15 + (1 - f) / 1.0e13 rtol = 1e-12
+        for blueprint in (interior, hosted)
+            layer = blueprint.dielectrics[blueprint.interior_ranges[1]][2]
+            @test layer.r_in == expected.r_in
+            @test layer.r_ex == expected.r_ex
+            @test layer.material.eps_r == expected.material.eps_r
+            @test layer.material.rho == expected.material.rho
+        end
+    end
+
+    @testset "a split dielectric cannot claim the uncovered part of its annulus" begin
+        design = build(CableDesign, "tube_split_dielectric",
+            Region(:bore, Circle(1e-3), polymer),
+            Terminal(:core, Region(:tube, Annulus(1e-3, 2e-3), copper)),
+            Repeat(CircularPattern(2; r = Offset(0)),
+                Region(:insulation, Rectangle(2.5π * 1e-3, 1e-3), polymer)))
+        @test_throws ArgumentError flatten(design)
+    end
+
     @testset "a shape or a set of shapes fills an annulus about the center" begin
         isannular = LineCableModels.DataModel.isannular
         @test isannular(Annulus(1.0e-3, 3.0e-3)) && isannular(Circle(2.0e-3))
