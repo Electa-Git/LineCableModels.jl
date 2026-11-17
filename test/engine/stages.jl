@@ -7,12 +7,21 @@
     law = Engine.Resistivity.Formula(Val(:linear))
     insulating = Engine.InsulationAdmittance.Formula(Val(:lossless))
     semiconducting = Engine.SemiconAdmittance.Formula(Val(:lossless))
-    # The order of the formulation of a case's analytical rows, where it is not the default.
-    orders = Dict("three_cores_steel_pipe" => 20)
+    # The keywords of the formulation of a case's analytical rows, where they are not the
+    # defaults.
+    keywords = Dict("three_cores_steel_pipe" => (order = 20,),
+        "cable_30kv_630mm2_trefoil" => (transposition = true,))
+    # The cable systems of the case scripts, each declared in its folder of the references.
+    cases = [case => include(joinpath(@__DIR__, "..", "references", case, "problem.jl"))
+             for case in
+                 ("cable_30kv_630mm2_trefoil", "cable_30kv_na2xs2y_630mm2_trefoil",
+        "cable_132kv_630mm2_flathor", "cable_18kv_1000mm2_trefoil",
+        "cable_380kv_2000mm2_flatver")]
 
-    @testset "$case against its rows of record" for (case, problem) in REFERENCES
+    @testset "$case against its rows of record" for (case, problem) in
+                                                    vcat(REFERENCES, cases)
         result = compute(
-            problem, CoaxialFormulation(order = get(orders, case, 0)); trace = true)
+            problem, CoaxialFormulation(; get(keywords, case, (;))...); trace = true)
         computed = Dict("Z" => result.Z, "Y" => result.Y, "Zin" => result.trace.Zin,
             "Pin" => result.trace.Pin, "Zg" => result.trace.Zg, "Pg" => result.trace.Pg)
         # The file `matrices.csv` of a case gives the rows of Z and Y. Its `stages.csv`,

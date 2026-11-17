@@ -193,10 +193,12 @@ reaches 0.0614 % in Y24. Both deviations lie within the FEM accuracy level of 1 
 
 ## Cable systems of the case scripts
 
-The scripts in `test/manual/cases/` declare five more cable systems. Each writes `<case>/matrices.csv` in the columns
-above. Four of them hold `analytical` rows of `CoaxialFormulation(bundle = false, kron = false, transposition = false)`
+The files `<case>/problem.jl` declare five more cable systems, and the scripts in `test/manual/cases/` compute them.
+Each script writes `<case>/matrices.csv` in the columns above. Four of them hold `analytical` rows of
+`CoaxialFormulation(bundle = false, kron = false, transposition = false)`
 at the 101 frequencies and `fem` rows of `FEM` with the same options at 11 of them. Each conductor of a cable is a
-terminal of its own.
+terminal of its own. The suite compares the `analytical` rows of the five systems with the package, at 1e-12 of the
+largest diagonal entry.
 
 The fifth, `cable_30kv_630mm2_trefoil`, computes the cables of the example `examples/cable_30kv_630mm2_trefoil.jl` at
 the 50 multiples of 50 Hz up to 2500 Hz. Both formulations remove its grounded screens by Kron reduction and transpose its phases.
