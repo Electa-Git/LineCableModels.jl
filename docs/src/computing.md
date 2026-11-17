@@ -193,9 +193,9 @@ analytical and finite-element formulations are stored in `test/references/`:
   buried.
 
 The validation consists of comparing the analytical and finite-element formulations on these
-systems. The analytical results of the package agree with the reference values of `Z` and
-`Y` within 1e-9 of the largest diagonal entry at each frequency, with `Zin` and `Pin` within
-1e-12 and `Zg` and `Pg` within 1e-9. The finite-element results are compared with the
+systems. The analytical results of the package agree with the reference values of `Z`, `Y`,
+`Zin`, `Pin`, `Zg` and `Pg` within 1e-12 of the largest diagonal entry at each frequency.
+The finite-element results are compared with the
 analytical ones by means of the relative errors defined in [Finite element solver](fem.md#Accuracy),
 at an accuracy level of 1 %. For each earth-return formula, the README of `test/references/`
 gives its frozen results on the systems that it treats and their deviation from those of
