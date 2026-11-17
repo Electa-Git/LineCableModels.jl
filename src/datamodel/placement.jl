@@ -103,7 +103,8 @@ validate(offset::Offset, ::CircularPattern) = offset
 # Round wires on a circle keep the requested clearance along the chord between neighbors.
 function validate(pattern::CircularPattern{T, T}, circle::Circle) where {T}
     pattern.n == 1 && return pattern
-    intervals = isapprox(pattern.span, 2π) ? pattern.n : pattern.n - 1
+    intervals = abs(nominal(pattern.span) - 2π) <= tolerance(2π) ? pattern.n :
+                pattern.n - 1
     chord = 2pattern.r * sin(pattern.span / intervals / 2)
     required = 2circle.r * (1 + pattern.gap_frac)
     chord + tolerance(chord) >= required || throw(DomainError(pattern.n,
@@ -192,7 +193,8 @@ function placements end
 function placements(pattern::CircularPattern{T, T}, circle::Circle) where {T}
     validate(pattern, circle)
     step = pattern.n == 1 ? zero(pattern.span) :
-           isapprox(pattern.span, 2π) ? pattern.span / pattern.n :
+           abs(nominal(pattern.span) - 2π) <= tolerance(2π) ?
+           pattern.span / pattern.n :
            pattern.span / (pattern.n - 1)
     members = [Placement(pattern.r * cos(pattern.φ0 + k * step),
                    pattern.r * sin(pattern.φ0 + k * step), pattern.φ0 + k * step)

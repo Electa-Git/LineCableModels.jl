@@ -107,6 +107,11 @@ end
         @test Guards.offset_reads(directory) == Dict{String, Int}()
     end
 
+    @testset "default tolerances" begin
+        sources = filter(endswith(".jl"), Guards.repository_files(joinpath(directory, "src")))
+        @test Guards.default_tolerances(sources, directory) == Dict{String, Int}()
+    end
+
     @testset "no distance across on a concrete shape" begin
         @test Guards.dimension_methods(directory, shapes) == Dict{String, Int}()
         planted = joinpath(@__DIR__, "probes", "sources", "planted")
@@ -335,6 +340,19 @@ end
             "src/hygiene.jl | mktempdir" => 1,
             "src/hygiene.jl | tempdir" => 1,
             "src/hygiene.jl | tempname" => 1)
+        @test Guards.default_tolerances(files, directory) == Dict{String, Int}(
+            "src/tolerances.jl:1 | isapprox" => 1,
+            "src/tolerances.jl:2 | ≈" => 1,
+            "src/tolerances.jl:3 | ≉" => 1,
+            "src/tolerances.jl:4 | isapprox" => 1,
+            "src/tolerances.jl:5 | isapprox" => 1,
+            "src/tolerances.jl:6 | ≈" => 1,
+            "src/tolerances.jl:7 | ≈" => 1,
+            "src/tolerances.jl:8 | isapprox" => 1,
+            "src/tolerances.jl:9 | isapprox" => 1,
+            "src/tolerances.jl:10 | isapprox" => 1,
+            "src/tolerances.jl:11 | isapprox" => 1,
+            "src/tolerances.jl:12 | ≈" => 1)
 
         directory = joinpath(@__DIR__, "probes", "sources", "clean")
         files = Guards.source_files(directory)
@@ -351,6 +369,7 @@ end
         @test Guards.literal_arguments(files, directory) == Dict{String, Int}()
         @test Guards.absences(files, directory) == Dict{String, Int}()
         @test Guards.file_hygiene(files, directory) == Dict{String, Int}()
+        @test Guards.default_tolerances(files, directory) == Dict{String, Int}()
 
         planted, _ = probe("closure/planted", "ClosureProbePlanted")
         planted_methods = Base.invokelatest(Guards.package_methods, planted)

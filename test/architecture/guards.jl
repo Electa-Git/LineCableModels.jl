@@ -1700,6 +1700,35 @@ function file_hygiene(files, directory)
     return found
 end
 
+const APPROXIMATE = (:isapprox, :≈, :≉)
+const TOLERANCES = (:rtol, :atol)
+
+# Default tolerances. Per file and line, the references to `isapprox`, `≈` and `≉` that
+# write no tolerance: each one called, broadcast or passed, but the callee of a call that
+# writes `rtol` or `atol`. The example of a docstring is the text of a string and holds no
+# reference.
+function default_tolerances(files, directory)
+    found = Dict{String, Int}()
+    for file in files
+        visit(parse_source(file)) do node
+            kind(node) == K"Identifier" && node.val in APPROXIMATE || return true
+            callee, call = node, node.parent
+            while call !== nothing && kind(call) in (K".", K"quote")
+                callee, call = call, call.parent
+            end
+            call !== nothing && kind(call) in (K"call", K"dotcall") &&
+                is_prefix_call(call) && call[1] === callee &&
+                any(in(TOLERANCES), tuple_keys(call)) && return true
+            count!(found,
+                string(
+                    relative(file, directory), ":", JuliaSyntax.source_line(node), " | ",
+                    node.val))
+            return true
+        end
+    end
+    return found
+end
+
 function upper(T)
     T isa TypeVar ? upper(T.ub) :
     T isa Core.TypeofVararg ? (isdefined(T, :T) ? upper(T.T) : Any) : T

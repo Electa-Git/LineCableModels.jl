@@ -136,14 +136,16 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return whether `shape`, or the set `shapes`, fills an annulus about the center. Its area
-is then that of the annulus between its least `distance` and its greatest `support`. The
-comparison takes `nominal` values and the relative tolerance of `isapprox`. A centered
-circle or annulus fills one, and a course of wires does not.
+Return whether `shape` or `shapes` fills a centered annulus: `sqrt(r_in^2 + A / π)` and `r_ex`
+agree on `nominal` values within `tolerance(r_ex)`.
+Here `r_in = minimum(distance, shapes)` and `r_ex = maximum(support, shapes)` denote radii
+\\[m\\], and `A = sum(area, shapes)` denotes area \\[m²\\].
 """
 function isannular(shapes::AbstractVector{<:AbstractShape})
-    return isapprox(nominal(sum(area, shapes)),
-        nominal(π * (maximum(support, shapes)^2 - minimum(distance, shapes)^2)))
+    r_in = minimum(distance, shapes)
+    A = sum(area, shapes)
+    r_ex = maximum(support, shapes)
+    return abs(nominal(sqrt(r_in^2 + A / π)) - nominal(r_ex)) <= tolerance(r_ex)
 end
 isannular(shape::AbstractShape) = isannular([shape])
 
@@ -439,7 +441,7 @@ function flatten(design::CableDesign)
             outside = shapes[last(filler)]
             reach = nominal(maximum(support, shapes[reduce(vcat, filler[1:(end - 1)])]))
             nearest = nominal(minimum(distance, outside))
-            isannular(outside) && (nearest >= reach || isapprox(nearest, reach)) || break
+            isannular(outside) && nearest + tolerance(reach) >= reach || break
             pushfirst!(annuli, pop!(filler))
         end
         isempty(filler) && return BlueprintDielectric[]
@@ -511,7 +513,9 @@ function validate(design::CableDesign, ::typeof(flatten), owners::AbstractVector
             "flatten reduces a terminal whose regions are contiguous from the inside out; " *
             "other regions lie between those of :$(row.name) in the cable $(design.id)"))
         temperature = design.regions[first(row.regions)].source.material.T0
-        all(index -> isapprox(design.regions[index].source.material.T0, temperature),
+        all(
+            index -> nominal(design.regions[index].source.material.T0) ==
+                     nominal(temperature),
             row.regions) || throw(ArgumentError(
             "the materials of the terminal :$(row.name) of the cable $(design.id) must " *
             "share one reference temperature"))
