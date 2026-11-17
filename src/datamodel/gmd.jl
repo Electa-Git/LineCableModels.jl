@@ -42,11 +42,8 @@ The disk expression also holds for an annulus with zero inner radius.
 For other pairs, [`gmd`](@ref) evaluates the two contours.
 """
 function gmd(A::Union{Annulus, Circle}, B::Union{Annulus, Circle})
-    C, D=Contour(A), Contour(B)
-    a=isempty(C.holes) ? zero(first(C.outer).r) : first(first(C.holes)).r
-    b=first(C.outer).r
-    ai=isempty(D.holes) ? zero(first(D.outer).r) : first(first(D.holes)).r
-    bi=first(D.outer).r
+    a, b = r_in(A), r_ex(A)
+    ai, bi = r_in(B), r_ex(B)
     d=hypot(A.at.x-B.at.x, A.at.y-B.at.y)
     tol=tolerance(max(nominal(b), nominal(bi)))
     if nominal(d)<=tol && abs(nominal(a-ai))<=tol && abs(nominal(b-bi))<=tol
@@ -84,13 +81,12 @@ function gmd(A::Union{Annulus, Circle}, B::Union{Annulus, Circle})
     elseif nominal(d)>=nominal(b+bi)-tol
         return d
     end
-    gmd(C, D)
+    gmd(Contour(A), Contour(B))
 end
 function gmd(A::Union{Annulus, Circle}, B::AbstractShape)
-    C, D=Contour(A), Contour(B)
-    isempty(C.holes) && return gmd(C, D)
-    a=first(first(C.holes)).r
-    b=first(C.outer).r
+    a, b = r_in(A), r_ex(A)
+    D = Contour(B)
+    iszero(nominal(a)) && return gmd(Contour(A), D)
     center=(nominal(A.at.x), nominal(A.at.y))
     far=maximum(D.outer) do curve
         outline=map(nominal, curve)
@@ -99,7 +95,7 @@ function gmd(A::Union{Annulus, Circle}, B::AbstractShape)
     if far<=nominal(a)+tolerance(nominal(b))
         return exp((b^2*log(b)-a^2*log(a))/(b^2-a^2)-1/2)
     end
-    gmd(C, D)
+    gmd(Contour(A), D)
 end
 gmd(A::AbstractShape, B::Union{Annulus, Circle}) = gmd(B, A)
 gmd(A::AbstractShape, B::AbstractShape) = gmd(Contour(A), Contour(B))
