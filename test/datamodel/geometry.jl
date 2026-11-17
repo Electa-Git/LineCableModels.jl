@@ -176,7 +176,9 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
 
     # The origin lies in a hole centered on it, in a hole off it, in the region, or far
     # outside the cross-section. Far outside, the distance is that of the outer cross-section.
-    @testset "the distance of a cross-section with holes is the distance of its contour" begin
+    # The centroid from the areas of the holes is the centroid of the contour. Measured:
+    # 2.9e-16 of the support.
+    @testset "the distance and the centroid of a cross-section with holes are its contour's" begin
         far = Circle(3.0e-3, Placement(10.0e-3, 0))
         for (outer, hole, nearest) in (
             (Circle(12.0e-3), Circle(8.0e-3), 8.0e-3),
@@ -186,6 +188,8 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
             shape = LineCableModels.PerforatedShape(outer, [hole])
             @test distance(shape) ≈ nearest rtol = 1e-12
             @test distance(shape) == distance(Contour(shape))
+            @test maximum(abs, centroid(shape) .- centroid(Contour(shape))) <=
+                  1.0e-15 * support(shape)
         end
     end
 

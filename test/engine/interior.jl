@@ -1,6 +1,7 @@
 # The interiors of the coaxial formulation: the members in the bore of a conductor, at the
 # harmonic orders that the option order keeps. Each bound comes from a measurement on Julia
 # 1.12.7 with one thread.
+using SpecialFunctions: besselkx
 
 # A design of members in the fill of a steel pipe, with the pipe's coating.
 function piped_design(id, members, fill, steel, coating)
@@ -215,6 +216,43 @@ looped(M, k, rows) = [M[i, j] - M[i, k] - M[k, j] + M[k, k] for i in rows, j in 
         end
     end
 
+    # Ametani 1980 gives the impedance between two inner conductors of a pipe in his
+    # equations (34) to (36). He takes the conductors as filaments and the wall as thicker
+    # than its penetration depth. A wire of 1e8 Ω·m carries a uniform current and returns no
+    # field. A wall of 100 mm is 20 penetration depths at 50 Hz. Measured: 3.7e-16 over the
+    # four frequencies. With copper wires the two differ by 0.36 % at 1 MHz, the proximity
+    # effect that he leaves out.
+    @testset "the impedance between two filaments in a thick pipe is Ametani's" begin
+        wire = Material(:conductor, 1.0e8, 1, 1, 20, 0.0)
+        c, order = 30.0e-3, 20
+        d = (complex(18.0e-3), 12.0e-3 * cis(1.9))
+        members = [Placement(reim(d[k])...) => Stack(
+                       Terminal(name, Region(name, Circle(1.0e-3), wire)),
+                       Region(Symbol(name, :_insulation), Offset(1.0e-3), polymer))
+                   for (k, name) in enumerate((:a, :b))]
+        design = build(CableDesign, "thick",
+            Enclosure(Region(:fill, Circle(c), air), Assembly(Tuple(members))),
+            Terminal(:pipe, Region(:pipe, Offset(100.0e-3), steel)),
+            Region(:coating, Offset(2.0e-3), polymer))
+        result = interior_result(
+            [design], [Placement(0, -1)], [(a = 1, b = 2, pipe = 3)]; order)
+        # The sums stop at the order of the computation.
+        C = [real((d[1] * conj(d[2]) / c^2)^n) for n in 1:order]
+        Q = log(c / abs(d[1] - d[2])) - sum(C[n] / n for n in 1:order)
+        for (k, f) in enumerate(result.frequencies)
+            s = im * (2π * f)
+            x = c * sqrt(s * LineCableModels.μ₀ * steel.mu_r / steel.rho)
+            expected = s * LineCableModels.μ₀ / 2π *
+                       (steel.mu_r * besselkx(0, x) / (x * besselkx(1, x)) + Q +
+                        2 * steel.mu_r *
+                        sum(C[n] / (n * (1 + steel.mu_r) +
+                             x * besselkx(n - 1, x) / besselkx(n, x))
+                        for n in 1:order))
+            @test isapprox(looped(result.trace.Zin[:, :, k], 3, 1:2)[1, 2], expected;
+                rtol = 1.0e-15)
+        end
+    end
+
     # The equivalent tubes of the sectors overlap. Their expansions diverge above order 0,
     # and order 0 computes them.
     @testset "the sector cable computes at order 0 and is refused above it" begin
@@ -315,11 +353,28 @@ looped(M, k, rows) = [M[i, j] - M[i, k] - M[k, j] + M[k, k] for i in rows, j in 
         @test size(result.trace.Zg) == (3, 3, 4)
         @test all(iszero, result.trace.Zin[1, 2:3, :]) &&
               all(iszero, result.trace.Pin[1, 2:3, :])
+        # The earth terms between two cores are those of the earth formulas between their
+        # axes. The mutual terms of Papadopoulos read the axes alone, so wires on the axes of
+        # the cores have the same. Measured: 2.4e-16 for Zg and 1.4e-16 for Pg.
+        earth = (earth_impedance = :papadopoulos2010, earth_admittance = :papadopoulos2010)
+        cores = interior_result([design], [Placement(0, -1)],
+            [(phase_a = 1, phase_b = 2, phase_c = 3)]; earth...)
+        wires = interior_result(
+            [build(CableDesign, string(name),
+                 Terminal(name, Region(name, Circle(1.0e-3), copper)),
+                 Region(:insulation, Offset(1.0e-3), polymer)) for name in (:a, :b, :c)],
+            [Placement(c * cos(φ), -1 + c * sin(φ)) for φ in (0, 2π / 3, 4π / 3)],
+            [(a = 1,), (b = 2,), (c = 3,)]; earth...)
+        for j in 1:3, i in 1:(j - 1), k in 1:4
+            @test isapprox(cores.trace.Zg[i, j, k], wires.trace.Zg[i, j, k]; rtol = 1.0e-15)
+            @test isapprox(cores.trace.Pg[i, j, k], wires.trace.Pg[i, j, k]; rtol = 1.0e-15)
+        end
     end
 
     # A cable of two insulated wires in a sheath is a member of a pipe, beside a coaxial cable.
     # The sheath shields the wires completely from the potentials outside it. Measured: 4.4e-16
-    # against the cable alone at order 20.
+    # against the cable alone at order 20. The loops of the wires with their sheath have the
+    # impedances of the cable alone. Measured: 2.8e-16 at order 20.
     @testset "a member with members of its own computes at every order" begin
         wires = [Placement(x,
                      0.0) => Stack(Terminal(name, Region(name, Circle(2.0e-3), copper)),
@@ -347,6 +402,8 @@ looped(M, k, rows) = [M[i, j] - M[i, k] - M[k, j] + M[k, k] for i in rows, j in 
         for k in 1:4
             @test isapprox(looped(result.trace.Pin[:, :, k], 3, 1:2),
                 looped(alone.trace.Pin[:, :, k], 3, 1:2); rtol = 1.0e-15)
+            @test isapprox(looped(result.trace.Zin[:, :, k], 3, 1:2),
+                looped(alone.trace.Zin[:, :, k], 3, 1:2); rtol = 1.0e-15)
         end
         problem = LineParametersProblem(
             build(CableSystem, [nested], [Placement(0, -1)]; connections = [connections],

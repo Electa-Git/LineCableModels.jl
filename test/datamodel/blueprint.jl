@@ -465,7 +465,7 @@
             frequencies = [50.0])
         # The jackets touch each other and the pipe, in air. Measured against order 80, as the
         # largest entry, Zin differs by 4.2e-13 at order 20 and Pin by 5.6e-8 at order 40. The
-        # asymmetry of Pin is 4.9e-16.
+        # asymmetry of Pin is 4.9e-16, and Zin has none.
         results = Dict(order => compute(problem, CoaxialFormulation(; order); trace = true)
         for order in (20, 40, 80))
         (; Zin, Pin) = results[80].trace
@@ -473,6 +473,8 @@
         @test maximum(abs, results[40].trace.Pin - Pin) <= 1.0e-7 * maximum(abs, Pin)
         @test maximum(abs, Pin[:, :, 1] - transpose(Pin[:, :, 1])) <=
               1.0e-15 * maximum(abs, Pin)
+        @test maximum(abs, Zin[:, :, 1] - transpose(Zin[:, :, 1])) <=
+              1.0e-15 * maximum(abs, Zin)
     end
 
     # Construction 16: three round cores in a steel pipe, the geometry of the reference

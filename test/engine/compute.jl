@@ -86,8 +86,14 @@ end
         Z, Y, trace, problem, input, formulation, buffers, options)
 
     # After the first call, the loop does not allocate: each LU decomposition writes its
-    # row interchanges into the pivots of the buffers.
-    for nf in (11, 101)
+    # row interchanges into the pivots of the buffers. The pipe at order 20 solves the image
+    # matrices of its interior in its buffers.
+    pipe = Dict(REFERENCES)["three_cores_steel_pipe"]
+    for (system, earth, formulation) in (
+            (pipe.system, pipe.earth, CoaxialFormulation(order = 20)),
+            (system, earth, formulation)),
+        nf in (11, 101)
+
         problem = LineParametersProblem(system, earth;
             frequencies = 10.0 .^ range(1, 6; length = nf))
         input = Engine.CoaxialInput(problem, formulation.options)
