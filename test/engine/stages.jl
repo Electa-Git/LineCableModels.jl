@@ -10,7 +10,10 @@
     # The keywords of the formulation of a case's analytical rows, where they are not the
     # defaults.
     keywords = Dict("three_cores_steel_pipe" => (order = 20,),
-        "cable_30kv_630mm2_trefoil" => (transposition = true,))
+        "cable_30kv_630mm2_trefoil" => (transposition = true,),
+        ("cable_$case" => (bundle = false, kron = false)
+        for case in ("30kv_na2xs2y_630mm2_trefoil", "132kv_630mm2_flathor",
+            "18kv_1000mm2_trefoil", "380kv_2000mm2_flatver"))...)
     # The cable systems of the case scripts, each declared in its folder of the references.
     cases = [case => include(joinpath(@__DIR__, "..", "references", case, "problem.jl"))
              for case in

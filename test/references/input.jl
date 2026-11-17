@@ -671,21 +671,24 @@
         layers = hcat(input.dielectric_r_in, input.dielectric_r_ex,
             [getfield(layer, property)
              for layer in input.dielectric_material, property in properties])
-        # Each radius and each property lies within 1e-12 of its value of record.
-        @test all(isapprox.(tubes, record.tubes; rtol = 1.0e-12))
-        @test all(isapprox.(layers, record.layers; rtol = 1.0e-12))
-        @test all(layer isa Material{Float64, kind}
-        for (layer, kind) in zip(input.dielectric_material, record.kinds))
-        for field in (:r_ins_ex, :mu_r_ins, :radius)
-            @test all(isapprox.(getfield(input, field), getfield(record, field);
-                rtol = 1.0e-12))
+        # Each radius and each property lies within 1e-12 of its value of record, in an
+        # array of the size of record.
+        for (computed, target) in ((tubes, record.tubes), (layers, record.layers),
+            (input.r_ins_ex, record.r_ins_ex), (input.mu_r_ins, record.mu_r_ins),
+            (input.radius, record.radius))
+            @test size(computed) == size(target) &&
+                  all(isapprox.(computed, target; rtol = 1.0e-12))
         end
+        @test length(input.dielectric_material) == length(record.kinds) &&
+              all(layer isa Material{Float64, kind}
+        for (layer, kind) in zip(input.dielectric_material, record.kinds))
         # Each coordinate lies within 1e-12 of the largest coordinate of record, since a
         # coordinate on an axis of the frame is a rounding residue.
         for (computed, target) in (
             ([position[i] for position in input.positions, i in 1:2], record.positions),
             (hcat(input.x, input.y), record.centers))
-            @test all(isapprox.(computed, target;
+            @test size(computed) == size(target) &&
+                  all(isapprox.(computed, target;
                 rtol = 0, atol = 1.0e-12 * maximum(abs, target)))
         end
         for field in (:cable, :connection, :label, :dielectric_ranges, :assemblies,

@@ -1155,7 +1155,11 @@ Return the end of the parallel of `a` and the start of the parallel of `b` at th
 `d` \\[m\\]. The curve `a` ends at ``j = a(1)``, where `b` starts. At a tangent junction,
 both points lie at the distance `d` from ``j`` along the outward normal. Where the two
 parallels converge, both points are their `vertex` nearest ``j``, which an elliptic arc
-refuses. Where they diverge, each point is the end of its own parallel.
+refuses. Past the depth where they have ceased to meet, that is the one point of nearest
+approach. Where they diverge, each point is the end of its own parallel.
+
+The third value is the discriminant of that `vertex`. It is negative where the parallels
+that converge have ceased to meet, and zero at a tangent junction and where they diverge.
 """
 function parallel(a::Curve, b::Curve, d::Real)
     j = a(1)
@@ -1163,12 +1167,14 @@ function parallel(a::Curve, b::Curve, d::Real)
     τ = π - mod(π - (θb - θa), 2π)
     if istangent(a, b)
         p = j .+ d .* (cos(θa - π / 2), sin(θa - π / 2))
-        return (p, p)
+        return (p, p, zero(first(p)))
     elseif nominal(sin(τ) * d) < 0
-        p = vertex(parallel(a, d), parallel(b, d), j)
-        return (p, p)
+        c = vertex(parallel(a, d), parallel(b, d))
+        p = argmin(xy -> nominal(hypot((xy .- j)...)), (c.p, c.q))
+        return (p, p, c.Δ)
     else
-        return (parallel(a, d)(1), parallel(b, d)(0))
+        p, q = parallel(a, d)(1), parallel(b, d)(0)
+        return (p, q, zero(first(p)))
     end
 end
 
@@ -1232,21 +1238,6 @@ end
 function vertex(A::Curve, B::Curve)
     throw(DomainError((A, B),
         "the carriers of an elliptic arc and its neighbour cross at no point of a conic"))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the crossing of the curves `A` and `B` nearest the point `j`, in \\[m\\]. Segments
-cross where their lines meet. A segment and an arc cross where the line meets the circle,
-and two arcs cross where their circles meet.
-
-Of the two crossings of the carriers, the result is the one nearest `j`. Past the point
-where they have ceased to meet, both are the one point of nearest approach.
-"""
-function vertex(A::Curve, B::Curve, j)
-    c = vertex(A, B)
-    return argmin(xy -> nominal(hypot((xy .- j)...)), (c.p, c.q))
 end
 
 # An angular range common to two curves exists for two arcs of one kind alone.
@@ -1417,9 +1408,10 @@ with the region on its left. The outer path's curves count as they run, and a ho
 curves reversed.
 
 The depth ``e_c`` is where the `parallel` piece of a face ``c`` with a corner at an end
-vanishes between the parallels of its neighbours. Bisection of the signed length of the
-piece finds it. A segment of length ``L`` between two segments at the interior angles
-``\\theta_1`` and ``\\theta_2`` \\[rad\\] has
+vanishes between the parallels of its neighbours. The piece is there while its signed
+length is positive and the parallels that converge at each of its ends still meet.
+Bisection of that condition finds the depth. A segment of length ``L`` between two segments
+at the interior angles ``\\theta_1`` and ``\\theta_2`` \\[rad\\] has
 ``e_c = L / (\\cot(\\theta_1/2) + \\cot(\\theta_2/2))``.
 """
 function dimension(contour::Contour{T}) where {T}
@@ -1501,14 +1493,9 @@ function dimension(contour::Contour{T}) where {T}
             # The piece exists while the parallels that converge at its ends still meet.
             lo,
             hi = bisect(zero(limit), limit) do e
-                d = -side * e
-                all(((a, c), (c, b))) do (before, after)
-                    istangent(before, after) ||
-                        nominal(sin(direction(after, 0) - direction(before, 1)) * d) >= 0 ||
-                        nominal(vertex(parallel(before, d), parallel(after, d)).Δ) >= 0
-                end &&
-                    nominal(turn(c, d, parallel(a, c, d)[2], parallel(c, b, d)[1]).length) >
-                    0
+                start, stop = parallel(a, c, -side * e), parallel(c, b, -side * e)
+                nominal(start[3]) >= 0 && nominal(stop[3]) >= 0 &&
+                    nominal(turn(c, -side * e, start[2], stop[1]).length) > 0
             end
             nominal(hi) == nominal(limit) || push!(bounds, 2 * hi)
         end

@@ -156,7 +156,7 @@ function initialize_buffers(
                  for B in bodies]
     # The translations, sources and observations of the fields of the members and the bore,
     # in closed form. Each is a 2 × 2 block that acts on the cos and sin amplitudes of an order.
-    # A binomial coefficient has the real type of the radii.
+    # A binomial coefficient has the type of the nominal values of the radii.
     for (a, interior) in enumerate(interiors)
         isempty(input.members[a]) && continue
         (; translations, sources, observations, d) = interior

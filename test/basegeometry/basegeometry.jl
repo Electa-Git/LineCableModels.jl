@@ -376,12 +376,12 @@ end
               (p = (2.0, 0.0), q = (2.0, 0.0), s = (0.0, 0.0), Δ = 0.0)
         @test vertex(circle, Arc(Placement(4.0, 0.0, 0.0), 1.0, Float64(π))) ==
               (p = (2.0, 0.0), q = (2.0, 0.0), s = (0.0, 0.0), Δ = -3.0)
-        # The carriers of an elliptic arc are no conic, in both forms.
+        # The carriers of an elliptic arc are no conic, in both orders.
         ellipse = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π)
         chord = Segment((-3.0e-3, 0.0), (3.0e-3, 0.0))
         message = "the carriers of an elliptic arc and its neighbour cross at no point of a conic"
         @test_throws message vertex(ellipse, chord)
-        @test_throws message vertex(chord, ellipse, (0.0, 0.0))
+        @test_throws message vertex(chord, ellipse)
     end
 
     @testset "consecutive curves are tangent where their directions agree" begin

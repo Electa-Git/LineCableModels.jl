@@ -274,6 +274,8 @@ looped(M, k, rows) = [M[i, j] - M[i, k] - M[k, j] + M[k, k] for i in rows, j in 
             [Placement(5.0e-3, 0.0) => wires[1], Placement(-5.0e-3, 0.0) => wires[2]], air,
             steel, polymer)
         @test size(interior_result([on_bore], [Placement(0, -1)], [single]).Z) == (2, 2, 4)
+        @test size(interior_result(
+            [on_member], [Placement(0, -1)], [(a = 1, b = 2, pipe = 3)]).Z) == (3, 3, 4)
         @test_throws ArgumentError("the conductor cable:1:a, of radius 0.005 m at 0.025 m from the axis, touches its bore cable:1:pipe, of inner radius 0.03 m: the expansions about the axes diverge above order 0; order = 0 computes them") interior_result(
             [on_bore], [Placement(0, -1)], [single]; order = 20)
         @test_throws ArgumentError("the conductor cable:1:a, of radius 0.005 m, touches the conductor cable:1:b, of radius 0.005 m, at 0.01 m between their axes in the interior of cable:1:pipe: the expansions about their axes diverge above order 0; order = 0 computes them") interior_result(

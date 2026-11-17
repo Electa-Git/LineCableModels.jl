@@ -742,8 +742,7 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
                 junction = parallel(before, after, -e)
                 @test collect(junction[1]) ≈ collect(point) rtol = 1e-12
                 @test junction[1] == junction[2]
-                p = vertex(parallel(before, -e), parallel(after, -e), before(1))
-                @test collect(p) ≈ collect(point) rtol = 1e-12
+                @test junction[3] >= 0
             end
             @test turn(outward, -e, p3, p1).length ≈ s - e rtol = 1e-12
             @test turn(outer, -e, p1, p2).length ≈ (r - e) * (π / 2 - 2atan(e / s)) rtol = 1e-12
@@ -761,8 +760,7 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
                 junction = parallel(before, after, -e)
                 @test collect(junction[1]) ≈ collect(point) rtol = 1e-12
                 @test junction[1] == junction[2]
-                p = vertex(parallel(before, -e), parallel(after, -e), before(1))
-                @test collect(p) ≈ collect(point) rtol = 1e-12
+                @test junction[3] >= 0
             end
             @test turn(outward, -e, p4, p1).length ≈ so - si rtol = 1e-12
             @test turn(inward, -e, p2, p3).length ≈ so - si rtol = 1e-12
@@ -799,9 +797,9 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
             e = 0.5e-3
             a = Arc(Placement(-1.0e-3, 0, -π / 3), 2.0e-3, 2π / 3)
             b = Arc(Placement(1.0e-3, 0, 2π / 3), 2.0e-3, 2π / 3)
-            p = vertex(parallel(a, -e), parallel(b, -e), a(1))
-            @test collect(p) ≈ [0, sqrt(1.25) * 1.0e-3] atol = 1e-15
-            @test parallel(a, b, -e) == (p, p)
+            junction = parallel(a, b, -e)
+            @test collect(junction[1]) ≈ [0, sqrt(1.25) * 1.0e-3] atol = 1e-15
+            @test junction[1] == junction[2] && junction[3] > 0
         end
         @testset "an elliptic arc at a corner" begin
             arc = EllipticArc(Placement(0, 0), 3.0e-3, 2.0e-3, 0, π)
@@ -811,8 +809,7 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
             @test collect(q) ≈ [-3.0e-3, -0.5e-3] atol = 1e-15
             @test_throws DomainError parallel(arc, chord, -0.5e-3)
             @test_throws DomainError vertex(
-                parallel(arc, -0.5e-3), parallel(chord, -0.5e-3),
-                arc(1))
+                parallel(arc, -0.5e-3), parallel(chord, -0.5e-3))
         end
     end
 
