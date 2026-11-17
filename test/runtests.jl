@@ -27,6 +27,7 @@ using ForwardDiff
     include("basegeometry/gmd.jl")
     include("datamodel/gmd.jl")
     include("engine/stages.jl")
+    include("references/input.jl")
     include("engine/reductions.jl")
     include("engine/integral.jl")
     include("engine/martins2026.jl")
