@@ -34,7 +34,7 @@
                     Region(:armour_wires, Circle(2.0e-3), steel)))
             design = build(CableDesign, "coaxial",
                 Terminal(:core,
-                    Enclosure(Region(:core_fill, Circle(10.5e-3), air),
+                    Group(Region(:core_fill, Circle(10.5e-3), air),
                         Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
                 Region(:core_semicon_inner, Offset(1.0e-3), semicon),
                 Region(:core_insulation, Offset(8.0e-3), polymer),
@@ -42,7 +42,7 @@
                 Terminal(:sheath, Region(:sheath_copper, Annulus(20.5e-3, 21.5e-3), copper)),
                 Region(:sheath_bedding, Offset(3.0e-3), polymer),
                 Terminal(:armour,
-                    Enclosure(Region(:armour_fill, Offset(4.0e-3), air), armour)),
+                    Group(Region(:armour_fill, Offset(4.0e-3), air), armour)),
                 Region(:armour_jacket, Offset(4.0e-3), polymer))
             system = build(CableSystem, [design], [Placement(0.0, -1.0)];
                 connections = [(core = 1, sheath = 2, armour = 3)], id = "coaxial",
@@ -77,7 +77,7 @@
             Repeat(CircularPattern(6; r = 1.0e-3), Region(:core_wires, Circle(0.5e-3), copper)))
         core = Stack(
             Terminal(:core,
-                Enclosure(Region(:core_fill, Circle(1.5e-3), air),
+                Group(Region(:core_fill, Circle(1.5e-3), air),
                     Stack(Region(:core_centre, Circle(0.5e-3), copper), strands))),
             Region(:core_insulation, Offset(1.0e-3), polymer),
             Terminal(:screen, Region(:core_screen, Offset(0.5e-3), copper)))

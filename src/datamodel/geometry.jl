@@ -697,7 +697,7 @@ distance(shape::AbstractShape) = distance(Contour(shape))
 Return the outline of `shape`. A circle, rectangle, sector, ellipse, polygon and arc polygon are their own outlines. The
 outline of an annulus is the circle of its outer radius. The outline of a
 [`PerforatedShape`](@ref) is the outline of its outer cross-section. The next part resolves
-against the outline, and an enclosure removes it from its fill.
+against the outline, and a group or an enclosure removes it from its fill.
 """
 function boundary end
 

@@ -1016,7 +1016,7 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         design = build(CableDesign, "mixed_courses",
             Terminal(:core, Region(:core_metal, Circle(0.01), copper)),
             Terminal(:screen,
-                Enclosure(Region(:fill, Offset(0.004), polymer),
+                Group(Region(:fill, Offset(0.004), polymer),
                     Stack(
                         Repeat(CircularPattern(6; r = Offset(0)),
                             Region(:wires, Circle(0.001), copper)),

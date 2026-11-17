@@ -30,7 +30,7 @@ using .DataModel: AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle,
                   r_ex,
                   placements, overlength, pitch, PerforatedShape, ArcPolygon,
                   AbstractCablePart, Region,
-                  Stack, Terminal, Repeat, Lay, Enclosure, Assembly, PlacedRegion,
+                  Stack, Terminal, Repeat, Lay, Group, Enclosure, Assembly, PlacedRegion,
                   CableDesign,
                   CableSystem, CableBlueprint, BlueprintConductor, BlueprintDielectric,
                   flatten, @design, @terminal, core, insulation, screen, sheath, bedding,
@@ -53,7 +53,7 @@ export AbstractLayoutPattern, CircularPattern, LinearPattern, Helix, LayRatio
 export area, perimeter, centroid, support, distance, boundary, r_in, r_ex, placements,
        overlength,
        pitch
-export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Enclosure, Assembly,
+export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Group, Enclosure, Assembly,
        CableDesign,
        CableSystem, build
 export @design, @terminal, core, insulation, screen, sheath, bedding, jacket, stranded,

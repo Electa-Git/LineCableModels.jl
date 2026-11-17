@@ -93,7 +93,9 @@ All parts are subtypes of [`AbstractCablePart`](@ref):
   functions [`pitch`](@ref) and [`overlength`](@ref) return the lay length and the length of
   the helix per unit length of cable, respectively. A copy at the radius 0 lies straight
   along the axis, and its lay length is infinite.
-- [`Enclosure`](@ref): filler of one material around other parts, occupying the container
+- [`Group`](@ref): primitives of one conductor or one dielectric layer in a container, with
+  the filler between them.
+- [`Enclosure`](@ref): filler of one material around sub-cables, occupying the container
   without the outlines of its outermost contents.
 
 A [`LinearPattern`](@ref) places `n` copies on a line at a pitch, centered on the center of

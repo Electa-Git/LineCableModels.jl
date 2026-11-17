@@ -76,9 +76,9 @@ struct CableDesign{
     """
     compactions::Vector{@NamedTuple{repeat::Int, factor::T}}
     """
-    Fills, each as `(region, contents)`: the fill region of an enclosure and the regions
-    inside it. A fill whose conductive contents all belong to one terminal is interstitial
-    to that conductor.
+    Fills, each as `(region, contents)`: the fill region of a group or an enclosure and the
+    regions inside it. A fill whose conductive contents all belong to one terminal is
+    interstitial to that conductor.
     """
     fills::Vector{@NamedTuple{region::Int, contents::Vector{Int}}}
     function CableDesign{T}(id::String, tree::O, regions::V, outer::B,
@@ -151,7 +151,7 @@ region is a sub-cable inside it.
 - Throws `ArgumentError` when no part is given or when a conductive region lies outside
   every [`Terminal`](@ref).
 - Throws `DomainError` when a part overlaps the part inside it or leaves a gap around it, or
-  when a region leaves its enclosure.
+  when a region leaves its group or its enclosure.
 """
 function build(::Type{CableDesign}, id::AbstractString, parts::AbstractCablePart...)
     tree = Stack(parts...)

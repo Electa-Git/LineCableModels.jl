@@ -132,7 +132,8 @@ A cable is a tree of parts. Each node has one job.
 | `Terminal(name, part)` | every conductive region of `part` belongs to the terminal `name` |
 | `Repeat(pattern, part)` | copies of `part` at the placements of a pattern, such as `CircularPattern` |
 | `Lay(helix, repeat)` | each copy follows a `Helix` of a `LayRatio` about the center of the repeat |
-| `Enclosure(fill, contents)` | a fill region, whose primitive is the container, around the contents |
+| `Group(fill, contents)` | the primitives of one conductor or of one dielectric layer, in a fill region whose primitive is their container |
+| `Enclosure(fill, contents)` | a fill region, whose primitive is the container, around sub-cables |
 
 The material's class tells whether a region conducts. A conductive region lies in a
 terminal. A region of an insulator or a semicon belongs to no terminal. A terminal name
@@ -146,8 +147,8 @@ the placed regions from the inside out, the outline, and the tables of terminals
 sub-cables, repeats, lays and fills. A table has a row only for a fact that exists. The design's
 number type `T` is the promotion of the number types of its cross-sections and its
 materials. An uncertain material widens `T`. The design validates itself at construction.
-The regions cover the outline without gaps or overlaps. Every region of an enclosure lies
-inside its container. Every conductive region belongs to a terminal, and every region
+The regions cover the outline without gaps or overlaps. Every region of a group or an
+enclosure lies inside its container. Every conductive region belongs to a terminal, and every region
 belongs to one sub-cable.
 
 ### Equivalence

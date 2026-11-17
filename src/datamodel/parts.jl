@@ -2,7 +2,7 @@
 $(TYPEDEF)
 
 Supertype of the declared parts of a cable: a region, or a node that layers, names, repeats,
-lays or encloses parts.
+lays, groups or encloses parts.
 """
 abstract type AbstractCablePart end
 
@@ -389,11 +389,36 @@ end
 """
 $(TYPEDEF)
 
-Fill a container around parts with a material. The fill region declares the container as its
-primitive, either explicitly or as an offset from the part inside the enclosure. It takes the
-container without the outlines of the outermost regions of its contents, those that lie inside
-no other content's outline. The design refuses an empty hollow inside such an outline as a
-gap.
+Gather the primitives of one conductor, or of one dielectric layer, in a container and fill
+the space between them with a material. The fill region declares the container as its
+primitive, either explicitly or as an offset from the part inside the group. It takes the
+container without the outlines of the outermost regions of its contents, those that lie
+inside no other content's outline. The design refuses an empty hollow inside such an outline
+as a gap.
+
+The container is a primitive or a resolved cross-section. Its outline is the outline of the
+group, and `⊆` tests whether each content lies within it.
+
+$(TYPEDFIELDS)
+"""
+struct Group{F <: Region, C <: AbstractCablePart} <: AbstractCablePart
+    "Region of the fill material, whose primitive declares the container."
+    fill::F
+    "Primitives inside the container."
+    contents::C
+    function Group(fill::F, contents::C) where {F <: Region, C <: AbstractCablePart}
+        return new{F, C}(fill, contents)
+    end
+end
+
+"""
+$(TYPEDEF)
+
+Contain sub-cables in a filler, such as the cores of a pipe or the cable of a duct. The fill
+region declares the container as its primitive, either explicitly or as an offset from the
+part inside the enclosure. It takes the container without the outlines of the outermost
+regions of its contents, those that lie inside no other content's outline. The design refuses
+an empty hollow inside such an outline as a gap.
 
 The container is a primitive or a resolved cross-section. Its outline is the outline of the
 enclosure, and `⊆` tests whether each content lies within it.
@@ -403,17 +428,18 @@ $(TYPEDFIELDS)
 struct Enclosure{F <: Region, C <: AbstractCablePart} <: AbstractCablePart
     "Region of the fill material, whose primitive declares the container."
     fill::F
-    "Parts inside the container."
+    "Sub-cables inside the container."
     contents::C
     function Enclosure(fill::F, contents::C) where {F <: Region, C <: AbstractCablePart}
         return new{F, C}(fill, contents)
     end
 end
 
-# A region inside an enclosure lies within its container.
-function validate(shape::AbstractShape, enclosure::Enclosure, container::AbstractShape)
+# A region inside a group or an enclosure lies within the container of its fill.
+function validate(shape::AbstractShape, part::Union{Group, Enclosure},
+        container::AbstractShape)
     shape ⊆ container || throw(DomainError(support(shape),
-        "a region inside :$(enclosure.fill.tag) must lie within its container"))
+        "a region inside :$(part.fill.tag) must lie within its container"))
     return shape
 end
 
@@ -423,17 +449,17 @@ $(TYPEDSIGNATURES)
 Resolve the fill as its container minus the contents' outlines.
 The holes are the outlines of the contents that lie within no other content's outline, by `⊆`.
 """
-function resolve(described::NamedTuple, enclosure::Enclosure)
-    container = resolve(described.outer, enclosure.fill.primitive)
-    inner = resolve(described, enclosure.contents)
+function resolve(described::NamedTuple, part::Union{Group, Enclosure})
+    container = resolve(described.outer, part.fill.primitive)
+    inner = resolve(described, part.contents)
     contents = (length(described.regions) + 1):length(inner.regions)
-    shapes = [validate(inner.regions[index].shape, enclosure, container)
+    shapes = [validate(inner.regions[index].shape, part, container)
               for index in contents]
     outlines = map(boundary, shapes)
     holes = [outlines[i]
              for i in eachindex(shapes)
              if !any(shapes[i] ⊆ outlines[j] for j in eachindex(shapes) if j != i)]
-    placed = PlacedRegion(enclosure.fill, PerforatedShape(container, holes))
+    placed = PlacedRegion(part.fill, PerforatedShape(container, holes))
     row = (region = length(inner.regions) + 1, contents = collect(contents))
     return merge(inner,
         (regions = [inner.regions; placed], outer = boundary(container),
@@ -456,6 +482,7 @@ function Base.map(f, assembly::Assembly)
     for (at, part) in assembly.members))
 end
 Base.map(f, lay::Lay) = Lay(map(f, lay.helix), map(f, lay.part))
+Base.map(f, group::Group) = Group(map(f, group.fill), map(f, group.contents))
 function Base.map(f, enclosure::Enclosure)
     return Enclosure(map(f, enclosure.fill), map(f, enclosure.contents))
 end

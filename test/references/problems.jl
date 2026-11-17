@@ -34,14 +34,14 @@ const REFERENCES = let
                 Region(:armour_wires, Circle(2.0e-3), steel)))
         design = build(CableDesign, "coaxial",
             Terminal(:core,
-                Enclosure(Region(:core_fill, Circle(10.5e-3), air),
+                Group(Region(:core_fill, Circle(10.5e-3), air),
                     Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
             Region(:core_semicon_inner, Offset(1.0e-3), semicon),
             Region(:core_insulation, Offset(8.0e-3), polymer),
             Region(:core_semicon_outer, Offset(1.0e-3), semicon),
             Terminal(:sheath, Region(:sheath_copper, Annulus(20.5e-3, 21.5e-3), copper)),
             Region(:sheath_bedding, Offset(3.0e-3), polymer),
-            Terminal(:armour, Enclosure(Region(:armour_fill, Offset(4.0e-3), air), armour)),
+            Terminal(:armour, Group(Region(:armour_fill, Offset(4.0e-3), air), armour)),
             Region(:armour_jacket, Offset(4.0e-3), polymer))
         system = build(CableSystem, [design], [Placement(0.0, -1.0)];
             connections = [(core = 1, sheath = 2, armour = 3)], id = case,
@@ -87,7 +87,7 @@ const REFERENCES = let
         LineCableModels.Sector(0, 31.15e-3, π / 3, 0, 1.25e-3, Placement(0, 0)), aluminum)
     milliken = build(CableDesign, "milliken_220kv",
         Terminal(:core,
-            Enclosure(Region(:core_fill, Circle(31.15e-3), pe),
+            Group(Region(:core_fill, Circle(31.15e-3), pe),
                 Repeat(CircularPattern(6; r = 0.0), segment))),
         Region(:binder, Offset(0.5e-3), pe),
         Region(:semicon_inner, Offset(1.6e-3), semiconductive),
@@ -113,7 +113,7 @@ const REFERENCES = let
             Assembly((insulated(:a, 0.0), insulated(:b, 2π / 3),
                 insulated(:c, 4π / 3)))),
         Terminal(:neutral,
-            Enclosure(Region(:neutral_fill, Offset(2r_wire), pvc),
+            Group(Region(:neutral_fill, Offset(2r_wire), pvc),
                 Repeat(CircularPattern(30; r = Offset(0)),
                     Region(:neutral_wires, Circle(r_wire), copper)))),
         Region(:jacket, Offset(r_outer - r_center - r_wire), pvc))

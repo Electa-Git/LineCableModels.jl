@@ -318,7 +318,7 @@ end
         design = build(CableDesign, "mixed_courses",
             Terminal(:core, Region(:core_metal, Circle(0.01), copper)),
             Terminal(:screen,
-                Enclosure(Region(:fill, Offset(0.004), polymer),
+                Group(Region(:fill, Offset(0.004), polymer),
                     Stack(
                         Repeat(CircularPattern(6; r = Offset(0)),
                             Region(:wires, Circle(0.001), copper)),
@@ -366,7 +366,7 @@ end
                 Terminal(:core, Region(:core, Circle(21.5e-3), copper)),
                 Region(:bedding, Offset(3.0e-3), polymer),
                 Terminal(:armour,
-                    Enclosure(Region(:armour_fill, Offset(4.0e-3), polymer), armour)),
+                    Group(Region(:armour_fill, Offset(4.0e-3), polymer), armour)),
                 Region(:jacket, Offset(4.0e-3), polymer))
             system = build(CableSystem, [design], [Placement(0.0, -1.0)];
                 connections = [(core = 1, armour = 2)], id = "armour", line_length = 1.0)

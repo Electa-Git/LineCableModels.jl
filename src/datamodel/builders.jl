@@ -147,7 +147,7 @@ region takes the name `<tag>_fill`.
 
 # Returns
 
-- An [`Enclosure`](@ref) of the fill region around a [`Stack`](@ref) of the
+- A [`Group`](@ref) of the fill region around a [`Stack`](@ref) of the
   [`Repeat`](@ref) of the center wire and the [`Lay`](@ref) of each course.
 
 # Errors
@@ -164,7 +164,7 @@ function stranded(material::Material; center, shape,
             Repeat(CircularPattern(count; r = Offset(0), φ0 = angle),
                 Region(tag, shape, material)))
     end
-    return Enclosure(Region(Symbol(tag, "_fill"), boundary, fill),
+    return Group(Region(Symbol(tag, "_fill"), boundary, fill),
         Stack(Repeat(CircularPattern(1; r = 0), Region(tag, center, material)), courses...))
 end
 
@@ -187,7 +187,7 @@ the course, such as `:screen` or `:armor`.
 
 # Returns
 
-- An [`Enclosure`](@ref) of the fill region around the [`Lay`](@ref) of the wires.
+- A [`Group`](@ref) of the fill region around the [`Lay`](@ref) of the wires.
 
 # Errors
 
@@ -197,7 +197,7 @@ function wires(material::Material; shape::Circle, n::Integer, lay,
         fill = Material(:insulator, Inf), tag = :wires)
     course = Lay(Helix(lay),
         Repeat(CircularPattern(n; r = Offset(0)), Region(tag, shape, material)))
-    return Enclosure(Region(Symbol(tag, "_fill"), Offset(2shape.r), fill), course)
+    return Group(Region(Symbol(tag, "_fill"), Offset(2shape.r), fill), course)
 end
 
 """
@@ -219,7 +219,7 @@ occupies, as thick as the tape. Its region takes the name `<tag>_fill`.
 
 # Returns
 
-- An [`Enclosure`](@ref) of the fill region around the [`Lay`](@ref) of a
+- A [`Group`](@ref) of the fill region around the [`Lay`](@ref) of a
   [`Repeat`](@ref) of one rectangular strand.
 
 # Errors
@@ -229,7 +229,7 @@ occupies, as thick as the tape. Its region takes the name `<tag>_fill`.
 function tape(material::Material; w, t, lay, fill = Material(:insulator, Inf), tag = :tape)
     course = Lay(Helix(lay),
         Repeat(CircularPattern(1; r = Offset(0)), Region(tag, Rectangle(w, t), material)))
-    return Enclosure(Region(Symbol(tag, "_fill"), Offset(t), fill), course)
+    return Group(Region(Symbol(tag, "_fill"), Offset(t), fill), course)
 end
 
 """

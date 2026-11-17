@@ -151,7 +151,7 @@ end
     function stranded(r, θ)
         member = Stack(
             Terminal(:a,
-                Enclosure(Region(:a_fill, Circle(3r), polymer),
+                Group(Region(:a_fill, Circle(3r), polymer),
                     Stack(Region(:a_centre, Circle(r), copper),
                         Repeat(CircularPattern(6; r = 2r), Region(:a_wires, Circle(r), copper))))),
             Region(:a_insulation, Offset(3.0e-3), polymer))
@@ -212,7 +212,7 @@ end
             Repeat(CircularPattern(6; r = 2r), Region(:core_wires, Circle(r), copper)))
         design = build(CableDesign, "core",
             Terminal(:core,
-                Enclosure(Region(:core_fill, Circle(3r), polymer),
+                Group(Region(:core_fill, Circle(3r), polymer),
                     Stack(centre_laid ? Lay(Helix(LayRatio(12)), centre) : centre, wires))),
             Region(:core_insulation, Offset(3.0e-3), polymer))
         system = build(CableSystem, [design], [Placement(0.0, -1.0)];

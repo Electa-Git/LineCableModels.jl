@@ -119,7 +119,7 @@ end
             Repeat(CircularPattern(6; r = 1.0e-3), Region(:core_wires, Circle(0.5e-3), copper)))
         core = Stack(
             Terminal(:core,
-                Enclosure(Region(:core_fill, Circle(1.5e-3), air),
+                Group(Region(:core_fill, Circle(1.5e-3), air),
                     Stack(Region(:core_centre, Circle(0.5e-3), copper), strands))),
             Region(:core_insulation, Offset(1.0e-3), polymer),
             Terminal(:screen, Region(:core_screen, Offset(0.5e-3), copper)))

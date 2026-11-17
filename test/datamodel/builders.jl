@@ -58,7 +58,7 @@
                     Region(:armour_wires, Circle(2.0e-3), steel)))
             reference = build(CableDesign, "coaxial",
                 Terminal(:core,
-                    Enclosure(Region(:core_fill, Circle(10.5e-3), air),
+                    Group(Region(:core_fill, Circle(10.5e-3), air),
                         Stack(
                             Repeat(CircularPattern(1; r = 0),
                                 Region(:core_centre, Circle(1.5e-3), copper)),
@@ -69,7 +69,7 @@
                 Terminal(:sheath, Region(:sheath_copper, Annulus(20.5e-3, 21.5e-3), copper)),
                 Region(:sheath_bedding, Offset(3.0e-3), polymer),
                 Terminal(:armour,
-                    Enclosure(Region(:armour_fill, Offset(4.0e-3), air), armour)),
+                    Group(Region(:armour_fill, Offset(4.0e-3), air), armour)),
                 Region(:armour_jacket, Offset(4.0e-3), polymer))
 
             @test [placed.source.material for placed in design.regions] ==
@@ -109,12 +109,12 @@
 
     @testset "a tape, a course of wires and the formations of cables" begin
         @test tape(copper; w = 10.0e-3, t = 0.1e-3, lay = LayRatio(10)) ==
-              Enclosure(Region(:tape_fill, Offset(0.1e-3), Material(:insulator, Inf)),
+              Group(Region(:tape_fill, Offset(0.1e-3), Material(:insulator, Inf)),
             Lay(Helix(LayRatio(10)),
                 Repeat(CircularPattern(1; r = Offset(0)),
                     Region(:tape, Rectangle(10.0e-3, 0.1e-3), copper))))
         @test wires(copper; shape = Circle(1.0e-3), n = 12, lay = LayRatio(8)) ==
-              Enclosure(Region(:wires_fill, Offset(2.0e-3), Material(:insulator, Inf)),
+              Group(Region(:wires_fill, Offset(2.0e-3), Material(:insulator, Inf)),
             Lay(Helix(LayRatio(8)),
                 Repeat(CircularPattern(12; r = Offset(0)),
                     Region(:wires, Circle(1.0e-3), copper))))

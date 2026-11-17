@@ -84,7 +84,7 @@ qualifiers = ["homogeneous"]
 nouns = ["shape", "primitive", "circle", "annulus", "rectangle", "sector",
     "pattern", "helix", "lay", "ratio", "boundary", "placements",
     "overlength", "pitch", "part", "region", "stack", "terminal",
-    "repeat", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
+    "repeat", "group", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
     "regions", "id", "tree", "repeats", "lays", "compactions", "fills",
     "designs", "connections", "blueprint", "conductor", "conductors",
     "dielectrics", "assembly", "core", "screen", "sheath", "bedding",
@@ -205,7 +205,8 @@ Stack = "parts layered outward, each resolved against the outline of the parts i
 Terminal = "the name that identifies, within its scope, the circuit node of the conductive regions of a part"
 Repeat = "copies of a part at the placements of a pattern, each copy a scope of its terminals"
 Lay = "the helix that the copies of a repeat follow along the cable"
-Enclosure = "a fill region whose cross-section is a container without the parts inside it"
+Group = "the primitives of one conductor or of one dielectric layer inside a boundary, with the fill region between them"
+Enclosure = "a fill region whose cross-section is a container without the sub-cables inside it"
 PlacedRegion = "a declared region with its resolved cross-section"
 Assembly = "sub-cables of different parts, each at its placement in the frame of the part that encloses them"
 CableDesign = "a cable described: its declared parts, its placed regions and the tables that map them"

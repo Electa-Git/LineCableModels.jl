@@ -51,7 +51,7 @@ end
                         Region(:armour_wires, Circle(2.0e-3), steel)))
                 return build(CableDesign, "coaxial",
                     Terminal(:core,
-                        Enclosure(Region(:core_fill, Circle(10.5e-3), air),
+                        Group(Region(:core_fill, Circle(10.5e-3), air),
                             Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
                     Region(:core_semicon_inner, Offset(1.0e-3), semicon),
                     Region(:core_insulation, Offset(8.0e-3), polymer),
@@ -60,7 +60,7 @@ end
                         Region(:sheath_copper, Annulus(20.5e-3, 21.5e-3), copper)),
                     Region(:sheath_bedding, Offset(3.0e-3), polymer),
                     Terminal(:armour,
-                        Enclosure(Region(:armour_fill, Offset(4.0e-3), air), armour)),
+                        Group(Region(:armour_fill, Offset(4.0e-3), air), armour)),
                     Region(:armour_jacket, Offset(4.0e-3), polymer))
             end
             @test all(map((a, b) -> a.radii ≈ b.radii, design.lays, contextual.lays))
@@ -106,11 +106,11 @@ end
         pair = Repeat(Listed([Placement(-2.0e-3, 0.0), Placement(2.0e-3, 0.0)]),
             Region(:pair_wires, Circle(1.0e-3), copper))
         design = build(CableDesign, "pair",
-            Enclosure(Region(:pair_fill, Circle(3.0e-3), air), Terminal(:pair, pair)))
+            Group(Region(:pair_fill, Circle(3.0e-3), air), Terminal(:pair, pair)))
         @test [centroid(placed.shape) for placed in design.regions[1:2]] ==
               [(-2.0e-3, 0.0), (2.0e-3, 0.0)]
         linear = build(CableDesign, "linear_pair",
-            Enclosure(Region(:pair_fill, Circle(3.0e-3), air),
+            Group(Region(:pair_fill, Circle(3.0e-3), air),
                 Terminal(:pair,
                     Repeat(LinearPattern(2, 4.0e-3),
                         Region(:pair_wires, Circle(1.0e-3), copper)))))
@@ -123,7 +123,7 @@ end
             Repeat(CircularPattern(6; r = 1.0e-3), Region(:core_wires, Circle(0.5e-3), copper)))
         core = Stack(
             Terminal(:core,
-                Enclosure(Region(:core_fill, Circle(1.5e-3), air),
+                Group(Region(:core_fill, Circle(1.5e-3), air),
                     Stack(Region(:core_centre, Circle(0.5e-3), copper), strands))),
             Region(:core_insulation, Offset(1.0e-3), polymer),
             Terminal(:screen, Region(:core_screen, Offset(0.5e-3), copper)))
@@ -198,7 +198,7 @@ end
 
     @testset "a fill takes the outlines of its outermost contents" begin
         design = build(CableDesign, "layers",
-            Enclosure(Region(:core_fill, Circle(5.0e-3), polymer),
+            Group(Region(:core_fill, Circle(5.0e-3), polymer),
                 Terminal(:core,
                     Stack(Region(:core_metal, Circle(1.0e-3), copper),
                         Region(:core_inner, Offset(1.0e-3), polymer),
@@ -211,7 +211,7 @@ end
         @test centroid(hole) == (0.0, 0.0)
         @test area(fill) ≈ π * (5.0e-3^2 - 2.5e-3^2)
 
-        hollow = Enclosure(Region(:core_fill, Circle(5.0e-3), polymer),
+        hollow = Group(Region(:core_fill, Circle(5.0e-3), polymer),
             Region(:core_tube, Annulus(1.0e-3, 2.0e-3), polymer))
         @test_throws DomainError build(CableDesign, "hollow", hollow)
         @test_throws "a gap or an overlap" build(CableDesign, "hollow", hollow)
@@ -227,7 +227,7 @@ end
             Terminal(:core, Stack(Region(:core_centre, Circle(2.0e-3), copper), course)))
         @test_throws DomainError build(CableDesign, "protrusion",
             Terminal(:core,
-                Enclosure(Region(:core_fill, Circle(4.0e-3), air), Stack(wire, course))))
+                Group(Region(:core_fill, Circle(4.0e-3), air), Stack(wire, course))))
     end
 
     @testset "mixed inputs" begin
@@ -242,7 +242,7 @@ end
             Region(:core_insulation, Offset(1.0e-3), polymer))
         @test eltype(uncertain) === Measurement{Float64}
         filled = build(CableDesign, "filled",
-            Enclosure(Region(:core_fill, Circle(5.0e-3), polymer),
+            Group(Region(:core_fill, Circle(5.0e-3), polymer),
                 Terminal(:core,
                     Region(:core_metal, Circle(1.5e-3),
                         material(kind = :conductor, rho = 1.7241e-8)))))
@@ -300,15 +300,15 @@ end
             1.5e-3, Placement(0, 0))
         design = build(CableDesign, "nested_sector",
             Terminal(:core,
-                Enclosure(Region(:outer, Circle(12.0e-3), air),
-                    Enclosure(Region(:wedge, sector, air),
+                Group(Region(:outer, Circle(12.0e-3), air),
+                    Group(Region(:wedge, sector, air),
                         Region(:wire, Circle(1.0e-3, Placement(5.0e-3, 0)), copper)))))
         fill = design.regions[last(design.fills).region].shape
         @test length(fill.holes) == 1
         @test only(fill.holes) == sector
         design = build(CableDesign, "wires_and_tape",
             Region(:inner, Circle(5.0e-3), air),
-            Enclosure(Region(:fill, Offset(2.2e-3), air),
+            Group(Region(:fill, Offset(2.2e-3), air),
                 Terminal(:core,
                     Stack(
                         Repeat(CircularPattern(8; r = Offset(0)),

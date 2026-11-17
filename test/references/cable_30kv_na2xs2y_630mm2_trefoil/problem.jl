@@ -16,7 +16,7 @@ let
         @terminal :core begin
             # The central wire is a strand at the radius 0. The courses start at the angle 0,
             # and the even ones half a pitch further.
-            Enclosure(Region(:core_fill, Circle(9r), air),
+            Group(Region(:core_fill, Circle(9r), air),
                 Stack(
                     Repeat(CircularPattern(1; r = 0.0), Region(:core, Circle(r), aluminum)),
                     (Lay(Helix(LayRatio(15.0)),
@@ -28,7 +28,7 @@ let
             screen(semicon2; t = 0.4e-3, tag = :outer_semiconductor)
         end
         @terminal :sheath begin
-            Enclosure(Region(:screen_matrix, Offset(2r_screen + 0.1e-3), air),
+            Group(Region(:screen_matrix, Offset(2r_screen + 0.1e-3), air),
                 Stack(
                     Lay(Helix(LayRatio(15.0)),
                         Repeat(CircularPattern(60; r = Offset(0)),

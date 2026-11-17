@@ -95,7 +95,7 @@
                     Region(:armour_wires, Circle(2.0e-3), steel)))
             blueprint = flatten(build(CableDesign, "coaxial",
                 Terminal(:core,
-                    Enclosure(Region(:core_fill, Circle(10.5e-3), air),
+                    Group(Region(:core_fill, Circle(10.5e-3), air),
                         Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
                 Region(:core_semicon_inner, Offset(1.0e-3), semicon),
                 Region(:core_insulation, Offset(8.0e-3), polymer),
@@ -103,7 +103,7 @@
                 Terminal(:sheath, Region(:sheath_copper, Annulus(20.5e-3, 21.5e-3), copper)),
                 Region(:sheath_bedding, Offset(3.0e-3), polymer),
                 Terminal(:armour,
-                    Enclosure(Region(:armour_fill, Offset(4.0e-3), air), armour)),
+                    Group(Region(:armour_fill, Offset(4.0e-3), air), armour)),
                 Region(:armour_jacket, Offset(4.0e-3), polymer)))
             @test [tube.terminal for tube in blueprint.conductors] == [1, 2, 3]
             @test [tube.r_in for tube in blueprint.conductors] ≈ [0.0, 20.5e-3, 24.5e-3]
@@ -143,14 +143,14 @@
                 Region(:armour_wires, Circle(2.0e-3), steel)))
         blueprint = flatten(build(CableDesign, "coaxial_circular_strands",
             Terminal(:core,
-                Enclosure(Region(:core_fill, Circle(10.5e-3), air),
+                Group(Region(:core_fill, Circle(10.5e-3), air),
                     Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
             Region(:core_semicon_inner, Offset(1.0e-3), semicon),
             Region(:core_insulation, Offset(8.0e-3), polymer),
             Region(:core_semicon_outer, Offset(1.0e-3), semicon),
             Terminal(:sheath, Region(:sheath_copper, Annulus(20.5e-3, 21.5e-3), copper)),
             Region(:sheath_bedding, Offset(3.0e-3), polymer),
-            Terminal(:armour, Enclosure(Region(:armour_fill, Offset(4.0e-3), air), armour)),
+            Terminal(:armour, Group(Region(:armour_fill, Offset(4.0e-3), air), armour)),
             Region(:armour_jacket, Offset(4.0e-3), polymer)))
         tube = first(blueprint.conductors)
         layer = first(blueprint.dielectrics[blueprint.dielectric_ranges[1]])
@@ -191,7 +191,7 @@
         blueprint = flatten(build(CableDesign, "covered",
             Terminal(:core,
                 Stack(
-                    Enclosure(Region(:fill, Circle(3.0e-3), compound),
+                    Group(Region(:fill, Circle(3.0e-3), compound),
                         Stack(Region(:centre, Circle(1.0e-3), copper),
                             Lay(Helix(LayRatio(12)),
                                 Repeat(CircularPattern(6; r = 2.0e-3),
@@ -214,7 +214,7 @@
         local polymer = Material(:insulator, 1.0e14, 2.5)
         blueprint = flatten(build(CableDesign, "square",
             Terminal(:core,
-                Enclosure(Region(:fill, Rectangle(20.0e-3, 20.0e-3), polymer),
+                Group(Region(:fill, Rectangle(20.0e-3, 20.0e-3), polymer),
                     Region(:wire, Circle(5.0e-3), copper))),
             Region(:ins, Offset(2.0e-3), polymer)))
         tube = only(blueprint.conductors)
@@ -233,7 +233,7 @@
                        for (k, n) in enumerate((6, 12))]
             core = flatten(build(CableDesign, "core",
                 Terminal(:core,
-                    Enclosure(Region(:core_fill, Circle(7.5e-3), air),
+                    Group(Region(:core_fill, Circle(7.5e-3), air),
                         Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
                 Region(:core_insulation, Offset(8.0e-3), polymer)))
             return only(core.mu_r_ins)
@@ -246,7 +246,7 @@
             Repeat(CircularPattern(6; r = 1.0e-3), Region(:core_wires, Circle(0.5e-3), copper)))
         core = Stack(
             Terminal(:core,
-                Enclosure(Region(:core_fill, Circle(1.5e-3), air),
+                Group(Region(:core_fill, Circle(1.5e-3), air),
                     Stack(Region(:core_centre, Circle(0.5e-3), copper), strands))),
             Region(:core_insulation, Offset(1.0e-3), polymer),
             Terminal(:screen, Region(:core_screen, Offset(0.5e-3), copper)))
@@ -372,7 +372,7 @@
         armoured = build(CableDesign, "armoured",
             Terminal(:core, Region(:core, Circle(24.5e-3), copper)),
             Terminal(:armour,
-                Enclosure(Region(:armour_fill, Offset(4.0e-3), air),
+                Group(Region(:armour_fill, Offset(4.0e-3), air),
                     Repeat(CircularPattern(40; r = 26.5e-3),
                         Region(:armour_wires, Circle(2.0e-3), steel)))))
         @test isannular([placed.shape for placed in armoured.regions[2:end]])
@@ -626,7 +626,7 @@
                            Region(Symbol(:wires_, k), Circle(1.5e-3), copper)))
                    for (k, n) in enumerate((6, 12))]
         tube = only(flatten(build(CableDesign, "rod",
-            Enclosure(Region(:core_fill, Circle(7.5e-3), air),
+            Group(Region(:core_fill, Circle(7.5e-3), air),
                 Stack(Region(:rod, Circle(1.5e-3), polymer),
                     Terminal(:core, Stack(courses...)))),
             Region(:insulation, Offset(3.0e-3), polymer))).conductors)

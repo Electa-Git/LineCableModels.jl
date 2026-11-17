@@ -185,7 +185,7 @@ end
         plain = build(CableDesign, "plain", metal,
             Region(:core_insulation, Offset(6.0e-3), insulation), screen, jacket)
         filled = build(CableDesign, "fill-e0",
-            Enclosure(Region(:core_insulation, Circle(16.0e-3), insulation), metal),
+            Group(Region(:core_insulation, Circle(16.0e-3), insulation), metal),
             screen, jacket)
         frequencies = sort!(unique([last(first(REFERENCES)).frequencies;
                                     50.0; 1.0e3; 1.0e5]))

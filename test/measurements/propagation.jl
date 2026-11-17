@@ -41,14 +41,14 @@ function cases(; r_wire = 0.0425, t_ins = 1.0e-3, eps_ins = 2.3, rho_cu = 1.7241
                 Region(:armour_wires, Circle(2.0e-3), steel)))
         design = build(CableDesign, "coaxial",
             Terminal(:core,
-                Enclosure(Region(:core_fill, Circle(10.5e-3), air),
+                Group(Region(:core_fill, Circle(10.5e-3), air),
                     Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
             Region(:core_semicon_inner, Offset(1.0e-3), semicon),
             Region(:core_insulation, Offset(t_xlpe), polymer),
             Region(:core_semicon_outer, Offset(1.0e-3), semicon),
             Terminal(:sheath, Region(:sheath_copper, Annulus(20.5e-3, 21.5e-3), copper)),
             Region(:sheath_bedding, Offset(3.0e-3), polymer),
-            Terminal(:armour, Enclosure(Region(:armour_fill, Offset(4.0e-3), air), armour)),
+            Terminal(:armour, Group(Region(:armour_fill, Offset(4.0e-3), air), armour)),
             Region(:armour_jacket, Offset(4.0e-3), polymer))
         system = build(CableSystem, [design], [Placement(0.0, -1.0)];
             connections = [(core = 1, sheath = 2, armour = 3)], id = case,
@@ -201,7 +201,7 @@ end
                 Terminal(:core, Region(:core, Circle(5.0e-3), copper)),
                 Region(:ins, Offset(2.0e-3), polymer),
                 Terminal(:sheath,
-                    Enclosure(Region(:sheath_fill, Offset(2.0e-3), air),
+                    Group(Region(:sheath_fill, Offset(2.0e-3), air),
                         Lay(Helix(LayRatio(10)),
                             Repeat(CircularPattern(20; r = 8.0e-3),
                                 Region(:w, Circle(rw), copper))))))
@@ -264,7 +264,7 @@ end
             (v + o * δ for o in (0, -1, -2))...)) do rw
             design = build(CableDesign, "bare_stranded",
                 Terminal(:core,
-                    Enclosure(Region(:fill, Circle(4.5e-3), air),
+                    Group(Region(:fill, Circle(4.5e-3), air),
                         Stack(Region(:centre, Circle(1.5e-3), copper),
                             Lay(Helix(LayRatio(12)),
                                 Repeat(CircularPattern(6; r = 3.0e-3),
@@ -367,7 +367,7 @@ end
         function stranded(r, θ; kw...)
             member = Stack(
                 Terminal(:a,
-                    Enclosure(Region(:a_fill, Circle(3r), polymer),
+                    Group(Region(:a_fill, Circle(3r), polymer),
                         Stack(Region(:a_centre, Circle(r), copper),
                             Repeat(CircularPattern(6; r = 2r), Region(:a_wires, Circle(r), copper))))),
                 Region(:a_insulation, Offset(3.0e-3), polymer))
