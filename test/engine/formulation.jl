@@ -321,6 +321,38 @@ end
         end))
     end
 
+    @testset "two terminals in contact are refused before computation" begin
+        copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+        polymer = Material(:insulator, 1.0e14, 2.3)
+        design = build(CableDesign, "contact",
+            Terminal(:core, Region(:core_metal, Circle(10.0e-3), copper)),
+            Terminal(:screen, Region(:screen_metal, Annulus(10.0e-3, 11.0e-3), copper)),
+            Region(:insulation, Offset(2.0e-3), polymer))
+        system = build(CableSystem, [design], [Placement(0.0, -1.0)];
+            connections = [(core = 1, screen = 2)], id = "contact", line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 100); frequencies = [50.0])
+        @test_throws ArgumentError compute(problem, CoaxialFormulation())
+        @test_throws "conductors cable:1:core and cable:1:screen are in contact with no dielectric between them" compute(
+            problem, CoaxialFormulation())
+    end
+
+    @testset "two terminals with a dielectric between them compute" begin
+        copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+        polymer = Material(:insulator, 1.0e14, 2.3)
+        design = build(CableDesign, "gap",
+            Terminal(:core, Region(:core_metal, Circle(10.0e-3), copper)),
+            Region(:core_insulation, Annulus(10.0e-3, 10.0e-3 + 1.0e-6), polymer),
+            Terminal(:screen,
+                Region(:screen_metal, Annulus(10.0e-3 + 1.0e-6, 11.0e-3 + 1.0e-6), copper)),
+            Region(:insulation, Offset(2.0e-3), polymer))
+        system = build(CableSystem, [design], [Placement(0.0, -1.0)];
+            connections = [(core = 1, screen = 2)], id = "gap", line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 100); frequencies = [50.0])
+        result = compute(problem, CoaxialFormulation())
+        @test all(isfinite, result.Z)
+        @test all(isfinite, result.Y)
+    end
+
     @testset "the finite-element computation needs the Gmsh extension" begin
         copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
         wire = build(CableDesign, "bare_wire",
