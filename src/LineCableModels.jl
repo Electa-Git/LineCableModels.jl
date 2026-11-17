@@ -30,7 +30,7 @@ using .DataModel: AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle,
                   r_ex,
                   placements, overlength, pitch, PerforatedShape, ArcPolygon,
                   AbstractCablePart, Region,
-                  Stack, Terminal, Repeat, Lay, Group, Enclosure, Assembly, PlacedRegion,
+                  Stack, Terminal, Repeat, Lay, Group, Enclosure, Assembly, CablePart,
                   CableDesign,
                   CableSystem, CableBlueprint, BlueprintConductor, BlueprintDielectric,
                   flatten, @design, @terminal, core, insulation, screen, sheath, bedding,
@@ -60,7 +60,7 @@ export @design, @terminal, core, insulation, screen, sheath, bedding, jacket, st
        wires, tape, trefoil, flat
 public Commons, Materials, Earth, DataModel, validate, resolve, Sector, Ellipse, Polygon,
        PerforatedShape, ArcPolygon
-public PlacedRegion, CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten,
+public CablePart, CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten,
        istangent
 export compute, LineParametersProblem, CoaxialFormulation, FEM, LineParameters
 export @formulation, @air, @earth, @mixed

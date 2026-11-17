@@ -90,7 +90,7 @@ nouns = ["shape", "primitive", "circle", "annulus", "rectangle", "sector",
     "dielectrics", "assembly", "core", "screen", "sheath", "bedding",
     "jacket", "tape", "wires", "spacing", "trefoil", "apex", "fillet",
     "polygon", "ellipse", "vertices"]
-qualifiers = ["circular", "empty", "perforated", "placed", "stranded",
+qualifiers = ["circular", "empty", "perforated", "stranded",
     "layout", "flat", "linear", "annular"]
 symbols = ["ri", "ro", "w", "h", "t", "n", "gap_frac", "dir"]
 
@@ -207,7 +207,7 @@ Repeat = "copies of a part at the placements of a pattern, each copy a scope of 
 Lay = "the helix that the copies of a repeat follow along the cable"
 Group = "the primitives of one conductor or of one dielectric layer inside a boundary, with the fill region between them"
 Enclosure = "a fill region whose cross-section is a container without the sub-cables inside it"
-PlacedRegion = "a declared region with its resolved cross-section, the leaf of a resolved part"
+CablePart = "a declared region with its resolved cross-section, the leaf of a resolved part"
 Assembly = "sub-cables of different parts, each at its placement in the frame of the part that encloses them"
 CableDesign = "a cable described: its resolved parts, its placed regions and the tables that map them"
 CableSystem = "the cables of a line in one cross-section, placed, with the conductor index of each terminal"

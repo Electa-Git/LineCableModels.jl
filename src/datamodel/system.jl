@@ -12,7 +12,7 @@ $(TYPEDFIELDS)
 struct CableSystem{
     T <: Real,
     D <: AbstractVector{<:CableDesign},
-    V <: AbstractVector{<:PlacedRegion}
+    V <: AbstractVector{<:CablePart}
 }
     "Name of the system."
     id::String
@@ -37,7 +37,7 @@ struct CableSystem{
     ) where {
             T <: Real,
             D <: AbstractVector{<:CableDesign},
-            V <: AbstractVector{<:PlacedRegion}
+            V <: AbstractVector{<:CablePart}
     }
         return validate(new{T, D, V}(
             id, line_length, designs, placements, regions, terminals))
@@ -123,7 +123,7 @@ function build(::Type{CableSystem}, designs::AbstractVector{<:CableDesign},
     frames = [convert(Placement{T}, placements[k]) for k in cables]
     links = [validate(connections[k], designs[k]) for k in cables]
     starts = cumsum([0; [length(designs[k].regions) for k in cables]])
-    regions = [PlacedRegion(placed.source, resolve(frames[k], placed.shape))
+    regions = [CablePart(placed.source, resolve(frames[k], placed.shape))
                for k in cables for placed in designs[k].regions]
     terminals = [(cable = k, terminal = index, connection = links[k][row.name],
                      regions = row.regions .+ starts[k])
@@ -152,5 +152,5 @@ returns the result for its contour.
 """
 draw(target, system::CableSystem) = [draw(target, placed) for placed in system.regions]
 draw(target, design::CableDesign) = [draw(target, placed) for placed in design.regions]
-draw(target, placed::PlacedRegion) = draw(target, placed.shape)
+draw(target, placed::CablePart) = draw(target, placed.shape)
 draw(target, shape::AbstractShape) = draw(target, Contour(shape))

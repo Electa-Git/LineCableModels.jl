@@ -34,12 +34,12 @@ cross-section. It is the leaf of a resolved part.
 
 $(TYPEDFIELDS)
 """
-struct PlacedRegion{R <: Region, S <: AbstractShape} <: AbstractCablePart
+struct CablePart{R <: Region, S <: AbstractShape} <: AbstractCablePart
     "Declared region."
     source::R
     "Resolved cross-section in the frame of the part, the cable or the system that places the region."
     shape::S
-    function PlacedRegion(source::R, shape::S) where {R <: Region, S <: AbstractShape}
+    function CablePart(source::R, shape::S) where {R <: Region, S <: AbstractShape}
         return new{R, S}(source, shape)
     end
 end
@@ -48,30 +48,30 @@ end
 # the regions that it places to `regions`, in the frame that it resolves in. It returns its
 # resolved part and its outline as a pair.
 function resolve(outline::Union{EmptyBoundary, AbstractShape}, region::Region,
-        regions::Vector{PlacedRegion})
+        regions::Vector{CablePart})
     shape = resolve(outline, region.primitive)
-    push!(regions, PlacedRegion(region, shape))
+    push!(regions, CablePart(region, shape))
     return Pair{AbstractCablePart, AbstractShape}(last(regions), boundary(shape))
 end
 
 # The placed region with its cross-section in `T`: itself when the cross-section is in `T`,
 # and a conversion otherwise. A perforated cross-section always converts, so that its holes are
 # a vector of `AbstractShape{T}` whatever they are.
-function PlacedRegion(::Type{T},
-        placed::PlacedRegion{<:Region, <:AbstractShape{T}}) where {T <: Real}
+function CablePart(::Type{T},
+        placed::CablePart{<:Region, <:AbstractShape{T}}) where {T <: Real}
     return placed
 end
-function PlacedRegion(::Type{T}, placed::PlacedRegion) where {T <: Real}
-    return PlacedRegion(placed.source, map(x -> convert(T, x), placed.shape))
+function CablePart(::Type{T}, placed::CablePart) where {T <: Real}
+    return CablePart(placed.source, map(x -> convert(T, x), placed.shape))
 end
-function PlacedRegion(::Type{T},
-        placed::PlacedRegion{<:Region, <:PerforatedShape{T}}) where {T <: Real}
-    return PlacedRegion(placed.source, map(x -> convert(T, x), placed.shape))
+function CablePart(::Type{T},
+        placed::CablePart{<:Region, <:PerforatedShape{T}}) where {T <: Real}
+    return CablePart(placed.source, map(x -> convert(T, x), placed.shape))
 end
 
 # A leaf of the resolved part takes the next placed region of the cable. It is a region of the
 # sub-cable around it, the last row of its scope.
-function resolve(rows::NamedTuple, scope::Vector{Int}, ::PlacedRegion)
+function resolve(rows::NamedTuple, scope::Vector{Int}, ::CablePart)
     push!(rows.regions, rows.placed[length(rows.regions) + 1])
     push!(rows.assemblies[last(scope)].regions, length(rows.regions))
     return rows
@@ -110,7 +110,7 @@ end
 
 # Each part of a stack resolves against the outline of the parts inside it.
 function resolve(outline::Union{EmptyBoundary, AbstractShape}, stack::Stack,
-        regions::Vector{PlacedRegion})
+        regions::Vector{CablePart})
     items = AbstractCablePart[]
     for item in stack.items
         resolved = resolve(outline, item, regions)
@@ -146,7 +146,7 @@ struct Terminal{P <: AbstractCablePart} <: AbstractCablePart
 end
 
 function resolve(outline::Union{EmptyBoundary, AbstractShape}, terminal::Terminal,
-        regions::Vector{PlacedRegion})
+        regions::Vector{CablePart})
     resolved = resolve(outline, terminal.part, regions)
     return Pair{AbstractCablePart, AbstractShape}(Terminal(terminal.name, resolved.first), resolved.second)
 end
@@ -222,25 +222,25 @@ end
 # The pattern places a strand, and it bends a rectangular strand into an annular sector on
 # its course.
 function resolve(outline::Union{EmptyBoundary, AbstractShape},
-        repeat::Repeat{<:AbstractLayoutPattern, <:Region}, regions::Vector{PlacedRegion})
+        repeat::Repeat{<:AbstractLayoutPattern, <:Region}, regions::Vector{CablePart})
     course = placements(resolve(outline, repeat.pattern, repeat.part.primitive),
         repeat.part.primitive)
     shapes = [validate(resolve(at, course.shape), repeat, outline)
               for at in course.placements]
-    append!(regions, [PlacedRegion(repeat.part, shape) for shape in shapes])
+    append!(regions, [CablePart(repeat.part, shape) for shape in shapes])
     return Pair{AbstractCablePart, AbstractShape}(
-        Repeat(course.placements, PlacedRegion(repeat.part, course.shape)),
+        Repeat(course.placements, CablePart(repeat.part, course.shape)),
         Circle(maximum(support, shapes)))
 end
 
 # The pattern places a composite part by its outline. The part resolves once, in its own
 # frame, and every region of every copy lies outside the part inside the repeat.
 function resolve(outline::Union{EmptyBoundary, AbstractShape},
-        repeat::Repeat{<:AbstractLayoutPattern}, regions::Vector{PlacedRegion})
-    inner = PlacedRegion[]
+        repeat::Repeat{<:AbstractLayoutPattern}, regions::Vector{CablePart})
+    inner = CablePart[]
     resolved = resolve(EmptyBoundary(), repeat.part, inner)
     course = placements(resolve(outline, repeat.pattern, resolved.second), resolved.second)
-    copies = [PlacedRegion(placed.source,
+    copies = [CablePart(placed.source,
                   validate(resolve(at, placed.shape), repeat, outline))
               for at in course.placements for placed in inner]
     append!(regions, copies)
@@ -251,7 +251,7 @@ end
 
 # Each copy of a strand is a region of the sub-cable around the repeat.
 function resolve(rows::NamedTuple, scope::Vector{Int},
-        repeat::Repeat{<:AbstractVector{<:Placement}, <:PlacedRegion})
+        repeat::Repeat{<:AbstractVector{<:Placement}, <:CablePart})
     start = length(rows.regions)
     foreach(at -> resolve(rows, scope, repeat.part), repeat.pattern)
     push!(rows.repeats,
@@ -349,13 +349,13 @@ end
 # the part inside the assembly. The outline is the circle about the center that contains
 # their regions.
 function resolve(outline::Union{EmptyBoundary, AbstractShape}, assembly::Assembly,
-        regions::Vector{PlacedRegion})
-    inner = [PlacedRegion[] for member in assembly.members]
+        regions::Vector{CablePart})
+    inner = [CablePart[] for member in assembly.members]
     resolved = [resolve(EmptyBoundary(), part, own)
                 for ((at, part), own) in zip(assembly.members, inner)]
     outlines = [resolve(member.first, part.second)
                 for (member, part) in zip(assembly.members, resolved)]
-    copies = [PlacedRegion(placed.source, resolve(at, placed.shape))
+    copies = [CablePart(placed.source, resolve(at, placed.shape))
               for ((at, part), own) in zip(assembly.members, inner) for placed in own]
     circle = Circle(maximum(placed -> support(placed.shape), copies))
     T = eltype(circle)
@@ -403,7 +403,7 @@ struct Lay{H <: Helix, R <: Repeat} <: AbstractCablePart
 end
 
 function resolve(outline::Union{EmptyBoundary, AbstractShape}, lay::Lay,
-        regions::Vector{PlacedRegion})
+        regions::Vector{CablePart})
     resolved = resolve(outline, lay.part, regions)
     return Pair{AbstractCablePart, AbstractShape}(Lay(lay.helix, resolved.first), resolved.second)
 end
@@ -443,14 +443,14 @@ group, and `⊆` tests whether each content lies within it.
 
 $(TYPEDFIELDS)
 """
-struct Group{F <: Union{Region, PlacedRegion}, C <: AbstractCablePart} <:
+struct Group{F <: Union{Region, CablePart}, C <: AbstractCablePart} <:
        AbstractCablePart
     "Region of the fill material, whose primitive declares the container."
     fill::F
     "Primitives inside the container."
     contents::C
     function Group(fill::F,
-            contents::C) where {F <: Union{Region, PlacedRegion}, C <: AbstractCablePart}
+            contents::C) where {F <: Union{Region, CablePart}, C <: AbstractCablePart}
         return new{F, C}(fill, contents)
     end
 end
@@ -469,14 +469,14 @@ enclosure, and `⊆` tests whether each content lies within it.
 
 $(TYPEDFIELDS)
 """
-struct Enclosure{F <: Union{Region, PlacedRegion}, C <: AbstractCablePart} <:
+struct Enclosure{F <: Union{Region, CablePart}, C <: AbstractCablePart} <:
        AbstractCablePart
     "Region of the fill material, whose primitive declares the container."
     fill::F
     "Sub-cables inside the container."
     contents::C
     function Enclosure(fill::F,
-            contents::C) where {F <: Union{Region, PlacedRegion}, C <: AbstractCablePart}
+            contents::C) where {F <: Union{Region, CablePart}, C <: AbstractCablePart}
         return new{F, C}(fill, contents)
     end
 end
@@ -500,7 +500,7 @@ other content's outline, by `⊆`. The placed fill joins `regions` after its con
 - The pair of the resolved contents and the outline of the fill.
 """
 function resolve(outline::Union{EmptyBoundary, AbstractShape}, fill::Region,
-        contents::AbstractCablePart, regions::Vector{PlacedRegion})
+        contents::AbstractCablePart, regions::Vector{CablePart})
     container = resolve(outline, fill.primitive)
     start = length(regions)
     resolved = resolve(outline, contents, regions)
@@ -510,18 +510,18 @@ function resolve(outline::Union{EmptyBoundary, AbstractShape}, fill::Region,
     holes = [outlines[i]
              for i in eachindex(shapes)
              if !any(shapes[i] ⊆ outlines[j] for j in eachindex(shapes) if j != i)]
-    push!(regions, PlacedRegion(fill, PerforatedShape(container, holes)))
+    push!(regions, CablePart(fill, PerforatedShape(container, holes)))
     return Pair{AbstractCablePart, AbstractShape}(resolved.first, boundary(container))
 end
 
 function resolve(outline::Union{EmptyBoundary, AbstractShape}, group::Group,
-        regions::Vector{PlacedRegion})
+        regions::Vector{CablePart})
     resolved = resolve(outline, group.fill, group.contents, regions)
     return Pair{AbstractCablePart, AbstractShape}(Group(last(regions), resolved.first), resolved.second)
 end
 
 function resolve(outline::Union{EmptyBoundary, AbstractShape}, enclosure::Enclosure,
-        regions::Vector{PlacedRegion})
+        regions::Vector{CablePart})
     resolved = resolve(outline, enclosure.fill, enclosure.contents, regions)
     return Pair{AbstractCablePart, AbstractShape}(Enclosure(last(regions), resolved.first), resolved.second)
 end
@@ -539,8 +539,8 @@ end
 function Base.map(f, region::Region)
     return Region(region.tag, map(f, region.primitive), map(f, region.material))
 end
-function Base.map(f, placed::PlacedRegion)
-    return PlacedRegion(map(f, placed.source), map(f, placed.shape))
+function Base.map(f, placed::CablePart)
+    return CablePart(map(f, placed.source), map(f, placed.shape))
 end
 Base.map(f, stack::Stack) = Stack(map.(f, stack.items))
 Base.map(f, terminal::Terminal) = Terminal(terminal.name, map(f, terminal.part))

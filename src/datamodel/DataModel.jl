@@ -28,7 +28,7 @@ export boundary, r_in, r_ex, placements,
        pitch
 export PerforatedShape, ArcPolygon
 export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Group, Enclosure, Assembly
-export PlacedRegion, CableDesign, CableSystem
+export CablePart, CableDesign, CableSystem
 export CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
 export @design, @terminal, core, insulation, screen, sheath, bedding, jacket, stranded,
        wires, tape, trefoil, flat

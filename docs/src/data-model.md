@@ -140,7 +140,7 @@ r_ex(wire.outer) # [m]
 The call `build(CableDesign, id, parts...)` resolves the parts into a [`CableDesign`](@ref).
 The design stores the resolved tree, the placed regions from the inside out and the tables of
 terminals, sub-cables, repeats, lays, compactions and fills. Each placed region is a
-[`PlacedRegion`](@ref) containing its declaration and its resolved cross-section. The
+[`CablePart`](@ref) containing its declaration and its resolved cross-section. The
 resolved values are stored in the floating-point type `T` of the design. The numbers of the
 cross-sections and the materials promote to `T` together with `Float64`.
 

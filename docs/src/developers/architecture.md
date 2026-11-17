@@ -143,7 +143,7 @@ connections of the system.
 ### Description
 
 `build(CableDesign, id, parts...)` resolves the tree into a `CableDesign`. Each node keeps
-its type and takes its geometry. A region becomes a `PlacedRegion`, and a repeat keeps one
+its type and takes its geometry. A region becomes a `CablePart`, and a repeat keeps one
 copy in its own frame with the placements of the copies. The design stores this tree and
 the outline.
 

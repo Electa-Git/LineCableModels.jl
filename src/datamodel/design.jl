@@ -13,7 +13,7 @@ $(TYPEDFIELDS)
 struct CableDesign{
     T <: Real,
     O <: AbstractCablePart,
-    V <: AbstractVector{<:PlacedRegion},
+    V <: AbstractVector{<:CablePart},
     B <: AbstractShape
 }
     "Name of the cable."
@@ -70,7 +70,7 @@ struct CableDesign{
             repeats::AbstractVector{<:NamedTuple}, lays::AbstractVector{<:NamedTuple},
             compactions::AbstractVector{<:NamedTuple},
             fills::AbstractVector{<:NamedTuple}) where {
-            T <: Real, O <: AbstractCablePart, V <: AbstractVector{<:PlacedRegion},
+            T <: Real, O <: AbstractCablePart, V <: AbstractVector{<:CablePart},
             B <: AbstractShape}
         return validate(new{T, O, V, B}(id, tree, regions, outer, terminals, assemblies,
             repeats, lays, compactions, fills))
@@ -137,7 +137,7 @@ region is a sub-cable inside it.
   when a region leaves its group or its enclosure.
 """
 function build(::Type{CableDesign}, id::AbstractString, parts::AbstractCablePart...)
-    regions = PlacedRegion[]
+    regions = CablePart[]
     resolved = resolve(EmptyBoundary(), Stack(parts...), regions)
     return CableDesign(String(id), resolved.first, resolved.second, regions)
 end
@@ -150,9 +150,9 @@ regions `regions`, from the inside out. The rows of the tables come from one wal
 Row 1 of the sub-cables is the cable.
 """
 function CableDesign(id::String, tree::Stack, outer::AbstractShape,
-        regions::AbstractVector{<:PlacedRegion})
+        regions::AbstractVector{<:CablePart})
     rows = resolve(
-        (placed = regions, regions = sizehint!(PlacedRegion[], length(regions)),
+        (placed = regions, regions = sizehint!(CablePart[], length(regions)),
             terminals = NamedTuple[],
             assemblies = NamedTuple[(at = Placement(0, 0), regions = Int[], members = Int[])],
             repeats = NamedTuple[], lays = NamedTuple[], fills = NamedTuple[]),
@@ -161,7 +161,7 @@ function CableDesign(id::String, tree::Stack, outer::AbstractShape,
         placed -> promote_type(eltype(placed.shape), eltype(placed.source.material)),
         promote_type, regions)
     return CableDesign{T}(id, tree,
-        [PlacedRegion(T, placed) for placed in regions],
+        [CablePart(T, placed) for placed in regions],
         map(x -> convert(T, x), outer),
         rows.terminals, rows.assemblies, rows.repeats, rows.lays, NamedTuple[], rows.fills)
 end
