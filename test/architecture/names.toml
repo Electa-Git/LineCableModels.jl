@@ -89,7 +89,7 @@ nouns = ["shape", "primitive", "circle", "annulus", "rectangle", "sector",
     "designs", "connections", "blueprint", "conductor", "conductors",
     "dielectrics", "assembly", "core", "screen", "sheath", "bedding",
     "jacket", "tape", "wires", "spacing", "trefoil", "apex", "fillet",
-    "polygon", "ellipse", "vertices"]
+    "polygon", "ellipse", "vertices", "gmr"]
 qualifiers = ["circular", "empty", "perforated", "stranded",
     "layout", "flat", "linear", "annular"]
 symbols = ["ri", "ro", "w", "h", "t", "n", "gap_frac", "dir"]
@@ -231,6 +231,7 @@ flat = "the placements of cables on a line at a spacing"
 
 [register.DataModel.private]
 EmptyBoundary = "the outline at the center of a cable, before its first part"
+gmr = "the geometric mean radius of a conductor of a cross-section and a relative permeability: the geometric mean distance of the cross-section with itself, with the internal term of a circle or an annulus scaled by the permeability, and the disk's correction for any other cross-section"
 isannular = "whether a shape, or a set of shapes, fills an annulus about the center: its area is that of the annulus between its least distance and its greatest support, within the relative tolerance of isapprox, on nominal values"
 
 [register.Engine.public]

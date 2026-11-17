@@ -1,5 +1,5 @@
 using LineCableModels.BaseGeometry: Contour, gmd
-using LineCableModels.DataModel: ArcPolygon
+using LineCableModels.DataModel: ArcPolygon, gmr
 
 @testset "Shape geometric mean distance" begin
     # Float64 bounds measured with gmd at τ = 1e-6 on Julia 1.12.7, x86_64 Linux.
@@ -104,6 +104,23 @@ using LineCableModels.DataModel: ArcPolygon
     end
 end
 
+@testset "The geometric mean radius of a conductor reads its shape" begin
+    a, b = 1e-3, 3e-3
+    # Maxwell's internal term of the annulus from a to b.
+    internal = a^4 / (b^2 - a^2)^2 * log(b / a) - (3a^2 - b^2) / (4(b^2 - a^2))
+    bar = Rectangle(10e-3, 5e-3)
+    away = Placement(8e-3, 1e-3)
+    for μ in (1.0, 36.6326)
+        @test log(gmr(Circle(b), μ)) ≈ log(b) - μ / 4
+        @test log(gmr(Annulus(a, b), μ)) ≈ log(b) - μ * internal
+        @test log(gmr(bar, μ)) ≈ log(gmd(bar, bar)) - (μ - 1) / 4
+        # A copy placed away from the origin keeps the radius.
+        @test gmr(Circle(b, away), μ) == gmr(Circle(b), μ)
+        @test gmr(Annulus(a, b, away), μ) == gmr(Annulus(a, b), μ)
+    end
+    @test gmr(Annulus(a, b), 1.0) ≈ gmd(Annulus(a, b), Annulus(a, b))
+end
+
 @testset "The tube of a terminal reproduces its regions in parallel" begin
     for (case, problem) in REFERENCES, design in unique(problem.system.designs)
 
@@ -122,11 +139,7 @@ end
             G = [area(shapes[i]) / (regions[i].source.material.rho * ℓ[i])
                  for i in eachindex(regions)]
             w = G ./ sum(G)
-            own = map(shapes, μ) do S, μ_i
-                a, b = distance(S), support(S)
-                area(S) ≈ π * (b^2 - a^2) || return log(gmd(S, S)) - (μ_i - 1) / 4
-                return a ≈ b ? log(b) : log(b) - μ_i * (log(b) - log(gmd(S, S)))
-            end
+            own = [log(gmr(S, μ_i)) for (S, μ_i) in zip(shapes, μ)]
             log_g = sum(w .^ 2 .* own) +
                     2sum(
                 (w[i] * w[j] * log(gmd(shapes[i], shapes[j]))

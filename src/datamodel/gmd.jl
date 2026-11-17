@@ -99,3 +99,30 @@ function gmd(A::Union{Annulus, Circle}, B::AbstractShape)
 end
 gmd(A::AbstractShape, B::Union{Annulus, Circle}) = gmd(B, A)
 gmd(A::AbstractShape, B::AbstractShape) = gmd(Contour(A), Contour(B))
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the geometric mean radius ``g`` \\[m\\] of a conductor of cross-section `S` and
+relative permeability `μ` \\[dimensionless\\]. A circle or an annulus of outer radius ``b``
+\\[m\\] has
+
+```math
+\\log g = \\log b - \\mu (\\log b - \\log \\operatorname{gmd}(S,S)).
+```
+
+The difference in parentheses is the internal term of the tube, equal to ``1/4`` for a disk.
+Any other cross-section takes the disk's convention for the permeability:
+
+```math
+\\log g = \\log \\operatorname{gmd}(S,S) - \\frac{\\mu - 1}{4}.
+```
+
+The radius depends on the cross-section alone, wherever it lies. At ``\\mu = 1`` it is the
+[`gmd`](@ref) of `S` with itself.
+"""
+function gmr(S::Union{Circle, Annulus}, μ::Real)
+    b = r_ex(S)
+    return exp(log(b) - μ * (log(b) - log(gmd(S, S))))
+end
+gmr(S::AbstractShape, μ::Real) = exp(log(gmd(S, S)) - (μ - 1) / 4)
