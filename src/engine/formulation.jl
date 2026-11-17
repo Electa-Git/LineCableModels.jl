@@ -504,7 +504,9 @@ The body of a member is its conductors and the layers of its interval out to the
 whose medium differs from the filler's. A medium differs by its relative permeability, or by
 its admittivity at a frequency of the problem. The body of the bore begins at the innermost
 interior layer outside the filler whose medium differs, else at the bore's inner radius.
-Above order 0, the expansions about the members' axes converge outside these bodies. It warns
+Above order 0, the expansions about the members' axes converge outside these bodies. They
+do not converge where the conductor of a member touches that of another member or of the
+bore. It warns
 once for each member with members of its own above order 0, whose interior it computes as
 shielded by that member's conductor.
 
@@ -525,6 +527,8 @@ shielded by that member's conductor.
   the members.
 - Throws `ArgumentError` when `order ≥ 1` and the bodies of two members overlap, or a
   member's body overlaps the bore's.
+- Throws `ArgumentError` when `order ≥ 1` and the outermost conductor of a member touches
+  that of another member or the bore's conductor.
 - Throws `ArgumentError` when `order ≥ 1`, an interior has members, and the formula of the
   slot `internal_impedance` gives the surface impedances at order 0 alone.
 """
@@ -566,15 +570,24 @@ function validate(input::CoaxialInput, formulation::CoaxialFormulation,
             init = input.r_in[first(input.assemblies[a])]))
         bodies = [Circle(radius, Placement(center...))
                   for (radius, center) in zip(radii, centers)]
+        metal = [nominal(input.r_ex[last(input.assemblies[m])]) for m in members]
+        wall = nominal(input.r_in[first(input.assemblies[a])])
         for j in eachindex(members)
             for i in 1:(j - 1)
                 isdisjoint(bodies[i], bodies[j]) ||
                     throw(ArgumentError(
                         "the body of the member $(labels[i]), of radius $(radii[i]) m, reaches the body of the member $(labels[j]), of radius $(radii[j]) m, at $(hypot((centers[i] .- centers[j])...)) m between their axes in the interior of $bore: the expansions about their axes diverge above order 0; order = 0 computes them"))
+                hypot((centers[i] .- centers[j])...) - metal[i] - metal[j] <=
+                tolerance(wall) &&
+                    throw(ArgumentError(
+                        "the conductor $(labels[i]), of radius $(metal[i]) m, touches the conductor $(labels[j]), of radius $(metal[j]) m, at $(hypot((centers[i] .- centers[j])...)) m between their axes in the interior of $bore: the expansions about their axes diverge above order 0; order = 0 computes them"))
             end
             bodies[j] ⊆ Circle(c) ||
                 throw(ArgumentError(
                     "the body of the member $(labels[j]), of radius $(radii[j]) m at $(hypot(centers[j]...)) m from the axis, reaches the body of its bore $bore, of inner radius $c m: the expansions about the axes diverge above order 0; order = 0 computes them"))
+            wall - hypot(centers[j]...) - metal[j] <= tolerance(wall) &&
+                throw(ArgumentError(
+                    "the conductor $(labels[j]), of radius $(metal[j]) m at $(hypot(centers[j]...)) m from the axis, touches its bore $bore, of inner radius $wall m: the expansions about the axes diverge above order 0; order = 0 computes them"))
         end
         for m in members
             isempty(input.members[m]) ||

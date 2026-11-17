@@ -179,8 +179,9 @@ LineCableModels.defaults(CoaxialFormulation)
 
 ## Reference systems
 
-The test suite includes six reference systems, whose line parameters computed by the
-analytical and finite-element formulations are stored in `test/references/`:
+The test suite includes sixteen reference systems, whose line parameters computed by the
+analytical and finite-element formulations are stored in `test/references/`. The file
+`test/references/problems.jl` defines eleven of them:
 
 - `two_bare_wires`: two copper wires with a radius of 42.5 mm, buried at 1 m depth with a
   horizontal spacing of 1 m, in a homogeneous earth of 0.1 Ω·m.
@@ -191,6 +192,33 @@ analytical and finite-element formulations are stored in `test/references/`:
 - `overhead_bare_wires`: the two bare wires at a height of 1 m above an earth of 0.1 Ω·m.
 - `mixed_bare_wires`: the two bare wires with one placed above the earth and the other
   buried.
+- `one_bare_wire`: one bare copper wire with a radius of 42.5 mm, at a height of 10 m above
+  an earth of 0.1 Ω·m.
+- `one_insulated_sector`: one aluminum sector core with its PVC insulation and a PVC jacket,
+  buried at 1 m depth in a homogeneous earth of 100 Ω·m.
+- `milliken_solid_segments`: one 220 kV cable with a core of six solid aluminum segments,
+  buried at 1 m depth in the same earth.
+- `three_insulated_sectors`: one 1 kV cable of three aluminum sectors and 30 copper neutral
+  wires, buried at 1 m depth in the same earth.
+- `three_cores_steel_pipe`: one 36 kV pipe-type cable of three round aluminum cores in a
+  steel pipe, buried at 1 m depth in the same earth.
+
+The other five are systems of three single-core cables in an earth of 100 Ω·m, each defined
+in the file `problem.jl` of its folder:
+
+- `cable_30kv_630mm2_trefoil`: 18/30 kV cables with a solid aluminum core and a copper
+  screen, in trefoil.
+- `cable_30kv_na2xs2y_630mm2_trefoil`: 18/30 kV cables with a stranded aluminum core and a
+  screen of copper wires, in trefoil.
+- `cable_132kv_630mm2_flathor`: 132 kV cables with a stranded copper core and a screen of
+  copper wires, in a row.
+- `cable_18kv_1000mm2_trefoil`: 18 kV cables with a stranded aluminum core and a screen of
+  copper wires, in trefoil.
+- `cable_380kv_2000mm2_flatver`: 380 kV cables with a stranded copper core and a screen of
+  copper wires, in a column.
+
+The last three have an aluminum tape under the jacket. The README of `test/references/`
+describes each system.
 
 The validation consists of comparing the analytical and finite-element formulations on these
 systems. The analytical results of the package agree with the reference values of `Z`, `Y`,

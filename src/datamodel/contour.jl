@@ -194,11 +194,12 @@ $(TYPEDSIGNATURES)
 Construct four counterclockwise arcs on each circle of `annulus`. Its outer radius bounds
 the outer path and its inner radius bounds one hole. Radii and center coordinates are in \\[m\\].
 Both paths start at the placement's rotation and each arc spans a quarter turn \\[rad\\].
+A zero inner radius gives the contour of a circle, with no hole.
 """
 function Contour(annulus::Annulus)
-    outer = Contour(Circle(annulus.ro, annulus.at)).outer
-    hole = Contour(Circle(annulus.ri, annulus.at)).outer
-    return Contour(outer, [hole])
+    disc = Contour(Circle(annulus.ro, annulus.at))
+    iszero(nominal(annulus.ri)) && return disc
+    return Contour(disc.outer, [Contour(Circle(annulus.ri, annulus.at)).outer])
 end
 
 """

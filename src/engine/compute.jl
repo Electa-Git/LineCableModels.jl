@@ -156,6 +156,7 @@ function initialize_buffers(
                  for B in bodies]
     # The translations, sources and observations of the fields of the members and the bore,
     # in closed form. Each is a 2 × 2 block that acts on the cos and sin amplitudes of an order.
+    # A binomial coefficient has the real type of the radii.
     for (a, interior) in enumerate(interiors)
         isempty(input.members[a]) && continue
         (; translations, sources, observations, d) = interior
@@ -181,16 +182,18 @@ function initialize_buffers(
                     continue
                 elseif β <= P && κ <= P
                     δ = q[β] - q[κ]
-                    t = binomial(float(ν + μ - 1), μ) * (b[β] / -δ)^ν * (b[κ] / δ)^μ
+                    t = binomial(oftype(nominal(c_f), ν + μ - 1), μ) * (b[β] / -δ)^ν *
+                        (b[κ] / δ)^μ
                     translations[row:(row + 1), column:(column + 1)] .= [real(t) -imag(t);
                                                                          -imag(t) -real(t)]
                 elseif β <= P && μ >= ν
-                    t = binomial(float(μ - 1), ν - 1) * (b[β] / c_f)^ν *
+                    t = binomial(oftype(nominal(c_f), μ - 1), ν - 1) * (b[β] / c_f)^ν *
                         (q[β] / c_f)^(μ - ν)
                     translations[row:(row + 1), column:(column + 1)] .= [real(t) -imag(t);
                                                                          imag(t) real(t)]
                 elseif β > P && μ <= ν
-                    t = binomial(float(ν), μ) * (q[κ] / c_f)^(ν - μ) * (b[κ] / c_f)^μ
+                    t = binomial(oftype(nominal(c_f), ν), μ) * (q[κ] / c_f)^(ν - μ) *
+                        (b[κ] / c_f)^μ
                     translations[row:(row + 1), column:(column + 1)] .= [real(t) imag(t);
                                                                          -imag(t) real(t)]
                 end

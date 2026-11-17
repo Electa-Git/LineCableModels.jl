@@ -1498,11 +1498,18 @@ function dimension(contour::Contour{T}) where {T}
                 corners |= !istangent(before, after)
             end
             corners || continue
+            # The piece exists while the parallels that converge at its ends still meet.
             lo,
-            hi = bisect(
-                e -> nominal(turn(c, -side * e, parallel(a, c, -side * e)[2],
-                    parallel(c, b, -side * e)[1]).length) > 0,
-                zero(limit), limit)
+            hi = bisect(zero(limit), limit) do e
+                d = -side * e
+                all(((a, c), (c, b))) do (before, after)
+                    istangent(before, after) ||
+                        nominal(sin(direction(after, 0) - direction(before, 1)) * d) >= 0 ||
+                        nominal(vertex(parallel(before, d), parallel(after, d)).Δ) >= 0
+                end &&
+                    nominal(turn(c, d, parallel(a, c, d)[2], parallel(c, b, d)[1]).length) >
+                    0
+            end
             nominal(hi) == nominal(limit) || push!(bounds, 2 * hi)
         end
     end

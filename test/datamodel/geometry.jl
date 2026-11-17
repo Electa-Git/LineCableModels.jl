@@ -174,6 +174,17 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test all(centroid(moved) .≈ (1.0e-3 - 2.0e-3 / 15, 0))
     end
 
+    # An annulus of zero inner radius is the disc of its outer radius, at a real number and
+    # at a measurement.
+    @testset "an annulus of zero inner radius has the contour of the circle" begin
+        at = Placement(2.0e-3, -1.0e-3, 0.3)
+        for ri in (0.0, measurement(0.0, 1.0e-4))
+            annulus = Annulus(ri, 10.0e-3, at)
+            @test area(Contour(annulus)) == area(Contour(Circle(10.0e-3, at)))
+            @test dimension(annulus) == dimension(Circle(10.0e-3, at))
+        end
+    end
+
     # The origin lies in a hole centered on it, in a hole off it, in the region, or far
     # outside the cross-section. Far outside, the distance is that of the outer cross-section.
     # The centroid from the areas of the holes is the centroid of the contour. Measured:
@@ -836,10 +847,19 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test length(parallel(reflex, -1.0e-3).outer) == length(reflex.outer) + 1
     end
 
+    # The largest circle in a sector wider than π touches its apex and its outer arc, wherever
+    # the sector lies. Measured: 1.6e-14 at 10 m from the origin.
     @testset "the inward parallel of a sector wider than π" begin
         r = 10.0e-3
         sector = Sector(0, r, 4π / 3, 0, 0, Placement(0, 0))
         @test dimension(sector) ≈ r rtol = 1e-12
+        for at in (Placement(0, 0), Placement(0, 10.0), Placement(3.0, -10.0, 0.7)),
+            span in (4π / 3, 5π / 3)
+
+            placed = Sector(0, r, span, 0, 0, at)
+            @test dimension(placed) ≈ r rtol = 1e-13
+            @test parallel(Contour(placed), -0.45 * dimension(placed)) isa Contour{Float64}
+        end
         for e in (1.0e-3, 2.5e-3, 4.5e-3)
             R, s = r - e, sqrt((r - e)^2 - e^2)
             outline = parallel(Contour(sector), -e)
