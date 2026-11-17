@@ -6,14 +6,6 @@ lays, groups or encloses parts.
 """
 abstract type AbstractCablePart end
 
-# A part in its own frame resolves from the center, where nothing lies inside it yet.
-function resolve(::EmptyBoundary, part::AbstractCablePart)
-    return resolve(
-        (regions = PlacedRegion[], outer = EmptyBoundary(), terminals = NamedTuple[],
-            assemblies = NamedTuple[], repeats = NamedTuple[], lays = NamedTuple[], fills = NamedTuple[]),
-        part)
-end
-
 """
 $(TYPEDEF)
 
@@ -34,12 +26,55 @@ struct Region{P <: Union{AbstractPrimitive, Offset}, M <: Material} <: AbstractC
     end
 end
 
-# A region resolves its primitive against the outline of the parts inside it.
-function resolve(described::NamedTuple, region::Region)
-    shape = resolve(described.outer, region.primitive)
-    return merge(described,
-        (regions = [described.regions; PlacedRegion(region, shape)],
-            outer = boundary(shape)))
+"""
+$(TYPEDEF)
+
+Represent one region as a cable or a system places it: its declaration and its resolved
+cross-section. It is the leaf of a resolved part.
+
+$(TYPEDFIELDS)
+"""
+struct PlacedRegion{R <: Region, S <: AbstractShape} <: AbstractCablePart
+    "Declared region."
+    source::R
+    "Resolved cross-section in the frame of the part, the cable or the system that places the region."
+    shape::S
+    function PlacedRegion(source::R, shape::S) where {R <: Region, S <: AbstractShape}
+        return new{R, S}(source, shape)
+    end
+end
+
+# A region resolves its primitive against the outline of the parts inside it. Each part adds
+# the regions that it places to `regions`, in the frame that it resolves in. It returns its
+# resolved part and its outline as a pair.
+function resolve(outline::Union{EmptyBoundary, AbstractShape}, region::Region,
+        regions::Vector{PlacedRegion})
+    shape = resolve(outline, region.primitive)
+    push!(regions, PlacedRegion(region, shape))
+    return Pair{AbstractCablePart, AbstractShape}(last(regions), boundary(shape))
+end
+
+# The placed region with its cross-section in `T`: itself when the cross-section is in `T`,
+# and a conversion otherwise. A perforated cross-section always converts, so that its holes are
+# a vector of `AbstractShape{T}` whatever they are.
+function PlacedRegion(::Type{T},
+        placed::PlacedRegion{<:Region, <:AbstractShape{T}}) where {T <: Real}
+    return placed
+end
+function PlacedRegion(::Type{T}, placed::PlacedRegion) where {T <: Real}
+    return PlacedRegion(placed.source, map(x -> convert(T, x), placed.shape))
+end
+function PlacedRegion(::Type{T},
+        placed::PlacedRegion{<:Region, <:PerforatedShape{T}}) where {T <: Real}
+    return PlacedRegion(placed.source, map(x -> convert(T, x), placed.shape))
+end
+
+# A leaf of the resolved part takes the next placed region of the cable. It is a region of the
+# sub-cable around it, the last row of its scope.
+function resolve(rows::NamedTuple, scope::Vector{Int}, ::PlacedRegion)
+    push!(rows.regions, rows.placed[length(rows.regions) + 1])
+    push!(rows.assemblies[last(scope)].regions, length(rows.regions))
+    return rows
 end
 
 """
@@ -73,7 +108,22 @@ function validate(stack::Stack)
     return stack
 end
 
-resolve(described::NamedTuple, stack::Stack) = foldl(resolve, stack.items; init = described)
+# Each part of a stack resolves against the outline of the parts inside it.
+function resolve(outline::Union{EmptyBoundary, AbstractShape}, stack::Stack,
+        regions::Vector{PlacedRegion})
+    items = AbstractCablePart[]
+    for item in stack.items
+        resolved = resolve(outline, item, regions)
+        push!(items, resolved.first)
+        outline = resolved.second
+    end
+    return Pair{AbstractCablePart, AbstractShape}(Stack(items), outline)
+end
+
+function resolve(rows::NamedTuple, scope::Vector{Int}, stack::Stack)
+    foreach(item -> resolve(rows, scope, item), stack.items)
+    return rows
+end
 
 """
 $(TYPEDEF)
@@ -95,29 +145,38 @@ struct Terminal{P <: AbstractCablePart} <: AbstractCablePart
     end
 end
 
+function resolve(outline::Union{EmptyBoundary, AbstractShape}, terminal::Terminal,
+        regions::Vector{PlacedRegion})
+    resolved = resolve(outline, terminal.part, regions)
+    return Pair{AbstractCablePart, AbstractShape}(Terminal(terminal.name, resolved.first), resolved.second)
+end
+
 # The conductive regions of the part leave every terminal inside it and join the terminal of
-# its name in the scope of the part, the one with an empty scope. A terminal left without
-# regions has no row.
-function resolve(described::NamedTuple, terminal::Terminal)
-    inner = resolve(described, terminal.part)
+# its name in the scope of the part. A terminal left without regions has no row. The scope of
+# a row lists the sub-cables that contain its terminal, below the cable itself.
+function resolve(rows::NamedTuple, scope::Vector{Int}, terminal::Terminal)
+    start = length(rows.regions)
+    resolve(rows, scope, terminal.part)
     conductive = Int[index
-                     for index in (length(described.regions) + 1):length(inner.regions)
-                     if inner.regions[index].source.material isa
+                     for index in (start + 1):length(rows.regions)
+                     if rows.regions[index].source.material isa
                         Material{<:Real, :conductor}]
+    own = scope[2:end]
     named = Int[index
-                for row in inner.terminals
-                if row.name == terminal.name && isempty(row.scope)
+                for row in rows.terminals
+                if row.name == terminal.name && row.scope == own
                 for index in row.regions]
     others = NamedTuple[(name = row.name, scope = row.scope,
                             regions = setdiff(row.regions, conductive))
-                        for row in inner.terminals
-                        if !(row.name == terminal.name && isempty(row.scope))]
-    rows = NamedTuple[others;
-                      (name = terminal.name, scope = Int[],
+                        for row in rows.terminals
+                        if !(row.name == terminal.name && row.scope == own)]
+    kept = NamedTuple[others;
+                      (name = terminal.name, scope = own,
                           regions = sort!(union(named, conductive)))]
-    terminals = sort!(NamedTuple[row for row in rows if !isempty(row.regions)];
-        by = row -> first(row.regions))
-    return merge(inner, (terminals = terminals,))
+    append!(empty!(rows.terminals),
+        sort!(NamedTuple[row for row in kept if !isempty(row.regions)];
+            by = row -> first(row.regions)))
+    return rows
 end
 
 """
@@ -130,15 +189,21 @@ on its course. Each copy is a scope: the terminals declared in the part are dist
 terminals in every copy. A copy of a part other than a region is a sub-cable of the design.
 The outline of the copies is the circle about the center that contains them.
 
+A resolved repeat keeps one copy in its own frame. Its pattern then lists the placements of
+the copies.
+
 $(TYPEDFIELDS)
 """
-struct Repeat{P <: AbstractLayoutPattern, R <: AbstractCablePart} <: AbstractCablePart
-    "Pattern that places the copies."
+struct Repeat{P <: Union{AbstractLayoutPattern, AbstractVector{<:Placement}},
+    R <: AbstractCablePart} <: AbstractCablePart
+    "Pattern that places the copies, or the placements themselves in a resolved repeat."
     pattern::P
     "Part that the pattern copies."
     part::R
-    function Repeat(pattern::P, part::R) where {
-            P <: AbstractLayoutPattern, R <: AbstractCablePart}
+    function Repeat(pattern::P,
+            part::R) where {
+            P <: Union{AbstractLayoutPattern, AbstractVector{<:Placement}},
+            R <: AbstractCablePart}
         return new{P, R}(pattern, part)
     end
 end
@@ -156,88 +221,89 @@ end
 
 # The pattern places a strand, and it bends a rectangular strand into an annular sector on
 # its course.
-function resolve(described::NamedTuple, repeat::Repeat{<:AbstractLayoutPattern, <:Region})
-    course = placements(resolve(described.outer, repeat.pattern, repeat.part.primitive),
+function resolve(outline::Union{EmptyBoundary, AbstractShape},
+        repeat::Repeat{<:AbstractLayoutPattern, <:Region}, regions::Vector{PlacedRegion})
+    course = placements(resolve(outline, repeat.pattern, repeat.part.primitive),
         repeat.part.primitive)
-    shapes = [validate(resolve(at, course.shape), repeat, described.outer)
+    shapes = [validate(resolve(at, course.shape), repeat, outline)
               for at in course.placements]
-    start = length(described.regions)
-    row = (placements = course.placements,
-        copies = [index:index for index in (start + 1):(start + length(shapes))])
-    return merge(described,
-        (
-            regions = [described.regions;
-                       [PlacedRegion(repeat.part, shape) for shape in shapes]],
-            outer = Circle(maximum(support, shapes)), repeats = [described.repeats; row]))
+    append!(regions, [PlacedRegion(repeat.part, shape) for shape in shapes])
+    return Pair{AbstractCablePart, AbstractShape}(
+        Repeat(course.placements, PlacedRegion(repeat.part, course.shape)),
+        Circle(maximum(support, shapes)))
 end
 
-# The pattern places a composite part by its outline. Every copy is a sub-cable and repeats
-# the rows of the part, with its regions placed and its indices shifted. The terminals of a
-# copy take the row of the copy as their outermost scope, and its lays take the placed axis.
-# The row of the repeat precedes those of its copies, and the row of a copy precedes those of
-# the sub-cables inside it.
-function resolve(described::NamedTuple, repeat::Repeat)
-    member = resolve(EmptyBoundary(), repeat.part)
-    course = placements(resolve(described.outer, repeat.pattern, member.outer), member.outer)
-    index = length(described.repeats) + 1
-    m = length(member.assemblies)
-    base = length(described.assemblies)
-    offsets = [(at = at,
-                   region = length(described.regions) +
-                            (k - 1) * length(member.regions),
-                   repeat = index + (k - 1) * length(member.repeats),
-                   assembly = base + (k - 1) * (m + 1) + 1)
-               for (k, at) in enumerate(course.placements)]
-    regions = [PlacedRegion(placed.source,
-                   validate(resolve(offset.at, placed.shape), repeat, described.outer))
-               for offset in offsets for placed in member.regions]
-    rows = NamedTuple[]
-    for offset in offsets
-        push!(rows,
-            (at = offset.at,
-                regions = Int[index + offset.region
-                              for index in eachindex(member.regions)
-                              if all(row -> index ∉ row.regions, member.assemblies)],
-                members = Int[index + offset.assembly
-                              for index in eachindex(member.assemblies)
-                              if all(row -> index ∉ row.members, member.assemblies)]))
-        append!(rows,
-            NamedTuple[(at = offset.at * row.at,
-                           regions = row.regions .+ offset.region, members = row.members .+
-                                                                             offset.assembly)
-                       for row in member.assemblies])
+# The pattern places a composite part by its outline. The part resolves once, in its own
+# frame, and every region of every copy lies outside the part inside the repeat.
+function resolve(outline::Union{EmptyBoundary, AbstractShape},
+        repeat::Repeat{<:AbstractLayoutPattern}, regions::Vector{PlacedRegion})
+    inner = PlacedRegion[]
+    resolved = resolve(EmptyBoundary(), repeat.part, inner)
+    course = placements(resolve(outline, repeat.pattern, resolved.second), resolved.second)
+    copies = [PlacedRegion(placed.source,
+                  validate(resolve(at, placed.shape), repeat, outline))
+              for at in course.placements for placed in inner]
+    append!(regions, copies)
+    return Pair{AbstractCablePart, AbstractShape}(
+        Repeat(course.placements, resolved.first),
+        Circle(maximum(placed -> support(placed.shape), copies)))
+end
+
+# Each copy of a strand is a region of the sub-cable around the repeat.
+function resolve(rows::NamedTuple, scope::Vector{Int},
+        repeat::Repeat{<:AbstractVector{<:Placement}, <:PlacedRegion})
+    start = length(rows.regions)
+    foreach(at -> resolve(rows, scope, repeat.part), repeat.pattern)
+    push!(rows.repeats,
+        (placements = repeat.pattern,
+            copies = [index:index for index in (start + 1):length(rows.regions)]))
+    return rows
+end
+
+# Each copy of a composite part is a sub-cable. The row of the repeat precedes those of its
+# copies.
+function resolve(rows::NamedTuple, scope::Vector{Int},
+        repeat::Repeat{<:AbstractVector{<:Placement}})
+    copies = UnitRange{Int}[]
+    push!(rows.repeats, (placements = repeat.pattern, copies = copies))
+    for at in repeat.pattern
+        start = length(rows.regions)
+        resolve(rows, scope, at => repeat.part)
+        push!(copies, (start + 1):length(rows.regions))
     end
-    terminals = NamedTuple[(name = row.name,
-                               scope = Int[offset.assembly; row.scope .+ offset.assembly],
-                               regions = row.regions .+ offset.region)
-                           for offset in offsets
-                           for row in member.terminals]
-    repeats = NamedTuple[(placements = course.placements,
-                             copies = UnitRange{Int}[(offset.region + 1):(offset.region + length(member.regions))
-                                                     for offset in offsets]);
-                         NamedTuple[(
-                                        placements = [offset.at * at
-                                                      for at in row.placements],
-                                        copies = UnitRange{Int}[indices .+ offset.region
-                                                                for indices in row.copies])
-                                    for offset in offsets for row in member.repeats]]
-    lays = NamedTuple[(
-                          regions = UnitRange{Int}[indices .+ offset.region
-                                                   for indices in row.regions],
-                          radii = row.radii, pitches = row.pitches,
-                          overlengths = row.overlengths, axis = offset.at(row.axis))
-                      for offset in offsets for row in member.lays]
-    fills = NamedTuple[(region = row.region + offset.region,
-                           contents = row.contents .+ offset.region)
-                       for offset in offsets for row in member.fills]
-    return merge(described,
-        (regions = [described.regions; regions],
-            outer = Circle(maximum(placed -> support(placed.shape), regions)),
-            terminals = NamedTuple[described.terminals; terminals],
-            assemblies = NamedTuple[described.assemblies; rows],
-            repeats = NamedTuple[described.repeats; repeats], lays = NamedTuple[described.lays;
-                                                                                lays],
-            fills = NamedTuple[described.fills; fills]))
+    return rows
+end
+
+# A member at its placement is a sub-cable. Its row precedes those of the sub-cables inside
+# it. The terminals declared in it take that row as their innermost scope. The member lists
+# its rows in its own frame. The placement then puts the sub-cables inside it in the enclosing
+# frame, with the placements of the repeats and the axes of the lays.
+function resolve(rows::NamedTuple, scope::Vector{Int},
+        member::Pair{<:Placement, <:AbstractCablePart})
+    at, part = member
+    row = length(rows.assemblies) + 1
+    push!(rows.assemblies[last(scope)].members, row)
+    push!(rows.assemblies, (at = at, regions = Int[], members = Int[]))
+    repeats, lays = length(rows.repeats), length(rows.lays)
+    resolve(rows, [scope; row], part)
+    for index in (row + 1):length(rows.assemblies)
+        nested = rows.assemblies[index]
+        rows.assemblies[index] = (
+            at = at * nested.at, regions = nested.regions, members = nested.members)
+    end
+    for index in (repeats + 1):length(rows.repeats)
+        nested = rows.repeats[index]
+        rows.repeats[index] = (
+            placements = [at * placement for placement in nested.placements],
+            copies = nested.copies)
+    end
+    for index in (lays + 1):length(rows.lays)
+        nested = rows.lays[index]
+        rows.lays[index] = (regions = nested.regions, radii = nested.radii,
+            pitches = nested.pitches, overlengths = nested.overlengths,
+            axis = at(nested.axis))
+    end
+    return rows
 end
 
 """
@@ -279,69 +345,34 @@ function validate(shape::AbstractShape, ::Assembly, circle::Circle,
     return shape
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Resolve each member in its own frame and place its regions and rows in the enclosing frame.
-"""
-function resolve(described::NamedTuple, assembly::Assembly)
-    resolved = [resolve(EmptyBoundary(), part) for (at, part) in assembly.members]
-    outlines = [resolve(at, member.outer)
-                for ((at, part), member) in zip(assembly.members, resolved)]
-    regions = [PlacedRegion(placed.source, resolve(at, placed.shape))
-               for ((at, part), member) in zip(assembly.members, resolved)
-               for placed in member.regions]
-    circle = Circle(maximum(placed -> support(placed.shape), regions))
+# Each member resolves in its own frame. The members lie apart from each other and outside
+# the part inside the assembly. The outline is the circle about the center that contains
+# their regions.
+function resolve(outline::Union{EmptyBoundary, AbstractShape}, assembly::Assembly,
+        regions::Vector{PlacedRegion})
+    inner = [PlacedRegion[] for member in assembly.members]
+    resolved = [resolve(EmptyBoundary(), part, own)
+                for ((at, part), own) in zip(assembly.members, inner)]
+    outlines = [resolve(member.first, part.second)
+                for (member, part) in zip(assembly.members, resolved)]
+    copies = [PlacedRegion(placed.source, resolve(at, placed.shape))
+              for ((at, part), own) in zip(assembly.members, inner) for placed in own]
+    circle = Circle(maximum(placed -> support(placed.shape), copies))
     T = eltype(circle)
-    for (k, outline) in enumerate(outlines)
-        others = AbstractShape{T}[shape for (j, shape) in enumerate(outlines) if j != k]
-        validate(outline, assembly, circle, others, described.outer)
+    for (k, shape) in enumerate(outlines)
+        others = AbstractShape{T}[other for (j, other) in enumerate(outlines) if j != k]
+        validate(shape, assembly, circle, others, outline)
     end
-    rows = NamedTuple[]
-    terminals = NamedTuple[]
-    repeats = NamedTuple[]
-    lays = NamedTuple[]
-    fills = NamedTuple[]
-    for (k, ((at, part), member)) in enumerate(zip(assembly.members, resolved))
-        shift = length(described.regions) +
-                sum(j -> length(resolved[j].regions), 1:(k - 1); init = 0)
-        base = length(described.assemblies) + length(rows) + 1
-        push!(rows,
-            (at = at,
-                regions = Int[index + shift
-                              for index in eachindex(member.regions)
-                              if all(row -> index ∉ row.regions, member.assemblies)],
-                members = Int[index + base
-                              for index in eachindex(member.assemblies)
-                              if all(row -> index ∉ row.members, member.assemblies)]))
-        append!(rows,
-            NamedTuple[(at = at * row.at, regions = row.regions .+ shift,
-                           members = row.members .+ base) for row in member.assemblies])
-        append!(terminals,
-            NamedTuple[(name = row.name, scope = Int[base; row.scope .+ base],
-                           regions = row.regions .+ shift) for row in member.terminals])
-        append!(repeats,
-            NamedTuple[(placements = [at * placement for placement in row.placements],
-                           copies = UnitRange{Int}[indices .+ shift
-                                                   for indices in row.copies])
-                       for row in member.repeats])
-        append!(lays,
-            NamedTuple[(
-                           regions = UnitRange{Int}[indices .+ shift
-                                                    for indices in row.regions],
-                           radii = row.radii, pitches = row.pitches, overlengths = row.overlengths,
-                           axis = at(row.axis)) for row in member.lays])
-        append!(fills,
-            NamedTuple[(region = row.region + shift, contents = row.contents .+ shift)
-                       for row in member.fills])
-    end
-    return merge(described,
-        (regions = [described.regions; regions], outer = circle,
-            terminals = NamedTuple[described.terminals; terminals],
-            assemblies = NamedTuple[described.assemblies; rows],
-            repeats = NamedTuple[described.repeats; repeats],
-            lays = NamedTuple[described.lays; lays], fills = NamedTuple[described.fills;
-                                                                        fills]))
+    append!(regions, copies)
+    return Pair{AbstractCablePart, AbstractShape}(
+        Assembly(Tuple(member.first => part.first
+        for (member, part) in zip(assembly.members, resolved))),
+        circle)
+end
+
+function resolve(rows::NamedTuple, scope::Vector{Int}, assembly::Assembly)
+    foreach(member -> resolve(rows, scope, member), assembly.members)
+    return rows
 end
 
 """
@@ -371,19 +402,30 @@ struct Lay{H <: Helix, R <: Repeat} <: AbstractCablePart
     end
 end
 
-# The laid regions are the copies of the first row of repeats that the repeat adds.
-function resolve(described::NamedTuple, lay::Lay)
-    inner = resolve(described, lay.part)
-    index = length(described.repeats) + 1
-    radii = map(inner.repeats[index].copies) do indices
-        shapes = [inner.regions[region].shape for region in indices]
-        return distance(centroid(shapes))
-    end
-    row = (regions = inner.repeats[index].copies, radii = radii,
-        pitches = [lay.helix.dir * pitch(lay.helix, radius) for radius in radii],
-        overlengths = [overlength(lay.helix, radius) for radius in radii],
-        axis = (zero(eltype(radii)), zero(eltype(radii))))
-    return merge(inner, (lays = NamedTuple[inner.lays; row],))
+function resolve(outline::Union{EmptyBoundary, AbstractShape}, lay::Lay,
+        regions::Vector{PlacedRegion})
+    resolved = resolve(outline, lay.part, regions)
+    return Pair{AbstractCablePart, AbstractShape}(Lay(lay.helix, resolved.first), resolved.second)
+end
+
+# The laid regions are the copies of the first row of repeats that the repeat adds. The lay
+# radius of a copy is the distance of its centroid from the center of the repeat. That center
+# is the origin of the sub-cable around the lay, placed in the frame of the cable.
+function resolve(rows::NamedTuple, scope::Vector{Int}, lay::Lay)
+    index = length(rows.repeats) + 1
+    resolve(rows, scope, lay.part)
+    copies = rows.repeats[index].copies
+    centers = [centroid([rows.regions[region].shape for region in indices])
+               for indices in copies]
+    center = foldr((row, point) -> rows.assemblies[row].at(point), scope[2:end];
+        init = map(zero, first(centers)))
+    radii = [distance(point .- center) for point in centers]
+    push!(rows.lays,
+        (regions = copies, radii = radii,
+            pitches = [lay.helix.dir * pitch(lay.helix, radius) for radius in radii],
+            overlengths = [overlength(lay.helix, radius) for radius in radii],
+            axis = (zero(eltype(radii)), zero(eltype(radii)))))
+    return rows
 end
 
 """
@@ -401,12 +443,14 @@ group, and `⊆` tests whether each content lies within it.
 
 $(TYPEDFIELDS)
 """
-struct Group{F <: Region, C <: AbstractCablePart} <: AbstractCablePart
+struct Group{F <: Union{Region, PlacedRegion}, C <: AbstractCablePart} <:
+       AbstractCablePart
     "Region of the fill material, whose primitive declares the container."
     fill::F
     "Primitives inside the container."
     contents::C
-    function Group(fill::F, contents::C) where {F <: Region, C <: AbstractCablePart}
+    function Group(fill::F,
+            contents::C) where {F <: Union{Region, PlacedRegion}, C <: AbstractCablePart}
         return new{F, C}(fill, contents)
     end
 end
@@ -425,53 +469,85 @@ enclosure, and `⊆` tests whether each content lies within it.
 
 $(TYPEDFIELDS)
 """
-struct Enclosure{F <: Region, C <: AbstractCablePart} <: AbstractCablePart
+struct Enclosure{F <: Union{Region, PlacedRegion}, C <: AbstractCablePart} <:
+       AbstractCablePart
     "Region of the fill material, whose primitive declares the container."
     fill::F
     "Sub-cables inside the container."
     contents::C
-    function Enclosure(fill::F, contents::C) where {F <: Region, C <: AbstractCablePart}
+    function Enclosure(fill::F,
+            contents::C) where {F <: Union{Region, PlacedRegion}, C <: AbstractCablePart}
         return new{F, C}(fill, contents)
     end
 end
 
 # A region inside a group or an enclosure lies within the container of its fill.
-function validate(shape::AbstractShape, part::Union{Group, Enclosure},
-        container::AbstractShape)
+function validate(shape::AbstractShape, fill::Region, container::AbstractShape)
     shape ⊆ container || throw(DomainError(support(shape),
-        "a region inside :$(part.fill.tag) must lie within its container"))
+        "a region inside :$(fill.tag) must lie within its container"))
     return shape
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Resolve the fill as its container minus the contents' outlines.
-The holes are the outlines of the contents that lie within no other content's outline, by `⊆`.
+Resolve the fill of a group or an enclosure around its contents. The fill takes its container
+minus the contents' outlines. The holes are the outlines of the contents that lie within no
+other content's outline, by `⊆`. The placed fill joins `regions` after its contents.
+
+# Returns
+
+- The pair of the resolved contents and the outline of the fill.
 """
-function resolve(described::NamedTuple, part::Union{Group, Enclosure})
-    container = resolve(described.outer, part.fill.primitive)
-    inner = resolve(described, part.contents)
-    contents = (length(described.regions) + 1):length(inner.regions)
-    shapes = [validate(inner.regions[index].shape, part, container)
-              for index in contents]
+function resolve(outline::Union{EmptyBoundary, AbstractShape}, fill::Region,
+        contents::AbstractCablePart, regions::Vector{PlacedRegion})
+    container = resolve(outline, fill.primitive)
+    start = length(regions)
+    resolved = resolve(outline, contents, regions)
+    shapes = [validate(regions[index].shape, fill, container)
+              for index in (start + 1):length(regions)]
     outlines = map(boundary, shapes)
     holes = [outlines[i]
              for i in eachindex(shapes)
              if !any(shapes[i] ⊆ outlines[j] for j in eachindex(shapes) if j != i)]
-    placed = PlacedRegion(part.fill, PerforatedShape(container, holes))
-    row = (region = length(inner.regions) + 1, contents = collect(contents))
-    return merge(inner,
-        (regions = [inner.regions; placed], outer = boundary(container),
-            fills = [inner.fills; row]))
+    push!(regions, PlacedRegion(fill, PerforatedShape(container, holes)))
+    return Pair{AbstractCablePart, AbstractShape}(resolved.first, boundary(container))
+end
+
+function resolve(outline::Union{EmptyBoundary, AbstractShape}, group::Group,
+        regions::Vector{PlacedRegion})
+    resolved = resolve(outline, group.fill, group.contents, regions)
+    return Pair{AbstractCablePart, AbstractShape}(Group(last(regions), resolved.first), resolved.second)
+end
+
+function resolve(outline::Union{EmptyBoundary, AbstractShape}, enclosure::Enclosure,
+        regions::Vector{PlacedRegion})
+    resolved = resolve(outline, enclosure.fill, enclosure.contents, regions)
+    return Pair{AbstractCablePart, AbstractShape}(Enclosure(last(regions), resolved.first), resolved.second)
+end
+
+# The fill is the region after its contents.
+function resolve(rows::NamedTuple, scope::Vector{Int}, part::Union{Group, Enclosure})
+    start = length(rows.regions)
+    resolve(rows, scope, part.contents)
+    contents = collect((start + 1):length(rows.regions))
+    resolve(rows, scope, part.fill)
+    push!(rows.fills, (region = length(rows.regions), contents = contents))
+    return rows
 end
 
 function Base.map(f, region::Region)
     return Region(region.tag, map(f, region.primitive), map(f, region.material))
 end
+function Base.map(f, placed::PlacedRegion)
+    return PlacedRegion(map(f, placed.source), map(f, placed.shape))
+end
 Base.map(f, stack::Stack) = Stack(map.(f, stack.items))
 Base.map(f, terminal::Terminal) = Terminal(terminal.name, map(f, terminal.part))
 Base.map(f, repeat::Repeat) = Repeat(map(f, repeat.pattern), map(f, repeat.part))
+function Base.map(f, repeat::Repeat{<:AbstractVector{<:Placement}})
+    return Repeat([map(f, at) for at in repeat.pattern], map(f, repeat.part))
+end
 """
 $(TYPEDSIGNATURES)
 

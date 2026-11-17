@@ -35,7 +35,7 @@ function validate end
 
 Return the geometry that `declaration` takes in `context`. The outline of a part gives its
 geometry to the layer or part declared around it, and a placement locates a cross-section in
-its frame.
+its frame. A resolved part lists its placed regions and the rows of its tables.
 """
 function resolve end
 

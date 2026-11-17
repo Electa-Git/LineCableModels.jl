@@ -63,7 +63,7 @@ prepositions = ["at"]
 
 [global.verbs]
 validate = "check an input, a computed medium or a result before its consumer uses it; return it unchanged, or throw; warn once where it is computable but questionable"
-resolve = "give a declared part or layer its geometry in its context, or place a shape in a frame"
+resolve = "give a declared part or layer its geometry in its context, place a shape in a frame, or list the placed regions and the table rows of a resolved part"
 build = "construct a completed object of a type from its declarations"
 compute = "run one computation of a problem by a formulation, on the backend that runs it"
 select = "fit a user's selection to the slot or option key it fills, lifting a Symbol to its type"
@@ -150,7 +150,7 @@ lifts = ["select"]
 
 [register.Commons.public]
 validate = "check an input, a computed medium or a result before its consumer uses it; return it unchanged, or throw; warn once where it is computable but questionable"
-resolve = "give a declared part or layer its geometry in its context, or place a shape in a frame"
+resolve = "give a declared part or layer its geometry in its context, place a shape in a frame, or list the placed regions and the table rows of a resolved part"
 build = "construct a completed object of a type from its declarations"
 compute = "run one computation of a problem by a formulation, on the backend that runs it"
 select = "fit a user's selection to the slot or option key it fills, lifting a Symbol to its type"
@@ -207,9 +207,9 @@ Repeat = "copies of a part at the placements of a pattern, each copy a scope of 
 Lay = "the helix that the copies of a repeat follow along the cable"
 Group = "the primitives of one conductor or of one dielectric layer inside a boundary, with the fill region between them"
 Enclosure = "a fill region whose cross-section is a container without the sub-cables inside it"
-PlacedRegion = "a declared region with its resolved cross-section"
+PlacedRegion = "a declared region with its resolved cross-section, the leaf of a resolved part"
 Assembly = "sub-cables of different parts, each at its placement in the frame of the part that encloses them"
-CableDesign = "a cable described: its declared parts, its placed regions and the tables that map them"
+CableDesign = "a cable described: its resolved parts, its placed regions and the tables that map them"
 CableSystem = "the cables of a line in one cross-section, placed, with the conductor index of each terminal"
 CableBlueprint = "a cable described for coaxial formulations: equivalent tubes, their dielectric layers and assemblies"
 BlueprintConductor = "one terminal of a cable as an equivalent tube and its material"

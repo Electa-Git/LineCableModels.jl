@@ -1,29 +1,12 @@
 """
 $(TYPEDEF)
 
-Represent one region as a cable or a system places it: its declaration and its resolved
-cross-section.
-
-$(TYPEDFIELDS)
-"""
-struct PlacedRegion{R <: Region, S <: AbstractShape}
-    "Declared region."
-    source::R
-    "Resolved cross-section in the frame of the cable or the system that places the region."
-    shape::S
-    function PlacedRegion(source::R, shape::S) where {R <: Region, S <: AbstractShape}
-        return new{R, S}(source, shape)
-    end
-end
-
-"""
-$(TYPEDEF)
-
-Describe one cable by its declared parts and the regions that they resolve to, with tables
-that map the regions to terminals, sub-cables, repeats, lays, compactions and fills. Each
-table row holds resolved values in the floating type `T`, to which numbers from shapes and
-materials promote. A row exists only for a fact that holds. The declarations stay in `tree`.
-The resolved shapes of all regions are in `T`.
+Describe one cable by its resolved parts and the regions that they place. Tables map the
+regions to terminals, sub-cables, repeats, lays, compactions and fills. Each table row
+holds resolved values in the floating type `T`, to which numbers from shapes and
+materials promote. A row exists only for a fact that holds. The resolved parts stay in
+`tree`, where a copy of a repeat and a member of an assembly lie in their own frames. The
+resolved shapes of all regions are in `T`.
 
 $(TYPEDFIELDS)
 """
@@ -35,7 +18,7 @@ struct CableDesign{
 }
     "Name of the cable."
     id::String
-    "Declared parts, as given to [`build`](@ref)."
+    "Resolved parts: each part given to [`build`](@ref), with its geometry."
     tree::O
     "Placed regions, from the inside out. Together they cover the cross-section."
     regions::V
@@ -154,33 +137,36 @@ region is a sub-cable inside it.
   when a region leaves its group or its enclosure.
 """
 function build(::Type{CableDesign}, id::AbstractString, parts::AbstractCablePart...)
-    tree = Stack(parts...)
-    described = resolve(EmptyBoundary(), tree)
+    regions = PlacedRegion[]
+    resolved = resolve(EmptyBoundary(), Stack(parts...), regions)
+    return CableDesign(String(id), resolved.first, resolved.second, regions)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Describe the cable `id` by its resolved parts `tree`, its outline `outer` and its placed
+regions `regions`, from the inside out. The rows of the tables come from one walk of `tree`.
+Row 1 of the sub-cables is the cable.
+"""
+function CableDesign(id::String, tree::Stack, outer::AbstractShape,
+        regions::AbstractVector{<:PlacedRegion})
+    rows = resolve(
+        (placed = regions, regions = sizehint!(PlacedRegion[], length(regions)),
+            terminals = NamedTuple[],
+            assemblies = NamedTuple[(at = Placement(0, 0), regions = Int[], members = Int[])],
+            repeats = NamedTuple[], lays = NamedTuple[], fills = NamedTuple[]),
+        [1], tree)
     T = mapreduce(
         placed -> promote_type(eltype(placed.shape), eltype(placed.source.material)),
-        promote_type, described.regions)
-    regions = [PlacedRegion(placed.source, map(x -> convert(T, x), placed.shape))
-               for placed in described.regions]
-    cable = (
-        at = Placement(zero(T), zero(T)),
-        regions = Int[index
-                      for index in eachindex(regions)
-                      if all(row -> index ∉ row.regions, described.assemblies)],
-        members = Int[index + 1
-                      for index in eachindex(described.assemblies)
-                      if all(row -> index ∉ row.members, described.assemblies)])
-    assemblies = NamedTuple[cable;
-                            NamedTuple[(at = row.at, regions = row.regions,
-                                           members = row.members .+ 1)
-                                       for row in described.assemblies]]
-    terminals = NamedTuple[(name = row.name, scope = row.scope .+ 1, regions = row.regions)
-                           for row in described.terminals]
-    return CableDesign{T}(
-        String(id), tree, regions, map(x -> convert(T, x), described.outer),
-        terminals, assemblies, described.repeats, described.lays, NamedTuple[],
-        described.fills)
+        promote_type, regions)
+    return CableDesign{T}(id, tree,
+        [PlacedRegion(T, placed) for placed in regions],
+        map(x -> convert(T, x), outer),
+        rows.terminals, rows.assemblies, rows.repeats, rows.lays, NamedTuple[], rows.fills)
 end
 
 function Base.map(f, design::CableDesign)
-    return build(CableDesign, design.id, map.(f, design.tree.items)...)
+    return CableDesign(design.id, map(f, design.tree), map(f, design.outer),
+        [map(f, placed) for placed in design.regions])
 end

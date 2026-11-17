@@ -82,7 +82,7 @@ directory of its module file. No core method is defined under `ext/`.
 | Function | Meaning |
 | --- | --- |
 | `validate(subject, context...)` | reject an invalid input before its consumer uses it, and return `subject` unchanged |
-| `resolve(context, declaration)` | give a declared part or layer its geometry in its context, or place a cross-section in a frame |
+| `resolve(context, declaration)` | give a declared part or layer its geometry in its context, place a cross-section in a frame, or list the rows of a resolved part |
 | `build(Target, declarations...)` | construct one completed object of `Target` from its declarations |
 | `compute(problem, formulation; kw...)` | run one computation of a problem by a formulation on the backend that runs it |
 | `defaults(owner)` | the declared option keys and default values of a formula, a formulation or a backend |
@@ -142,9 +142,13 @@ connections of the system.
 
 ### Description
 
-`build(CableDesign, id, parts...)` resolves the tree into a `CableDesign`. The design stores
-the placed regions from the inside out, the outline, and the tables of terminals,
-sub-cables, repeats, lays and fills. A table has a row only for a fact that exists. The design's
+`build(CableDesign, id, parts...)` resolves the tree into a `CableDesign`. Each node keeps
+its type and takes its geometry. A region becomes a `PlacedRegion`, and a repeat keeps one
+copy in its own frame with the placements of the copies. The design stores this tree and
+the outline.
+
+One walk of the tree gives the placed regions from the inside out and the tables of
+terminals, sub-cables, repeats, lays and fills. A table has a row only for a fact that exists. The design's
 number type `T` is the promotion of the number types of its cross-sections and its
 materials. An uncertain material widens `T`. The design validates itself at construction.
 The regions cover the outline without gaps or overlaps. Every region of a group or an
