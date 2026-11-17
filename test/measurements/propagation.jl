@@ -81,11 +81,9 @@ end
         ("two_insulated_wires", :rho_cu, :Y),
         ("two_insulated_wires", :x2, :Y),
         ("two_insulated_wires", :eps_ins, :Z),
-        ("coaxial_circular_strands", :r_strand, :Y),
         ("coaxial_circular_strands", :rho_cu, :Y),
         ("coaxial_circular_strands", :mu_steel, :Y),
         ("coaxial_circular_strands", :temperature, :Y),
-        ("coaxial_rectangular_strands", :w_strand, :Y),
         ("coaxial_rectangular_strands", :rho_cu, :Y),
         ("coaxial_rectangular_strands", :mu_steel, :Y)))
     formulation = CoaxialFormulation()
@@ -163,6 +161,147 @@ end
         end
     end
 
+    # The backward difference follows the feasible wire sizes below the flush radius, with
+    # the stencil and bound of the measurement propagation test.
+    @testset "a wire flush with its fill has the derivatives of its radius" begin
+        v, σ = 1.5e-3, 1.0e-5
+        δ = 1e-5 * v
+        formulation = CoaxialFormulation()
+        result = compute(
+            Dict(cases(; r_strand = ForwardDiff.Dual(v, 1.0)))[
+            "coaxial_circular_strands"], formulation)
+        perturbed = [compute(
+                         Dict(cases(; r_strand = v + o * δ))[
+                         "coaxial_circular_strands"], formulation) for o in (0, -1, -2)]
+        differences = (
+            sum(w * p.Z for (p, w) in zip(perturbed, (3 / 2, -2, 1 / 2))) / δ,
+            sum(w * p.Y for (p, w) in zip(perturbed, (3 / 2, -2, 1 / 2))) / δ)
+        for (Q, Q0, D) in zip((result.Z, result.Y),
+            (first(perturbed).Z, first(perturbed).Y), differences)
+            scale = maximum(abs(Q0[i, i, k]) for i in axes(Q0, 1) for k in axes(Q0, 3))
+            relative = maximum(
+                abs(ForwardDiff.partials(part(Q[i]))[1] - part(D[i])) / abs(part(D[i]))
+            for i in eachindex(Q)
+            for part in (real, imag)
+            if abs(part(D[i])) * σ > 1e-9 * scale)
+            @test relative <= 1e-5
+        end
+    end
+
+    @testset "a bare screen has finite permeability and the derivative of its wire radius" begin
+        v, σ = 1.0e-3, 1.0e-5
+        δ = 1e-5 * v
+        source = measurement(v, σ)
+        copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+        polymer = Material(:insulator, 1.0e14, 2.3)
+        air = material(kind = :insulator, rho = Inf)
+        designs = map((ForwardDiff.Dual(v, 1.0), source,
+            (v + o * δ for o in (0, -1, -2))...)) do rw
+            build(CableDesign, "bare",
+                Terminal(:core, Region(:core, Circle(5.0e-3), copper)),
+                Region(:ins, Offset(2.0e-3), polymer),
+                Terminal(:sheath,
+                    Enclosure(Region(:sheath_fill, Offset(2.0e-3), air),
+                        Lay(Helix(LayRatio(10)),
+                            Repeat(CircularPattern(20; r = 8.0e-3),
+                                Region(:w, Circle(rw), copper))))))
+        end
+        results = map(designs) do design
+            system = build(CableSystem, [design], [Placement(0.0, -1.0)];
+                connections = [(core = 1, sheath = 2)], id = "bare", line_length = 1.0)
+            problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+                frequencies = [50.0, 1.0e5])
+            compute(problem, CoaxialFormulation())
+        end
+        for design in designs[1:3]
+            blueprint = LineCableModels.flatten(design)
+            layer = only(blueprint.dielectrics[last(blueprint.dielectric_ranges)])
+            @test nominal(layer.r_in) == nominal(layer.r_ex)
+            row = only(design.lays)
+            conductances = [LineCableModels.area(design.regions[only(indices)].shape) /
+                            (design.regions[only(indices)].source.material.rho *
+                             overlength)
+                            for (indices, overlength) in zip(row.regions, row.overlengths)]
+            N = sum((conductances ./ sum(conductances)) ./ row.pitches)
+            μ₁ = layer.material.mu_r
+            r_e = last(blueprint.conductors).r_ex
+            @test isapprox(nominal(last(blueprint.mu_r_ins)),
+                nominal(μ₁ * (1 + 4π^2 * N^2 * r_e^2)); rtol = 1e-14)
+        end
+        @test all(isfinite(ForwardDiff.value(part(q))) &&
+                  isfinite(ForwardDiff.partials(part(q))[1])
+        for Q in (results[1].Z, results[1].Y) for q in Q for part in (real, imag))
+        @test all(isfinite(nominal(part(q))) &&
+                  isfinite(Measurements.uncertainty(part(q)))
+        for Q in (results[2].Z, results[2].Y) for q in Q for part in (real, imag))
+        perturbed = results[3:5]
+        D = sum(w * p.Z for (p, w) in zip(perturbed, (3 / 2, -2, 1 / 2))) / δ
+        Q0 = first(perturbed).Z
+        scale = maximum(abs(Q0[i, i, k]) for i in axes(Q0, 1) for k in axes(Q0, 3))
+        for Q in (
+            map(
+                q -> complex(ForwardDiff.partials(real(q))[1],
+                    ForwardDiff.partials(imag(q))[1]),
+                results[1].Z),
+            map(
+                q -> complex(Measurements.derivative(real(q), source),
+                    Measurements.derivative(imag(q), source)),
+                results[2].Z))
+            relative = maximum(abs(part(Q[i]) - part(D[i])) / abs(part(D[i]))
+            for i in eachindex(Q)
+            for part in (real, imag)
+            if abs(part(D[i])) * σ > 1e-9 * scale)
+            @test relative <= 1e-5
+        end
+    end
+
+    @testset "a bare stranded core has the derivatives of its wire radius" begin
+        v, σ = 1.5e-3, 1.0e-5
+        δ = 1e-5 * v
+        copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+        air = Material(:insulator, Inf, 1.0)
+        results = map((ForwardDiff.Dual(v, 1.0),
+            (v + o * δ for o in (0, -1, -2))...)) do rw
+            design = build(CableDesign, "bare_stranded",
+                Terminal(:core,
+                    Enclosure(Region(:fill, Circle(4.5e-3), air),
+                        Stack(Region(:centre, Circle(1.5e-3), copper),
+                            Lay(Helix(LayRatio(12)),
+                                Repeat(CircularPattern(6; r = 3.0e-3),
+                                    Region(:w, Circle(rw), copper)))))))
+            system = build(CableSystem, [design], [Placement(0.0, 10.0)];
+                connections = [(core = 1,)], id = "bare_stranded", line_length = 1.0)
+            problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+                frequencies = [50.0, 1.0e5])
+            compute(problem, CoaxialFormulation())
+        end
+        result, perturbed = first(results), results[2:4]
+        differences = (
+            sum(w * p.Z for (p, w) in zip(perturbed, (3 / 2, -2, 1 / 2))) / δ,
+            sum(w * p.Y for (p, w) in zip(perturbed, (3 / 2, -2, 1 / 2))) / δ)
+        for (Q, Q0, D) in zip((result.Z, result.Y),
+            (first(perturbed).Z, first(perturbed).Y), differences)
+            scale = maximum(abs(Q0[i, i, k]) for i in axes(Q0, 1) for k in axes(Q0, 3))
+            relative = maximum(
+                abs(ForwardDiff.partials(part(Q[i]))[1] - part(D[i])) / abs(part(D[i]))
+            for i in eachindex(Q)
+            for part in (real, imag)
+            if abs(part(D[i])) * σ > 1e-9 * scale)
+            @test relative <= 1e-5
+        end
+    end
+
+    @testset "a wire flush with its fill has finite values and uncertainties" begin
+        problem = Dict(cases(; r_strand = measurement(1.5e-3, 1.0e-5),
+            frequencies = [50.0, 1.0e3, 1.0e5]))["coaxial_circular_strands"]
+        result = compute(problem, formulation)
+        for Q in (result.Z, result.Y)
+            @test all(isfinite(nominal(part(q))) &&
+                      isfinite(Measurements.uncertainty(part(q)))
+            for q in Q for part in (real, imag))
+        end
+    end
+
     @testset "Repeated source" begin
         connections = [(core = 1,), (core = 1,)]
         one_source = compute(
@@ -225,7 +364,7 @@ end
         copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
         polymer = Material(:insulator, 1.0e14, 2.5)
         steel = Material(:conductor, 7.0e-8, 1.0, 10.0, 20.0, 0.0045)
-        function stranded(r, θ)
+        function stranded(r, θ; kw...)
             member = Stack(
                 Terminal(:a,
                     Enclosure(Region(:a_fill, Circle(3r), polymer),
@@ -241,11 +380,13 @@ end
                 connections = [(a = 1, pipe = 2)], id = "stranded", line_length = 1.0)
             problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
                 frequencies = [50.0])
-            return compute(problem, CoaxialFormulation())
+            return compute(problem, CoaxialFormulation(; kw...))
         end
-        for θ in (0.0, 2π / 3, 4π / 3)
-            result = stranded(measurement(3.0e-3, 1.0e-5), θ)
-            @test all(isfinite(Measurements.uncertainty(part(q)))
+        for θ in (0.0, 2π / 3, 4π / 3), order in (0, 20)
+
+            result = stranded(measurement(3.0e-3, 1.0e-5), θ; order)
+            @test all(isfinite(nominal(part(q))) &&
+                      isfinite(Measurements.uncertainty(part(q)))
             for Q in (result.Z, result.Y) for q in Q for part in (real, imag))
         end
     end

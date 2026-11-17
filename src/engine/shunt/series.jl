@@ -2,7 +2,7 @@ defaults(::Type{Formula{:series}}) = (;)
 
 function (::Formula{:series})(
         r_in::T, r_ex::T, κ::Complex{T}, s::Complex{T}) where {T <: Real}
-    return iszero(r_in) || r_in == r_ex ? zero(s) : s / (2π * κ / log(r_ex / r_in))
+    return iszero(r_in) ? zero(s) : s * log(r_ex / r_in) / (2π * κ)
 end
 
 """

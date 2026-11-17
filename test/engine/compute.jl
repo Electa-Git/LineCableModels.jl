@@ -171,6 +171,33 @@ end
         end
     end
 
+    @testset "a core in a fill equals the core with a dielectric layer" begin
+        insulation = Material(:insulator, 1.0e14, 2.5)
+        metal = Terminal(:core, Region(:core, Circle(10.0e-3), copper))
+        screen = Terminal(:screen, Region(:screen, Offset(1.0e-3), copper))
+        jacket = Region(:jacket, Offset(3.0e-3), insulation)
+        plain = build(CableDesign, "plain", metal,
+            Region(:core_insulation, Offset(6.0e-3), insulation), screen, jacket)
+        filled = build(CableDesign, "fill-e0",
+            Enclosure(Region(:core_insulation, Circle(16.0e-3), insulation), metal),
+            screen, jacket)
+        frequencies = sort!(unique([last(first(REFERENCES)).frequencies;
+                                    50.0; 1.0e3; 1.0e5]))
+        results = map((plain, filled)) do design
+            system = build(CableSystem, [design], [Placement(0.0, -1.0)];
+                connections = [(core = 1, screen = 2)], id = "core", line_length = 1.0)
+            compute(
+                LineParametersProblem(system,
+                    homogeneous(rho = 100.0, eps_r = 10.0); frequencies),
+                CoaxialFormulation())
+        end
+        for (expected, computed) in ((results[1].Z, results[2].Z),
+            (results[1].Y, results[2].Y))
+            @test all(isfinite, computed)
+            @test reinterpret(UInt64, vec(computed)) == reinterpret(UInt64, vec(expected))
+        end
+    end
+
     @testset "the layer map and the media terms" begin
         mixed = Dict(REFERENCES)["mixed_bare_wires"]
         @test Engine.CoaxialInput(mixed, CoaxialFormulation().options).earth_layer == [1, 2]

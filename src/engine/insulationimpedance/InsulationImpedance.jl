@@ -17,8 +17,8 @@ z = \\frac{s \\mu_0 \\mu_r}{2 \\pi} \\ln \\frac{r_\\mathrm{ex}}{r_\\mathrm{in}},
 where ``s`` is the complex frequency \\[1/s\\], ``r_\\mathrm{in}`` and
 ``r_\\mathrm{ex}`` are the inner and outer radii of the layer \\[m\\], and ``\\mu_r`` is its
 relative permeability \\[dimensionless\\]. The constant ``\\mu_0`` is
-[`μ₀`](@ref). The term is zero when ``r_\\mathrm{in}`` is zero or equals
-``r_\\mathrm{ex}``.
+[`μ₀`](@ref). The calculation returns zero at ``r_\\mathrm{in} = 0`` and evaluates
+the expression otherwise. At ``r_\\mathrm{in} = r_\\mathrm{ex}``, the expression has value zero.
 
 ### Callable
 

@@ -87,8 +87,12 @@
             @test [tube.r_in for tube in blueprint.conductors] ≈ [0.0, 20.5e-3, 24.5e-3]
             @test [tube.r_ex for tube in blueprint.conductors] ≈ [10.5e-3, 21.5e-3, 28.5e-3]
             @test [layer.material for layer in blueprint.dielectrics] ==
-                  [semicon, polymer, semicon, polymer, polymer]
-            @test blueprint.dielectric_ranges == [1:3, 4:4, 5:5]
+                  [air, semicon, polymer, semicon, polymer, air, polymer]
+            @test blueprint.dielectric_ranges == [1:4, 5:5, 6:7]
+            @test [layer.r_in for layer in blueprint.dielectrics] ≈
+                  [10.5e-3, 10.5e-3, 11.5e-3, 19.5e-3, 21.5e-3, 28.5e-3, 28.5e-3]
+            @test [layer.r_ex for layer in blueprint.dielectrics] ≈
+                  [10.5e-3, 11.5e-3, 19.5e-3, 20.5e-3, 24.5e-3, 28.5e-3, 32.5e-3]
             values = [(tube.material.rho, tube.material.mu_r, mu)
                       for (tube, mu) in zip(blueprint.conductors, blueprint.mu_r_ins)]
             expected = [core, (copper.rho, 1.0, 1.0),
@@ -105,6 +109,98 @@
         wire = copper.rho / (π * 1.5e-3^2)
         resistance = wire / (1 + 36 / sqrt(1 + (π / 12)^2))
         @test resistance * π * 10.5e-3^2 ≈ 2.3580693965940444e-8
+    end
+
+    @testset "wires smaller than their boundary leave a layer of air" begin
+        courses = [Lay(Helix(LayRatio(12)),
+                       Repeat(CircularPattern(n; r = 3.0e-3k),
+                           Region(Symbol(:core_strands_, k), Circle(1.4e-3), copper)))
+                   for (k, n) in enumerate((6, 12, 18))]
+        armour = Lay(Helix(LayRatio(10)),
+            Repeat(CircularPattern(40; r = 26.5e-3),
+                Region(:armour_wires, Circle(2.0e-3), steel)))
+        blueprint = flatten(build(CableDesign, "coaxial_circular_strands",
+            Terminal(:core,
+                Enclosure(Region(:core_fill, Circle(10.5e-3), air),
+                    Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
+            Region(:core_semicon_inner, Offset(1.0e-3), semicon),
+            Region(:core_insulation, Offset(8.0e-3), polymer),
+            Region(:core_semicon_outer, Offset(1.0e-3), semicon),
+            Terminal(:sheath, Region(:sheath_copper, Annulus(20.5e-3, 21.5e-3), copper)),
+            Region(:sheath_bedding, Offset(3.0e-3), polymer),
+            Terminal(:armour, Enclosure(Region(:armour_fill, Offset(4.0e-3), air), armour)),
+            Region(:armour_jacket, Offset(4.0e-3), polymer)))
+        tube = first(blueprint.conductors)
+        layer = first(blueprint.dielectrics[blueprint.dielectric_ranges[1]])
+        @test [tube.r_in, tube.r_ex] ≈ [0.0, 10.4e-3]
+        @test [layer.r_in, layer.r_ex] ≈ [10.4e-3, 10.5e-3]
+        @test layer.material == air
+    end
+
+    @testset "only the closing fill of two wire courses forms a layer" begin
+        local polymer = Material(:insulator, 1.0e14, 2.5)
+        local air = Material(:insulator, 1.0e14, 1.0)
+        for eps_r in (1.0, 4.0)
+            compound = Material(:insulator, 1.0e14, eps_r)
+            blueprint = flatten(build(CableDesign, "two_courses",
+                Terminal(:core,
+                    Stack(Region(:centre, Circle(2.0e-3), copper),
+                        wires(copper; shape = Circle(1.0e-3), n = 6,
+                            lay = LayRatio(12), fill = air, tag = :inner),
+                        wires(copper; shape = Circle(1.0e-3), n = 12,
+                            lay = LayRatio(12), fill = compound, tag = :outer))),
+                Region(:ins, Offset(2.0e-3), polymer),
+                Terminal(:screen, Region(:screen, Offset(0.5e-3), copper)),
+                Region(:jacket, Offset(2.0e-3), polymer)))
+            @test [[tube.r_in, tube.r_ex] for tube in blueprint.conductors] ≈
+                  [[0.0, 0.006], [0.008, 0.0085]] rtol = 1e-12
+            @test [[layer.r_in, layer.r_ex, layer.material.eps_r]
+                   for layer in blueprint.dielectrics[blueprint.dielectric_ranges[1]]] ≈
+                  [[0.006, 0.006, eps_r], [0.006, 0.008, 2.5]] rtol = 1e-12
+            @test [[layer.r_in, layer.r_ex, layer.material.eps_r]
+                   for layer in blueprint.dielectrics[blueprint.dielectric_ranges[2]]] ≈
+                  [[0.0085, 0.0105, 2.5]] rtol = 1e-12
+        end
+    end
+
+    @testset "a fill under metal of its terminal stays inside the tube" begin
+        local polymer = Material(:insulator, 1.0e14, 2.5)
+        compound = Material(:insulator, 1.0e14, 4.0)
+        blueprint = flatten(build(CableDesign, "covered",
+            Terminal(:core,
+                Stack(
+                    Enclosure(Region(:fill, Circle(3.0e-3), compound),
+                        Stack(Region(:centre, Circle(1.0e-3), copper),
+                            Lay(Helix(LayRatio(12)),
+                                Repeat(CircularPattern(6; r = 2.0e-3),
+                                    Region(:w, Circle(1.0e-3), copper))))),
+                    Region(:tube, Offset(1.0e-3), copper))),
+            Region(:ins, Offset(2.0e-3), polymer),
+            Terminal(:screen, Region(:screen, Offset(0.5e-3), copper)),
+            Region(:jacket, Offset(2.0e-3), polymer)))
+        @test [[tube.r_in, tube.r_ex] for tube in blueprint.conductors] ≈
+              [[0.0, 0.004], [0.006, 0.006500000000000001]] rtol = 1e-12
+        @test [[layer.r_in, layer.r_ex, layer.material.eps_r]
+               for layer in blueprint.dielectrics[blueprint.dielectric_ranges[1]]] ≈
+              [[0.004, 0.006, 2.5]] rtol = 1e-12
+        @test [[layer.r_in, layer.r_ex, layer.material.eps_r]
+               for layer in blueprint.dielectrics[blueprint.dielectric_ranges[2]]] ≈
+              [[0.006500000000000001, 0.0085, 2.5]] rtol = 1e-12
+    end
+
+    @testset "a rectangular fill keeps the tube of its area and perimeter" begin
+        local polymer = Material(:insulator, 1.0e14, 2.5)
+        blueprint = flatten(build(CableDesign, "square",
+            Terminal(:core,
+                Enclosure(Region(:fill, Rectangle(20.0e-3, 20.0e-3), polymer),
+                    Region(:wire, Circle(5.0e-3), copper))),
+            Region(:ins, Offset(2.0e-3), polymer)))
+        tube = only(blueprint.conductors)
+        @test [tube.r_in, tube.r_ex] ≈
+              [0.011709564203152074, 0.012732395447351628] rtol = 1e-12
+        @test [[layer.r_in, layer.r_ex, layer.material.eps_r]
+               for layer in blueprint.dielectrics[only(blueprint.dielectric_ranges)]] ≈
+              [[0.012732395447351628, 0.014732395447351629, 2.5]] rtol = 1e-12
     end
 
     @testset "opposite lays cancel turns" begin

@@ -98,7 +98,7 @@ struct CableBlueprint{T <: Real, V <: AbstractVector{<:BlueprintDielectric}}
     """
     dielectric_ranges::Vector{UnitRange{Int}}
     """
-    Relative permeability of the interval of each conductor, with the correction for the
+    The relative permeability of the interval of each conductor, with the correction for the
     helical path of its current \\[dimensionless\\].
     """
     mu_r_ins::Vector{T}
@@ -153,9 +153,14 @@ $(TYPEDSIGNATURES)
 Reduce a cable design to its [`CableBlueprint`](@ref). Each row of the assemblies of the
 design is a concentric assembly about its axis. Each terminal becomes a tube about the axis
 of its assembly. The cable lies about its origin. A member lies about the centroid of the
-regions of its first terminal, or about its placement when it has no terminal. The tube
-spans the conductive regions of the terminal and the containers of the fills between them,
-from their nearest to their farthest extent.
+regions of its first terminal, or about its placement when it has no terminal.
+
+For an annular block, the tube starts at the nearest extent of the terminal's conductive
+regions and the containers of the fills between them. It ends at the farthest extent of
+its conductive regions. The fill beyond the metal forms the interval's first layer, with
+the fill's material. This layer has zero width where the metal meets the fill's outer boundary.
+A block that is not annular takes Ametani's equivalent below, with the fill's outline as
+its outline. No fill layer forms.
 
 The regions of the same row outside the tube, up to its next terminal or its last region,
 become the layers of its dielectric interval. The regions of a row around its members form
@@ -197,8 +202,8 @@ The calculation evaluates the own term once for each position within a repeated 
 That position in each copy takes the value from the first copy. The copies are rigid images under the repeat's placements.
 A region outside every repeat takes its own term.
 
-A block that tiles an annulus takes that tube. Any other block takes the tube
-of its metal area ``S`` and of the perimeter ``l`` of its outline, Ametani's equivalent:
+For a block that is not annular, Ametani's equivalent gives the tube's radii from its metal
+area ``S`` and outline perimeter ``l``:
 
 ```math
 r_e = \\frac{l}{2\\pi}, \\qquad r_i = \\sqrt{r_e^2 - \\frac{S}{\\pi}}.
@@ -224,10 +229,16 @@ reaches from ``a_k`` to ``b_k``. The interval has
 
 ```math
 \\mu_{ins} = \\frac{\\sum_k \\mu_k \\log(b_k / a_k)}{\\log(r_d / r_e)}
-    \\left[1 + \\frac{2 \\pi^2 N^2 (r_d^2 - r_e^2)}{\\log(r_d / r_e)}\\right],
+    \\left[1 + \\frac{2 \\pi^2 N^2 (r_d^2 - r_e^2)}{\\log(r_d / r_e)}\\right].
 ```
 
-and ``\\mu_{ins} = 1`` without layers.
+The calculation uses ``(r_d^2 - r_e^2) / \\log(r_d / r_e) =
+2 r_d r_e \\sinh(\\log(r_d / r_e)) / \\log(r_d / r_e)``.
+The last factor takes its exact limit of 1 at ``r_d = r_e``.
+For the first factor of ``\\mu_{ins}``, the calculation uses
+``\\mu_1 + \\sum_{k \\ge 2} (\\mu_k - \\mu_1) \\log(b_k / a_k) / \\log(r_d / r_e)``,
+equal to the quotient because layers tile ``r_e`` to ``r_d``, and ``\\mu_1`` at ``r_d = r_e``.
+Without layers, ``\\mu_{ins} = 1``.
 
 Several dielectric regions that tile an annulus, such as an open tape and its fill, form one
 layer. Under a radial field they act in parallel. The layer takes their composite material
@@ -338,7 +349,7 @@ function flatten(design::CableDesign)
                 for index in blocks[k] if index ∉ contents]
         annular = isannular([centered[owners[k]][index] for index in blocks[k]])
         outer = convert(T,
-            annular ? maximum(support, tube) :
+            annular ? maximum(support, shapes) :
             perimeter(boundary(centered[owners[k]][last(blocks[k])])) / 2π)
         inner = convert(T,
             annular ? minimum(distance, tube) :
@@ -354,14 +365,16 @@ function flatten(design::CableDesign)
             convert(T, 90), zero(T), zero(T))
         indices = [index
                    for index in design.assemblies[owners[k]].regions
-                   if last(blocks[k]) < index <= stops[k]]
+                   if (annular && index in containers &&
+                       all(i -> i <= index || i in contents, blocks[k])) ||
+                      last(blocks[k]) < index <= stops[k]]
         interval = BlueprintDielectric[]
         for band in bands
             last(band) in indices || continue
             pieces = [centered[owners[k]][i] for i in band]
             media = [regions[i].source.material for i in band]
             lower = convert(T,
-                annular ? minimum(distance, pieces) :
+                annular && last(band) ∉ containers ? minimum(distance, pieces) :
                 (isempty(interval) ? outer : last(interval).r_ex))
             upper = convert(
                 T, annular ? maximum(support, pieces) :
@@ -373,8 +386,14 @@ function flatten(design::CableDesign)
             one(T)
         else
             width = log(last(interval).r_ex / outer)
-            sum(layer -> layer.material.mu_r * log(layer.r_ex / layer.r_in), interval) /
-            width * (1 + 2π^2 * N^2 * (last(interval).r_ex^2 - outer^2) / width)
+            (first(interval).material.mu_r +
+             sum(
+                layer -> (layer.material.mu_r - first(interval).material.mu_r) *
+                         log(layer.r_ex / layer.r_in) / width,
+                interval[2:end]; init = zero(T))) *
+            (1 +
+             4π^2 * N^2 * last(interval).r_ex * outer *
+             (iszero(nominal(width)) ? one(width) : sinh(width) / width))
         end
         return (conductor = BlueprintConductor{T}(k, owners[k], inner, outer, material),
             interval = interval, relative = convert(T, relative))

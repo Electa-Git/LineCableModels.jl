@@ -80,10 +80,13 @@
             for (row, targets) in zip(values, expected)
             for (value, target) in zip(row, targets))
             @test input.r_ins_ex ≈ [20.5e-3, 24.5e-3, 32.5e-3]
-            @test input.dielectric_ranges == [1:3, 4:4, 5:5]
-            @test input.dielectric_material == [semicon, polymer, semicon, polymer, polymer]
-            @test input.dielectric_r_in ≈ [10.5e-3, 11.5e-3, 19.5e-3, 21.5e-3, 28.5e-3]
-            @test input.dielectric_r_ex ≈ [11.5e-3, 19.5e-3, 20.5e-3, 24.5e-3, 32.5e-3]
+            @test input.dielectric_ranges == [1:4, 5:5, 6:7]
+            @test input.dielectric_material ==
+                  [air, semicon, polymer, semicon, polymer, air, polymer]
+            @test input.dielectric_r_in ≈
+                  [10.5e-3, 10.5e-3, 11.5e-3, 19.5e-3, 21.5e-3, 28.5e-3, 28.5e-3]
+            @test input.dielectric_r_ex ≈
+                  [10.5e-3, 11.5e-3, 19.5e-3, 20.5e-3, 24.5e-3, 28.5e-3, 32.5e-3]
             @test input.x == [0.0] && input.y == [-1.0]
             @test input.radius == [support(design.outer)] && input.assemblies == [1:3]
             @test input.connection == [1, 2, 3]
