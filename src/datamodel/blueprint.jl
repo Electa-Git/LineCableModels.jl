@@ -191,7 +191,7 @@ A disk or annulus ``S_i`` about the center, of outer radius ``b``, has the own t
 ```
 
 The difference in parentheses is the tube's internal term, equal to ``1/4``
-for a disk. A thin shell at equal inner and outer radii has the own term ``\\log b``.
+for a disk.
 Any other region ``S_i`` has the own term
 ``\\log g_i = \\log \\operatorname{gmd}(S_i,S_i) - (\\mu_i-1)/4``.
 Its geometric mean distance comes from its outline through [`gmd`](@ref), with the
@@ -214,16 +214,32 @@ Each layer of its interval then lies around the previous radius, with the distan
 the metal of its band as its thickness.
 
 The tube of inner radius ``r_i`` and outer radius ``r_e`` takes the resistivity
-``R \\pi (r_e^2 - r_i^2)``. Its relative permeability gives the self term of an annulus the
+``R \\pi (r_e^2 - r_i^2)``. Its relative permeability gives the own term of its section the
 value ``\\log g``:
 
 ```math
 \\mu_\\mathrm{tube} = \\frac{\\log r_e - \\log g}
-    {\\frac{r_i^4}{(r_e^2 - r_i^2)^2} \\log\\frac{r_e}{r_i}
-        - \\frac{3 r_i^2 - r_e^2}{4 (r_e^2 - r_i^2)}},
+    {\\log r_e - \\log \\operatorname{gmd}(S_\\mathrm{tube},S_\\mathrm{tube})},
 ```
 
-with the first term of the denominator zero for ``r_i = 0``. The interval of the tube
+where ``S_\\mathrm{tube}`` is the tube's section: a disk for ``r_i = 0`` and an annulus otherwise.
+The calculation evaluates the numerator as
+
+```math
+\\sum_i w_i^2 (\\log r_e - \\log g_i)
++ 2 \\sum_{i<j} w_i w_j (\\log r_e - \\log d_{ij}).
+```
+
+For an annular region ``S_i``, the own contribution is
+
+```math
+\\log r_e - \\log g_i = \\log r_e - \\log b_i
++ \\mu_i (\\log b_i - \\log g_{S_i}).
+```
+
+Here ``b_i`` is the region's outer radius in \\[m\\], and ``\\mu_i`` is its relative permeability \\[dimensionless\\].
+The geometric mean radius ``g_{S_i} = \\operatorname{gmd}(S_i,S_i)`` is in \\[m\\].
+The interval of the tube
 reaches from ``r_e`` to ``r_d``, and its layer ``k`` of relative permeability ``\\mu_k``
 reaches from ``a_k`` to ``b_k``. The interval has
 
@@ -313,17 +329,15 @@ function flatten(design::CableDesign)
         representatives[index] = representatives[representatives[index]]
     end
     terms = zeros(T, length(regions))
+    deficits = zeros(T, length(regions))
     for index in unique(representatives[assigned])
         terminal = findfirst(row -> index in row.regions, design.terminals)
         shape = centered[owners[terminal]][index]
         μ = regions[index].source.material.mu_r
         terms[index] = if isannular(shape)
-            a, b = distance(shape), support(shape)
-            if isapprox(a, b)
-                log(b)
-            else
-                log(b) - μ * (log(b) - log(gmd(shape, shape)))
-            end
+            b = support(shape)
+            deficits[index] = μ * (log(b) - log(gmd(shape, shape)))
+            log(b)
         else
             log(gmd(shape, shape)) - (μ - 1) / 4
         end
@@ -335,12 +349,6 @@ function flatten(design::CableDesign)
         conductances = [area(shapes[i]) / (materials[i].rho * overlengths[members[i]])
                         for i in eachindex(members)]
         shares = conductances ./ sum(conductances)
-        own = [terms[representatives[index]] for index in members]
-        cross = sum(
-            (shares[i] * shares[j] * log(gmd(shapes[i], shapes[j]))
-            for i in eachindex(shapes) for j in (i + 1):length(shapes));
-            init = zero(eltype(shares)))
-        gmr = sum(shares .^ 2 .* own) + 2cross
         contents = [index for fill in design.fills if fill.region in blocks[k]
                     for index in fill.contents]
         containers = [fill.region for fill in design.fills if fill.region in blocks[k]]
@@ -355,9 +363,17 @@ function flatten(design::CableDesign)
             annular ? minimum(distance, tube) :
             (nominal(outer^2 - sum(area, shapes) / π) <= tolerance(outer)^2 ? zero(outer) :
              sqrt(outer^2 - sum(area, shapes) / π)))
-        term = iszero(nominal(inner)) ? zero(outer) :
-               inner^4 / (outer^2 - inner^2)^2 * log(outer / inner)
-        mu = (log(outer) - gmr) / (term - (3inner^2 - outer^2) / (4(outer^2 - inner^2)))
+        gap = sum(eachindex(shapes)) do i
+            representative = representatives[members[i]]
+            shares[i]^2 * (log(outer) - terms[representative] + deficits[representative])
+        end
+        cross = sum(
+            (shares[i] * shares[j] * (log(outer) - log(gmd(shapes[i], shapes[j])))
+            for i in eachindex(shapes) for j in (i + 1):length(shapes));
+            init = zero(eltype(shares)))
+        gap += 2cross
+        section = iszero(nominal(inner)) ? Circle(outer) : Annulus(inner, outer)
+        mu = gap / (log(outer) - log(gmd(section, section)))
         material = Material(Val(:conductor),
             convert(T, π * (outer^2 - inner^2) / sum(conductances)), one(T), convert(T, mu),
             convert(T, first(materials).T0),

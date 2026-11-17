@@ -12,6 +12,24 @@ of inner radius ``a`` and outer radius ``b``, their own terms are
 \\left[\\frac{a^4\\log(b/a)}{(b^2-a^2)^2}-\\frac{3a^2-b^2}{4(b^2-a^2)}\\right].
 ```
 
+For ``s = (b-a)/(b+a)`` with `nominal(s) ≤ 1/3`, the annulus term uses the equivalent series:
+
+```math
+\\delta = \\log b - \\log g = \\frac18 \\sum_{n=3}^{\\infty} c_n s^{n-2},
+\\qquad c_3 = \\frac{16}{3},
+```
+
+```math
+c_n = \\begin{cases}
+-4\\left(\\frac{1}{n-1}+\\frac{1}{n-3}\\right), & n \\ge 4 \\text{ even}, \\\\
+\\frac{1}{n}+\\frac{6}{n-2}+\\frac{1}{n-4}, & n \\ge 5 \\text{ odd}.
+\\end{cases}
+```
+
+The partial sum `δ` accumulates terms ``\\delta_n = c_n s_n/8``, with ``s_n = s^{n-2}``.
+After `abs(nominal(δ_n)) < eps(nominal(δ))`, summation includes two further terms.
+[`gmd`](@ref) evaluates the closed form for larger `nominal(s)`.
+
 For an annulus and any region contained in its hole,
 
 ```math
@@ -35,6 +53,28 @@ function gmd(A::Union{Annulus, Circle}, B::Union{Annulus, Circle})
         if iszero(nominal(a))
             r = b
             return exp(log(r)-1/4)
+        end
+        s = (b - a) / (b + a)
+        if nominal(s) <= 1 / 3
+            s_n = s
+            δ_n = (2 / 3) * s_n
+            δ = δ_n
+            n = 3
+            remaining = -1
+            while remaining != 0
+                n += 1
+                s_n *= s
+                c_n = iseven(n) ? -4 * (1 / (n - 1) + 1 / (n - 3)) :
+                      1 / n + 6 / (n - 2) + 1 / (n - 4)
+                δ_n = (c_n / 8) * s_n
+                δ += δ_n
+                if remaining < 0 && abs(nominal(δ_n)) < eps(nominal(δ))
+                    remaining = 2
+                elseif remaining >= 0
+                    remaining -= 1
+                end
+            end
+            return exp(log(b) - δ)
         end
         return exp(log(b)-(a^4/(b^2-a^2)^2*log(b/a)-(3a^2-b^2)/(4*(b^2-a^2))))
     elseif nominal(d+bi)<=nominal(a)+tol

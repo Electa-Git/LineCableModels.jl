@@ -17,6 +17,28 @@
         @test wire.mu_r_ins == [1.0]
     end
 
+    @testset "a thin annulus keeps its permeability" begin
+        # Bounds measured on Julia 1.12.7, x86_64 Linux, with b = 30 mm.
+        b = 0.03
+        for (metal, ε) in ((copper, 1e-3), (copper, 1e-5), (copper, 1e-8), (steel, 1e-4))
+            a = b * (1 - ε)
+            design = build(CableDesign, "thin_tube",
+                Region(:bore, Circle(a), polymer),
+                Terminal(:core, Region(:tube, Annulus(a, b), metal)),
+                Region(:jacket, Offset(1e-3), polymer))
+            tube = only(flatten(design).conductors)
+            @test abs(tube.material.mu_r - metal.mu_r) <= 2eps(metal.mu_r)
+        end
+        a = b * (1 - 1e-5)
+        design = build(CableDesign, "thin_tube",
+            Region(:bore, Circle(a), polymer),
+            Terminal(:core,
+                Region(:tube, Annulus(a, ForwardDiff.Dual(b, 1.0)), copper)),
+            Region(:jacket, Offset(1e-3), polymer))
+        tube = only(flatten(design).conductors)
+        @test abs(only(ForwardDiff.partials(tube.material.mu_r))) < 1e-20
+    end
+
     @testset "a wire inside a tube of its copper is a solid conductor" begin
         core = flatten(build(CableDesign, "wire_and_tube",
             Terminal(:core,

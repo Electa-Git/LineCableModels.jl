@@ -19,6 +19,59 @@ using LineCableModels.DataModel: ArcPolygon
     @test isempty(Test.detect_ambiguities(LineCableModels.BaseGeometry,
         LineCableModels.DataModel; recursive = true))
 
+    @testset "Thin annulus own term" begin
+        # On Julia 1.12.7, x86_64 Linux, the measured log g error was at most 0.583 ulp.
+        # The 1 ulp bound leaves a margin of 0.417 ulp.
+        # Compare log g and its inner-radius derivative with the closed form at 256 bits.
+        b = 0.03
+        for ε in (1e-12, 1e-8, 1e-4, 0.3, 0.5)
+            a = b * (1 - ε)
+            annulus = Annulus(a, b)
+            expected = setprecision(BigFloat, 256) do
+                let a = BigFloat(a), b = BigFloat(b)
+                    log(b) - (a^4 * log(b / a) / (b^2 - a^2)^2 -
+                     (3a^2 - b^2) / (4(b^2 - a^2)))
+                end
+            end
+            @test abs(BigFloat(log(gmd(annulus, annulus))) - expected) <=
+                  eps(abs(Float64(expected)))
+        end
+        # Julia 1.12.7 on x86_64 Linux with ForwardDiff 1.4.8 gives the errors below the 6 ulp bound.
+        # The inner-radius partial errors were 1.05 ulps at ε = 1e-6 and 0.154 ulp at ε = 0.5.
+        for ε in (1e-6, 0.5)
+            a = b * (1 - ε)
+            annulus = Annulus(ForwardDiff.Dual(a, 1.0), b)
+            expected = setprecision(BigFloat, 256) do
+                let b = BigFloat(b)
+                    ForwardDiff.derivative(BigFloat(a)) do a
+                        log(b) - (a^4 * log(b / a) / (b^2 - a^2)^2 -
+                         (3a^2 - b^2) / (4(b^2 - a^2)))
+                    end
+                end
+            end
+            @test abs(BigFloat(only(ForwardDiff.partials(log(gmd(annulus, annulus))))) -
+                      expected) <= 6eps(abs(Float64(expected)))
+        end
+        @testset "Two further terms preserve the inner-radius partial" begin
+            # The largest improvement in the 400-width sweep occurs at its upper endpoint.
+            # On Julia 1.12.7, x86_64 Linux, with ForwardDiff 1.4.8, the error was 0.154149 ulp.
+            # Without the two further terms, it was 5.845851 ulps. The bound is 4 ulps.
+            ε = 0.5
+            a = b * (1 - ε)
+            annulus = Annulus(ForwardDiff.Dual(a, 1.0), b)
+            expected = setprecision(BigFloat, 256) do
+                let b = BigFloat(b)
+                    ForwardDiff.derivative(BigFloat(a)) do a
+                        log(b) - (a^4 * log(b / a) / (b^2 - a^2)^2 -
+                         (3a^2 - b^2) / (4(b^2 - a^2)))
+                    end
+                end
+            end
+            @test abs(BigFloat(only(ForwardDiff.partials(log(gmd(annulus, annulus))))) -
+                      expected) <= 4eps(abs(Float64(expected)))
+        end
+    end
+
     copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
     polymer = Material(:insulator, 1e14, 2.5)
     bar = Region(:core_bar, Rectangle(10e-3, 5e-3), copper)
