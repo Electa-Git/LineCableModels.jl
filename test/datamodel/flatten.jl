@@ -1,4 +1,4 @@
-using LineCableModels.DataModel: gmr
+using LineCableModels.DataModel: gmr, EmptyBoundary
 using LineCableModels.Commons: tolerance
 
 @testset "DataModel flatten" begin
@@ -26,28 +26,68 @@ using LineCableModels.Commons: tolerance
 
     @testset "a round outline gives the tube up to the farthest metal" begin
         wires = [Circle(1e-3, Placement(3e-3cos(θ), 3e-3sin(θ))) for θ in (0:5) .* (π / 3)]
-        tube = flatten(Circle(5e-3), 2e-3, wires)
+        tube = flatten(Circle(5e-3), Circle(2e-3), wires)
         @test [r_in(tube), r_ex(tube)] ≈ [2e-3, 4e-3]
-        solid = flatten(Circle(5e-3), 0.0, wires)
+        solid = flatten(Circle(5e-3), EmptyBoundary(), wires)
         @test r_in(solid) == 0
         @test r_ex(solid) ≈ 4e-3
+        # The tube lies about the center of its outline.
+        at = Placement(20e-3, -5e-3)
+        moved = flatten(Circle(5e-3, at), Circle(2e-3, at),
+            [Circle(1e-3, at * wire.at) for wire in wires])
+        @test [r_in(moved), r_ex(moved)] ≈ [2e-3, 4e-3]
+        @test moved.at == at
     end
 
-    @testset "any other outline gives Ametani's cylinder" begin
+    @testset "any other outline is the cross-section of its merged region" begin
         bar = Rectangle(10e-3, 5e-3)
-        tube = flatten(bar, 0.0, [bar])
-        @test r_ex(tube) ≈ 30e-3 / 2π
-        @test area(tube) ≈ area(bar)
-        # The wires in the bar leave its perimeter and take their own area.
         wires = [Circle(1e-3, Placement(x, 0)) for x in (-3e-3, -1e-3, 1e-3, 3e-3)]
-        stranded = flatten(bar, 0.0, wires)
-        @test r_ex(stranded) == r_ex(tube)
-        @test area(stranded) ≈ 4π * 1e-3^2
-        # An ellipse of equal axes fills its cylinder.
-        disk = LineCableModels.Ellipse(3e-3, 3e-3)
-        solid = flatten(disk, 0.0, [disk])
-        @test r_in(solid) == 0
-        @test r_ex(solid) ≈ 3e-3
+        @test flatten(bar, EmptyBoundary(), wires) === bar
+    end
+
+    @testset "a terminal over one region that is not round is its declaration" begin
+        bar = Region(:bar, Rectangle(10e-3, 5e-3), copper)
+        screen = Region(:screen, Offset(0.2e-3), copper)
+        design = build(CableDesign, "bar", Terminal(:core, bar),
+            Region(:insulation, Offset(1e-3), polymer), Terminal(:screen, screen))
+        core, insulation, tube = design.tree.items
+        @test flatten(core) == (Terminal(:core, bar) => 0.0)
+        @test flatten(tube) == (Terminal(:screen, screen) => 0.0)
+        @test flatten(Terminal(:core, bar)) == (Terminal(:core, bar) => 0.0)
+    end
+
+    @testset "a conductor in a fill that is not round merges into its outline" begin
+        square = Rectangle(20.0e-3, 20.0e-3)
+        design = build(CableDesign, "square",
+            Terminal(:core,
+                Group(Region(:fill, square, polymer), Region(:wire, Circle(5.0e-3), copper))),
+            Region(:insulation, Offset(2.0e-3), polymer))
+        core, insulation = flatten(design.tree).items
+        @test core.part.tag == :core
+        @test core.part.primitive === square
+        # The square has the resistance and the geometric mean radius of the wire.
+        @test core.part.material.rho / area(square) ≈ copper.rho / (π * 5.0e-3^2) rtol = 1e-12
+        @test gmr(square, core.part.material.mu_r) ≈ gmr(Circle(5.0e-3), 1.0) rtol = 1e-12
+        @test core.part.material.alpha ≈ copper.alpha
+        @test insulation == Region(:insulation, Offset(2.0e-3), polymer)
+    end
+
+    @testset "a conductor with a tube around it merges into the outline of the tube" begin
+        bar = Region(:bar, Rectangle(10e-3, 5e-3), copper)
+        design = build(CableDesign, "plated",
+            Terminal(:core, Stack(bar, Region(:plating, Offset(0.5e-3), steel))),
+            Region(:insulation, Offset(1e-3), polymer))
+        core, insulation = flatten(design.tree).items
+        metal = design.regions[1:2]
+        outline = core.part.primitive
+        @test area(outline) ≈ sum(placed -> area(placed.shape), metal) rtol = 1e-12
+        @test area(outline) / core.part.material.rho ≈
+              sum(placed -> area(placed.shape) / placed.source.material.rho, metal) rtol = 1e-12
+        @test insulation == Region(:insulation, Offset(1e-3), polymer)
+        # The merged cable is a cable, and it is its own flattened form.
+        cable = build(CableDesign, "merged", core, insulation)
+        @test flatten(cable.tree) == Stack(core, insulation)
+        @test area(cable.outer) ≈ area(design.outer) rtol = 1e-12
     end
 
     @testset "the strands of a terminal associate in parallel" begin
@@ -60,7 +100,7 @@ using LineCableModels.Commons: tolerance
                 Group(Region(:core_fill, Circle(7.5e-3), air),
                     Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
             Region(:insulation, Offset(3.0e-3), polymer))
-        core = flatten(first(design.tree.items)).first
+        core = flatten(EmptyBoundary(), first(design.tree.items)).first
         @test core.name == :core
         @test core.part.tag == :core
         @test r_in(core.part.primitive) == 0
@@ -86,7 +126,7 @@ using LineCableModels.Commons: tolerance
         bar = Region(:bar, Rectangle(10e-3, 5e-3), copper)
         design = build(CableDesign, "wrapped",
             Terminal(:core, Stack(bar, Region(:insulation, Offset(1e-3), polymer))))
-        @test_throws ArgumentError flatten(only(design.tree.items))
+        @test_throws ArgumentError flatten(EmptyBoundary(), only(design.tree.items))
         @test_throws ArgumentError flatten(design.tree)
     end
 
@@ -215,17 +255,6 @@ using LineCableModels.Commons: tolerance
         @test sum(areas) ≈ area(design.outer)
     end
 
-    @testset "an offset around a bar is the annulus of its thickness" begin
-        design = build(CableDesign, "bar",
-            Terminal(:core, Region(:bar, Rectangle(10e-3, 5e-3), copper)),
-            Region(:insulation, Offset(1e-3), polymer))
-        core, insulation = flatten(design.tree).items
-        @test r_in(insulation.primitive) == r_ex(core.part.primitive)
-        @test r_ex(insulation.primitive) == r_ex(core.part.primitive) + 1e-3
-        @test r_ex(insulation.primitive) ≈ 30e-3 / 2π + 1e-3
-        @test insulation.material === polymer
-    end
-
     @testset "a layer that is no annulus is refused" begin
         design = build(CableDesign, "tube_split_dielectric",
             Region(:bore, Circle(1e-3), polymer),
@@ -235,10 +264,115 @@ using LineCableModels.Commons: tolerance
         @test_throws ArgumentError flatten(design.tree)
     end
 
-    # Until the coaxial input reads the tree, this test compares each terminal of the
-    # references with the tube of the blueprint. On Julia 1.12.7, x86_64 Linux, the largest difference was
-    # 1.4e-13, in the permeability of a jacket of two metal layers.
-    @testset "the terminals of the references give the tubes of the blueprint" begin
+    @testset "a group about a center lies about that center when flattened" begin
+        at = Placement(30e-3, 0)
+        design = build(CableDesign, "aside",
+            Group(Region(:core_insulation, Circle(16.0e-3, at), polymer),
+                Terminal(:core, Region(:core, Circle(10.0e-3, at), copper))),
+            Region(:jacket, Offset(2.0e-3), polymer))
+        @test flatten(design.tree) == Stack(
+            Terminal(:core, Region(:core, Circle(10.0e-3, at), copper)),
+            Region(:core_insulation, Annulus(10.0e-3, 16.0e-3, at), polymer),
+            Region(:jacket, Annulus(16.0e-3, 16.0e-3 + 2.0e-3, at), polymer))
+    end
+
+    @testset "a cable of single regions that are not round is its own flattened form" begin
+        aluminum = Material(:conductor, 2.8264e-8, 1, 1, 20, 0.00429)
+        sector = LineCableModels.Sector(
+            0, 10.24e-3, deg2rad(119.0), 1.1e-3 / sind(60), 1.02e-3, Placement(0, 0))
+        parts = (Terminal(:core, Region(:core, sector, aluminum)),
+            Region(:insulation, Offset(1.1e-3), polymer),
+            Terminal(:screen, Region(:screen, Offset(0.2e-3), copper)),
+            Region(:jacket, Offset(2.0e-3), polymer))
+        design = build(CableDesign, "screened_sector", parts...)
+        @test flatten(design.tree) == Stack(parts...)
+        @test flatten(Stack(parts...)) == Stack(parts...)
+    end
+
+    @testset "an enclosure and an assembly keep their form around flattened members" begin
+        offset = 2 * 28.0e-3 / sqrt(3)
+        at = Placement(offset, 0.0)
+        members = Tuple(Placement(0.0,
+                            0.0,
+                            θ) => Stack(
+                            Terminal(name, Region(name, Circle(19.5e-3, at), copper)),
+                            Region(:insulation, Offset(8.5e-3), polymer))
+        for (name, θ) in zip((:a, :b, :c), (0.0, 2π / 3, 4π / 3)))
+        design = build(CableDesign, "pipe_type",
+            Enclosure(Region(:filler, Circle(62.0e-3), polymer), Assembly(members)),
+            Terminal(:pipe, Region(:pipe, Offset(3.0e-3), steel)),
+            Region(:jacket, Offset(5.0e-3), polymer))
+        flat = flatten(design.tree)
+        @test flat == Stack(
+            Enclosure(Region(:filler, Circle(62.0e-3), polymer),
+                Assembly(Tuple(Placement(0.0,
+                                   0.0,
+                                   θ) => Stack(
+                                   Terminal(name, Region(name, Circle(19.5e-3, at), copper)),
+                                   Region(:insulation,
+                                       Annulus(19.5e-3, 19.5e-3 + 8.5e-3, at), polymer))
+                for (name, θ) in zip((:a, :b, :c), (0.0, 2π / 3, 4π / 3))))),
+            Terminal(:pipe, Region(:pipe, Annulus(62.0e-3, 62.0e-3 + 3.0e-3), steel)),
+            Region(:jacket, Annulus(62.0e-3 + 3.0e-3, 62.0e-3 + 3.0e-3 + 5.0e-3), polymer))
+        @test flatten(flat) == flat
+        # A rod, an enclosure declared by an offset and a binder around it.
+        wire = Stack(Terminal(:core, Region(:core, Circle(0.5e-3), copper)),
+            Region(:insulation, Offset(0.25e-3), polymer))
+        placements = [Placement(2.5e-3 * cos(θ), 2.5e-3 * sin(θ))
+                      for θ in (0.0, 2π / 3, 4π / 3)]
+        rod = build(CableDesign, "rod", Region(:rod, Circle(1.0e-3), polymer),
+            Enclosure(Region(:fill, Offset(3.0e-3), air),
+                Assembly(Tuple(at => wire for at in placements))),
+            Region(:binder, Offset(0.2e-3), polymer))
+        core = Stack(Terminal(:core, Region(:core, Circle(0.5e-3), copper)),
+            Region(:insulation, Annulus(0.5e-3, 0.5e-3 + 0.25e-3), polymer))
+        @test flatten(rod.tree) == Stack(Region(:rod, Circle(1.0e-3), polymer),
+            Enclosure(Region(:fill, Annulus(1.0e-3, 1.0e-3 + 3.0e-3), air),
+                Assembly(Tuple(at => core for at in placements))),
+            Region(:binder, Annulus(1.0e-3 + 3.0e-3, 1.0e-3 + 3.0e-3 + 0.2e-3), polymer))
+    end
+
+    @testset "a terminal around an assembly begins at the circle that contains its members" begin
+        core = Stack(Terminal(:core, Region(:core, Circle(10.0e-3), copper)),
+            Region(:insulation, Offset(2.0e-3), polymer))
+        design = build(CableDesign, "tight",
+            Assembly((Placement(0.0, 0.0) => core,)),
+            Terminal(:screen,
+                Group(Region(:screen_fill, Offset(2.0e-3), air),
+                    Repeat(CircularPattern(30; r = Offset(0)),
+                        Region(:screen_wires, Circle(1.0e-3), copper)))),
+            Region(:jacket, Offset(2.0e-3), polymer))
+        assembly, screen, jacket = flatten(design.tree).items
+        @test only(assembly.members).second == Stack(
+            Terminal(:core, Region(:core, Circle(10.0e-3), copper)),
+            Region(:insulation, Annulus(10.0e-3, 10.0e-3 + 2.0e-3), polymer))
+        @test [r_in(screen.part.primitive), r_ex(screen.part.primitive)] ≈
+              [12.0e-3, 14.0e-3] rtol = 1e-12
+        @test r_in(jacket.primitive) ≈ r_ex(screen.part.primitive) rtol = 1e-12
+    end
+
+    @testset "a repeat keeps its placements around its flattened part" begin
+        core = Stack(Terminal(:core, Region(:core, Circle(1.0e-3), copper)),
+            Region(:core_insulation, Offset(0.5e-3), polymer))
+        design = build(CableDesign, "three_cores",
+            Enclosure(Region(:pipe_fill, Circle(6.5e-3), polymer),
+                Repeat(CircularPattern(3; r = 3.5e-3), core)))
+        enclosure = only(flatten(design.tree).items)
+        @test enclosure.fill == Region(:pipe_fill, Circle(6.5e-3), polymer)
+        @test enclosure.contents.pattern == only(design.tree.items).contents.pattern
+        @test enclosure.contents.part == Stack(
+            Terminal(:core, Region(:core, Circle(1.0e-3), copper)),
+            Region(:core_insulation, Annulus(1.0e-3, 1.0e-3 + 0.5e-3), polymer))
+        @test flatten(flatten(design.tree)) == flatten(design.tree)
+    end
+
+    # Until the coaxial input reads the tree, this test compares each flattened reference
+    # with the blueprint. It compares the round tubes with their layers that have a width,
+    # and the axis of each member. A region that is not round equals its declaration.
+    # The series of the layers of an interval gives its permeability. On Julia
+    # 1.12.7, x86_64 Linux, the largest difference was 1.4e-13, in the permeability of a
+    # jacket of two metal layers.
+    @testset "the references flatten to the tubes, layers and axes of the blueprint" begin
         cases = [REFERENCES;
                  [case => include(joinpath(
                       @__DIR__, "..", "references", case, "problem.jl"))
@@ -247,28 +381,74 @@ using LineCableModels.Commons: tolerance
                      "cable_18kv_1000mm2_trefoil", "cable_380kv_2000mm2_flatver")]]
         for (case, problem) in cases, design in unique(problem.system.designs)
 
-            # The cores of an enclosure come first, each the first part of its member.
-            members = [first(member.second.items)
-                       for item in design.tree.items if item isa Enclosure
-                       for member in item.contents.members]
-            own = [item for item in design.tree.items if item isa Terminal]
-            tubes = flatten(design).conductors
-            @test length(members) + length(own) == length(tubes)
-            for (terminal, tube) in zip([members; own], tubes)
-                region = flatten(terminal).first.part
-                @test r_in(region.primitive)≈tube.r_in rtol=1e-12
-                @test r_ex(region.primitive)≈tube.r_ex rtol=1e-12
-                @test region.material.rho≈tube.material.rho rtol=1e-12
-                @test region.material.mu_r≈tube.material.mu_r rtol=1e-12
-                @test region.material.alpha≈tube.material.alpha rtol=1e-12
-                @test region.material.T0 == tube.material.T0
+            blueprint = flatten(design)
+            flat = flatten(design.tree)
+            @test flatten(flat) == flat
+            # The members of an enclosure come first, each a stack at its placement.
+            enclosed = [item for item in design.tree.items if item isa Enclosure]
+            stacks = [[member
+                       for item in flat.items if item isa Enclosure
+                       for member in item.contents.members];
+                      Placement(0, 0) => flat]
+            declared = [[member.second
+                         for item in enclosed for member in item.contents.members];
+                        design.tree]
+            k = 0
+            for ((at, stack), resolved) in zip(stacks, declared)
+                places = findall(part -> part isa Terminal, stack.items)
+                for (j, place) in enumerate(places)
+                    k += 1
+                    tube = blueprint.conductors[k]
+                    region = stack.items[place].part
+                    if !(region.primitive isa Union{Circle, Annulus})
+                        @test region === resolved.items[place].part.source
+                        continue
+                    end
+                    @test r_in(region.primitive)≈tube.r_in rtol=1e-12
+                    @test r_ex(region.primitive)≈tube.r_ex rtol=1e-12
+                    @test region.material.rho≈tube.material.rho rtol=1e-12
+                    @test region.material.mu_r≈tube.material.mu_r rtol=1e-12
+                    @test region.material.alpha≈tube.material.alpha rtol=1e-12
+                    @test region.material.T0 == tube.material.T0
+                    stop = j < length(places) ? places[j + 1] - 1 : length(stack.items)
+                    layers = stack.items[(place + 1):stop]
+                    rows = [row
+                            for row in
+                                blueprint.dielectrics[blueprint.dielectric_ranges[k]]
+                            if row.r_ex - row.r_in > tolerance(row.r_ex)]
+                    @test length(layers) == length(rows)
+                    for (layer, row) in zip(layers, rows)
+                        @test r_in(layer.primitive)≈row.r_in rtol=1e-12
+                        @test r_ex(layer.primitive)≈row.r_ex rtol=1e-12
+                        @test layer.primitive.at == region.primitive.at
+                        @test layer.material.rho == row.material.rho
+                        @test layer.material.eps_r == row.material.eps_r
+                        @test layer.material.tan_delta == row.material.tan_delta
+                    end
+                    isempty(layers) && continue
+                    series = sum(
+                        layer.material.mu_r *
+                        log(r_ex(layer.primitive) / r_in(layer.primitive))
+                    for layer in layers) /
+                             log(r_ex(last(layers).primitive) / r_ex(region.primitive))
+                    @test series≈blueprint.mu_r_ins[k] rtol=1e-12
+                end
+            end
+            @test k == length(blueprint.conductors)
+            # A member lies about the centroid of its first conductor.
+            for (at, stack) in stacks[1:(end - 1)]
+                tube = stack.items[findfirst(part -> part isa Terminal, stack.items)]
+                row = findfirst(
+                    position -> isapprox(collect(position),
+                        collect(at(centroid(tube.part.primitive))); atol = 1e-15),
+                    blueprint.positions)
+                @test row !== nothing
             end
         end
     end
 
-    # The layers of each design without sub-cables, against the rows of the blueprint that
-    # have a width. The series of the layers of an interval gives its permeability.
-    @testset "the stacks of the references give the layers of the blueprint" begin
+    # A flattened single core is a cable, and it flattens to itself.
+    @testset "a flattened single core builds" begin
         cases = [REFERENCES;
                  [case => include(joinpath(
                       @__DIR__, "..", "references", case, "problem.jl"))
@@ -278,33 +458,11 @@ using LineCableModels.Commons: tolerance
         for (case, problem) in cases, design in unique(problem.system.designs)
 
             length(design.assemblies) == 1 || continue
-            blueprint = flatten(design)
-            parts = flatten(design.tree).items
-            places = findall(part -> part isa Terminal, parts)
-            @test length(places) == length(blueprint.conductors)
-            for (k, place) in enumerate(places)
-                stop = k < length(places) ? places[k + 1] - 1 : length(parts)
-                layers = parts[(place + 1):stop]
-                rows = [row
-                        for row in blueprint.dielectrics[blueprint.dielectric_ranges[k]]
-                        if row.r_ex - row.r_in > tolerance(row.r_ex)]
-                @test length(layers) == length(rows)
-                for (layer, row) in zip(layers, rows)
-                    @test r_in(layer.primitive)≈row.r_in rtol=1e-12
-                    @test r_ex(layer.primitive)≈row.r_ex rtol=1e-12
-                    @test layer.material.rho == row.material.rho
-                    @test layer.material.eps_r == row.material.eps_r
-                    @test layer.material.tan_delta == row.material.tan_delta
-                end
-                isempty(layers) && continue
-                r_e = r_ex(parts[place].part.primitive)
-                series = sum(
-                    layer.material.mu_r *
-                    log(r_ex(layer.primitive) / r_in(layer.primitive))
-                for layer in layers) /
-                         log(r_ex(last(layers).primitive) / r_e)
-                @test series≈blueprint.mu_r_ins[k] rtol=1e-12
-            end
+            flat = flatten(design.tree)
+            cable = build(CableDesign, design.id, flat.items...)
+            @test flatten(cable.tree) == flat
+            @test [row.name for row in cable.terminals] ==
+                  [row.name for row in design.terminals]
         end
     end
 end

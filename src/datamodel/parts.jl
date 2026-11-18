@@ -536,27 +536,30 @@ function resolve(rows::NamedTuple, scope::Vector{Int}, part::Union{Group, Enclos
     return rows
 end
 
-# The outline of a resolved part is that of its outermost region. The copies of a strand lie
-# in the circle about the center that contains them.
+# The outline of a resolved part is that of its outermost region, and that of an enclosure is
+# the outline of its fill. The copies of a strand and the members of an assembly lie in the
+# circle about the center that contains them.
 boundary(placed::CablePart) = boundary(placed.shape)
 boundary(region::Region{<:AbstractPrimitive}) = boundary(region.primitive)
 boundary(stack::Stack) = boundary(last(stack.items))
 boundary(terminal::Terminal) = boundary(terminal.part)
 boundary(lay::Lay) = boundary(lay.part)
 boundary(group::Group{<:CablePart}) = boundary(group.fill.shape)
+boundary(enclosure::Enclosure) = boundary(enclosure.fill)
+function boundary(assembly::Assembly)
+    return Circle(maximum(
+        member -> support(resolve(member.first, boundary(member.second))), assembly.members))
+end
 function boundary(repeat::Repeat{<:AbstractVector{<:Placement}, <:CablePart})
     return Circle(maximum(at -> support(resolve(at, repeat.part.shape)), repeat.pattern))
 end
 
-# A resolved part begins at its nearest region, and a group where its container begins.
-distance(placed::CablePart) = distance(placed.shape)
-distance(stack::Stack) = minimum(distance, stack.items)
-distance(terminal::Terminal) = distance(terminal.part)
-distance(lay::Lay) = distance(lay.part)
-distance(group::Group{<:CablePart}) = distance(group.fill.shape.outer)
-function distance(repeat::Repeat{<:AbstractVector{<:Placement}, <:CablePart})
-    return minimum(at -> distance(resolve(at, repeat.part.shape)), repeat.pattern)
-end
+# A part equals another of its node when their fields are equal.
+Base.:(==)(a::Stack, b::Stack) = a.items == b.items
+Base.:(==)(a::Terminal, b::Terminal) = a.name == b.name && a.part == b.part
+Base.:(==)(a::Repeat, b::Repeat) = a.pattern == b.pattern && a.part == b.part
+Base.:(==)(a::Assembly, b::Assembly) = a.members == b.members
+Base.:(==)(a::Enclosure, b::Enclosure) = a.fill == b.fill && a.contents == b.contents
 
 # `foreach` calls `f` on each region of a resolved part, from the inside out. A repeat gives
 # the region of its part once for each copy, and a group its contents before its fill.

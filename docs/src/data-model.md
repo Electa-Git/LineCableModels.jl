@@ -46,6 +46,8 @@ The cross-section of a region is declared by a primitive, a subtype of
   segment of a Milliken conductor.
 - [`Ellipse`](@ref): elliptical cross-section, such as an elliptical duct.
 - [`Polygon`](@ref): cross-section bounded by straight edges, such as a duct bank.
+- [`ArcPolygon`](@ref): cross-section bounded by one closed path of segments and arcs, such
+  as a rectangle with rounded corners.
 - [`Offset`](@ref): layer of thickness `t` around the outline of the part beneath it. An
   offset represents an insulation, a semicon screen, a sheath or a jacket, and is resolved
   against that outline when the design is built. Around a circle, the layer is an annulus.

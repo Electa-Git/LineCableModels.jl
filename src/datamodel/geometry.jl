@@ -9,7 +9,7 @@ abstract type AbstractShape{T <: Real} end
 $(TYPEDEF)
 
 Supertype of the cross-sections that a part declares. A primitive states its dimensions and
-its placement.
+its placement, or its path of curves in the frame of the part.
 """
 abstract type AbstractPrimitive{T <: Real} <: AbstractShape{T} end
 

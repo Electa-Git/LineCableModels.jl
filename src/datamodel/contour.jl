@@ -5,7 +5,7 @@ Represent a region bounded by one closed path of segments, circular arcs and ell
 
 $(TYPEDFIELDS)
 """
-struct ArcPolygon{T <: Real} <: AbstractShape{T}
+struct ArcPolygon{T <: Real} <: AbstractPrimitive{T}
     "Closed path of curves that bounds the region, counterclockwise, in the frame of the cable."
     outer::Vector{Curve{T}}
     @doc """
