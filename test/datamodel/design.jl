@@ -230,6 +230,10 @@ end
         @test_throws DomainError build(CableDesign, "protrusion",
             Terminal(:core,
                 Group(Region(:core_fill, Circle(4.0e-3), air), Stack(wire, course))))
+        tube = Region(:core_tube, Offset(1.0e-3), copper)
+        @test_throws "holds the terminals [:a, :b]" build(CableDesign, "two",
+            Group(Region(:core_fill, Circle(4.0e-3), air),
+                Stack(Terminal(:a, wire), Terminal(:b, tube))))
     end
 
     @testset "mixed inputs" begin

@@ -88,6 +88,7 @@ repeated part other than a region is a sub-cable inside it.
 
 - Throws `ArgumentError` when no part is given or when a conductive region lies outside
   every [`Terminal`](@ref).
+- Throws `ArgumentError` when a [`Group`](@ref) holds terminals of different names.
 - Throws `DomainError` when a part overlaps the part inside it or leaves a gap around it, or
   when a region leaves its group or its enclosure.
 """

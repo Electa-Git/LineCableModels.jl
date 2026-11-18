@@ -499,9 +499,24 @@ function resolve(outline::Union{EmptyBoundary, AbstractShape}, enclosure::Enclos
 end
 
 # The fill is the region after its contents.
-function resolve(rows::NamedTuple, scope::Vector{Int}, part::Union{Group, Enclosure})
-    resolve(rows, scope, part.contents)
-    return resolve(rows, scope, part.fill)
+function resolve(rows::NamedTuple, scope::Vector{Int}, enclosure::Enclosure)
+    resolve(rows, scope, enclosure.contents)
+    return resolve(rows, scope, enclosure.fill)
+end
+function resolve(rows::NamedTuple, scope::Vector{Int}, group::Group)
+    start = length(rows.regions)
+    resolve(rows, scope, group.contents)
+    validate(group,
+        Symbol[row.name for row in rows.terminals if any(>(start), row.regions)])
+    return resolve(rows, scope, group.fill)
+end
+
+# A group is the primitives of one conductor: the terminals inside it share one name.
+function validate(group::Group, names::Vector{Symbol})
+    allequal(names) || throw(ArgumentError(
+        "the group :$(group.fill.source.tag) holds the terminals $(unique(names)); " *
+        "a Group is the primitives of one conductor, under one terminal name"))
+    return group
 end
 
 # The outline of a resolved part is that of its outermost region, and that of an enclosure is
