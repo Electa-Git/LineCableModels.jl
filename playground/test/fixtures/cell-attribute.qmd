@@ -1,0 +1,14 @@
+---
+title: A cell with an unknown attribute
+format: lcm-deck-revealjs
+---
+
+## A slide
+
+::: {.lcm-layout-full-canvas}
+::: {.lcm-slot}
+```{.julia .lcm-cell eval="true"}
+Z = 0.05 + 0.31im
+```
+:::
+:::

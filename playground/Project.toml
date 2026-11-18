@@ -8,12 +8,14 @@ quarto_jll = "b7163347-bfae-5fd9-aba4-19f139889d78"
 
 [compat]
 HTTP = "2.6"
+JSON = "1"
 quarto_jll = "1.9.38"
 julia = "1.12"
 
 [extras]
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Sockets", "Test"]
+test = ["JSON", "Sockets", "Test"]

@@ -61,10 +61,15 @@ click elsewhere, or press Escape to close this explanation.
 
 Click an outlined equation term to show its explanation.
 
-```julia
-design = build_design(nominal_geometry)
-result = compute(design, [frequency])
-observe(result, (:R, :L, :C, :G))
+```{.julia .lcm-cell autorun="true" echo="false"}
+Z = 0.05 + 0.31im
+```
+
+```{.julia .lcm-cell}
+ω = 2π * 50
+R = real(Z)
+L = imag(Z) / ω
+(; R, L)
 ```
 :::
 

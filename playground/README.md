@@ -152,3 +152,40 @@ what the audience needs. When MathJax or Popper is missing, the footer reports
 the notes unavailable and the slide shows the text of each explanation.
 
 The slide **Balanced evidence** of the specimen has two notes.
+
+## Code cells
+
+A cell is a fenced code block of class `lcm-cell` inside a layout slot:
+
+````markdown
+::: {.lcm-slot}
+```{.julia .lcm-cell autorun="true" echo="false"}
+Z = 0.05 + 0.31im
+```
+:::
+````
+
+The braces start with a dot, so Quarto selects no engine and leaves the block
+to `deck.lua`. A cell takes two attributes, each `true` or `false`: `autorun`,
+`false` when absent, and `echo`, `true` when absent.
+
+`deck.lua` turns each cell into a live frame that loads `live/cells/<n>`
+relative to the page, where `n` counts the cells of the presentation from 1.
+The cell's highlighted source takes the frame's place in the print view, the
+speaker view and the overview. It also shows when the live view is unavailable.
+Frames in one panel share the height that the panel's other content leaves.
+
+Beside the rendered page, `deck.lua` writes `cells.json`, one entry per cell in
+the order of the source: `index`, `slide`, `source`, `autorun` and `echo`.
+`slide` counts the level-two headings from 1. A presentation without cells
+gets an empty list.
+
+`deck.lua` refuses the following, with a message that gives the slide:
+
+- a block written `{julia}`, which belongs to the Julia engine of Quarto
+- an attribute other than `autorun` and `echo`
+- a value other than `true` and `false`
+- a cell outside a `.lcm-slot`
+
+The slide **Balanced evidence** of the specimen has two cells. The first
+defines `Z`, and the second computes `R` and `L` from it.

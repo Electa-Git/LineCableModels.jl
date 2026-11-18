@@ -115,7 +115,7 @@
     slideFrames(slide).forEach(frame => {
       if (frame.hasAttribute('src')) return;
       const route = frame.dataset.lcmSrc;
-      if (!route?.startsWith('/') || new URL(route, location.origin).origin !== location.origin) return;
+      if (!route || new URL(route, document.baseURI).origin !== location.origin) return;
       frame.dataset.lcmState = 'loading';
       frame.parentElement.classList.add('lcm-live-loading');
       const waiting = document.createElement('div');

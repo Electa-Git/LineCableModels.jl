@@ -1,0 +1,14 @@
+---
+title: A block for the Julia engine
+format: lcm-deck-revealjs
+---
+
+## A slide
+
+::: {.lcm-layout-full-canvas}
+::: {.lcm-slot}
+```{julia}
+Z = 0.05 + 0.31im
+```
+:::
+:::

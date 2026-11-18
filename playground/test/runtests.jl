@@ -1,4 +1,5 @@
 using HTTP: HTTP
+using JSON: JSON
 using Playground: Playground
 using Sockets: Sockets
 using Test: @test, @testset
@@ -56,6 +57,20 @@ root = pkgdir(Playground)
 
                 @test occursin("\\cssId{$(note.captures[1])}", slide)
             end
+
+            cells = JSON.parse(String(HTTP.get("$address/presentations/specimen/cells.json").body))
+            source = read(joinpath(root, "presentations", "specimen", "index.qmd"), String)
+            sources = [cell.captures[1]
+                       for cell in
+                           eachmatch(r"```\{\.julia \.lcm-cell[^}]*\}\n(.*?)\n```"s, source)]
+            @test length(sources) == 2
+            @test [cell["source"] for cell in cells] == sources
+            @test [cell["index"] for cell in cells] == 1:length(sources)
+            frames = [frame.match
+                      for frame in
+                          eachmatch(r"<iframe [^>]*data-lcm-src=\"live/cells/\d+\"[^>]*>", specimen)]
+            @test length(frames) == length(cells)
+            @test !any(frame -> occursin(" src=", frame), frames)
         finally
             kill(server)
             wait(server)
@@ -67,7 +82,11 @@ root = pkgdir(Playground)
             "unknown-layout.qmd" => "lcm-deck: unknown layout 'mosaic'",
             "missing-anchor.qmd" => "lcm-deck: missing \\cssId anchor for 'impedance-imag'",
             "anchor-elsewhere.qmd" => "lcm-deck: math note and anchor 'impedance-imag' must be on the same slide",
-            "wrong-slots.qmd" => "lcm-deck: layout 'balanced' requires 2 direct .lcm-slot children; found 1"
+            "wrong-slots.qmd" => "lcm-deck: layout 'balanced' requires 2 direct .lcm-slot children; found 1",
+            "julia-engine.qmd" => "lcm-deck: slide 'A slide': a {julia} block runs in Quarto's Julia engine; write a cell as {.julia .lcm-cell}",
+            "cell-attribute.qmd" => "lcm-deck: slide 'A slide': a cell takes the attributes autorun and echo; found 'eval'",
+            "cell-value.qmd" => "lcm-deck: slide 'A slide': the attribute autorun of a cell is true or false; found 'yes'",
+            "cell-outside-slot.qmd" => "lcm-deck: slide 'A slide': a cell belongs inside a .lcm-slot"
         ]
         mktempdir(@__DIR__) do folder
             cp(joinpath(root, "_extensions"), joinpath(folder, "_extensions"))

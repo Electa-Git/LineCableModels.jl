@@ -124,10 +124,19 @@ html, body {
   padding: var(--lcm-deck-gap); place-content: center; text-align: center;
   box-sizing: border-box; background: var(--lc-panel-bg);
 }
-.lcm-live-placeholder strong, .lcm-live-placeholder span, .lcm-live-placeholder a { display: block; }
-.lcm-live-placeholder strong { margin-bottom: 0.5em; color: var(--lc-heading); font-size: 1em; }
-.lcm-live-placeholder span { margin-bottom: 0.75em; color: var(--lc-muted); font-size: 0.85em; }
-.lcm-live-placeholder a { font-size: 0.85em; overflow-wrap: anywhere; }
+.lcm-live-placeholder > :is(strong, span, a) { display: block; }
+.lcm-live-placeholder > strong { margin-bottom: 0.5em; color: var(--lc-heading); font-size: 1em; }
+.lcm-live-placeholder > span { margin-bottom: 0.75em; color: var(--lc-muted); font-size: 0.85em; }
+.lcm-live-placeholder > a { font-size: 0.85em; overflow-wrap: anywhere; }
+/* A cell's placeholder is its own source, left-aligned across the frame. */
+.reveal .lcm-live-placeholder:has(> :is(.code-copy-outer-scaffold, div.sourceCode)) {
+  grid-template-columns: minmax(0, 1fr); text-align: left;
+}
+.reveal .lcm-live-placeholder > :is(.code-copy-outer-scaffold, div.sourceCode) {
+  max-height: 100%; min-height: 0; overflow: auto;
+}
+/* Frames in a panel share the height that its other content leaves. */
+.lcm-slot-panel > .lcm-live-viewport { flex: 1 1 0; height: auto; min-height: 4em; }
 .lcm-live-loading .lcm-live-wait { display: grid; color: var(--lc-muted); font-size: 0.85em; }
 .lcm-live-unavailable .lcm-live-placeholder { display: grid; }
 .lcm-live-unavailable iframe { visibility: hidden; }

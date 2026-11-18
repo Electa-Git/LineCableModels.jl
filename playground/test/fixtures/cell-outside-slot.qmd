@@ -1,0 +1,16 @@
+---
+title: A cell outside a slot
+format: lcm-deck-revealjs
+---
+
+## A slide
+
+```{.julia .lcm-cell}
+Z = 0.05 + 0.31im
+```
+
+::: {.lcm-layout-full-canvas}
+::: {.lcm-slot}
+One
+:::
+:::

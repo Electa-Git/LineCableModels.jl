@@ -169,6 +169,71 @@ end
 
 return {
   { Pandoc = annotations },
+  -- A cell is a code block of class lcm-cell inside a .lcm-slot. It becomes a live frame whose placeholder is the
+  -- block itself, and cells.json beside the page lists the cells in the order of the source.
+  {
+    Pandoc = function(document)
+      local cells, slide = {}, 0
+      local title = pandoc.utils.stringify(document.meta.title or "")
+      for index, block in ipairs(document.blocks) do
+        if block.t == "Header" and block.level == 2 then
+          slide = slide + 1
+          title = pandoc.utils.stringify(block)
+        end
+        local on = "slide '" .. title .. "': "
+        local engine = on .. "a {julia} block runs in Quarto's Julia engine; write a cell as {.julia .lcm-cell}"
+        document.blocks[index] = pandoc.Pandoc({ block }):walk({
+          traverse = "topdown",
+          CodeBlock = function(code)
+            if has_class(code, "{julia}") then fail(engine) end
+            if has_class(code, "lcm-cell") then fail(on .. "a cell belongs inside a .lcm-slot") end
+          end,
+          Div = function(div)
+            if not has_class(div, "lcm-slot") then return nil end
+            return div:walk({
+              CodeBlock = function(code)
+                if has_class(code, "{julia}") then fail(engine) end
+                if not has_class(code, "lcm-cell") then return nil end
+                local options = { autorun = "false", echo = "true" }
+                for key, value in pairs(code.attributes) do
+                  if options[key] == nil then
+                    fail(on .. "a cell takes the attributes autorun and echo; found '" .. key .. "'")
+                  end
+                  if value ~= "true" and value ~= "false" then
+                    fail(on .. "the attribute " .. key .. " of a cell is true or false; found '" .. value .. "'")
+                  end
+                  options[key] = value
+                end
+                local n = #cells + 1
+                cells[n] = {
+                  index = n,
+                  slide = slide,
+                  source = code.text,
+                  autorun = options.autorun == "true",
+                  echo = options.echo == "true",
+                }
+                return {
+                  pandoc.RawBlock("html", string.format(
+                    '<figure class="lcm-live-viewport"><iframe class="lc-widget-frame" data-lcm-src="live/cells/%d" ' ..
+                    'title="Julia cell %d"></iframe><figcaption class="lcm-live-placeholder">', n, n)),
+                  code,
+                  pandoc.RawBlock("html", "</figcaption></figure>"),
+                }
+              end,
+            }), false
+          end,
+        }).blocks[1]
+      end
+      local folder = pandoc.path.directory(quarto.doc.output_file)
+      pandoc.system.make_directory(folder, true)
+      local entries = {}
+      for n, cell in ipairs(cells) do entries[n] = pandoc.json.encode(cell) end
+      local file = assert(io.open(pandoc.path.join({ folder, "cells.json" }), "w"))
+      file:write("[" .. table.concat(entries, ",") .. "]\n")
+      file:close()
+      return document
+    end,
+  },
   { Div = Div },
   { Meta = Meta },
 }
