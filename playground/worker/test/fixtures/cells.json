@@ -1,0 +1,5 @@
+[
+  {"index": 1, "slide": 1, "source": "x = 2", "autorun": true, "echo": true},
+  {"index": 2, "slide": 1, "source": "println(\"printed by cell 2\")\nfor step in 1:2\n    x += 1\nend\nx + 1", "autorun": true, "echo": true},
+  {"index": 3, "slide": 1, "source": "y = 1\nerror(\"cell 3 fails\")", "autorun": true, "echo": false}
+]
