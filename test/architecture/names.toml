@@ -95,7 +95,7 @@ qualifiers = ["circular", "empty", "perforated", "stranded",
 symbols = ["ri", "ro", "w", "h", "t", "n", "gap_frac", "dir"]
 
 [modules.DataModel.verbs]
-flatten = "reduce a cable design to the equivalent tubes and dielectric layers of its blueprint, a resolved terminal to one region of its equivalent tube, or the outline of a conductor to the cross-section of that tube"
+flatten = "reduce a cable design to the equivalent tubes and dielectric layers of its blueprint, a resolved stack to the tubes of its terminals and its dielectric layers as circles and annuli, a resolved terminal to one region of its equivalent tube with its turns, or the outline of a conductor to the cross-section of that tube"
 
 [modules.Engine]
 nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resistivity",
@@ -190,7 +190,7 @@ Sector = "a sector: the region bounded by a back arc about its center of curvatu
 CircularPattern = "n members placed evenly on a circle about the center of the enclosing part, at a radius or an offset"
 Helix = "the helical path of the members of a course along the cable"
 LayRatio = "the lay length of a helix over the mean diameter of its course"
-boundary = "the outline of a shape: a circle, a rectangle, a sector, an ellipse, a polygon or an arc polygon itself, an annulus's outer circle, a perforated shape's outer's; the next part resolves against it and an enclosure removes it from its fill; of a resolved part, the outline of its outermost region, and of the copies of a strand the circle about the center that contains them"
+boundary = "the outline of a shape: a circle, a rectangle, a sector, an ellipse, a polygon or an arc polygon itself, an annulus's outer circle, a perforated shape's outer's; the next part resolves against it and an enclosure removes it from its fill; of a resolved part or of a region declared by a primitive, the outline of its outermost region, and of the copies of a strand the circle about the center that contains them"
 r_in = "the inner radius of a circular shape"
 r_ex = "the outer radius of a circular shape"
 placements = "the placements and the shared cross-section of the members a pattern lays"
@@ -214,7 +214,7 @@ CableSystem = "the cables of a line in one cross-section, placed, with the condu
 CableBlueprint = "a cable described for coaxial formulations: equivalent tubes, their dielectric layers and assemblies"
 BlueprintConductor = "one terminal of a cable as an equivalent tube and its material"
 BlueprintDielectric = "one dielectric layer of the interval of an equivalent tube, or of the interior of an assembly around its members"
-flatten = "the blueprint of a cable design; of a resolved terminal, the terminal over one region, a circle or an annulus of the equivalent material; of the outline of a conductor with its metal, the circle or annulus of its equivalent tube"
+flatten = "the blueprint of a cable design; of a resolved stack, the stack of its flattened terminals and layers; of a resolved terminal, the pair of the terminal over one region, a circle or an annulus of the equivalent material, and its turns per unit length; of the outline of a conductor with its metal, the circle or annulus of its equivalent tube"
 "@design" = "the cable design built from the parts of a block, from the inside out"
 "@terminal" = "the terminal of a name around the parts of a block"
 core = "a solid round conductor at the center of a cable"

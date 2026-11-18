@@ -52,18 +52,26 @@ of the terminal, of inner radius ``r_i`` and outer radius ``r_e``. It takes the 
     {\\log r_e - \\log \\operatorname{gmd}(S_\\mathrm{tube},S_\\mathrm{tube})}.
 ```
 
+Its turns per unit length are ``N = \\sum_i w_i N_i``, where ``N_i`` sums the inverse
+pitches of the helices of region ``i``, signed by their direction.
+
 # Returns
 
-- A [`Terminal`](@ref) of the same name over one [`Region`](@ref), a [`Circle`](@ref) or an
-  [`Annulus`](@ref).
+- The pair of a [`Terminal`](@ref) of the same name over one [`Region`](@ref), a
+  [`Circle`](@ref) or an [`Annulus`](@ref), and the turns ``N`` \\[1/m\\].
+
+# Errors
+
+- Throws `ArgumentError` when a part of the stack of the terminal lists only dielectric
+  regions.
 """
 function flatten(terminal::Terminal{<:CablePart{<:Region, <:Union{Circle, Annulus}}})
     placed = terminal.part
     return Terminal(terminal.name,
-        Region(placed.source.tag, placed.shape, placed.source.material))
+        Region(placed.source.tag, placed.shape, placed.source.material)) => zero(eltype(placed.shape))
 end
 function flatten(terminal::Terminal)
-    strands = resolve(NamedTuple[], Placement(0, 0), 1.0, 0.0, terminal.part)
+    strands = resolve(NamedTuple[], Placement(0, 0), 1.0, 0.0, terminal)
     S = [strand.S for strand in strands]
     G = [area(strand.S) / (strand.material.rho * strand.ℓ) for strand in strands]
     w = G ./ sum(G)
@@ -77,5 +85,111 @@ function flatten(terminal::Terminal)
     material = Material(Val(:conductor), area(tube) / sum(G), 1,
         gap / (log(r_e) - log(gmd(tube, tube))), first(strands).material.T0,
         sum(w .* [strand.material.alpha for strand in strands]), 0, 90, 0, 0)
-    return Terminal(terminal.name, Region(terminal.name, tube, material))
+    return Terminal(terminal.name,
+        Region(terminal.name, tube, material)) => sum(w .* [strand.N for strand in strands])
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Reduce a resolved stack to circles and annuli, from the inside out. Each terminal becomes
+its equivalent tube, as [`flatten`](@ref) of a terminal gives it. The fill of a round group
+beyond its metal is a layer of its own, where it has a width. A dielectric circle or annulus
+is its own layer. A layer around any other outline is the annulus of its thickness, the
+[`dimension`](@ref) of its cross-section, outside the part inside it.
+
+The interval of a terminal reaches from its tube, of outer radius ``r_e``, to the next
+terminal or the end of the stack, at the radius ``r_d``. The current of the terminal has
+``N`` turns per unit length. Each layer of the interval takes its relative permeability
+times
+
+```math
+1 + \\frac{2 \\pi^2 N^2 (r_d^2 - r_e^2)}{\\log(r_d / r_e)},
+```
+
+evaluated as ``1 + 4 \\pi^2 N^2 r_d r_e \\sinh(u) / u`` with ``u = \\log(r_d / r_e)``.
+
+# Returns
+
+- A [`Stack`](@ref) of regions and of terminals over one region each.
+
+# Errors
+
+- Throws `ArgumentError` when a part of the stack is neither a terminal nor a dielectric
+  circle, annulus or layer around the part inside it.
+"""
+function flatten(stack::Stack)
+    items = AbstractCablePart[]
+    tubes = Tuple{Int, Real}[]
+    foreach(item -> flatten(items, tubes, item), stack.items)
+    for (k, (index, N)) in enumerate(tubes)
+        stop = k < length(tubes) ? first(tubes[k + 1]) - 1 : length(items)
+        stop > index && !iszero(nominal(N)) || continue
+        r_e, r_d = r_ex(boundary(items[index])), r_ex(boundary(items[stop]))
+        u = log(r_d / r_e)
+        for i in (index + 1):stop
+            medium = items[i].material
+            items[i] = Region(items[i].tag, items[i].primitive,
+                Material(medium, medium, medium.rho, medium.eps_r,
+                    medium.mu_r * (1 + 4π^2 * N^2 * r_d * r_e * sinh(u) / u), medium.T0,
+                    medium.alpha, medium.rho_thermal, medium.theta_max, medium.tan_delta,
+                    medium.sigma_solar))
+        end
+    end
+    return Stack(items)
+end
+
+# A terminal adds its tube to the flattened parts `items`, then the fill beyond its metal.
+# `tubes` lists the place of each tube in `items` with its turns.
+function flatten(items::Vector{AbstractCablePart}, tubes::Vector, terminal::Terminal)
+    flat = flatten(terminal)
+    push!(items, flat.first)
+    push!(tubes, (length(items), flat.second))
+    return flatten(items, r_ex(boundary(flat.first)), terminal.part)
+end
+
+# A stack inside a stack adds its parts in their order.
+function flatten(items::Vector{AbstractCablePart}, tubes::Vector, stack::Stack)
+    foreach(item -> flatten(items, tubes, item), stack.items)
+    return items
+end
+
+# A dielectric circle or annulus is its own layer.
+function flatten(items::Vector{AbstractCablePart}, ::Vector,
+        placed::CablePart{<:Region, <:Union{Circle, Annulus}})
+    push!(items, Region(placed.source.tag, placed.shape, placed.source.material))
+    return items
+end
+
+# A layer around any other outline is the annulus of its thickness outside the part
+# inside it.
+function flatten(items::Vector{AbstractCablePart}, ::Vector,
+        placed::CablePart{<:Region, <:PerforatedShape})
+    r = r_ex(boundary(last(items)))
+    push!(items,
+        Region(placed.source.tag, Annulus(r, r + dimension(placed.shape)),
+            placed.source.material))
+    return items
+end
+
+function flatten(::Vector{AbstractCablePart}, ::Vector, part::AbstractCablePart)
+    throw(ArgumentError(
+        "flatten forms a layer of a stack from a dielectric circle, annulus or offset layer; " *
+        "a $(nameof(typeof(part))) of the stack is none of them"))
+end
+
+# The fill of a round group reaches from the metal of its terminal, at the radius `r_e`, to
+# its container. It is a layer where it has a width. A stack ends at its last part, and any
+# other part ends at its metal.
+function flatten(items::Vector{AbstractCablePart}, r_e::Real,
+        group::Group{<:CablePart{
+            <:Region, <:PerforatedShape{<:Real, <:Union{Circle, Annulus}}}})
+    r_d = r_ex(group.fill.shape.outer)
+    nominal(r_d - r_e) > tolerance(r_d) && push!(items,
+        Region(group.fill.source.tag, Annulus(r_e, r_d), group.fill.source.material))
+    return items
+end
+function flatten(items::Vector{AbstractCablePart}, r_e::Real, stack::Stack)
+    return flatten(items, r_e, last(stack.items))
+end
+flatten(items::Vector{AbstractCablePart}, ::Real, ::AbstractCablePart) = items

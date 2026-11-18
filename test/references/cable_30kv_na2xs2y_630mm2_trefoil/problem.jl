@@ -23,10 +23,10 @@ let
                          Repeat(CircularPattern(n; r = Offset(0), φ0 = φ0),
                              Region(:core, Circle(r), aluminum)))
                     for (n, φ0) in zip((6, 12, 18, 24), (0.0, π / 12, 0.0, π / 24)))...))
-            screen(semicon1; t = 0.5e-3, tag = :inner_semiconductor)
-            insulation(xlpe; t = 8.0e-3)
-            screen(semicon2; t = 0.4e-3, tag = :outer_semiconductor)
         end
+        screen(semicon1; t = 0.5e-3, tag = :inner_semiconductor)
+        insulation(xlpe; t = 8.0e-3)
+        screen(semicon2; t = 0.4e-3, tag = :outer_semiconductor)
         @terminal :sheath begin
             Group(Region(:screen_matrix, Offset(2r_screen + 0.1e-3), air),
                 Stack(

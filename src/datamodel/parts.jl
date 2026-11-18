@@ -539,6 +539,7 @@ end
 # The outline of a resolved part is that of its outermost region. The copies of a strand lie
 # in the circle about the center that contains them.
 boundary(placed::CablePart) = boundary(placed.shape)
+boundary(region::Region{<:AbstractPrimitive}) = boundary(region.primitive)
 boundary(stack::Stack) = boundary(last(stack.items))
 boundary(terminal::Terminal) = boundary(terminal.part)
 boundary(lay::Lay) = boundary(lay.part)
@@ -579,6 +580,24 @@ function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real, terminal::T
 end
 function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real, group::Group)
     return resolve(strands, at, ℓ, N, group.contents)
+end
+
+# Each part of the stack of a terminal lists a conductive region. The dielectric layers of a
+# terminal follow it in the stack around it.
+function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real,
+        terminal::Terminal{<:Stack})
+    for item in terminal.part.items
+        listed = length(strands)
+        resolve(strands, at, ℓ, N, item)
+        validate(strands, terminal, listed)
+    end
+    return strands
+end
+function validate(strands::Vector, terminal::Terminal, listed::Int)
+    length(strands) > listed || throw(ArgumentError(
+        "each part of the terminal :$(terminal.name) must hold a conductive region; " *
+        "declare its dielectric layers after the terminal"))
+    return strands
 end
 
 # The part of a repeat lists its conductive regions once, in its own frame, and each copy
