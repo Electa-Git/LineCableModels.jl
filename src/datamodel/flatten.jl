@@ -120,6 +120,7 @@ evaluated as ``1 + 4 \\pi^2 N^2 r_d r_e \\sinh(u) / u`` with ``u = \\log(r_d / r
 
 - Throws `ArgumentError` when a part of the stack is neither a terminal, nor a group, nor a
   dielectric circle, annulus or offset.
+- Throws `ArgumentError` when two parts of the stack declare one terminal.
 """
 function flatten(stack::Stack)
     items = AbstractCablePart[]
@@ -145,10 +146,19 @@ end
 # A terminal adds its tube to the flattened parts `items`, then the fill beyond its metal.
 # `tubes` lists the place of each tube in `items` with its turns.
 function flatten(items::Vector{AbstractCablePart}, tubes::Vector, terminal::Terminal)
-    flat = flatten(terminal)
+    flat = flatten(validate(terminal, flatten, items, tubes))
     push!(items, flat.first)
     push!(tubes, (length(items), flat.second))
     return flatten(items, r_ex(boundary(flat.first)), terminal.part)
+end
+
+# A stack declares the conductor of a terminal in one part.
+function validate(terminal::Terminal, ::typeof(flatten), items::Vector{AbstractCablePart},
+        tubes::Vector)
+    any(tube -> items[first(tube)].name == terminal.name, tubes) && throw(ArgumentError(
+        "the terminal :$(terminal.name) is declared in two parts of its stack; " *
+        "flatten reads the conductor of a terminal from one Terminal"))
+    return terminal
 end
 
 # A stack inside a stack adds its parts in their order.

@@ -90,6 +90,19 @@ using LineCableModels.Commons: tolerance
         @test_throws ArgumentError flatten(design.tree)
     end
 
+    @testset "a stack declares the conductor of a terminal in one part" begin
+        tape = Region(:sheath_tape, Annulus(2e-3, 2.2e-3), copper)
+        wires = Region(:sheath_tube, Offset(1e-3), copper)
+        core = Region(:bore, Circle(2e-3), polymer)
+        twice = build(CableDesign, "twice", core, Terminal(:sheath, tape),
+            Terminal(:sheath, wires))
+        @test_throws ArgumentError flatten(twice.tree)
+        once = build(CableDesign, "once", core, Terminal(:sheath, Stack(tape, wires)))
+        bore, sheath = flatten(once.tree).items
+        @test sheath.name == :sheath
+        @test [r_in(sheath.part.primitive), r_ex(sheath.part.primitive)] ≈ [2e-3, 3.2e-3]
+    end
+
     @testset "a stack flattens to the tubes of its terminals and their layers" begin
         helix = Helix(LayRatio(12))
         courses = [Lay(helix,
