@@ -18,9 +18,10 @@ using ..Commons: AbstractFormulation, AbstractBackend, FormulationOptions,
 using ..Materials: Material
 using ..Earth: EarthLayer, EquivalentEarthLayer, EarthModel
 using ..BaseGeometry: Placement, area, centroid, perimeter, support, istangent
-using ..DataModel: AbstractPrimitive, Annulus, Assembly, CableDesign, CableSystem, Circle,
-                   Enclosure, Lay, Offset, Region, Repeat, Stack, Terminal, boundary,
-                   flatten, gmr, pitch, r_ex, r_in
+using ..DataModel: AbstractPrimitive, AbstractShape, Annulus, Assembly, CableDesign,
+                   CablePart, CableSystem, Circle, Enclosure, Lay, Offset, PerforatedShape,
+                   Region, Repeat, Stack, Terminal, boundary, flatten, gmr, pitch, r_ex,
+                   r_in
 using IntervalSets: ClosedInterval
 using LinearAlgebra: BlasFloat, BlasInt, Hermitian, I, LAPACK, LU, SingularException,
                      checksquare, isposdef!, ldiv!, lu!, mul!

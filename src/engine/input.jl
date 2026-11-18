@@ -283,11 +283,33 @@ end
 # Any other conductor takes Ametani's cylinder of its area and its perimeter.
 function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::Int,
         owner::Int, terminal::Terminal{<:Region})
-    S, medium = terminal.part.primitive, terminal.part.material
+    S = terminal.part.primitive
     r_e = perimeter(boundary(S)) / 2π
     r_i = nominal(r_e^2 - area(S) / π) <= tolerance(r_e)^2 ? zero(r_e) :
           sqrt(r_e^2 - area(S) / π)
-    tube = iszero(nominal(r_i)) ? Circle(r_e) : Annulus(r_i, r_e)
+    return resolve(rows, CoaxialInput, frame, a, owner, terminal, S,
+        iszero(nominal(r_i)) ? Circle(r_e) : Annulus(r_i, r_e))
+end
+
+# A conductor that an offset declares around another outline than a circle is the tube of
+# its thickness outside the layer before it.
+function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::Int,
+        owner::Int, terminal::Terminal{<:CablePart{<:Region{<:Offset}, <:PerforatedShape}})
+    placed = terminal.part
+    i = last(rows.assemblies[a])
+    r = isempty(rows.dielectric_ranges[i]) ? rows.r_ex[i] :
+        rows.dielectric_r_ex[last(rows.dielectric_ranges[i])]
+    return resolve(rows, CoaxialInput, frame, a, owner,
+        Terminal(terminal.name, placed.source), placed.shape,
+        Annulus(r, r + placed.source.primitive.t))
+end
+
+# The tube `tube` stands for a conductor of the cross-section `S`. Its material gives it the
+# resistance and the geometric mean radius of `S`.
+function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::Int,
+        owner::Int, terminal::Terminal{<:Region}, S::AbstractShape,
+        tube::Union{Circle, Annulus})
+    medium, r_e = terminal.part.material, r_ex(tube)
     return resolve(rows, CoaxialInput, frame, a, owner,
         Terminal(terminal.name,
             Region(terminal.part.tag, tube,

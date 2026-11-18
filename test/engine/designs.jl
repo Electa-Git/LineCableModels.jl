@@ -279,6 +279,25 @@
               [r_e, r_e + 1.0e-3] rtol = 1e-12
     end
 
+    # A screen that an offset declares around a sector core is the tube of its thickness. The
+    # tube has the resistance and the geometric mean radius of the cross-section of the
+    # screen. The values are those of the commit 3e15c5a1b.
+    @testset "a screen around a sector core is the tube of its thickness" begin
+        aluminum = Material(:conductor, 2.8264e-8, 1, 1, 20, 0.00429)
+        sector = LineCableModels.Sector(
+            0, 10.24e-3, deg2rad(119.0), 1.1e-3 / sind(60), 1.02e-3, Placement(0, 0))
+        input = coaxial(build(CableDesign, "screened_sector",
+            Terminal(:core, Region(:core, sector, aluminum)),
+            Region(:insulation, Offset(1.1e-3), polymer),
+            Terminal(:screen, Region(:screen, Offset(0.2e-3), copper)),
+            Region(:jacket, Offset(2.0e-3), polymer)))
+        @test input.r_in ≈ [2.584596240685967e-3, 6.948789605543471e-3] rtol = 1e-12
+        @test input.r_ex ≈ [5.84878960554347e-3, 7.1487896055434695e-3] rtol = 1e-12
+        @test [medium.rho for medium in input.material] ≈ [2.8264e-8, 1.7241e-8] rtol = 1e-12
+        @test [medium.mu_r for medium in input.material] ≈
+              [1.749196663688495, 5.401337489441598] rtol = 1e-12
+    end
+
     # An open tape and its fill tile one layer. Under a radial field the two carry their
     # currents in parallel, and the admittivity of the layer is the area-weighted sum of theirs.
     @testset "an open dielectric tape is one layer of the composite material" begin

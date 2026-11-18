@@ -52,7 +52,8 @@ using LineCableModels.Commons: tolerance
             Region(:insulation, Offset(1e-3), polymer), Terminal(:screen, screen))
         core, insulation, tube = design.tree.items
         @test flatten(core) == Terminal(:core, bar)
-        @test flatten(tube) == Terminal(:screen, screen)
+        # A layer that an offset declares has no cross-section of its own: it stays resolved.
+        @test flatten(tube) === tube
         @test flatten(Terminal(:core, bar)) == Terminal(:core, bar)
     end
 
@@ -293,7 +294,9 @@ using LineCableModels.Commons: tolerance
             Terminal(:screen, Region(:screen, Offset(0.2e-3), copper)),
             Region(:jacket, Offset(2.0e-3), polymer))
         design = build(CableDesign, "screened_sector", parts...)
-        @test flatten(design.tree) == Stack(parts...)
+        # The screen is a layer that an offset declares: it stays the resolved part.
+        @test flatten(design.tree) ==
+              Stack(parts[1], parts[2], design.tree.items[3], parts[4])
         @test flatten(Stack(parts...)) == Stack(parts...)
     end
 

@@ -100,18 +100,21 @@ end
 $(TYPEDSIGNATURES)
 
 Return a terminal over one region as its own flattened form. A circle or an annulus is the
-region of its resolved cross-section. Any other region is its declaration. A lay over the
-region stays around it.
+region of its resolved cross-section. A layer that an offset declares around another
+outline than a circle stays the resolved part. An offset declares a thickness and not a
+cross-section. Any other region is its declaration. A lay over the region stays around it.
 
 # Returns
 
-- The [`Terminal`](@ref) over one [`Region`](@ref), or over the [`Lay`](@ref) of one.
+- The [`Terminal`](@ref) over one [`Region`](@ref), over the [`Lay`](@ref) of one, or over
+  the resolved [`CablePart`](@ref) of such a layer.
 """
 function flatten(terminal::Terminal{<:CablePart{<:Region, <:Union{Circle, Annulus}}})
     placed = terminal.part
     return Terminal(terminal.name,
         Region(placed.source.tag, placed.shape, placed.source.material))
 end
+flatten(terminal::Terminal{<:CablePart{<:Region{<:Offset}, <:PerforatedShape}}) = terminal
 flatten(terminal::Terminal{<:CablePart}) = Terminal(terminal.name, terminal.part.source)
 flatten(terminal::Terminal{<:Region}) = terminal
 function flatten(terminal::Terminal{<:Lay{
