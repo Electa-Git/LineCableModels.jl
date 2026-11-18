@@ -71,9 +71,58 @@ root = pkgdir(Playground)
                           eachmatch(r"<iframe [^>]*data-lcm-src=\"live/cells/\d+\"[^>]*>", specimen)]
             @test length(frames) == length(cells)
             @test !any(frame -> occursin(" src=", frame), frames)
+
+            states = JSON.parse(String(HTTP.get("$address/api/presentations").body))
+            @test states["specimen"]["state"] == "stopped"
+            @test states["starter"]["state"] == "stopped"
+            @test HTTP.post("$address/api/presentations/specimen/restart").status == 202
+            @test HTTP.post("$address/api/presentations/unknown/restart"; status_exception = false).status ==
+                  404
+            timedwait(600; pollint = 1) do
+                JSON.parse(String(HTTP.get("$address/api/presentations").body))["specimen"]["state"] !=
+                "starting"
+            end
+            @test JSON.parse(String(HTTP.get("$address/api/presentations").body))["specimen"]["state"] ==
+                  "running"
+
+            worker = parse(Int, readchomp(`pgrep -P $(getpid(server))`))
+            run(`kill -9 $worker`)
+            timedwait(10; pollint = 0.1) do
+                JSON.parse(String(HTTP.get("$address/api/presentations").body))["specimen"]["state"] ==
+                "stopped"
+            end
+            @test JSON.parse(String(HTTP.get("$address/api/presentations").body))["specimen"]["state"] ==
+                  "stopped"
+            @test HTTP.get("$address/presentations/specimen/").status == 200
+
+            HTTP.post("$address/api/presentations/specimen/restart")
+            timedwait(600; pollint = 1) do
+                JSON.parse(String(HTTP.get("$address/api/presentations").body))["specimen"]["state"] !=
+                "starting"
+            end
+            @test JSON.parse(String(HTTP.get("$address/api/presentations").body))["specimen"]["state"] ==
+                  "running"
+            worker = parse(Int, readchomp(`pgrep -P $(getpid(server))`))
+            kill(server)
+            wait(server)
+            timedwait(() -> !isdir("/proc/$worker"), 30; pollint = 0.1)
+            @test !isdir("/proc/$worker")
         finally
             kill(server)
             wait(server)
+        end
+    end
+
+    @testset "julia -m Playground refuses a presentation name the relay cannot carry" begin
+        mktempdir(joinpath(root, "presentations"); prefix = "Specimen_") do folder
+            touch(joinpath(folder, "index.qmd"))
+            output = IOBuffer()
+            command = `$(Base.julia_cmd()) --project=$root -m Playground --no-render`
+            process = run(pipeline(ignorestatus(command); stdout = output, stderr = output))
+            @test process.exitcode != 0
+            @test occursin(
+                "the presentation '$(basename(folder))' needs a name of lowercase letters, digits and hyphens",
+                String(take!(output)))
         end
     end
 

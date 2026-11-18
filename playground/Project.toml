@@ -4,18 +4,20 @@ version = "0.1.0"
 
 [deps]
 HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 quarto_jll = "b7163347-bfae-5fd9-aba4-19f139889d78"
 
 [compat]
 HTTP = "2.6"
 JSON = "1"
-quarto_jll = "1.9.38"
+Random = "1.11.0"
 julia = "1.12"
+quarto_jll = "1.9.38"
 
 [extras]
-JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["JSON", "Sockets", "Test"]
+test = ["Sockets", "Test"]

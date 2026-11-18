@@ -189,3 +189,28 @@ gets an empty list.
 
 The slide **Balanced evidence** of the specimen has two cells. The first
 defines `Z`, and the second computes `R` and `L` from it.
+
+## The process of a presentation
+
+The cells of each presentation run in a Julia process of their own. A cell
+that fails, or a process that stops, leaves the slides, the landing page and
+the other presentations as they are. The process runs `PlaygroundWorker`, the
+package in `worker/`, with the presentation's folder as its project when the
+folder holds a `Project.toml`, and the worker's own project otherwise. A
+presentation's `Project.toml` lists the packages its cells use. When it lists
+Bonito, its version is the one the worker runs with.
+
+`Playground` starts only when the name of each presentation's folder matches
+`^[a-z0-9][a-z0-9-]*$` and does not contain `http`.
+
+The server answers two requests about the processes:
+
+- `GET /api/presentations` gives each presentation the state of its process:
+  `stopped`, `starting` or `running`.
+- `POST /api/presentations/<name>/restart` ends the presentation's process and
+  starts it again.
+
+After a start that failed, the field `error` beside the state gives the message
+and the last lines that the process wrote.
+
+A process ends when the server ends.
