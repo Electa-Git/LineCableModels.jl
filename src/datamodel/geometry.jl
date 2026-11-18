@@ -775,6 +775,19 @@ function Base.map(f, sector::Sector)
     return Sector(f(sector.ri), f(sector.ro), f(sector.span), f(sector.apex),
         f(sector.fillet), map(f, sector.at))
 end
+# A perforated cross-section or a polygon equals another when their fields are equal, and
+# equal ones have one hash.
+function Base.:(==)(a::PerforatedShape, b::PerforatedShape)
+    a.outer == b.outer && a.holes == b.holes
+end
+function Base.hash(shape::PerforatedShape, h::UInt)
+    return hash(shape.holes, hash(shape.outer, hash(:PerforatedShape, h)))
+end
+Base.:(==)(a::Polygon, b::Polygon) = a.vertices == b.vertices && a.at == b.at
+function Base.hash(polygon::Polygon, h::UInt)
+    return hash(polygon.at, hash(polygon.vertices, hash(:Polygon, h)))
+end
+
 function Base.map(f, shape::PerforatedShape)
     outer = map(f, shape.outer)
     return PerforatedShape(outer,

@@ -145,6 +145,9 @@ function resolve(at::Placement, shape::ArcPolygon)
     return ArcPolygon(Curve{T}[resolve(at, curve) for curve in shape.outer])
 end
 
+Base.:(==)(a::ArcPolygon, b::ArcPolygon) = a.outer == b.outer
+Base.hash(shape::ArcPolygon, h::UInt) = hash(shape.outer, hash(:ArcPolygon, h))
+
 """
 $(TYPEDSIGNATURES)
 

@@ -446,5 +446,17 @@ end
         end
         @test Group(Region(:fill, Circle(4.0e-3), polymer), Region(:a, Circle(1.0e-3), copper)) !=
               Group(Region(:fill, Circle(4.0e-3), polymer), Region(:b, Circle(1.0e-3), copper))
+        # Resolved parts: a fill has the outlines of its contents as holes, and the
+        # insulation of a bar has the arcs of its outline.
+        trees() = (
+            build(CableDesign, "pair", pipe(), Region(:jacket, Offset(1.0e-3), polymer)).tree,
+            build(CableDesign, "bar",
+                Terminal(:core, Region(:bar, Rectangle(10.0e-3, 5.0e-3), copper)),
+                Region(:insulation, Offset(1.0e-3), polymer)).tree,
+            Region(:wedge, Polygon([(0.0, 0.0), (1.0e-3, 0.0), (0.0, 1.0e-3)]), copper))
+        for (a, b) in zip(trees(), trees())
+            @test a == b
+            @test hash(a) == hash(b)
+        end
     end
 end

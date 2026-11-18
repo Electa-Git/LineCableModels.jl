@@ -571,6 +571,10 @@ end
 
 # A part equals another of its node when their fields are equal, and equal parts have one
 # hash.
+function Base.:(==)(a::Region, b::Region)
+    return a.tag == b.tag && a.primitive == b.primitive && a.material == b.material
+end
+Base.:(==)(a::CablePart, b::CablePart) = a.source == b.source && a.shape == b.shape
 Base.:(==)(a::Stack, b::Stack) = a.items == b.items
 Base.:(==)(a::Terminal, b::Terminal) = a.name == b.name && a.part == b.part
 Base.:(==)(a::Repeat, b::Repeat) = a.pattern == b.pattern && a.part == b.part
@@ -578,6 +582,12 @@ Base.:(==)(a::Assembly, b::Assembly) = a.members == b.members
 Base.:(==)(a::Lay, b::Lay) = a.helix == b.helix && a.part == b.part
 Base.:(==)(a::Group, b::Group) = a.fill == b.fill && a.contents == b.contents
 Base.:(==)(a::Enclosure, b::Enclosure) = a.fill == b.fill && a.contents == b.contents
+function Base.hash(region::Region, h::UInt)
+    return hash(region.material, hash(region.primitive, hash(region.tag, hash(:Region, h))))
+end
+function Base.hash(placed::CablePart, h::UInt)
+    return hash(placed.shape, hash(placed.source, hash(:CablePart, h)))
+end
 Base.hash(stack::Stack, h::UInt) = hash(stack.items, hash(:Stack, h))
 function Base.hash(terminal::Terminal, h::UInt)
     return hash(terminal.part, hash(terminal.name, hash(:Terminal, h)))
