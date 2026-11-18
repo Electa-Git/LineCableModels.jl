@@ -8,6 +8,15 @@ using LineCableModels.Commons: tolerance
     polymer = Material(:insulator, 1.0e14, 2.3)
     air = material(kind = :insulator, rho = Inf)
 
+    @testset "a region stands for a conductor of a resistance and a geometric mean radius" begin
+        for S in (Circle(3.0e-3), Annulus(1.0e-3, 3.0e-3), Rectangle(10.0e-3, 5.0e-3))
+            medium = Region(:tube, S, 2.5e-4, 1.1e-3, 20.0, 0.004).material
+            @test medium.rho / area(S) ≈ 2.5e-4 rtol = 1e-12
+            @test gmr(S, medium.mu_r) ≈ 1.1e-3 rtol = 1e-12
+            @test (medium.T0, medium.alpha) == (20.0, 0.004)
+        end
+    end
+
     @testset "a terminal over one circle or annulus is its own equivalent" begin
         design = build(CableDesign, "thin_tube",
             Region(:bore, Circle(0.03 * (1 - 1e-8)), polymer),
@@ -314,8 +323,11 @@ using LineCableModels.Commons: tolerance
             Terminal(:pipe, Region(:pipe, Offset(3.0e-3), steel)),
             Region(:jacket, Offset(5.0e-3), polymer))
         flat = flatten(design.tree)
+        # The enclosure keeps its resolved fill: the container without its three members.
+        filler = first(design.tree.items).fill
+        @test area(first(flat.items).fill.shape) ≈ π * (62.0e-3^2 - 3 * 28.0e-3^2) rtol = 1e-12
         @test flat == Stack(
-            Enclosure(Region(:filler, Circle(62.0e-3), polymer),
+            Enclosure(filler,
                 Assembly(Tuple(Placement(0.0,
                                    0.0,
                                    θ) => Stack(
@@ -338,7 +350,7 @@ using LineCableModels.Commons: tolerance
         core = Stack(Terminal(:core, Region(:core, Circle(0.5e-3), copper)),
             Region(:insulation, Annulus(0.5e-3, 0.5e-3 + 0.25e-3), polymer))
         @test flatten(rod.tree) == Stack(Region(:rod, Circle(1.0e-3), polymer),
-            Enclosure(Region(:fill, Annulus(1.0e-3, 1.0e-3 + 3.0e-3), air),
+            Enclosure(rod.tree.items[2].fill,
                 Assembly(Tuple(at => core for at in placements))),
             Region(:binder, Annulus(1.0e-3 + 3.0e-3, 1.0e-3 + 3.0e-3 + 0.2e-3), polymer))
     end
@@ -369,7 +381,8 @@ using LineCableModels.Commons: tolerance
             Enclosure(Region(:pipe_fill, Circle(6.5e-3), polymer),
                 Repeat(CircularPattern(3; r = 3.5e-3), core)))
         enclosure = only(flatten(design.tree).items)
-        @test enclosure.fill == Region(:pipe_fill, Circle(6.5e-3), polymer)
+        @test enclosure.fill.source == Region(:pipe_fill, Circle(6.5e-3), polymer)
+        @test area(enclosure.fill.shape) ≈ π * (6.5e-3^2 - 3 * 1.5e-3^2) rtol = 1e-12
         @test enclosure.contents.pattern == only(design.tree.items).contents.pattern
         @test enclosure.contents.part == Stack(
             Terminal(:core, Region(:core, Circle(1.0e-3), copper)),

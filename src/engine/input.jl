@@ -309,14 +309,11 @@ end
 function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::Int,
         owner::Int, terminal::Terminal{<:Region}, S::AbstractShape,
         tube::Union{Circle, Annulus})
-    medium, r_e = terminal.part.material, r_ex(tube)
+    medium = terminal.part.material
     return resolve(rows, CoaxialInput, frame, a, owner,
         Terminal(terminal.name,
-            Region(terminal.part.tag, tube,
-                Material(Val(:conductor), medium.rho * area(tube) / area(S), 1,
-                    (log(r_e) - log(gmr(S, medium.mu_r))) / (log(r_e) - log(gmr(tube, 1))),
-                    medium.T0, medium.alpha, medium.rho_thermal, medium.theta_max,
-                    medium.tan_delta, medium.sigma_solar))))
+            Region(terminal.part.tag, tube, medium.rho / area(S), gmr(S, medium.mu_r),
+                medium.T0, medium.alpha)))
 end
 
 # The helix of a laid conductor gives its turns at the outer radius of its region.
@@ -376,21 +373,20 @@ end
 
 # An enclosure gives its members, then its fill. In the stack of an assembly the fill is the
 # filler of the interior, from the axis to its container. The regions that joined the filler
-# share its material by their areas. The area of a fill is that of its container without the
-# outlines of its members, and the method reads it only among several regions.
+# share its material by their areas. The cross-section of the resolved fill is its container
+# without the outlines of its members.
 function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::Int,
-        owner::Int, enclosure::Enclosure)
+        owner::Int, enclosure::Enclosure{<:CablePart})
     T = eltype(rows.r_in)
     resolve(rows, CoaxialInput, frame, a, owner, enclosure.contents)
     fill, media = enclosure.fill, rows.fillers[owner]
-    (owner != a || !isempty(media)) && push!(media,
-        convert(Material{T}, fill.material) => area(fill.primitive) -
-                                               area(enclosure.contents))
+    (owner != a || !isempty(media)) &&
+        push!(media, convert(Material{T}, fill.source.material) => area(fill.shape))
     owner == a || return rows
     push!(rows.dielectric_r_in, zero(T))
-    push!(rows.dielectric_r_ex, r_ex(fill.primitive))
+    push!(rows.dielectric_r_ex, r_ex(fill.shape.outer))
     push!(rows.dielectric_material,
-        isempty(media) ? convert(Material{T}, fill.material) :
+        isempty(media) ? convert(Material{T}, fill.source.material) :
         Material(first.(media), last.(media) ./ sum(last, media)))
     l = length(rows.dielectric_r_in)
     rows.interior_ranges[a] = l:l

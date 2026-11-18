@@ -37,13 +37,12 @@ Its geometric mean radius ``g`` follows from
 
 where ``g_i`` is the [`gmr`](@ref) of region ``i``. The cross-section ``S`` of the one
 region is what [`flatten`](@ref) gives the outline of the terminal outside `inner`. It is a
-circle or an annulus inside a round outline, and any other outline itself. The region takes
-the resistivity ``R A(S)`` and the relative permeability that gives ``S`` the radius ``g``:
-
-```math
-\\mu = \\frac{\\log \\operatorname{gmr}(S, 0) - \\log g}
-    {\\log \\operatorname{gmr}(S, 0) - \\log \\operatorname{gmr}(S, 1)}.
-```
+circle or an annulus inside a round outline, and any other outline itself. The region is
+the [`Region`](@ref) of the cross-section ``S`` with the resistance ``R`` and the geometric
+mean radius ``g``. The method sums the differences
+``\\log \\operatorname{gmr}(S, 0) - \\log g_i`` and
+``\\log \\operatorname{gmr}(S, 0) - \\log \\operatorname{gmd}(S_i,S_j)``, because ``g`` lies
+close to ``\\operatorname{gmr}(S, 0)`` for a thin tube.
 
 The current of the terminal makes ``N = \\sum_i w_i N_i`` turns per unit length, where
 ``N_i`` sums the inverse pitches of the helices of region ``i``, signed by their direction.
@@ -76,10 +75,9 @@ function flatten(inner::Union{EmptyBoundary, AbstractShape}, terminal::Terminal)
         (w[i] * w[j] * (b - log(gmd(S[i], S[j])))
         for i in eachindex(S) for j in (i + 1):length(S));
         init = zero(eltype(w)))
-    material = Material(Val(:conductor), area(tube) / sum(G), 1,
-        gap / (b - log(gmr(tube, 1))), first(strands).material.T0,
-        sum(w .* [strand.material.alpha for strand in strands]), 0, 90, 0, 0)
-    region = Region(terminal.name, tube, material)
+    region = Region(terminal.name, tube, 1 / sum(G), exp(b - gap),
+        first(strands).material.T0,
+        sum(w .* [strand.material.alpha for strand in strands]))
     N = sum(w .* [strand.N for strand in strands])
     iszero(nominal(N)) && return Terminal(terminal.name, region)
     return Terminal(terminal.name,
@@ -283,21 +281,15 @@ flatten(items::Vector{AbstractCablePart}, ::Terminal, ::AbstractCablePart) = ite
 """
 $(TYPEDSIGNATURES)
 
-Flatten the contents of an enclosure. The enclosure keeps its form around them, and the
-region of its fill takes the container as its primitive.
+Flatten the contents of an enclosure. The enclosure keeps its form and its fill around
+them. The fill of a resolved enclosure is its resolved part, whose cross-section is the
+container without the outlines of the contents.
 
 # Returns
 
-- An [`Enclosure`](@ref) whose fill is a [`Region`](@ref) of the container.
+- An [`Enclosure`](@ref) of the same fill around the flattened contents.
 """
-function flatten(enclosure::Enclosure{<:CablePart})
-    fill = enclosure.fill
-    return Enclosure(Region(fill.source.tag, fill.shape.outer, fill.source.material),
-        flatten(enclosure.contents))
-end
-function flatten(enclosure::Enclosure{<:Region})
-    return Enclosure(enclosure.fill, flatten(enclosure.contents))
-end
+flatten(enclosure::Enclosure) = Enclosure(enclosure.fill, flatten(enclosure.contents))
 
 """
 $(TYPEDSIGNATURES)

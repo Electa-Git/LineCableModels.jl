@@ -44,6 +44,38 @@ struct CablePart{R <: Region, S <: AbstractShape} <: AbstractCablePart
     end
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Declare the region of the cross-section `S` that stands for a conductor of the resistance
+`R` per unit length and the geometric mean radius `g`. Its material has the resistivity
+``R A(S)``, where ``A(S)`` is the area of `S`, and the relative permeability that gives
+``S`` the radius ``g``:
+
+```math
+\\mu = \\frac{\\log \\operatorname{gmr}(S, 0) - \\log g}
+    {\\log \\operatorname{gmr}(S, 0) - \\log \\operatorname{gmr}(S, 1)},
+```
+
+where ``\\operatorname{gmr}(S, \\mu)`` is the [`gmr`](@ref) of `S` at the relative
+permeability ``\\mu``.
+
+# Arguments
+
+- `tag`: name of the region within the cable.
+- `S`: cross-section of the region.
+- `R`: resistance of the conductor at `T0` \\[Ω/m\\].
+- `g`: geometric mean radius of the conductor \\[m\\].
+- `T0`: reference temperature of the resistance \\[°C\\].
+- `alpha`: temperature coefficient of the resistance \\[1/°C\\].
+"""
+function Region(tag::Symbol, S::AbstractPrimitive, R::Real, g::Real, T0::Real, alpha::Real)
+    b = log(gmr(S, 0))
+    return Region(tag, S,
+        Material(Val(:conductor), R * area(S), 1, (b - log(g)) / (b - log(gmr(S, 1))),
+            T0, alpha, 0, 90, 0, 0))
+end
+
 # A region resolves its primitive against the outline of the parts inside it. Each part adds
 # the regions that it places to `regions`, in the frame that it resolves in. It returns its
 # resolved part and its outline as a pair.
@@ -535,12 +567,6 @@ function boundary(assembly::Assembly)
 end
 function boundary(repeat::Repeat{<:AbstractVector{<:Placement}, <:CablePart})
     return Circle(maximum(at -> support(resolve(at, repeat.part.shape)), repeat.pattern))
-end
-
-# The members of an assembly and the copies of a repeat cover the areas inside their outlines.
-area(assembly::Assembly) = sum(member -> area(boundary(member.second)), assembly.members)
-function area(repeat::Repeat{<:AbstractVector{<:Placement}})
-    return length(repeat.pattern) * area(boundary(repeat.part))
 end
 
 # A part equals another of its node when their fields are equal.
