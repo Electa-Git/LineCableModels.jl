@@ -95,15 +95,20 @@ r_ex(design.outer) # [m]
 #=
 ## Lay parameters of the core
 
-Each strand layer corresponds to one row in the table of lays of the design, containing the
-lay radius of the rectangular strands, the pitch of the helix and the overlength, defined as the length
-of a strand per unit length of cable. For a constant lay ratio, the overlength is the same
-for all layers.
+Each strand layer follows its helix at the lay radius of its rectangular strands, the
+distance of their centroids from the axis. The helix gives the pitch and the overlength,
+defined as the length of a strand per unit length of cable. For a constant lay ratio, the
+overlength is the same for all layers.
 =#
 
 # Lay radius, pitch and overlength of each layer:
-[(radius = row.radii[1], pitch = row.pitches[1], overlength = row.overlengths[1])
- for row in design.lays] # [m], [m], [dimensionless]
+helix = Helix(LayRatio(15.0)) # core_lay_ratio
+map(1:6) do k
+    strand = first(filter(
+        placed -> placed.source.tag == Symbol(:core_strands_, k), design.regions))
+    radius = hypot(centroid(strand.shape)...)
+    (radius = radius, pitch = pitch(helix, radius), overlength = overlength(helix, radius))
+end # [m], [m], [dimensionless]
 
 #=
 ## Equivalent coaxial representation

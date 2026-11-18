@@ -78,17 +78,14 @@
             for (a, b) in zip(design.regions, reference.regions)
             for f in (area, support, distance, shape -> first(centroid(shape)),
                 shape -> last(centroid(shape))))
-            @test [design.regions[row.region].source.tag for row in design.fills] ==
+            @test [placed.source.tag
+                   for placed in design.regions
+                   if placed.shape isa LineCableModels.PerforatedShape] ==
                   [:stranded_fill, :armor_fill]
-            @test [(row.region, row.contents) for row in design.fills] ==
-                  [(row.region, row.contents) for row in reference.fills]
             @test [(row.name, row.scope, row.regions) for row in design.terminals] ==
                   [(row.name, row.scope, row.regions) for row in reference.terminals]
             @test [row.copies for row in design.repeats] ==
                   [row.copies for row in reference.repeats]
-            @test all(isapprox(f(a), f(b))
-            for (a, b) in zip(design.lays, reference.lays)
-            for f in (row -> row.radii, row -> row.pitches, row -> row.overlengths))
 
             input, expected = coaxial_input(design), coaxial_input(reference)
             @test input.label == expected.label
@@ -155,7 +152,9 @@
                 tape(copper; w = 2.0e-3, t = 0.1e-3, lay = LayRatio(10))
             end
         end
-        @test [taped.regions[row.region].source.tag for row in taped.fills] == [:tape_fill]
+        @test [placed.source.tag
+               for placed in taped.regions
+               if placed.shape isa LineCableModels.PerforatedShape] == [:tape_fill]
         input = coaxial_input(taped)
         @test [last(input.r_in), last(input.r_ex)] ≈ [2.0e-3, 2.1e-3]
         conductor = stranded(copper; center = Circle(1.5e-3), shape = Circle(1.5e-3),

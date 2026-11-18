@@ -74,7 +74,8 @@
             Region(:core_insulation, Offset(1.0e-3), polymer))
         straight = build(CableDesign, "straight_wire", Terminal(:core, strand),
             Region(:core_insulation, Offset(1.0e-3), polymer))
-        @test only(laid.lays).pitches == [Inf]
+        @test only(LineCableModels.resolve(
+            NamedTuple[], Placement(0, 0), 1.0, 0.0, first(laid.tree.items))).N == 0
         input, expected = coaxial(laid), coaxial(straight)
         @test only(input.material).rho == only(expected.material).rho
         @test input.mu_r_ins == expected.mu_r_ins == [1.0]

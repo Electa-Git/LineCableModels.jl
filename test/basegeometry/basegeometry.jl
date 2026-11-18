@@ -126,7 +126,7 @@ end
         cores = Repeat(CircularPattern(3; r = 3.5e-3), core)
         pipe = Region(:pipe_fill, Circle(6.5e-3), polymer)
         design = build(CableDesign, "three_cores", Enclosure(pipe, cores))
-        fill = design.regions[last(design.fills).region].shape
+        fill = last(design.regions).shape
         contour = Contour(fill)
         @test contour.outer == Contour(fill.outer).outer
         @test length(contour.holes) == 3

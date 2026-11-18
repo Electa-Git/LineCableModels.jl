@@ -69,11 +69,9 @@ function CablePart(::Type{T},
     return CablePart(placed.source, map(x -> convert(T, x), placed.shape))
 end
 
-# A leaf of the resolved part takes the next placed region of the cable. It is a region of the
-# sub-cable around it, the last row of its scope.
+# A leaf of the resolved part takes the next placed region of the cable.
 function resolve(rows::NamedTuple, scope::Vector{Int}, ::CablePart)
     push!(rows.regions, rows.placed[length(rows.regions) + 1])
-    push!(rows.assemblies[last(scope)].regions, length(rows.regions))
     return rows
 end
 
@@ -153,7 +151,7 @@ end
 
 # The conductive regions of the part leave every terminal inside it and join the terminal of
 # its name in the scope of the part. A terminal left without regions has no row. The scope of
-# a row lists the sub-cables that contain its terminal, below the cable itself.
+# a row lists the numbers of the sub-cables that contain its terminal, below the cable itself.
 function resolve(rows::NamedTuple, scope::Vector{Int}, terminal::Terminal)
     start = length(rows.regions)
     resolve(rows, scope, terminal.part)
@@ -274,34 +272,20 @@ function resolve(rows::NamedTuple, scope::Vector{Int},
     return rows
 end
 
-# A member at its placement is a sub-cable. Its row precedes those of the sub-cables inside
-# it. The terminals declared in it take that row as their innermost scope. The member lists
-# its rows in its own frame. The placement then puts the sub-cables inside it in the enclosing
-# frame, with the placements of the repeats and the axes of the lays.
+# A member at its placement is a sub-cable, with the next number of `rows.scopes`. The
+# terminals declared in it take that number as their innermost scope. The member lists its
+# rows in its own frame. The placement then puts the repeats inside it in the enclosing frame.
 function resolve(rows::NamedTuple, scope::Vector{Int},
         member::Pair{<:Placement, <:AbstractCablePart})
     at, part = member
-    row = length(rows.assemblies) + 1
-    push!(rows.assemblies[last(scope)].members, row)
-    push!(rows.assemblies, (at = at, regions = Int[], members = Int[]))
-    repeats, lays = length(rows.repeats), length(rows.lays)
-    resolve(rows, [scope; row], part)
-    for index in (row + 1):length(rows.assemblies)
-        nested = rows.assemblies[index]
-        rows.assemblies[index] = (
-            at = at * nested.at, regions = nested.regions, members = nested.members)
-    end
+    push!(rows.scopes, length(rows.scopes) + 1)
+    repeats = length(rows.repeats)
+    resolve(rows, [scope; last(rows.scopes)], part)
     for index in (repeats + 1):length(rows.repeats)
         nested = rows.repeats[index]
         rows.repeats[index] = (
             placements = [at * placement for placement in nested.placements],
             copies = nested.copies)
-    end
-    for index in (lays + 1):length(rows.lays)
-        nested = rows.lays[index]
-        rows.lays[index] = (regions = nested.regions, radii = nested.radii,
-            pitches = nested.pitches, overlengths = nested.overlengths,
-            axis = at(nested.axis))
     end
     return rows
 end
@@ -413,31 +397,8 @@ function resolve(outline::Union{EmptyBoundary, AbstractShape}, lay::Lay,
     return Pair{AbstractCablePart, AbstractShape}(Lay(lay.helix, resolved.first), resolved.second)
 end
 
-# A lay over one region adds its region and no row of lays.
-function resolve(rows::NamedTuple, scope::Vector{Int}, lay::Lay{<:Helix, <:CablePart})
-    resolve(
-        rows, scope, lay.part)
-end
-
-# The laid regions are the copies of the first row of repeats that the repeat adds. The lay
-# radius of a copy is the distance of its centroid from the center of the repeat. That center
-# is the origin of the sub-cable around the lay, placed in the frame of the cable.
-function resolve(rows::NamedTuple, scope::Vector{Int}, lay::Lay)
-    index = length(rows.repeats) + 1
-    resolve(rows, scope, lay.part)
-    copies = rows.repeats[index].copies
-    centers = [centroid([rows.regions[region].shape for region in indices])
-               for indices in copies]
-    center = foldr((row, point) -> rows.assemblies[row].at(point), scope[2:end];
-        init = map(zero, first(centers)))
-    radii = [distance(point .- center) for point in centers]
-    push!(rows.lays,
-        (regions = copies, radii = radii,
-            pitches = [lay.helix.dir * pitch(lay.helix, radius) for radius in radii],
-            overlengths = [overlength(lay.helix, radius) for radius in radii],
-            axis = (zero(eltype(radii)), zero(eltype(radii)))))
-    return rows
-end
+# A lay adds the rows of its part.
+resolve(rows::NamedTuple, scope::Vector{Int}, lay::Lay) = resolve(rows, scope, lay.part)
 
 """
 $(TYPEDEF)
@@ -539,12 +500,8 @@ end
 
 # The fill is the region after its contents.
 function resolve(rows::NamedTuple, scope::Vector{Int}, part::Union{Group, Enclosure})
-    start = length(rows.regions)
     resolve(rows, scope, part.contents)
-    contents = collect((start + 1):length(rows.regions))
-    resolve(rows, scope, part.fill)
-    push!(rows.fills, (region = length(rows.regions), contents = contents))
-    return rows
+    return resolve(rows, scope, part.fill)
 end
 
 # The outline of a resolved part is that of its outermost region, and that of an enclosure is

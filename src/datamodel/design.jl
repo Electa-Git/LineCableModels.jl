@@ -1,12 +1,11 @@
 """
 $(TYPEDEF)
 
-Describe one cable by its resolved parts and the regions that they place. Tables map the
-regions to terminals, sub-cables, repeats, lays, compactions and fills. Each table row
-holds resolved values in the floating type `T`, to which numbers from shapes and
-materials promote. A row exists only for a fact that holds. The resolved parts stay in
-`tree`, where a copy of a repeat and a member of an assembly lie in their own frames. The
-resolved shapes of all regions are in `T`.
+Describe one cable by its resolved parts and the regions that they place. The resolved
+parts stay in `tree`, where a copy of a repeat and a member of an assembly lie in their own
+frames. Its tables map the regions to terminals and to the copies of repeats. Each table
+row holds resolved values in the floating type `T`, to which numbers from shapes and
+materials promote. The resolved shapes of all regions are in `T`.
 
 $(TYPEDFIELDS)
 """
@@ -26,61 +25,28 @@ struct CableDesign{
     outer::B
     """
     Terminals, each as `(name, scope, regions)`, in the order of their first region. A row
-    gives the declared name and the regions of the terminal. Its scope lists the rows of the
-    sub-cables that contain the terminal, from the outermost. It is empty for a terminal of
-    the cable's own scope.
+    gives the declared name and the regions of the terminal. Its scope lists the sub-cables
+    that contain the terminal, from the outermost, each by its number in the order of the
+    parts. The cable is number 1, and the scope of a terminal of the cable itself is empty.
     """
     terminals::Vector{@NamedTuple{
         name::Symbol, scope::Vector{Int},
         regions::Vector{Int}}}
-    """
-    Sub-cables, each as `(at, regions, members)`. A row gives the placement of the sub-cable
-    in the cable, its own regions and the rows of the sub-cables inside it. Row 1 is the
-    cable, and each copy of a repeated part other than a region is a sub-cable. Each other
-    row is a member of one earlier row, and each region belongs to one row.
-    """
-    assemblies::Vector{@NamedTuple{
-        at::Placement{T}, regions::Vector{Int}, members::Vector{Int}}}
     "Repeats, each as `(placements, copies)`: the placement and the regions of each copy."
     repeats::Vector{@NamedTuple{
         placements::Vector{Placement{T}}, copies::Vector{UnitRange{Int}}}}
-    """
-    Lays, each as `(regions, radii, pitches, overlengths, axis)`. A row gives the regions of
-    each laid copy and the point that the copies wind about \\[m\\]. For each copy, it gives
-    the lay radius \\[m\\], the pitch signed by the handedness \\[m\\] and the overlength
-    \\[dimensionless\\].
-    """
-    lays::Vector{@NamedTuple{
-        regions::Vector{UnitRange{Int}}, radii::Vector{T}, pitches::Vector{T}, overlengths::Vector{T},
-        axis::Tuple{T, T}}}
-    """
-    Compactions, each as `(repeat, factor)`: the row of a compacted repeat and its area
-    factor \\[dimensionless\\].
-    """
-    compactions::Vector{@NamedTuple{repeat::Int, factor::T}}
-    """
-    Fills, each as `(region, contents)`: the fill region of a group or an enclosure and the
-    regions inside it. A fill whose conductive contents all belong to one terminal is
-    interstitial to that conductor.
-    """
-    fills::Vector{@NamedTuple{region::Int, contents::Vector{Int}}}
     function CableDesign{T}(id::String, tree::O, regions::V, outer::B,
             terminals::AbstractVector{<:NamedTuple},
-            assemblies::AbstractVector{<:NamedTuple},
-            repeats::AbstractVector{<:NamedTuple}, lays::AbstractVector{<:NamedTuple},
-            compactions::AbstractVector{<:NamedTuple},
-            fills::AbstractVector{<:NamedTuple}) where {
+            repeats::AbstractVector{<:NamedTuple}) where {
             T <: Real, O <: AbstractCablePart, V <: AbstractVector{<:CablePart},
             B <: AbstractShape}
-        return validate(new{T, O, V, B}(id, tree, regions, outer, terminals, assemblies,
-            repeats, lays, compactions, fills))
+        return validate(new{T, O, V, B}(id, tree, regions, outer, terminals, repeats))
     end
 end
 
 Base.eltype(::CableDesign{T}) where {T} = T
 
-# The regions cover the outline of the cable, each conductive region has a terminal, and the
-# sub-cables nest with each region in one of them.
+# The regions cover the outline of the cable, and each conductive region has a terminal.
 function validate(design::CableDesign)
     covered = sum(placed -> area(placed.shape), design.regions)
     outline = area(design.outer)
@@ -97,17 +63,6 @@ function validate(design::CableDesign)
     isempty(loose) || throw(ArgumentError(
         "the conductive regions $loose of the cable $(design.id) must lie inside a " *
         "Terminal, which names their terminal"))
-    rows = design.assemblies
-    members = sort!([member for row in rows for member in row.members])
-    !isempty(rows) && members == 2:length(rows) &&
-    all(k -> all(>(k), rows[k].members), eachindex(rows)) ||
-        throw(ArgumentError(
-            "the sub-cables of the cable $(design.id) must nest: row 1 of its assemblies " *
-            "is the cable, and each other row is a member of exactly one earlier row"))
-    sort!([index for row in rows for index in row.regions]) == eachindex(design.regions) ||
-        throw(ArgumentError(
-            "each region of the cable $(design.id) must lie in exactly one row of its " *
-            "assemblies"))
     return design
 end
 
@@ -115,10 +70,10 @@ end
 $(TYPEDSIGNATURES)
 
 Build the cable `id` from its parts. The parts resolve from the center of the cable outward
-into placed regions. Each node of the declaration records its facts in the tables of the
-design, such as the conductive regions of a terminal or the copies of a repeat. The cable is
-the first sub-cable of its design, at the origin. Each copy of a repeated part other than a
-region is a sub-cable inside it.
+into placed regions. The design keeps the resolved parts, and its tables list the
+conductive regions of each terminal and the copies of each repeat. The cable is the first
+sub-cable of its design, at the origin. Each member of an assembly and each copy of a
+repeated part other than a region is a sub-cable inside it.
 
 # Arguments
 
@@ -147,15 +102,13 @@ $(TYPEDSIGNATURES)
 
 Describe the cable `id` by its resolved parts `tree`, its outline `outer` and its placed
 regions `regions`, from the inside out. The rows of the tables come from one walk of `tree`.
-Row 1 of the sub-cables is the cable.
+The cable is the first sub-cable.
 """
 function CableDesign(id::String, tree::Stack, outer::AbstractShape,
         regions::AbstractVector{<:CablePart})
     rows = resolve(
         (placed = regions, regions = sizehint!(CablePart[], length(regions)),
-            terminals = NamedTuple[],
-            assemblies = NamedTuple[(at = Placement(0, 0), regions = Int[], members = Int[])],
-            repeats = NamedTuple[], lays = NamedTuple[], fills = NamedTuple[]),
+            terminals = NamedTuple[], scopes = [1], repeats = NamedTuple[]),
         [1], tree)
     T = mapreduce(
         placed -> promote_type(eltype(placed.shape), eltype(placed.source.material)),
@@ -163,7 +116,7 @@ function CableDesign(id::String, tree::Stack, outer::AbstractShape,
     return CableDesign{T}(id, tree,
         [CablePart(T, placed) for placed in regions],
         map(x -> convert(T, x), outer),
-        rows.terminals, rows.assemblies, rows.repeats, rows.lays, NamedTuple[], rows.fills)
+        rows.terminals, rows.repeats)
 end
 
 function Base.map(f, design::CableDesign)

@@ -217,12 +217,8 @@ end
             input = coaxial_input(design)
             l = only(last(input.dielectric_ranges))
             @test nominal(input.dielectric_r_in[l]) == nominal(input.dielectric_r_ex[l])
-            row = only(design.lays)
-            conductances = [LineCableModels.area(design.regions[only(indices)].shape) /
-                            (design.regions[only(indices)].source.material.rho *
-                             overlength)
-                            for (indices, overlength) in zip(row.regions, row.overlengths)]
-            N = sum((conductances ./ sum(conductances)) ./ row.pitches)
+            # The 20 equal wires share the current equally, each on the helix at 8 mm.
+            N = inv(pitch(Helix(LayRatio(10)), 8.0e-3))
             μ₁ = input.dielectric_material[l].mu_r
             r_e = last(input.r_ex)
             @test isapprox(nominal(last(input.mu_r_ins)),

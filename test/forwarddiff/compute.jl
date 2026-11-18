@@ -190,8 +190,10 @@ end
         Region(:core_insulation, Offset(1.0e-3), polymer))
     straight = build(CableDesign, "straight_wire", Terminal(:core, strand),
         Region(:core_insulation, Offset(1.0e-3), polymer))
-    @test only(only(laid.lays).pitches) == Inf
-    @test only(only(laid.lays).overlengths) == 1
+    strand = only(LineCableModels.resolve(
+        NamedTuple[], Placement(0, 0), 1.0, 0.0, first(laid.tree.items)))
+    @test strand.N == 0
+    @test strand.ℓ == 1
     rho = only(coaxial_input(laid).material).rho
     expected = only(coaxial_input(straight).material).rho
     @test ForwardDiff.value(rho) == ForwardDiff.value(expected)

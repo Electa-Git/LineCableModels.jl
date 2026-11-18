@@ -54,7 +54,7 @@ vflat = "flat"
 
 [global]
 nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "formulation",
-    "options", "backend", "insulation", "system", "line_length", "terminals", "assemblies",
+    "options", "backend", "insulation", "system", "line_length", "terminals",
     "layer", "model", "problem", "center", "label", "base_geometry", "holes",
     "positions", "arc", "span", "offset", "members"]
 qualifiers = ["cable", "outer", "equivalent"]
@@ -85,7 +85,7 @@ nouns = ["shape", "primitive", "circle", "annulus", "rectangle", "sector",
     "pattern", "helix", "lay", "ratio", "boundary", "placements",
     "overlength", "pitch", "part", "region", "stack", "terminal",
     "repeat", "group", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
-    "regions", "id", "tree", "repeats", "lays", "compactions", "fills",
+    "regions", "id", "tree", "repeats",
     "designs", "connections", "assembly", "core", "screen", "sheath", "bedding",
     "jacket", "tape", "wires", "spacing", "trefoil", "apex", "fillet",
     "polygon", "ellipse", "vertices", "gmr"]
@@ -101,6 +101,7 @@ nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resist
     "properties", "admittance", "semicon", "temperature",
     "line_parameters", "gmsh", "fem", "earth_return", "shunt", "buffers", "trace",
     "frequencies", "input", "connection", "radius", "bundles", "exterior", "interior",
+    "assemblies",
     "dielectric", "ranges",
     "transposition", "integral", "integrand", "reductions", "air", "domain"]
 qualifiers = ["coaxial", "internal", "kept", "eliminated", "enclosed", "spectral", "lcm", "mixed"]
@@ -210,7 +211,7 @@ Group = "the primitives of one conductor or of one dielectric layer inside a bou
 Enclosure = "a fill region whose cross-section is a container without the sub-cables inside it"
 CablePart = "a declared region with its resolved cross-section, the leaf of a resolved part"
 Assembly = "sub-cables of different parts, each at its placement in the frame of the part that encloses them"
-CableDesign = "a cable described: its resolved parts, its placed regions and the tables that map them"
+CableDesign = "a cable described: its resolved parts, its placed regions and the tables of its terminals and repeats"
 CableSystem = "the cables of a line in one cross-section, placed, with the conductor index of each terminal"
 flatten = "of a cable design, the flattened stack of its resolved parts; of a stack, the stack of its flattened terminals and layers, with its enclosures and assemblies around their flattened members; of an enclosure, an assembly or a repeat, the same node around its flattened contents, members or part, each a stack in its own frame; of a terminal and the outline of the part inside it, the terminal over one region of the equivalent material, under a lay that keeps the turns of its current per unit length; of a terminal over one region or over the lay of one, itself; of the outline of a conductor, the outline of the part inside it and its metal, the cross-section of that one region: a circle or an annulus inside a round outline, and any other outline itself"
 "@design" = "the cable design built from the parts of a block, from the inside out"

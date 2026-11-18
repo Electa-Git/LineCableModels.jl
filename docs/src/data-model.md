@@ -6,8 +6,8 @@ CurrentModule = LineCableModels
 
 The data model describes the cross-section of each cable and the arrangement of the cables
 in a line. A cable is declared as a tree of parts, which [`build`](@ref) resolves into a
-[`CableDesign`](@ref) containing the placed regions of the cable and the tables that relate
-them to terminals, repeats, lays and fills. The designs placed in one cross-section, with a
+[`CableDesign`](@ref). The design contains the resolved tree, the placed regions of the cable
+and the tables that relate them to terminals and repeats. The designs placed in one cross-section, with a
 conductor index assigned to each terminal, form a [`CableSystem`](@ref). The computations
 receive the system through a problem, as described in [Line parameters](computing.md).
 
@@ -141,7 +141,7 @@ r_ex(wire.outer) # [m]
 
 The call `build(CableDesign, id, parts...)` resolves the parts into a [`CableDesign`](@ref).
 The design stores the resolved tree, the placed regions from the inside out and the tables of
-terminals, sub-cables, repeats, lays, compactions and fills. Each placed region is a
+terminals and repeats. The lays, the groups and the sub-cables stay nodes of the tree. Each placed region is a
 [`CablePart`](@ref) containing its declaration and its resolved cross-section. The
 resolved values are stored in the floating-point type `T` of the design. The numbers of the
 cross-sections and the materials promote to `T` together with `Float64`.

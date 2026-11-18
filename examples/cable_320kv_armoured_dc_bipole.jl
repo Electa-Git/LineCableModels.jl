@@ -93,14 +93,16 @@ end
 r_ex(design.outer) # [m]
 
 #=
-The last row in the table of lays corresponds to the armor, containing the radius of the
-wire centers, the pitch of the helix and the overlength of the wires.
+The armor wires follow a helix at the radius of their centers. The helix gives the pitch
+and the overlength of the wires.
 =#
 
 # Lay radius, pitch and overlength of the armor wires:
-armor_lay = last(design.lays)
-(radius = armor_lay.radii[1], pitch = armor_lay.pitches[1],
-    overlength = armor_lay.overlengths[1]) # [m], [m], [dimensionless]
+armor_helix = Helix(LayRatio(15.0)) # armor_lay_ratio
+armor_wire = first(filter(placed -> placed.source.tag == :armor_wires, design.regions))
+armor_radius = hypot(centroid(armor_wire.shape)...)
+(radius = armor_radius, pitch = pitch(armor_helix, armor_radius),
+    overlength = overlength(armor_helix, armor_radius)) # [m], [m], [dimensionless]
 
 #=
 ## Equivalent coaxial representation

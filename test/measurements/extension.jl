@@ -68,8 +68,7 @@ using SpecialFunctions: besselix, besselkx, besseljx, besselk
     @test length(mapped.system.designs) == length(deterministic.system.designs)
     for (actual, expected) in zip(mapped.system.designs, deterministic.system.designs)
         @test actual.tree.items == expected.tree.items
-        for name in (:id, :regions, :outer, :terminals, :assemblies, :repeats, :lays,
-            :compactions, :fills)
+        for name in (:id, :regions, :outer, :terminals, :repeats)
             @test getfield(actual, name) == getfield(expected, name)
         end
     end

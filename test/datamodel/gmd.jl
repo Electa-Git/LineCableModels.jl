@@ -109,6 +109,14 @@ end
 end
 
 @testset "The tube of a terminal reproduces its regions in parallel" begin
+    # The terminals of a resolved part, in the order of their regions.
+    nodes(part) = part isa Terminal ? [part] :
+                  part isa Stack ?
+                  reduce(vcat, map(nodes, part.items); init = Terminal[]) :
+                  part isa Union{Group, Enclosure} ? nodes(part.contents) :
+                  part isa Assembly ?
+                  reduce(vcat, [nodes(member.second) for member in part.members];
+        init = Terminal[]) : Terminal[]
     for (case, problem) in REFERENCES, design in unique(problem.system.designs)
 
         input = coaxial_input(design)
@@ -121,10 +129,9 @@ end
                       for region in regions]
             μ = [region.source.material.mu_r for region in regions]
             # A laid region is longer than the cable by the overlength of its helices.
-            ℓ = [prod(
-                     (row.overlengths[m] for row in design.lays
-                     for (m, laid) in enumerate(row.regions) if i in laid); init = 1.0)
-                 for i in terminal.regions]
+            ℓ = [strand.ℓ
+                 for strand in LineCableModels.resolve(
+                NamedTuple[], Placement(0, 0), 1.0, 0.0, nodes(design.tree)[k])]
             G = [area(shapes[i]) / (regions[i].source.material.rho * ℓ[i])
                  for i in eachindex(regions)]
             w = G ./ sum(G)

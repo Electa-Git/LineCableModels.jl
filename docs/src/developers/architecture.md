@@ -148,12 +148,12 @@ copy in its own frame with the placements of the copies. The design stores this 
 the outline.
 
 One walk of the tree gives the placed regions from the inside out and the tables of
-terminals, sub-cables, repeats, lays and fills. A table has a row only for a fact that exists. The design's
+terminals and repeats. A table has a row only for a fact that exists, and the lays, the
+fills and the sub-cables stay nodes of the tree. The design's
 number type `T` is the promotion of the number types of its cross-sections and its
 materials. An uncertain material widens `T`. The design validates itself at construction.
 The regions cover the outline without gaps or overlaps. Every region of a group or an
-enclosure lies inside its container. Every conductive region belongs to a terminal, and every region
-belongs to one sub-cable.
+enclosure lies inside its container. Every conductive region belongs to a terminal.
 
 ### Equivalence
 
