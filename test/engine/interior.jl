@@ -348,7 +348,7 @@ looped(M, k, rows) = [M[i, j] - M[i, k] - M[k, j] + M[k, k] for i in rows, j in 
         end
     end
 
-    # Construction 10 of the blueprints: sector cores with no conductor around them.
+    # Construction 10: sector cores with no conductor around them.
     @testset "the sector cores of a cable without metal compute as cables" begin
         sector = LineCableModels.Sector(
             0, 10.0e-3, 2π / 3, 1.0e-3 / sin(π / 3), 1.5e-3, Placement(0, 0))
