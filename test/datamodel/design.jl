@@ -425,4 +425,26 @@ end
             end
         end
     end
+
+    @testset "equal parts built apart are equal and have one hash" begin
+        strands() = Lay(Helix(LayRatio(12)),
+            Repeat(CircularPattern(6; r = 3.0e-3), Region(:strand, Circle(1.0e-3), copper)))
+        cable() = Stack(
+            Terminal(:core,
+                Group(Region(:core_fill, Circle(4.0e-3), polymer),
+                    Stack(Region(:center, Circle(1.0e-3), copper), strands()))),
+            Region(:insulation, Offset(2.0e-3), polymer))
+        pipe() = Enclosure(Region(:filler, Circle(20.0e-3), polymer),
+            Assembly((
+                Placement(8.0e-3, 0.0) => cable(), Placement(-8.0e-3, 0.0) => cable())))
+        # A lay, a group, a terminal, a stack, an assembly, an enclosure and a resolved repeat.
+        nodes() = (strands(), first(cable().items).part, first(cable().items), cable(),
+            pipe().contents, pipe(), Repeat([Placement(8.0e-3, 0.0)], cable()))
+        for (a, b) in zip(nodes(), nodes())
+            @test a == b
+            @test hash(a) == hash(b)
+        end
+        @test Group(Region(:fill, Circle(4.0e-3), polymer), Region(:a, Circle(1.0e-3), copper)) !=
+              Group(Region(:fill, Circle(4.0e-3), polymer), Region(:b, Circle(1.0e-3), copper))
+    end
 end

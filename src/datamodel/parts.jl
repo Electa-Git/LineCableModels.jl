@@ -569,12 +569,30 @@ function boundary(repeat::Repeat{<:AbstractVector{<:Placement}, <:CablePart})
     return Circle(maximum(at -> support(resolve(at, repeat.part.shape)), repeat.pattern))
 end
 
-# A part equals another of its node when their fields are equal.
+# A part equals another of its node when their fields are equal, and equal parts have one
+# hash.
 Base.:(==)(a::Stack, b::Stack) = a.items == b.items
 Base.:(==)(a::Terminal, b::Terminal) = a.name == b.name && a.part == b.part
 Base.:(==)(a::Repeat, b::Repeat) = a.pattern == b.pattern && a.part == b.part
 Base.:(==)(a::Assembly, b::Assembly) = a.members == b.members
+Base.:(==)(a::Lay, b::Lay) = a.helix == b.helix && a.part == b.part
+Base.:(==)(a::Group, b::Group) = a.fill == b.fill && a.contents == b.contents
 Base.:(==)(a::Enclosure, b::Enclosure) = a.fill == b.fill && a.contents == b.contents
+Base.hash(stack::Stack, h::UInt) = hash(stack.items, hash(:Stack, h))
+function Base.hash(terminal::Terminal, h::UInt)
+    return hash(terminal.part, hash(terminal.name, hash(:Terminal, h)))
+end
+function Base.hash(repeat::Repeat, h::UInt)
+    return hash(repeat.part, hash(repeat.pattern, hash(:Repeat, h)))
+end
+Base.hash(assembly::Assembly, h::UInt) = hash(assembly.members, hash(:Assembly, h))
+Base.hash(lay::Lay, h::UInt) = hash(lay.part, hash(lay.helix, hash(:Lay, h)))
+function Base.hash(group::Group, h::UInt)
+    return hash(group.contents, hash(group.fill, hash(:Group, h)))
+end
+function Base.hash(enclosure::Enclosure, h::UInt)
+    return hash(enclosure.contents, hash(enclosure.fill, hash(:Enclosure, h)))
+end
 
 # `foreach` calls `f` on each region of a part, from the inside out. A repeat gives the
 # region of its part once for each copy, and a group its contents before its fill.
