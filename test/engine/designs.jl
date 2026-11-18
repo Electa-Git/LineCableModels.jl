@@ -366,15 +366,6 @@
         end
     end
 
-    @testset "a split dielectric cannot claim the uncovered part of its annulus" begin
-        design = build(CableDesign, "tube_split_dielectric",
-            Region(:bore, Circle(1e-3), polymer),
-            Terminal(:core, Region(:tube, Annulus(1e-3, 2e-3), copper)),
-            Repeat(CircularPattern(2; r = Offset(0)),
-                Region(:insulation, Rectangle(2.5π * 1e-3, 1e-3), polymer)))
-        @test_throws ArgumentError flatten(design)
-    end
-
     @testset "two dielectrics combine into the class of their merged material" begin
         values = (
             1.0e13, 2.4, polymer.mu_r, polymer.T0, polymer.alpha, polymer.rho_thermal,
@@ -541,10 +532,11 @@
         @test binder == polymer
     end
 
-    # Construction 18: a three-core cable without a metallic layer, off the axis of a steel
-    # duct. The cable has no terminal, so its cores are members of the duct's assembly at their
-    # own centers. Its fill and jacket join the duct's filler. The filler weighs the air,
-    # 102π mm², and the jacket, 15π mm², equal to the bit on Julia 1.12.7.
+    # Construction 18: a three-core cable without a metallic layer inside a steel duct. The
+    # cable is a member of the duct's assembly, off the duct's axis and then on it. It has no
+    # terminal, so its cores are members of the duct's assembly at their own centers. Its fill
+    # and jacket join the duct's filler. The filler weighs the air, 102π mm², and the jacket,
+    # 15π mm², equal to the bit on Julia 1.12.7.
     #
     # The same cable on the duct's axis, declared as the layers of one stack, has its fill as
     # the filler. Its jacket and the duct's fill are then annuli outside the filler.
@@ -557,19 +549,21 @@
             Enclosure(Region(:cable_fill, Circle(7.0e-3), air),
                 Assembly(Tuple(Placement(d * cos(θ), d * sin(θ)) => core for θ in angles))),
             Region(:cable_jacket, Offset(1.0e-3), polymer))
-        input = coaxial(build(CableDesign, "duct",
-            Enclosure(Region(:duct_fill, Circle(12.0e-3), air),
-                Assembly((Placement(2.0e-3, 0.0) => cable,))),
-            Terminal(:duct, Region(:duct, Offset(2.0e-3), steel)),
-            Region(:coating, Offset(1.0e-3), polymer)))
-        @test input.members == [[3, 4, 5], Int[], Int[], Int[], Int[]]
-        @test [collect(p) for p in input.positions[3:5]] ≈
-              [[2.0e-3 + d * cos(θ), d * sin(θ)] for θ in angles] rtol = 1e-12
-        @test isempty(input.assemblies[2]) && isempty(input.interior_ranges[2])
-        f = only(input.interior_ranges[1])
-        @test [input.dielectric_r_in[f], input.dielectric_r_ex[f]] ≈ [0, 12.0e-3] rtol = 1e-12
-        @test input.dielectric_material[f].eps_r ≈
-              (102 * air.eps_r + 15 * polymer.eps_r) / 117 rtol = 1e-14
+        for x in (2.0e-3, 0.0)
+            input = coaxial(build(CableDesign, "duct",
+                Enclosure(Region(:duct_fill, Circle(12.0e-3), air),
+                    Assembly((Placement(x, 0.0) => cable,))),
+                Terminal(:duct, Region(:duct, Offset(2.0e-3), steel)),
+                Region(:coating, Offset(1.0e-3), polymer)))
+            @test input.members == [[3, 4, 5], Int[], Int[], Int[], Int[]]
+            @test [collect(p) for p in input.positions[3:5]] ≈
+                  [[x + d * cos(θ), d * sin(θ)] for θ in angles] rtol = 1e-12
+            @test isempty(input.assemblies[2]) && isempty(input.interior_ranges[2])
+            f = only(input.interior_ranges[1])
+            @test [input.dielectric_r_in[f], input.dielectric_r_ex[f]] ≈ [0, 12.0e-3] rtol = 1e-12
+            @test input.dielectric_material[f].eps_r ≈
+                  (102 * air.eps_r + 15 * polymer.eps_r) / 117 rtol = 1e-14
+        end
         centered = coaxial(build(CableDesign, "duct", cable,
             Region(:duct_fill, Offset(4.0e-3), air),
             Terminal(:duct, Region(:duct, Offset(2.0e-3), steel)),

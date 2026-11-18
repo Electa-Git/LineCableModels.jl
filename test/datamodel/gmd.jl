@@ -106,17 +106,24 @@ end
         @test gmr(Annulus(a, b, away), μ) == gmr(Annulus(a, b), μ)
     end
     @test gmr(Annulus(a, b), 1.0) ≈ gmd(Annulus(a, b), Annulus(a, b))
+    # Each copy of a strand is a rigid image of the first copy of its course, with the same
+    # radius. On Julia 1.12.7, x86_64 Linux, the bent rectangular strands differ by 1.3e-14
+    # at most, relative.
+    design = only(Dict(REFERENCES)["coaxial_rectangular_strands"].system.designs)
+    for row in design.repeats
+        copies = [design.regions[only(copy)] for copy in row.copies]
+        g = [gmr(placed.shape, placed.source.material.mu_r) for placed in copies]
+        @test g ≈ fill(first(g), length(g)) rtol = 1e-12
+    end
 end
 
 @testset "The tube of a terminal reproduces its regions in parallel" begin
-    # The terminals of a resolved part, in the order of their regions.
-    nodes(part) = part isa Terminal ? [part] :
-                  part isa Stack ?
-                  reduce(vcat, map(nodes, part.items); init = Terminal[]) :
-                  part isa Union{Group, Enclosure} ? nodes(part.contents) :
-                  part isa Assembly ?
-                  reduce(vcat, [nodes(member.second) for member in part.members];
-        init = Terminal[]) : Terminal[]
+    # Maxwell's internal term of the tube from a to b, which is 1/4 for a solid one.
+    internal(a, b) = (iszero(a) ? 0.0 : a^4 / (b^2 - a^2)^2 * log(b / a)) -
+                     (3a^2 - b^2) / (4(b^2 - a^2))
+    # The lay ratios that the reference designs declare, by the names of the laid regions.
+    q = Dict(:core_strands_1 => 12, :core_strands_2 => 12, :core_strands_3 => 12,
+        :armour_wires => 10, :screen => 5.5012442232492)
     for (case, problem) in REFERENCES, design in unique(problem.system.designs)
 
         input = coaxial_input(design)
@@ -128,25 +135,25 @@ end
             shapes = [LineCableModels.resolve(inv(axis), region.shape)
                       for region in regions]
             μ = [region.source.material.mu_r for region in regions]
-            # A laid region is longer than the cable by the overlength of its helices.
-            ℓ = [strand.ℓ
-                 for strand in LineCableModels.resolve(
-                NamedTuple[], Placement(0, 0), 1.0, 0.0, nodes(design.tree)[k])]
+            # A region laid at the ratio q is longer than the cable by √(1 + (π/q)²).
+            ℓ = [sqrt(1 + (π / get(q, region.source.tag, Inf))^2) for region in regions]
             G = [area(shapes[i]) / (regions[i].source.material.rho * ℓ[i])
                  for i in eachindex(regions)]
             w = G ./ sum(G)
-            own = [log(gmr(S, μ_i)) for (S, μ_i) in zip(shapes, μ)]
+            # The own term of a circle or an annulus is Maxwell's, in closed form. A region
+            # that is not round takes its geometric mean distance from itself, with 1/4 inside.
+            own = [S isa Union{Circle, Annulus} ?
+                   log(r_ex(S)) - μ_i * internal(r_in(S), r_ex(S)) :
+                   log(gmd(S, S)) - (μ_i - 1) / 4 for (S, μ_i) in zip(shapes, μ)]
             log_g = sum(w .^ 2 .* own) +
                     2sum(
                 (w[i] * w[j] * log(gmd(shapes[i], shapes[j]))
                 for i in eachindex(shapes) for j in (i + 1):length(shapes));
                 init = 0.0)
             r_i, r_e = input.r_in[k], input.r_ex[k]
-            internal = (iszero(r_i) ? 0.0 : r_i^4 / (r_e^2 - r_i^2)^2 * log(r_e / r_i)) -
-                       (3r_i^2 - r_e^2) / (4(r_e^2 - r_i^2))
-            # Both sides evaluate `gmd` on the same centered shapes of the regions. Only summation order and the tube's own term differ, with roundoff far below the default `≈` tolerance. A chain fault moves either quantity by 1e-3 or more.
+            # Both sides evaluate `gmd` on the same centered shapes of the regions. Each copy of a strand has its own term here, where the tube takes one per course. The summation order and the own terms differ, with roundoff far below the default `≈` tolerance. A chain fault moves either quantity by 1e-3 or more.
             @test tube.rho / (π * (r_e^2 - r_i^2)) ≈ inv(sum(G))
-            @test log(r_e) - tube.mu_r * internal ≈ log_g
+            @test log(r_e) - tube.mu_r * internal(r_i, r_e) ≈ log_g
         end
     end
 end
