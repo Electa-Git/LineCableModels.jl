@@ -137,6 +137,71 @@ using LineCableModels.Commons: tolerance
         @test length(flatten(nested.tree).items) == 3
     end
 
+    @testset "a tape and its fill are one layer of the composite material" begin
+        polyester = material(kind = :insulator, rho = 1.0e15, eps_r = 3.3, tan_delta = 2.0e-3)
+        compound = material(kind = :insulator, rho = 1.0e13, eps_r = 2.2, tan_delta = 5.0e-4)
+        design = build(CableDesign, "open_tape",
+            Terminal(:core, Region(:core, Circle(10.0e-3), copper)),
+            tape(polyester; w = 10.0e-3, t = 0.2e-3, lay = LayRatio(10), fill = compound),
+            Region(:insulation, Offset(1.0e-3), polymer))
+        core, layer, insulation = flatten(design.tree).items
+        f = 10.0e-3 * 0.2e-3 / (π * (10.2e-3^2 - 10.0e-3^2))
+        @test layer.tag == :tape_fill
+        @test layer.material isa Material{Float64, :insulator}
+        @test [r_in(layer.primitive), r_ex(layer.primitive)] ≈ [10.0e-3, 10.2e-3] rtol = 1e-12
+        @test 1 / layer.material.rho ≈ f / 1.0e15 + (1 - f) / 1.0e13 rtol = 1e-12
+        @test layer.material.eps_r ≈ f * 3.3 + (1 - f) * 2.2 rtol = 1e-12
+        @test layer.material.eps_r * layer.material.tan_delta ≈
+              f * 3.3 * 2.0e-3 + (1 - f) * 2.2 * 5.0e-4 rtol = 1e-12
+        @test insulation.material === polymer
+    end
+
+    @testset "a group around a terminal is the conductor of that terminal" begin
+        # A core in a fill is the core with a layer of the fill around it.
+        filled = build(CableDesign, "filled",
+            Group(Region(:core_insulation, Circle(16.0e-3), polymer),
+                Terminal(:core, Region(:core, Circle(10.0e-3), copper))),
+            Terminal(:screen, Region(:screen, Offset(1.0e-3), copper)))
+        core, layer, screen = flatten(filled.tree).items
+        @test core.name == :core
+        @test [r_in(core.part.primitive), r_ex(core.part.primitive)] ≈ [0, 10.0e-3]
+        @test core.part.material.rho ≈ copper.rho && core.part.material.mu_r ≈ copper.mu_r
+        @test layer.tag == :core_insulation
+        @test [r_in(layer.primitive), r_ex(layer.primitive)] ≈ [10.0e-3, 16.0e-3]
+        @test screen.part.primitive === Annulus(16.0e-3, 17.0e-3)
+        # A fill around a rod and the wires of a terminal gives a tube from the axis.
+        courses = [Lay(Helix(LayRatio(12)),
+                       Repeat(CircularPattern(n; r = 3.0e-3k),
+                           Region(Symbol(:wires_, k), Circle(1.5e-3), copper)))
+                   for (k, n) in enumerate((6, 12))]
+        rod = build(CableDesign, "rod",
+            Group(Region(:core_fill, Circle(7.5e-3), air),
+                Stack(Region(:rod, Circle(1.5e-3), polymer),
+                    Terminal(:core, Stack(courses...)))),
+            Region(:insulation, Offset(3.0e-3), polymer))
+        tube, insulation = flatten(rod.tree).items
+        @test tube.name == :core
+        @test [r_in(tube.part.primitive), r_ex(tube.part.primitive)] ≈ [0, 7.5e-3] rtol = 1e-12
+        resistance = copper.rho * sqrt(1 + (π / 12)^2) / (18π * 1.5e-3^2)
+        @test tube.part.material.rho / (π * 7.5e-3^2) ≈ resistance rtol = 1e-12
+    end
+
+    @testset "foreach visits the regions of a resolved part from the inside out" begin
+        design = build(CableDesign, "armoured",
+            Terminal(:core, Region(:core, Circle(24.5e-3), copper)),
+            Terminal(:armour,
+                Group(Region(:armour_fill, Offset(4.0e-3), air),
+                    Repeat(CircularPattern(40; r = 26.5e-3),
+                        Region(:armour_wires, Circle(2.0e-3), steel)))))
+        tags, areas = Symbol[], Float64[]
+        foreach(design.tree) do placed
+            push!(tags, placed.source.tag)
+            push!(areas, area(placed.shape))
+        end
+        @test tags == [placed.source.tag for placed in design.regions]
+        @test sum(areas) ≈ area(design.outer)
+    end
+
     @testset "an offset around a bar is the annulus of its thickness" begin
         design = build(CableDesign, "bar",
             Terminal(:core, Region(:bar, Rectangle(10e-3, 5e-3), copper)),

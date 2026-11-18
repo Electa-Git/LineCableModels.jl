@@ -558,6 +558,20 @@ function distance(repeat::Repeat{<:AbstractVector{<:Placement}, <:CablePart})
     return minimum(at -> distance(resolve(at, repeat.part.shape)), repeat.pattern)
 end
 
+# `foreach` calls `f` on each region of a resolved part, from the inside out. A repeat gives
+# the region of its part once for each copy, and a group its contents before its fill.
+Base.foreach(f, placed::CablePart) = f(placed)
+Base.foreach(f, stack::Stack) = foreach(item -> foreach(f, item), stack.items)
+Base.foreach(f, terminal::Terminal) = foreach(f, terminal.part)
+Base.foreach(f, lay::Lay) = foreach(f, lay.part)
+function Base.foreach(f, repeat::Repeat{<:AbstractVector{<:Placement}})
+    return foreach(at -> foreach(f, repeat.part), repeat.pattern)
+end
+function Base.foreach(f, group::Group{<:CablePart})
+    foreach(f, group.contents)
+    return foreach(f, group.fill)
+end
+
 # The strands of a resolved part are its conductive regions. Each lies in the frame `at`, with
 # the overlength `ℓ` and the turns per unit length `N` of the lays above it, and carries its
 # geometric mean radius `g`.

@@ -166,7 +166,7 @@ tolerance = "the absolute tolerance at the scale of a quantity, in its unit: the
 lifts = ["material"]
 
 [register.Materials.public]
-Material = "the electromagnetic and thermal properties of one material, its class the type parameter, or of the class two dielectrics combine into, with the given properties"
+Material = "the electromagnetic and thermal properties of one material, its class the type parameter, or of the class two dielectrics combine into, with the given properties, or of the composite of dielectrics side by side in one layer, by their fractions of the area"
 material = "the Material of a class with the properties given as keywords"
 
 [register.Earth.public]

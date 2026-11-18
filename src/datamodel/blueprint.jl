@@ -50,30 +50,13 @@ end
 $(TYPEDSIGNATURES)
 
 Build the layer from `r_in` to `r_ex`, both in \\[m\\], of the dielectric regions of
-materials `media` and cross-sections `bands` as one composite material. Each region weighs
-by its area fraction ``f_k``:
-
-```math
-\\frac{1}{\\rho} = \\sum_k \\frac{f_k}{\\rho_k}, \\qquad
-\\varepsilon_r = \\sum_k f_k \\varepsilon_k, \\qquad
-\\varepsilon_r \\tan\\delta = \\sum_k f_k \\varepsilon_k \\tan\\delta_k.
-```
-
-The other properties are those of the last region. The layer is an insulator when every
-region is one, and a semiconductor otherwise. One region keeps its material.
+materials `media` and cross-sections `bands`. Its material is the composite
+[`Material`](@ref) of `media`, each with the area fraction of its cross-section.
 """
 function BlueprintDielectric(r_in::T, r_ex::T, media::AbstractVector{<:Material},
         bands::AbstractVector{<:AbstractShape}) where {T <: Real}
-    fractions = area.(bands) ./ sum(area, bands)
-    permittivity = sum(fractions .* [item.eps_r for item in media])
-    base = last(media)
-    values = (
-        inv(sum(fractions ./ [item.rho for item in media])), permittivity,
-        base.mu_r, base.T0, base.alpha, base.rho_thermal, base.theta_max,
-        sum(fractions .* [item.eps_r * item.tan_delta for item in media]) /
-        permittivity, base.sigma_solar)
-    return BlueprintDielectric(r_in, r_ex,
-        foldl((merged, medium) -> Material(merged, medium, values...), media))
+    return BlueprintDielectric(r_in, r_ex, Material(media, area.(bands) ./
+                                                           sum(area, bands)))
 end
 
 """

@@ -88,6 +88,33 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Construct the composite material of the dielectrics `media` that lie side by side in one
+layer, each with its fraction `f` of the area \\[dimensionless\\]. Under a radial field they
+act in parallel:
+
+```math
+\\frac{1}{\\rho} = \\sum_k \\frac{f_k}{\\rho_k}, \\qquad
+\\varepsilon_r = \\sum_k f_k \\varepsilon_k, \\qquad
+\\varepsilon_r \\tan\\delta = \\sum_k f_k \\varepsilon_k \\tan\\delta_k.
+```
+
+The other properties are those of the last material. The composite is an insulator when
+each material is one, and a semicon otherwise. One material alone is its own composite.
+"""
+function Material(media::AbstractVector{<:Material}, f::AbstractVector{<:Real})
+    eps_r = sum(f .* [medium.eps_r for medium in media])
+    base = last(media)
+    values = (
+        inv(sum(f ./ [medium.rho for medium in media])), eps_r, base.mu_r, base.T0,
+        base.alpha, base.rho_thermal, base.theta_max,
+        sum(f .* [medium.eps_r * medium.tan_delta for medium in media]) / eps_r,
+        base.sigma_solar)
+    return foldl((merged, medium) -> Material(merged, medium, values...), media)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Construct a material of class `kind`. The arguments and keywords are the fields of
 [`Material`](@ref).
 

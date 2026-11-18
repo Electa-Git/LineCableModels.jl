@@ -94,9 +94,12 @@ $(TYPEDSIGNATURES)
 
 Reduce a resolved stack to circles and annuli, from the inside out. Each terminal becomes
 its equivalent tube, as [`flatten`](@ref) of a terminal gives it. The fill of a round group
-beyond its metal is a layer of its own, where it has a width. A dielectric circle or annulus
-is its own layer. An offset around any other outline is the annulus of its declared
-thickness outside the part inside it.
+beyond its metal is a layer of its own, where it has a width. A group around a terminal is
+the conductor of that terminal.
+
+Any other group is one layer of the composite material of its regions, by their fractions
+of the area. A dielectric circle or annulus is its own layer. An offset around any other
+outline is the annulus of its declared thickness outside the part inside it.
 
 The interval of a terminal reaches from its tube, of outer radius ``r_e``, to the next
 terminal or the end of the stack, at the radius ``r_d``. The current of the terminal has
@@ -115,8 +118,8 @@ evaluated as ``1 + 4 \\pi^2 N^2 r_d r_e \\sinh(u) / u`` with ``u = \\log(r_d / r
 
 # Errors
 
-- Throws `ArgumentError` when a part of the stack is neither a terminal nor a dielectric
-  circle, annulus or offset.
+- Throws `ArgumentError` when a part of the stack is neither a terminal, nor a group, nor a
+  dielectric circle, annulus or offset.
 """
 function flatten(stack::Stack)
     items = AbstractCablePart[]
@@ -154,6 +157,35 @@ function flatten(items::Vector{AbstractCablePart}, tubes::Vector, stack::Stack)
     return items
 end
 
+# A group around a terminal is the conductor of that terminal, which begins where the
+# container of the group does. Any other group is a dielectric layer.
+function flatten(items::Vector{AbstractCablePart}, tubes::Vector,
+        group::Group{<:CablePart, <:Terminal})
+    return flatten(items, tubes, Terminal(group.contents.name, group))
+end
+function flatten(items::Vector{AbstractCablePart}, tubes::Vector,
+        group::Group{<:CablePart, <:Stack})
+    k = findfirst(item -> item isa Terminal, group.contents.items)
+    k === nothing && return flatten(items, group.fill.shape.outer, group)
+    return flatten(items, tubes, Terminal(group.contents.items[k].name, group))
+end
+function flatten(items::Vector{AbstractCablePart}, ::Vector, group::Group{<:CablePart})
+    return flatten(items, group.fill.shape.outer, group)
+end
+
+# The regions of a dielectric group tile its container, a circle or an annulus. They are
+# one layer of their composite material, each with its fraction of the area.
+function flatten(items::Vector{AbstractCablePart}, container::Union{Circle, Annulus},
+        group::Group)
+    pieces = CablePart[]
+    foreach(placed -> push!(pieces, placed), group)
+    A = [area(placed.shape) for placed in pieces]
+    push!(items,
+        Region(group.fill.source.tag, Annulus(r_in(container), r_ex(container)),
+            Material([placed.source.material for placed in pieces], A ./ sum(A))))
+    return items
+end
+
 # A dielectric circle or annulus is its own layer.
 function flatten(items::Vector{AbstractCablePart}, ::Vector,
         placed::CablePart{<:Region, <:Union{Circle, Annulus}})
@@ -174,7 +206,7 @@ end
 
 function flatten(::Vector{AbstractCablePart}, ::Vector, part::AbstractCablePart)
     throw(ArgumentError(
-        "flatten forms a layer of a stack from a dielectric circle, annulus or offset; " *
+        "flatten forms a layer of a stack from a group or a dielectric circle, annulus or offset; " *
         "a $(nameof(typeof(part))) of the stack is none of them"))
 end
 
