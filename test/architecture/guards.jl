@@ -1556,30 +1556,35 @@ function narrow_floats(directory)
     return found
 end
 
-# Offset thickness reads belong to geometry's typed resolve, validate and Base.map methods.
+# Offset thickness reads belong to geometry's typed resolve, validate and Base.map methods,
+# and to the method of flatten on a region that an offset declares.
 function offset_reads(directory)
     found = Dict{String, Int}()
+    # Per file: the functions, and what the type of an argument is in a method that reads.
+    typed = Dict(
+        "src/datamodel/geometry.jl" => (("resolve", "validate", "Base.map"),
+            type -> join(
+                string.(syntax_name(kind(type) == K"curly" ? type[1] : type)), ".") ==
+                    "Offset"),
+        "src/datamodel/flatten.jl" => (("flatten",),
+            type -> occursin("Region{<:Offset}", JuliaSyntax.sourcetext(type))))
     for base in ("src", "ext"), (path, _, names) in walkdir(joinpath(directory, base)),
         name in names
         file = joinpath(path, name)
         endswith(file, ".jl") || continue
+        source = relative(file, directory)
         visit(parse_source(file)) do node
-            if relative(file, directory) == "src/datamodel/geometry.jl" &&
+            if haskey(typed, source) &&
                kind(node) in (K"function", K"=") && numchildren(node) == 2
                 signature = node[1]
                 while kind(signature) in (K"where", K"::") && numchildren(signature) == 2
                     signature = signature[1]
                 end
                 if kind(signature) == K"call" &&
-                   join(string.(syntax_name(signature[1])), ".") in (
-                    "resolve", "validate", "Base.map")
+                   join(string.(syntax_name(signature[1])), ".") in first(typed[source])
                     for argument in children(signature)[2:end]
-                        if kind(argument) == K"::"
-                            type = last_child(argument)
-                            kind(type) == K"curly" && (type = type[1])
-                            join(string.(syntax_name(type)), ".") == "Offset" &&
-                                return false
-                        end
+                        kind(argument) == K"::" &&
+                            last(typed[source])(last_child(argument)) && return false
                     end
                 end
             end

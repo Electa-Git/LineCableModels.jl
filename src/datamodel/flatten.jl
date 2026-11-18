@@ -95,8 +95,8 @@ $(TYPEDSIGNATURES)
 Reduce a resolved stack to circles and annuli, from the inside out. Each terminal becomes
 its equivalent tube, as [`flatten`](@ref) of a terminal gives it. The fill of a round group
 beyond its metal is a layer of its own, where it has a width. A dielectric circle or annulus
-is its own layer. A layer around any other outline is the annulus of its thickness, the
-[`dimension`](@ref) of its cross-section, outside the part inside it.
+is its own layer. An offset around any other outline is the annulus of its declared
+thickness outside the part inside it.
 
 The interval of a terminal reaches from its tube, of outer radius ``r_e``, to the next
 terminal or the end of the stack, at the radius ``r_d``. The current of the terminal has
@@ -116,7 +116,7 @@ evaluated as ``1 + 4 \\pi^2 N^2 r_d r_e \\sinh(u) / u`` with ``u = \\log(r_d / r
 # Errors
 
 - Throws `ArgumentError` when a part of the stack is neither a terminal nor a dielectric
-  circle, annulus or layer around the part inside it.
+  circle, annulus or offset.
 """
 function flatten(stack::Stack)
     items = AbstractCablePart[]
@@ -161,20 +161,20 @@ function flatten(items::Vector{AbstractCablePart}, ::Vector,
     return items
 end
 
-# A layer around any other outline is the annulus of its thickness outside the part
-# inside it.
+# An offset around any other outline is the annulus of its declared thickness outside the
+# part inside it.
 function flatten(items::Vector{AbstractCablePart}, ::Vector,
-        placed::CablePart{<:Region, <:PerforatedShape})
+        placed::CablePart{<:Region{<:Offset}, <:PerforatedShape})
     r = r_ex(boundary(last(items)))
     push!(items,
-        Region(placed.source.tag, Annulus(r, r + dimension(placed.shape)),
+        Region(placed.source.tag, Annulus(r, r + placed.source.primitive.t),
             placed.source.material))
     return items
 end
 
 function flatten(::Vector{AbstractCablePart}, ::Vector, part::AbstractCablePart)
     throw(ArgumentError(
-        "flatten forms a layer of a stack from a dielectric circle, annulus or offset layer; " *
+        "flatten forms a layer of a stack from a dielectric circle, annulus or offset; " *
         "a $(nameof(typeof(part))) of the stack is none of them"))
 end
 

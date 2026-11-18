@@ -143,6 +143,7 @@ using LineCableModels.Commons: tolerance
             Region(:insulation, Offset(1e-3), polymer))
         core, insulation = flatten(design.tree).items
         @test r_in(insulation.primitive) == r_ex(core.part.primitive)
+        @test r_ex(insulation.primitive) == r_ex(core.part.primitive) + 1e-3
         @test r_ex(insulation.primitive) ≈ 30e-3 / 2π + 1e-3
         @test insulation.material === polymer
     end
