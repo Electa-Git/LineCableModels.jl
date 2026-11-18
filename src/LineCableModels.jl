@@ -45,6 +45,7 @@ using .Engine: ε₀, μ₀, AbstractInternalImpedance,
                transposition!,
                SpectralIntegral, integrate, Λ, reductions,
                @formulation, @air, @earth, @mixed
+using PrecompileTools: @setup_workload, @compile_workload
 
 export Material, material, EarthLayer, EquivalentEarthLayer, EarthModel, homogeneous,
        @layers
@@ -73,5 +74,7 @@ public AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulatio
 public admittivity, domain, impedance!, potential!, to_buffer!, from_buffer,
        initialize_buffers, bundle!, eliminate!, factorize!, transposition!,
        SpectralIntegral, integrate, nominal, tolerance, Λ, reductions
+
+include("workload.jl")
 
 end
