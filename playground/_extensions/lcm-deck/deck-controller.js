@@ -39,7 +39,7 @@
     root.classList.toggle('lcm-pointer-enabled', laser && usable());
     frames.forEach(frame => {
       try { frame.contentDocument?.documentElement.classList.toggle('lcm-deck-laser', laser && usable()); }
-      catch (_) { /* Failed routes may no longer be same-origin. */ }
+      catch (_) { /* A failed route can leave the frame on another origin. */ }
     });
   }
 
@@ -96,7 +96,7 @@
         movePointer(box.left + event.clientX, box.top + event.clientY);
       }, { passive: true, signal: abort.signal });
       syncTheme();
-    } catch (_) { /* Failed routes retain their fallback. */ }
+    } catch (_) { /* A failed route keeps its fallback. */ }
   }
 
   function acknowledge(frame) {
@@ -291,7 +291,7 @@
       if (!window.Reveal?.isReady()) { setTimeout(initialize, 25); return; }
       deck = window.Reveal;
       deck.registerPlugin('lcm-math-notes', window.LCMMathNotes);
-      // Controls receive their own keys; filter only at Reveal's dispatch boundary.
+      // A control receives its own keys. The filter acts only where Reveal dispatches a key.
       deck.configure({
         keyboardCondition: event => !editable(event.target),
         scrollActivationWidth: 0,
@@ -303,8 +303,8 @@
       if (pdf) pdf.togglePdfExport = togglePdf;
       deck.addKeyBinding({ keyCode: 76, key: 'L', description: 'Toggle laser pointer' }, toggleLaser);
       deck.addKeyBinding({ keyCode: 69, key: 'E', description: 'PDF preview' }, togglePdf);
-      // Keep Tools presentation-specific; playground navigation lives in the footer.
-      // Scroll mode is unsupported, so remove its slot rather than repurposing it.
+      // The Tools menu contains the commands of the presentation. The footer contains the link to the playground.
+      // The deck has no scroll mode. The controller removes its menu entry.
       document.querySelector('[onclick*="toggleScrollView"]')?.closest('li')?.remove();
       deck.removeKeyBinding(82);
       deck.on('slidechanged', event => {
