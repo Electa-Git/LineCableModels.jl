@@ -51,7 +51,7 @@ The package is six modules in one load order, and four extensions.
 | `Materials` | `Material{T, K}`, the properties of a material with its class `K` as a type parameter |
 | `Earth` | `EarthLayer`, `EarthModel`, `homogeneous`: the air and the earth as a stack of layers. `EquivalentEarthLayer` is the medium that a model computes for the layers at a frequency. |
 | `BaseGeometry` | the plane geometry of the placement, the segments, arcs and elliptic arcs, the contour and every method on them, and the verb `draw`, which walks a contour to its curves on a target |
-| `DataModel` | the cross-sections of a cable, each with its contour, the declared parts, the cable design, the cable system, the flattened stack and the builders of the surface syntax |
+| `DataModel` | the cross-sections with their contours, the declared parts, the cable design, the cable system, the flattened stack and the builders of the surface syntax |
 | `Engine` | the problem, the formulations, the backends, the formula families, the numerical input, the buffers, the loop, the reductions, the spectral tools and the result |
 | `LineCableModelsGmshExt` | the finite-element backend, with its model, geometry, meshes, GetDP scan and result |
 | `LineCableModelsMeasurementsExt` | the propagation of input uncertainty: methods only |
@@ -103,7 +103,7 @@ compiles one specialization.
 ## Data model
 
 The data model has three layers. It encodes a cable as a declaration and describes the cable
-as resolved regions with tables. From the description it draws the equivalences that the
+as the tree of its resolved parts. From the description it draws the equivalences that the
 formulations read. It never rejects a physically valid design for a missing formula. A
 formula that cannot treat an input throws when it is called.
 
@@ -149,7 +149,9 @@ the outline.
 
 One walk of the tree gives the placed regions from the inside out and the tables of
 terminals and repeats. A table has a row only for a fact that exists, and the lays, the
-fills and the sub-cables stay nodes of the tree. The design's
+fills and the sub-cables stay nodes of the tree.
+
+The design's
 number type `T` is the promotion of the number types of its cross-sections and its
 materials. An uncertain material widens `T`. The design validates itself at construction.
 The regions cover the outline without gaps or overlaps. Every region of a group or an
@@ -166,8 +168,8 @@ interval of the inner one. An enclosure and an assembly keep their form around t
 flattened members.
 
 `CoaxialInput` reads the stack. There the solenoid effect of the helix enters the relative
-permeability of the dielectric interval, `mu_r_ins`, and a conductor that is not round takes
-Ametani's cylinder. The regions of an assembly around its members form the interior of that
+permeability of the dielectric interval, `mu_r_ins`. A conductor that is not round takes
+Ametani's cylinder there. The regions of an assembly around its members form the interior of that
 assembly. The earth-return formulas never see the lay correction.
 
 ### System
