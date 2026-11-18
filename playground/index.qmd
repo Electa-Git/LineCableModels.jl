@@ -1,0 +1,17 @@
+---
+title: "LineCableModels playground"
+subtitle: "Presentations whose code cells run in Julia"
+listing:
+  contents: presentations/*/index.qmd
+  type: grid
+  fields: [image, title, subtitle, description]
+  sort: false
+format:
+  html:
+    css:
+      - assets/brand.css
+      - index.css
+    include-in-header: assets/theme-init.html
+    page-layout: full
+    toc: false
+---

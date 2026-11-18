@@ -1,0 +1,11 @@
+project:
+  type: website
+  output-dir: _site
+  render:
+    - index.qmd
+    - presentations/*/index.qmd
+
+website:
+  title: "LineCableModels playground"
+  favicon: assets/logo.svg
+  search: false

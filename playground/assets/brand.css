@@ -1,0 +1,81 @@
+:root {
+  color-scheme: dark;
+  --lc-bg: #1f2424;
+  --lc-panel-bg: #252b2b;
+  --lc-panel-soft: #2b3232;
+  --lc-sunken-bg: #1d2222;
+  --lc-text: #dbdee0;
+  --lc-heading: #f2f2f2;
+  --lc-muted: #a8b0b0;
+  --lc-border: #5e6d6f;
+  --lc-border-soft: #465355;
+  --lc-link: #4eb5de;
+  --lc-focus: #1abc9c;
+  /* Presentation laser is red in every theme; it is not a theme accent. */
+  --lc-presentation-laser: #ff0000;
+  --lc-strong-text: #ffffff;
+  --lc-hover-bg: #32393a;
+  --lc-active-bg: #343c3c;
+  --lc-disabled: #778080;
+  --lc-scrollbar: #596566;
+  --lc-option-bg: #202626;
+  --lc-option-selected-bg: #314849;
+  --lc-code-bg: #1b2020;
+  --lc-warning: #f3bf61;
+  --lc-danger: #f07178;
+  --lc-focus-ring: rgb(78 181 222 / 52%);
+
+  /* Quarto syntax roles share code-theme.css in documents and presentations. */
+  --lc-code-text: #f8f8f2;
+  --lc-code-comment: #a8b0b0;
+  --lc-code-keyword: #ffa07a;
+  --lc-code-string: #abe338;
+  --lc-code-number: #d4d0ab;
+  --lc-code-name: #00e0e0;
+  --lc-code-preprocessor: #dcc6e0;
+  --lc-code-alert: #f07178;
+  --lc-color-scheme: dark;
+  --lc-radius: 2px;
+
+  --bonito-widget-bg: var(--lc-panel-bg);
+  --bonito-widget-fg: var(--lc-text);
+  --bonito-widget-border: var(--lc-border);
+  --bonito-widget-hover-bg: var(--lc-hover-bg);
+  --bonito-widget-muted-bg: var(--lc-panel-soft);
+  --bonito-widget-accent: var(--lc-focus);
+}
+
+:root[data-lcm-resolved-theme="light"] {
+  color-scheme: light;
+  --lc-bg: #f2f5f4;
+  --lc-panel-bg: #f8faf9;
+  --lc-panel-soft: #edf1f0;
+  --lc-sunken-bg: #e4e9e8;
+  --lc-text: #293334;
+  --lc-heading: #151c1d;
+  --lc-muted: #657071;
+  --lc-border: #a9b4b4;
+  --lc-border-soft: #c8d0d0;
+  --lc-link: #087da7;
+  --lc-focus: #07977f;
+  --lc-strong-text: #111718;
+  --lc-hover-bg: #d9e2e0;
+  --lc-active-bg: #d4dfdd;
+  --lc-disabled: #8a9494;
+  --lc-scrollbar: #9aa5a5;
+  --lc-option-bg: #ffffff;
+  --lc-option-selected-bg: #cee3df;
+  --lc-code-bg: #e5eae9;
+  --lc-warning: #855600;
+  --lc-danger: #b4232c;
+  --lc-focus-ring: rgb(8 125 167 / 48%);
+  --lc-code-text: #293334;
+  --lc-code-comment: #566263;
+  --lc-code-keyword: #8a3b13;
+  --lc-code-string: #3f6b08;
+  --lc-code-number: #685400;
+  --lc-code-name: #006b78;
+  --lc-code-preprocessor: #6b4375;
+  --lc-code-alert: #a51d28;
+  --lc-color-scheme: light;
+}

@@ -1,0 +1,43 @@
+/* The landing page reads the palette of brand.css in the folder assets. */
+body {
+  background: var(--lc-bg);
+  color: var(--lc-text);
+}
+
+h1, h2, h3, h4, .title, .listing-title {
+  color: var(--lc-heading);
+}
+
+.subtitle, .listing-subtitle, .listing-description {
+  color: var(--lc-muted);
+}
+
+a {
+  color: var(--lc-link);
+}
+
+.quarto-grid-item.card {
+  background: var(--lc-panel-bg);
+  border: 1px solid var(--lc-border-soft);
+  border-radius: var(--lc-radius);
+  color: var(--lc-text);
+}
+
+.quarto-grid-item.card:hover {
+  border-color: var(--lc-border);
+  background: var(--lc-hover-bg);
+}
+
+.quarto-grid-item .card-img-top {
+  background: var(--lc-sunken-bg);
+}
+
+.quarto-grid-item p.card-img-top > img {
+  object-fit: contain;
+  padding: 0.75rem;
+}
+
+a:focus-visible, .quarto-grid-item.card:focus-visible {
+  outline: 2px solid var(--lc-focus-ring);
+  outline-offset: 2px;
+}

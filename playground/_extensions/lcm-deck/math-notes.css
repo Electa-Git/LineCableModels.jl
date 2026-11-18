@@ -1,0 +1,65 @@
+/* One owned component, consuming the same semantic palette as every shell. */
+.lcm-math-note[hidden], .lcm-math-callout[hidden], .lcm-math-leader[hidden] {
+  display: none !important;
+}
+.lcm-math-term {
+  cursor: pointer;
+  outline: 1px dotted var(--lc-link);
+  outline-offset: 3px;
+}
+.lcm-math-term:hover, .lcm-math-term:focus-visible,
+.lcm-math-term[aria-expanded="true"] {
+  outline: 1px solid var(--lc-focus);
+}
+.lcm-math-callout {
+  position: fixed;
+  z-index: 90;
+  box-sizing: border-box;
+  width: max-content;
+  inline-size: min(28em, 90vw);
+  overflow: auto;
+  padding: 0.7em 2.1em 0.7em 0.85em;
+  color: var(--lc-text);
+  background: var(--lc-panel-bg);
+  border: 1px solid var(--lc-link);
+  border-radius: var(--lc-radius);
+  box-shadow: none;
+  font: var(--lcm-deck-font)/1.42 Lato, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow-wrap: anywhere;
+  user-select: text;
+  scrollbar-color: var(--lc-scrollbar) var(--lc-panel-bg);
+}
+.lcm-math-callout:focus-visible { outline: 1px solid var(--lc-focus); outline-offset: 2px; }
+.lcm-math-callout p { margin: 0 0 0.6em; }
+.lcm-math-callout strong { color: var(--lc-heading); font-weight: 700; }
+.lcm-math-callout .lcm-math-note > :last-child { margin-bottom: 0; }
+.lcm-math-callout :is(ul, ol) { margin: 0 0 0.6em; padding-left: 1.3em; }
+.lcm-math-callout a { color: var(--lc-link); }
+.lcm-math-callout a:hover { color: var(--lc-focus); }
+.lcm-math-callout :is(pre, code) { color: var(--lc-code-text); background: var(--lc-code-bg); }
+.lcm-math-callout pre { white-space: pre-wrap; }
+.lcm-math-close {
+  position: absolute;
+  top: 0.25em; right: 0.25em;
+  width: 1.6em; height: 1.6em; padding: 0;
+  color: var(--lc-muted); background: transparent;
+  border: 1px solid transparent; border-radius: var(--lc-radius);
+  font: inherit; cursor: pointer; user-select: none;
+}
+.lcm-math-close:hover { color: var(--lc-heading); background: var(--lc-hover-bg); }
+.lcm-math-close:focus-visible { outline: 1px solid var(--lc-focus); }
+.lcm-math-leader {
+  position: fixed; inset: 0; z-index: 89;
+  width: 100%; height: 100%; pointer-events: none;
+  fill: none; stroke: var(--lc-link); stroke-width: 1;
+}
+.lcm-math-notes-status { color: var(--lc-muted); }
+.lcm-math-note-fallback { border-left: 1px solid var(--lc-warning); padding-left: 0.6em; }
+html:is(.lcm-print-view, .lcm-printing, .lcm-overview-active) :is(.lcm-math-callout, .lcm-math-leader) {
+  display: none !important;
+}
+html:is(.lcm-print-view, .lcm-printing, .lcm-overview-active) .lcm-math-term { outline: none; }
+@media print {
+  .lcm-math-callout, .lcm-math-leader, .lcm-math-note, .lcm-math-notes-status { display: none !important; }
+  .lcm-math-term { outline: none; }
+}

@@ -1,0 +1,74 @@
+<script>
+(() => {
+  "use strict";
+
+  const storageKey = "lcm.playground.theme";
+  const legacyStorageKey = "lcm.workbench.theme";
+  const validThemes = new Set(["system", "dark", "light"]);
+  const systemTheme = window.matchMedia("(prefers-color-scheme: light)");
+  let preference = "dark";
+
+  const validTheme = value => validThemes.has(value);
+  const resolveTheme = selected => selected === "system"
+    ? (systemTheme.matches ? "light" : "dark")
+    : selected;
+
+  const synchronizeSelectors = () => {
+    document.querySelectorAll("[data-lcm-theme-selector]").forEach(selector => {
+      selector.value = preference;
+    });
+  };
+
+  const applyTheme = selected => {
+    preference = validTheme(selected) ? selected : "dark";
+    const resolved = resolveTheme(preference);
+    document.documentElement.dataset.lcmTheme = preference;
+    document.documentElement.dataset.lcmResolvedTheme = resolved;
+    synchronizeSelectors();
+    window.dispatchEvent(new CustomEvent("lcm:theme-changed", {
+      detail: { preference, resolved }
+    }));
+  };
+
+  const selectTheme = selected => {
+    applyTheme(selected);
+    try {
+      window.localStorage.setItem(storageKey, preference);
+      window.localStorage.removeItem(legacyStorageKey);
+    } catch (_) {
+      // Persistence is optional; the active document still follows the choice.
+    }
+  };
+
+  try {
+    const stored = window.localStorage.getItem(storageKey)
+      || window.localStorage.getItem(legacyStorageKey);
+    if (validTheme(stored)) preference = stored;
+  } catch (_) {
+    // Storage may be unavailable; keep the deterministic dark default.
+  }
+
+  systemTheme.addEventListener("change", () => {
+    if (preference === "system") applyTheme("system");
+  });
+  window.addEventListener("storage", event => {
+    if (![storageKey, legacyStorageKey].includes(event.key)) return;
+    let stored = null;
+    try {
+      stored = window.localStorage.getItem(storageKey)
+        || window.localStorage.getItem(legacyStorageKey);
+    } catch (_) {
+      // Fall through to the deterministic dark default.
+    }
+    applyTheme(stored);
+  });
+
+  window.LineCableModelsTheme = Object.freeze({
+    apply: applyTheme,
+    select: selectTheme,
+    preference: () => preference,
+    resolved: () => resolveTheme(preference)
+  });
+  applyTheme(preference);
+})();
+</script>

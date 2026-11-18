@@ -1,0 +1,66 @@
+/* Shared Quarto syntax palette for documents and presentations. */
+div.sourceCode,
+pre.sourceCode,
+pre:not(.sourceCode),
+code:not(pre code) {
+  color: var(--lc-code-text);
+  background: var(--lc-code-bg) !important;
+  border-color: var(--lc-border-soft);
+}
+
+pre.sourceCode > code,
+code.sourceCode,
+code.sourceCode > span {
+  color: var(--lc-code-text) !important;
+}
+
+code.sourceCode span.al,
+code.sourceCode span.er {
+  color: var(--lc-code-alert) !important;
+}
+
+code.sourceCode span.co,
+code.sourceCode span.cv,
+code.sourceCode span.do,
+code.sourceCode span.in {
+  color: var(--lc-code-comment) !important;
+}
+
+code.sourceCode span.cf,
+code.sourceCode span.dt,
+code.sourceCode span.fu,
+code.sourceCode span.kw,
+code.sourceCode span.op,
+code.sourceCode span.ot {
+  color: var(--lc-code-keyword) !important;
+}
+
+code.sourceCode span.ch,
+code.sourceCode span.im,
+code.sourceCode span.sc,
+code.sourceCode span.ss,
+code.sourceCode span.st,
+code.sourceCode span.va,
+code.sourceCode span.vs {
+  color: var(--lc-code-string) !important;
+}
+
+code.sourceCode span.an,
+code.sourceCode span.bn,
+code.sourceCode span.cn,
+code.sourceCode span.dv,
+code.sourceCode span.fl {
+  color: var(--lc-code-number) !important;
+}
+
+code.sourceCode span.at,
+code.sourceCode span.bu,
+code.sourceCode span.ex {
+  color: var(--lc-code-name) !important;
+}
+
+code.sourceCode span.pp,
+code.sourceCode span.re,
+code.sourceCode span.wa {
+  color: var(--lc-code-preprocessor) !important;
+}
