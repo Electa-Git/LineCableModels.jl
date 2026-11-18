@@ -120,7 +120,7 @@ end
     copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
     polymer = Material(:insulator, 1.0e14, 2.5)
     steel = Material(:conductor, 7.0e-8, 1.0, 10.0, 20.0, 0.0045)
-    function blueprint(r)
+    function input(r)
         members = [Placement(30.0e-3 * cos(θ),
                        30.0e-3 * sin(θ),
                        θ) => Stack(
@@ -131,13 +131,12 @@ end
             Enclosure(Region(:fill, Circle(62.0e-3), polymer), Assembly(Tuple(members))),
             Terminal(:pipe, Region(:pipe, Offset(3.0e-3), steel)),
             Region(:coating, Offset(5.0e-3), polymer))
-        return LineCableModels.flatten(design)
+        return coaxial_input(design)
     end
     axis_partials = ForwardDiff.derivative(
-        r -> reduce(vcat, [collect(axis) for axis in blueprint(r).positions[2:end]]), 10.0e-3)
+        r -> reduce(vcat, [collect(axis) for axis in input(r).positions[2:end]]), 10.0e-3)
     @test all(iszero, axis_partials)
-    tube_partials = ForwardDiff.derivative(
-        r -> [tube.r_ex for tube in blueprint(r).conductors[1:3]], 10.0e-3)
+    tube_partials = ForwardDiff.derivative(r -> input(r).r_ex[1:3], 10.0e-3)
     @test all(==(1), tube_partials)
 end
 
@@ -193,8 +192,8 @@ end
         Region(:core_insulation, Offset(1.0e-3), polymer))
     @test only(only(laid.lays).pitches) == Inf
     @test only(only(laid.lays).overlengths) == 1
-    rho = only(LineCableModels.flatten(laid).conductors).material.rho
-    expected = only(LineCableModels.flatten(straight).conductors).material.rho
+    rho = only(coaxial_input(laid).material).rho
+    expected = only(coaxial_input(straight).material).rho
     @test ForwardDiff.value(rho) == ForwardDiff.value(expected)
     @test ForwardDiff.partials(rho) == ForwardDiff.partials(expected)
     @test iszero(ForwardDiff.partials(rho)[1])

@@ -80,8 +80,8 @@ using LineCableModels.DataModel: ArcPolygon, gmr
         Region(:core_insulation, Offset(1e-3), polymer))
     bare = build(CableDesign, "bare", Terminal(:core, bar),
         Region(:core_insulation, Offset(1.5e-3), polymer))
-    @test only(LineCableModels.flatten(plated).conductors).material.mu_r ≈ 2.050 rtol = 1e-3
-    @test only(LineCableModels.flatten(bare).conductors).material.mu_r ≈ 2.423 rtol = 1e-3
+    @test only(coaxial_input(plated).material).mu_r ≈ 2.050 rtol = 1e-3
+    @test only(coaxial_input(bare).material).mu_r ≈ 2.423 rtol = 1e-3
     shapes = [plated.regions[i].shape for i in only(plated.terminals).regions]
     shares = area.(shapes) ./ sum(area, shapes)
     weighted = sum(shares[i] * shares[j] * log(gmd(shapes[i], shapes[j]))
@@ -89,19 +89,6 @@ using LineCableModels.DataModel: ArcPolygon, gmr
     outline = Contour(last(shapes))
     outer = Contour(outline.outer, empty(outline.holes))
     @test abs(weighted - log(gmd(outer, outer))) <= 1e-9
-
-    # Each copy is a rigid image. Separate own terms differ only by numerical roundoff.
-    reference = Dict(REFERENCES)["coaxial_rectangular_strands"]
-    design = only(reference.system.designs)
-    every = deepcopy(design)
-    empty!(every.repeats)
-    repeated, separate = LineCableModels.flatten(design), LineCableModels.flatten(every)
-    for (A, B) in zip(repeated.conductors, separate.conductors)
-        @test A.r_in ≈ B.r_in rtol = 1e-12
-        @test A.r_ex ≈ B.r_ex rtol = 1e-12
-        @test A.material.rho ≈ B.material.rho rtol = 1e-12
-        @test A.material.mu_r ≈ B.material.mu_r rtol = 1e-12
-    end
 end
 
 @testset "The geometric mean radius of a conductor reads its shape" begin
@@ -124,9 +111,11 @@ end
 @testset "The tube of a terminal reproduces its regions in parallel" begin
     for (case, problem) in REFERENCES, design in unique(problem.system.designs)
 
-        blueprint = LineCableModels.flatten(design)
-        for (tube, terminal) in zip(blueprint.conductors, design.terminals)
-            axis = Placement(blueprint.positions[tube.assembly]...)
+        input = coaxial_input(design)
+        for (k, terminal) in enumerate(design.terminals)
+            tube = input.material[k]
+            axis = Placement(
+                input.positions[findfirst(span -> k in span, input.assemblies)]...)
             regions = design.regions[terminal.regions]
             shapes = [LineCableModels.resolve(inv(axis), region.shape)
                       for region in regions]
@@ -145,12 +134,12 @@ end
                 (w[i] * w[j] * log(gmd(shapes[i], shapes[j]))
                 for i in eachindex(shapes) for j in (i + 1):length(shapes));
                 init = 0.0)
-            r_i, r_e = tube.r_in, tube.r_ex
+            r_i, r_e = input.r_in[k], input.r_ex[k]
             internal = (iszero(r_i) ? 0.0 : r_i^4 / (r_e^2 - r_i^2)^2 * log(r_e / r_i)) -
                        (3r_i^2 - r_e^2) / (4(r_e^2 - r_i^2))
             # Both sides evaluate `gmd` on the same centered shapes of the regions. Only summation order and the tube's own term differ, with roundoff far below the default `≈` tolerance. A chain fault moves either quantity by 1e-3 or more.
-            @test tube.material.rho / (π * (r_e^2 - r_i^2)) ≈ inv(sum(G))
-            @test log(r_e) - tube.material.mu_r * internal ≈ log_g
+            @test tube.rho / (π * (r_e^2 - r_i^2)) ≈ inv(sum(G))
+            @test log(r_e) - tube.mu_r * internal ≈ log_g
         end
     end
 end

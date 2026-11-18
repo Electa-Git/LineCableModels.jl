@@ -8,7 +8,7 @@
                 Stack(Region(:core_bar, Rectangle(width, 5e-3), copper),
                     Region(:core_plating, Offset(0.5e-3), copper))),
             Region(:core_insulation, Offset(1e-3), polymer))
-        only(LineCableModels.flatten(design).conductors).material.mu_r
+        only(coaxial_input(design).material).mu_r
     end
     fine = (values[2] - values[3]) / (2h)
     partial = only(ForwardDiff.partials(values[1]))

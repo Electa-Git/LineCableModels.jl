@@ -45,21 +45,27 @@ the resistivity ``R A(S)`` and the relative permeability that gives ``S`` the ra
     {\\log \\operatorname{gmr}(S, 0) - \\log \\operatorname{gmr}(S, 1)}.
 ```
 
-Its turns per unit length are ``N = \\sum_i w_i N_i``, where ``N_i`` sums the inverse
-pitches of the helices of region ``i``, signed by their direction.
+The current of the terminal makes ``N = \\sum_i w_i N_i`` turns per unit length, where
+``N_i`` sums the inverse pitches of the helices of region ``i``, signed by their direction.
+A terminal with turns has a [`Lay`](@ref) over its region. The helix has the lay ratio
+``1 / (2 r_e \\lvert N \\rvert)`` and the direction of ``N``, where ``r_e`` is the outer
+radius of the region. Its pitch at that radius is ``1 / \\lvert N \\rvert``.
 
 # Returns
 
-- The pair of a [`Terminal`](@ref) of the same name over one [`Region`](@ref) and the turns
-  ``N`` \\[1/m\\].
+- A [`Terminal`](@ref) of the same name over one [`Region`](@ref), or over a [`Lay`](@ref)
+  of that region when its current has turns.
 
 # Errors
 
 - Throws `ArgumentError` when a part of the stack of the terminal lists only dielectric
   regions.
+- Throws `ArgumentError` when the conductive regions of the terminal have different
+  reference temperatures.
 """
 function flatten(inner::Union{EmptyBoundary, AbstractShape}, terminal::Terminal)
-    strands = resolve(NamedTuple[], Placement(0, 0), 1.0, 0.0, terminal)
+    strands = validate(
+        resolve(NamedTuple[], Placement(0, 0), 1.0, 0.0, terminal), flatten, terminal)
     S = [strand.S for strand in strands]
     G = [area(strand.S) / (strand.material.rho * strand.ℓ) for strand in strands]
     w = G ./ sum(G)
@@ -73,58 +79,68 @@ function flatten(inner::Union{EmptyBoundary, AbstractShape}, terminal::Terminal)
     material = Material(Val(:conductor), area(tube) / sum(G), 1,
         gap / (b - log(gmr(tube, 1))), first(strands).material.T0,
         sum(w .* [strand.material.alpha for strand in strands]), 0, 90, 0, 0)
+    region = Region(terminal.name, tube, material)
+    N = sum(w .* [strand.N for strand in strands])
+    iszero(nominal(N)) && return Terminal(terminal.name, region)
     return Terminal(terminal.name,
-        Region(terminal.name, tube, material)) => sum(w .* [strand.N for strand in strands])
+        Lay(Helix(LayRatio(1 / (2 * r_ex(tube) * abs(N))); dir = nominal(N) > 0 ? 1 : -1),
+            region))
+end
+
+# The conductive regions of a terminal share one reference temperature.
+function validate(strands::Vector, ::typeof(flatten), terminal::Terminal)
+    all(
+        strand -> nominal(strand.material.T0) == nominal(first(strands).material.T0),
+        strands) || throw(ArgumentError(
+        "the materials of the terminal :$(terminal.name) must share one reference temperature"))
+    return strands
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return a terminal over one region as its own flattened form, with no turns. A circle or an
-annulus is the region of its resolved cross-section. Any other region is its declaration.
+Return a terminal over one region as its own flattened form. A circle or an annulus is the
+region of its resolved cross-section. Any other region is its declaration. A lay over the
+region stays around it.
 
 # Returns
 
-- The pair of the [`Terminal`](@ref) over one [`Region`](@ref) and zero turns \\[1/m\\].
+- The [`Terminal`](@ref) over one [`Region`](@ref), or over the [`Lay`](@ref) of one.
 """
 function flatten(terminal::Terminal{<:CablePart{<:Region, <:Union{Circle, Annulus}}})
     placed = terminal.part
     return Terminal(terminal.name,
-        Region(placed.source.tag, placed.shape, placed.source.material)) => zero(eltype(placed.shape))
+        Region(placed.source.tag, placed.shape, placed.source.material))
 end
-function flatten(terminal::Terminal{<:CablePart})
-    return Terminal(terminal.name, terminal.part.source) => zero(eltype(terminal.part.shape))
+flatten(terminal::Terminal{<:CablePart}) = Terminal(terminal.name, terminal.part.source)
+flatten(terminal::Terminal{<:Region}) = terminal
+function flatten(terminal::Terminal{<:Lay{
+        <:Helix, <:CablePart{<:Region, <:Union{Circle, Annulus}}}})
+    placed = terminal.part.part
+    return Terminal(terminal.name,
+        Lay(terminal.part.helix,
+            Region(placed.source.tag, placed.shape, placed.source.material)))
 end
-flatten(terminal::Terminal{<:Region}) = terminal => zero(eltype(terminal.part.material))
+flatten(terminal::Terminal{<:Lay{<:Helix, <:Region}}) = terminal
 
 """
 $(TYPEDSIGNATURES)
 
 Reduce a stack to one region per terminal and per dielectric layer, from the inside out.
 Each terminal becomes one region, as [`flatten`](@ref) of a terminal gives it. A round
-conductor is a tube. The fill of its group beyond its metal is a layer of its own, where it
-has a width. A group around a terminal is the conductor of that terminal.
+conductor is a tube. The fill of its group beyond its metal is a layer of its own. The
+layer has no width where the metal ends at the container of the group. A group around a
+terminal is the conductor of that terminal.
 
 Any other group is one layer of the composite material of its regions, by their fractions
 of the area. A dielectric circle or annulus is its own layer, and any other region is its
 declaration. An enclosure and an assembly keep their form around their flattened members. A
 flattened stack is its own flattened form.
 
-The interval of a round terminal begins at its tube, of outer radius ``r_e``. It ends at
-the next terminal or the end of the stack, at the radius ``r_d``. The current of the terminal has
-``N`` turns per unit length. Each layer of the interval takes its relative permeability
-times
-
-```math
-1 + \\frac{2 \\pi^2 N^2 (r_d^2 - r_e^2)}{\\log(r_d / r_e)},
-```
-
-evaluated as ``1 + 4 \\pi^2 N^2 r_d r_e \\sinh(u) / u`` with ``u = \\log(r_d / r_e)``.
-
 # Returns
 
-- A [`Stack`](@ref) of regions, of terminals over one region each, and of the enclosures
-  and assemblies of the stack.
+- A [`Stack`](@ref) of regions, of terminals over one region each or over its lay, and of
+  the enclosures and assemblies of the stack.
 
 # Errors
 
@@ -134,71 +150,69 @@ evaluated as ``1 + 4 \\pi^2 N^2 r_d r_e \\sinh(u) / u`` with ``u = \\log(r_d / r
 """
 function flatten(stack::Stack)
     items = AbstractCablePart[]
-    tubes = Tuple{Int, Real}[]
-    foreach(item -> flatten(items, tubes, item), stack.items)
-    for (k, (index, N)) in enumerate(tubes)
-        stop = k < length(tubes) ? first(tubes[k + 1]) - 1 : length(items)
-        stop > index && !iszero(nominal(N)) || continue
-        r_e, r_d = boundary(items[index]).r, boundary(items[stop]).r
-        u = log(r_d / r_e)
-        for i in (index + 1):stop
-            medium = items[i].material
-            items[i] = Region(items[i].tag, items[i].primitive,
-                Material(medium, medium, medium.rho, medium.eps_r,
-                    medium.mu_r * (1 + 4π^2 * N^2 * r_d * r_e * sinh(u) / u), medium.T0,
-                    medium.alpha, medium.rho_thermal, medium.theta_max, medium.tan_delta,
-                    medium.sigma_solar))
-        end
-    end
+    foreach(item -> flatten(items, item), stack.items)
     return Stack(items)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Reduce a cable design to the flattened stack of its resolved parts.
+
+# Returns
+
+- A [`Stack`](@ref), as [`flatten`](@ref) of a stack gives it.
+
+# Errors
+
+- Throws the errors of [`flatten`](@ref) of a stack.
+"""
+flatten(design::CableDesign) = flatten(design.tree)
+
 # A terminal adds its one region to the flattened parts `items`, outside the last of them,
-# then the fill beyond its metal. `tubes` lists the place of each such region in `items`
-# with its turns. A terminal over one region does not read the outline inside it.
-function flatten(items::Vector{AbstractCablePart}, tubes::Vector, terminal::Terminal)
-    validate(terminal, flatten, items, tubes)
+# then the fill beyond its metal. A terminal over one region does not read the outline
+# inside it.
+function flatten(items::Vector{AbstractCablePart}, terminal::Terminal)
+    validate(terminal, flatten, items)
     flat = flatten(isempty(items) ? EmptyBoundary() : boundary(last(items)), terminal)
-    push!(items, flat.first)
-    push!(tubes, (length(items), flat.second))
-    return flatten(items, flat.first, terminal.part)
+    push!(items, flat)
+    return flatten(items, flat, terminal.part)
 end
-function flatten(items::Vector{AbstractCablePart}, tubes::Vector,
-        terminal::Terminal{<:Union{Region, CablePart}})
-    flat = flatten(validate(terminal, flatten, items, tubes))
-    push!(items, flat.first)
-    push!(tubes, (length(items), flat.second))
+function flatten(items::Vector{AbstractCablePart},
+        terminal::Terminal{<:Union{
+            Region, CablePart, Lay{<:Helix, <:Union{Region, CablePart}}}})
+    push!(items, flatten(validate(terminal, flatten, items)))
     return items
 end
 
 # A stack declares the conductor of a terminal in one part.
-function validate(terminal::Terminal, ::typeof(flatten), items::Vector{AbstractCablePart},
-        tubes::Vector)
-    any(tube -> items[first(tube)].name == terminal.name, tubes) && throw(ArgumentError(
-        "the terminal :$(terminal.name) is declared in two parts of its stack; " *
-        "flatten reads the conductor of a terminal from one Terminal"))
+function validate(
+        terminal::Terminal, ::typeof(flatten), items::Vector{AbstractCablePart})
+    terminal.name in [item.name for item in items if item isa Terminal] &&
+        throw(ArgumentError(
+            "the terminal :$(terminal.name) is declared in two parts of its stack; " *
+            "flatten reads the conductor of a terminal from one Terminal"))
     return terminal
 end
 
 # A stack inside a stack adds its parts in their order.
-function flatten(items::Vector{AbstractCablePart}, tubes::Vector, stack::Stack)
-    foreach(item -> flatten(items, tubes, item), stack.items)
+function flatten(items::Vector{AbstractCablePart}, stack::Stack)
+    foreach(item -> flatten(items, item), stack.items)
     return items
 end
 
 # A group around a terminal is the conductor of that terminal, which begins where the
 # container of the group does. Any other group is a dielectric layer.
-function flatten(items::Vector{AbstractCablePart}, tubes::Vector,
-        group::Group{<:CablePart, <:Terminal})
-    return flatten(items, tubes, Terminal(group.contents.name, group))
+function flatten(
+        items::Vector{AbstractCablePart}, group::Group{<:CablePart, <:Terminal})
+    return flatten(items, Terminal(group.contents.name, group))
 end
-function flatten(items::Vector{AbstractCablePart}, tubes::Vector,
-        group::Group{<:CablePart, <:Stack})
+function flatten(items::Vector{AbstractCablePart}, group::Group{<:CablePart, <:Stack})
     k = findfirst(item -> item isa Terminal, group.contents.items)
     k === nothing && return flatten(items, group.fill.shape.outer, group)
-    return flatten(items, tubes, Terminal(group.contents.items[k].name, group))
+    return flatten(items, Terminal(group.contents.items[k].name, group))
 end
-function flatten(items::Vector{AbstractCablePart}, ::Vector, group::Group{<:CablePart})
+function flatten(items::Vector{AbstractCablePart}, group::Group{<:CablePart})
     return flatten(items, group.fill.shape.outer, group)
 end
 
@@ -218,43 +232,43 @@ end
 
 # A dielectric circle or annulus is its own layer. Any other region is its declaration, and
 # so is a flattened region.
-function flatten(items::Vector{AbstractCablePart}, ::Vector,
+function flatten(items::Vector{AbstractCablePart},
         placed::CablePart{<:Region, <:Union{Circle, Annulus}})
     push!(items, Region(placed.source.tag, placed.shape, placed.source.material))
     return items
 end
-function flatten(items::Vector{AbstractCablePart}, ::Vector, placed::CablePart)
+function flatten(items::Vector{AbstractCablePart}, placed::CablePart)
     push!(items, placed.source)
     return items
 end
-function flatten(items::Vector{AbstractCablePart}, ::Vector, region::Region)
+function flatten(items::Vector{AbstractCablePart}, region::Region)
     push!(items, region)
     return items
 end
 
 # An enclosure and an assembly keep their form around their flattened members.
-function flatten(items::Vector{AbstractCablePart}, ::Vector,
-        part::Union{Enclosure, Assembly})
+function flatten(items::Vector{AbstractCablePart}, part::Union{Enclosure, Assembly})
     push!(items, flatten(part))
     return items
 end
 
-function flatten(::Vector{AbstractCablePart}, ::Vector, part::AbstractCablePart)
+function flatten(::Vector{AbstractCablePart}, part::AbstractCablePart)
     throw(ArgumentError(
         "flatten forms a layer of a stack from a group or a region; " *
         "a $(nameof(typeof(part))) of the stack is neither"))
 end
 
 # The fill of a round group reaches from the tube `core` of its terminal to its container.
-# It is a layer where it has a width. A stack ends at its last part, and any other part
-# ends at its metal.
+# It is a layer of the stack. Where the metal ends at the container the layer has no width,
+# and its two radii have their own derivatives. A stack ends at its last part, and any other
+# part ends at its metal.
 function flatten(items::Vector{AbstractCablePart}, core::Terminal,
         group::Group{<:CablePart{
             <:Region, <:PerforatedShape{<:Real, <:Union{Circle, Annulus}}}})
     container = group.fill.shape.outer
-    r_e, r_d = r_ex(core.part.primitive), r_ex(container)
-    nominal(r_d - r_e) > tolerance(r_d) && push!(items,
-        Region(group.fill.source.tag, Annulus(r_e, r_d, container.at),
+    push!(items,
+        Region(group.fill.source.tag,
+            Annulus(r_ex(boundary(core)), r_ex(container), container.at),
             group.fill.source.material))
     return items
 end

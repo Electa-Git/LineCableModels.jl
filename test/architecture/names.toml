@@ -56,14 +56,14 @@ vflat = "flat"
 nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "formulation",
     "options", "backend", "insulation", "system", "line_length", "terminals", "assemblies",
     "layer", "model", "problem", "center", "label", "base_geometry", "holes",
-    "positions", "dielectric", "ranges", "arc", "span", "offset", "members", "interior"]
+    "positions", "arc", "span", "offset", "members"]
 qualifiers = ["cable", "outer", "equivalent"]
-symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "mu_r_ins", "φ", "φ0", "r", "a", "b", "q"]
+symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "φ", "φ0", "r", "a", "b", "q"]
 prepositions = ["at"]
 
 [global.verbs]
 validate = "check an input, a computed medium or a result before its consumer uses it; return it unchanged, or throw; warn once where it is computable but questionable"
-resolve = "give a declared part or layer its geometry in its context, place a shape in a frame, or list the placed regions, the table rows or the strands of a resolved part"
+resolve = "give a declared part or layer its geometry in its context, place a shape in a frame, or list the placed regions, the table rows or the strands of a resolved part, or the rows of the coaxial input of a flattened part"
 build = "construct a completed object of a type from its declarations"
 compute = "run one computation of a problem by a formulation, on the backend that runs it"
 select = "fit a user's selection to the slot or option key it fills, lifting a Symbol to its type"
@@ -86,25 +86,25 @@ nouns = ["shape", "primitive", "circle", "annulus", "rectangle", "sector",
     "overlength", "pitch", "part", "region", "stack", "terminal",
     "repeat", "group", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
     "regions", "id", "tree", "repeats", "lays", "compactions", "fills",
-    "designs", "connections", "blueprint", "conductor", "conductors",
-    "dielectrics", "assembly", "core", "screen", "sheath", "bedding",
+    "designs", "connections", "assembly", "core", "screen", "sheath", "bedding",
     "jacket", "tape", "wires", "spacing", "trefoil", "apex", "fillet",
     "polygon", "ellipse", "vertices", "gmr"]
 qualifiers = ["circular", "empty", "perforated", "stranded",
-    "layout", "flat", "linear", "annular"]
+    "layout", "flat", "linear"]
 symbols = ["ri", "ro", "w", "h", "t", "n", "gap_frac", "dir"]
 
 [modules.DataModel.verbs]
-flatten = "reduce a cable design to the equivalent tubes and dielectric layers of its blueprint, a stack to one region per terminal and per dielectric layer, around the flattened members of its enclosures and assemblies, a terminal to one region with the material that stands for its metal, with its turns, outside the part inside it, or the outline of a conductor to the cross-section of that region"
+flatten = "reduce a cable design to the flattened stack of its resolved parts, a stack to one region per terminal and per dielectric layer, around the flattened members of its enclosures and assemblies, a terminal to one region with the material that stands for its metal, under the lay that keeps the turns of its current, outside the part inside it, or the outline of a conductor to the cross-section of that region"
 
 [modules.Engine]
 nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resistivity",
     "properties", "admittance", "semicon", "temperature",
     "line_parameters", "gmsh", "fem", "earth_return", "shunt", "buffers", "trace",
-    "frequencies", "input", "connection", "radius", "bundles", "exterior",
+    "frequencies", "input", "connection", "radius", "bundles", "exterior", "interior",
+    "dielectric", "ranges",
     "transposition", "integral", "integrand", "reductions", "air", "domain"]
 qualifiers = ["coaxial", "internal", "kept", "eliminated", "enclosed", "spectral", "lcm", "mixed"]
-symbols = ["Z", "Y", "r_ins_ex", "Λ", "ζ", "ε₀", "μ₀"]
+symbols = ["Z", "Y", "r_ins_ex", "mu_r_ins", "Λ", "ζ", "ε₀", "μ₀"]
 
 [modules.Engine.verbs]
 to_buffer = "move a formula's per-frequency terms into its block of the buffers, or the formulation's into the base buffers"
@@ -150,7 +150,7 @@ lifts = ["select"]
 
 [register.Commons.public]
 validate = "check an input, a computed medium or a result before its consumer uses it; return it unchanged, or throw; warn once where it is computable but questionable"
-resolve = "give a declared part or layer its geometry in its context, place a shape in a frame, or list the placed regions, the table rows or the strands of a resolved part"
+resolve = "give a declared part or layer its geometry in its context, place a shape in a frame, or list the placed regions, the table rows or the strands of a resolved part, or the rows of the coaxial input of a flattened part"
 build = "construct a completed object of a type from its declarations"
 compute = "run one computation of a problem by a formulation, on the backend that runs it"
 select = "fit a user's selection to the slot or option key it fills, lifting a Symbol to its type"
@@ -193,6 +193,7 @@ LayRatio = "the lay length of a helix over the mean diameter of its course"
 boundary = "the outline of a shape: a circle, a rectangle, a sector, an ellipse, a polygon or an arc polygon itself, an annulus's outer circle, a perforated shape's outer's; the next part resolves against it and an enclosure removes it from its fill; of a resolved part or of a region declared by a primitive, the outline of its outermost region, of an enclosure that of its fill, and of the copies of a strand or the members of an assembly the circle about the center that contains them"
 r_in = "the inner radius of a circular shape"
 r_ex = "the outer radius of a circular shape"
+gmr = "the geometric mean radius of a conductor of a cross-section and a relative permeability: the geometric mean distance of the cross-section with itself, with the internal term of a circle or an annulus scaled by the permeability, and the disk's correction for any other cross-section"
 placements = "the placements and the shared cross-section of the members a pattern lays"
 overlength = "the length of a helical path over the length of the cable"
 pitch = "the lay length of a helix at a radius"
@@ -204,17 +205,14 @@ Region = "a part of one material in one cross-section"
 Stack = "parts layered outward, each resolved against the outline of the parts inside it"
 Terminal = "the name that identifies, within its scope, the circuit node of the conductive regions of a part"
 Repeat = "copies of a part at the placements of a pattern, each copy a scope of its terminals"
-Lay = "the helix that the copies of a repeat follow along the cable"
+Lay = "the helix that the copies of a repeat follow along the cable, or that gives, at the outer radius of the one region of a flattened conductor, the turns of its current"
 Group = "the primitives of one conductor or of one dielectric layer inside a boundary, with the fill region between them"
 Enclosure = "a fill region whose cross-section is a container without the sub-cables inside it"
 CablePart = "a declared region with its resolved cross-section, the leaf of a resolved part"
 Assembly = "sub-cables of different parts, each at its placement in the frame of the part that encloses them"
 CableDesign = "a cable described: its resolved parts, its placed regions and the tables that map them"
 CableSystem = "the cables of a line in one cross-section, placed, with the conductor index of each terminal"
-CableBlueprint = "a cable described for coaxial formulations: equivalent tubes, their dielectric layers and assemblies"
-BlueprintConductor = "one terminal of a cable as an equivalent tube and its material"
-BlueprintDielectric = "one dielectric layer of the interval of an equivalent tube, or of the interior of an assembly around its members"
-flatten = "the blueprint of a cable design; of a stack, the stack of its flattened terminals and layers, with its enclosures and assemblies around their flattened members; of an enclosure, an assembly or a repeat, the same node around its flattened contents, members or part, each a stack in its own frame; of a terminal and the outline of the part inside it, the pair of the terminal over one region of the equivalent material, and its turns per unit length; of a terminal over one region, the pair of itself and no turns; of the outline of a conductor, the outline of the part inside it and its metal, the cross-section of that one region: a circle or an annulus inside a round outline, and any other outline itself"
+flatten = "of a cable design, the flattened stack of its resolved parts; of a stack, the stack of its flattened terminals and layers, with its enclosures and assemblies around their flattened members; of an enclosure, an assembly or a repeat, the same node around its flattened contents, members or part, each a stack in its own frame; of a terminal and the outline of the part inside it, the terminal over one region of the equivalent material, under a lay that keeps the turns of its current per unit length; of a terminal over one region or over the lay of one, itself; of the outline of a conductor, the outline of the part inside it and its metal, the cross-section of that one region: a circle or an annulus inside a round outline, and any other outline itself"
 "@design" = "the cable design built from the parts of a block, from the inside out"
 "@terminal" = "the terminal of a name around the parts of a block"
 core = "a solid round conductor at the center of a cable"
@@ -231,8 +229,6 @@ flat = "the placements of cables on a line at a spacing"
 
 [register.DataModel.private]
 EmptyBoundary = "the outline at the center of a cable, before its first part"
-gmr = "the geometric mean radius of a conductor of a cross-section and a relative permeability: the geometric mean distance of the cross-section with itself, with the internal term of a circle or an annulus scaled by the permeability, and the disk's correction for any other cross-section"
-isannular = "whether a shape, or a set of shapes, fills an annulus about the center: its area is that of the annulus between its least distance and its greatest support, within the relative tolerance of isapprox, on nominal values"
 
 [register.Engine.public]
 "ε₀" = "the permittivity of vacuum [F/m]"
@@ -380,7 +376,7 @@ istangent = "whether two things are tangent, meeting at a point where their tang
 clearance = "the clearance between two curves: their two nearest points, its width and the parameters of the two points on their curves, for two arcs of one center the difference of their radii less the distance of their centers, for two arcs of one ellipse the difference of their offsets; the middle of the common range when the two points are not unique; refused for two ellipses, or past one ellipse's inner reach"
 overlap = "the widest common range of two angular intervals, the second shifted by whole turns, or of two arcs of one center or of one ellipse by their counterclockwise angles; empty when they share none, its endpoints then the two ends that bound the gap"
 lowest = "the lowest point: of a curve, the lowest of its ends and of its near apsis along `3π/2`, least y then least x; of a contour the lowest of its outer path's curves"
-area = "the cross-sectional area of a shape; of a closed path the signed area it bounds, positive counterclockwise; of a curve about a point the signed area that the segments from the point to the curve sweep"
+area = "the cross-sectional area of a shape; of a closed path the signed area it bounds, positive counterclockwise; of a curve about a point the signed area that the segments from the point to the curve sweep; of an assembly or a resolved repeat, the sum of the areas inside the outlines of its members or copies"
 moment = "the first moment of area: of a curve about a point, that of the region the segments from the point to the curve sweep; of a closed path, that of the region it bounds, about the origin"
 centroid = "the centroid of a shape, or of the union of disjoint shapes, in the cable cross-section"
 perimeter = "the length of the outline of a shape"

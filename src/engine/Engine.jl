@@ -11,14 +11,16 @@ type whose identifier names the formula.
 module Engine
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ..Commons: compute, defaults, select, validate
+import ..Commons: compute, defaults, resolve, select, validate
 using ..Commons: nominal, tolerance
 using ..Commons: AbstractFormulation, AbstractBackend, FormulationOptions,
                  ComputationOptions
 using ..Materials: Material
 using ..Earth: EarthLayer, EquivalentEarthLayer, EarthModel
-using ..BaseGeometry: Placement, support, istangent
-using ..DataModel: CableSystem, Circle, flatten
+using ..BaseGeometry: Placement, area, centroid, perimeter, support, istangent
+using ..DataModel: AbstractPrimitive, Annulus, Assembly, CableDesign, CableSystem, Circle,
+                   Enclosure, Lay, Offset, Region, Repeat, Stack, Terminal, boundary,
+                   flatten, gmr, pitch, r_ex, r_in
 using IntervalSets: ClosedInterval
 using LinearAlgebra: BlasFloat, BlasInt, Hermitian, I, LAPACK, LU, SingularException,
                      checksquare, isposdef!, ldiv!, lu!, mul!

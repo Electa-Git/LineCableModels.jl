@@ -32,8 +32,8 @@ using .DataModel: AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle,
                   AbstractCablePart, Region,
                   Stack, Terminal, Repeat, Lay, Group, Enclosure, Assembly, CablePart,
                   CableDesign,
-                  CableSystem, CableBlueprint, BlueprintConductor, BlueprintDielectric,
-                  flatten, @design, @terminal, core, insulation, screen, sheath, bedding,
+                  CableSystem, flatten, @design, @terminal, core, insulation, screen,
+                  sheath, bedding,
                   jacket, stranded, wires, tape, trefoil, flat
 using .Engine: ε₀, μ₀, AbstractInternalImpedance,
                AbstractInsulationImpedance, AbstractInsulationAdmittance,
@@ -60,8 +60,7 @@ export @design, @terminal, core, insulation, screen, sheath, bedding, jacket, st
        wires, tape, trefoil, flat
 public Commons, Materials, Earth, DataModel, validate, resolve, Sector, Ellipse, Polygon,
        PerforatedShape, ArcPolygon
-public CablePart, CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten,
-       istangent
+public CablePart, flatten, istangent
 export compute, LineParametersProblem, CoaxialFormulation, FEM, LineParameters
 export @formulation, @air, @earth, @mixed
 public Engine, BaseGeometry, defaults, select, AbstractFormulation, AbstractBackend,

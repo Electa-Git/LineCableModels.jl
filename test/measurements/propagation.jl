@@ -214,18 +214,18 @@ end
             compute(problem, CoaxialFormulation())
         end
         for design in designs[1:3]
-            blueprint = LineCableModels.flatten(design)
-            layer = only(blueprint.dielectrics[last(blueprint.dielectric_ranges)])
-            @test nominal(layer.r_in) == nominal(layer.r_ex)
+            input = coaxial_input(design)
+            l = only(last(input.dielectric_ranges))
+            @test nominal(input.dielectric_r_in[l]) == nominal(input.dielectric_r_ex[l])
             row = only(design.lays)
             conductances = [LineCableModels.area(design.regions[only(indices)].shape) /
                             (design.regions[only(indices)].source.material.rho *
                              overlength)
                             for (indices, overlength) in zip(row.regions, row.overlengths)]
             N = sum((conductances ./ sum(conductances)) ./ row.pitches)
-            μ₁ = layer.material.mu_r
-            r_e = last(blueprint.conductors).r_ex
-            @test isapprox(nominal(last(blueprint.mu_r_ins)),
+            μ₁ = input.dielectric_material[l].mu_r
+            r_e = last(input.r_ex)
+            @test isapprox(nominal(last(input.mu_r_ins)),
                 nominal(μ₁ * (1 + 4π^2 * N^2 * r_e^2)); rtol = 1e-14)
         end
         @test all(isfinite(ForwardDiff.value(part(q))) &&
@@ -340,13 +340,13 @@ end
             Enclosure(Region(:fill, Circle(62.0e-3), polymer), Assembly(Tuple(members))),
             Terminal(:pipe, Region(:pipe, Offset(3.0e-3), steel)),
             Region(:coating, Offset(5.0e-3), polymer))
-        blueprint = LineCableModels.flatten(design)
+        input = coaxial_input(design)
         @test all(isfinite(Measurements.uncertainty(radius))
-        for layer in (blueprint.conductors..., blueprint.dielectrics...)
-        for radius in (layer.r_in, layer.r_ex))
-        @test all(Measurements.value(tube.r_ex) == Measurements.value(r) &&
-                  Measurements.uncertainty(tube.r_ex) == Measurements.uncertainty(r)
-        for tube in blueprint.conductors[1:3])
+        for radii in (input.r_in, input.r_ex, input.dielectric_r_in, input.dielectric_r_ex)
+        for radius in radii)
+        @test all(Measurements.value(r_e) == Measurements.value(r) &&
+                  Measurements.uncertainty(r_e) == Measurements.uncertainty(r)
+        for r_e in input.r_ex[1:3])
         system = build(CableSystem, [design], [Placement(0, -1)];
             connections = [(a = 1, b = 2, c = 3, pipe = 4)], id = "pipe", line_length = 1.0)
         problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);

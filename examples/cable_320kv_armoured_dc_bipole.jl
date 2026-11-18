@@ -111,11 +111,16 @@ helices. Its relative permeability, which reproduces the geometric mean radius o
 differs from the permeability of steel.
 =#
 
-# Equivalent conductors, with radii in m and resistivity in Ω·m:
-blueprint = LineCableModels.flatten(design)
-[(terminal = conductor.terminal, r_in = conductor.r_in, r_ex = conductor.r_ex,
-     rho = conductor.material.rho, mu_r = conductor.material.mu_r)
- for conductor in blueprint.conductors] # [m], [m], [Ω·m], [dimensionless]
+# Regions of the flattened cable, from the core outward, with radii in m and resistivity in Ω·m:
+flat = LineCableModels.flatten(design)
+regions = NamedTuple[]
+foreach(flat) do region
+    push!(regions,
+        (tag = region.tag, r_in = r_in(region.primitive), r_ex = r_ex(region.primitive),
+            rho = region.material.rho, eps_r = region.material.eps_r,
+            mu_r = region.material.mu_r))
+end
+regions # [m], [m], [Ω·m], [dimensionless], [dimensionless]
 
 #=
 ## Bipole system

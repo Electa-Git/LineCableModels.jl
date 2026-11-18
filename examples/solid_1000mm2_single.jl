@@ -58,19 +58,21 @@ r_ex(design.outer) # [m]
 
 Coaxial formulations represent each terminal of the cable by an equivalent tubular
 conductor, with the dielectric layers located between consecutive conductors. The function
-`LineCableModels.flatten` returns this representation of the design, which in this case
-consists of one solid conductor and one insulation layer.
+`LineCableModels.flatten` returns this representation of the design as a stack of one region
+per conductor and per layer. In this case the stack consists of one solid conductor and one
+insulation layer.
 =#
 
-# Equivalent conductor, with radii in m and resistivity in Ω·m:
-blueprint = LineCableModels.flatten(design)
-[(terminal = conductor.terminal, r_in = conductor.r_in, r_ex = conductor.r_ex,
-     rho = conductor.material.rho) for conductor in blueprint.conductors]
-
-# Insulation layer of the core:
-[(conductor = k, r_in = layer.r_in, r_ex = layer.r_ex, eps_r = layer.material.eps_r)
- for (k, range) in enumerate(blueprint.dielectric_ranges)
- for layer in blueprint.dielectrics[range]]
+# Regions of the flattened cable, the conductor first, with radii in m and resistivity in Ω·m:
+flat = LineCableModels.flatten(design)
+regions = NamedTuple[]
+foreach(flat) do region
+    push!(regions,
+        (tag = region.tag, r_in = r_in(region.primitive), r_ex = r_ex(region.primitive),
+            rho = region.material.rho, eps_r = region.material.eps_r,
+            mu_r = region.material.mu_r))
+end
+regions # [m], [m], [Ω·m], [dimensionless], [dimensionless]
 
 #=
 ## Cable system and problem definition

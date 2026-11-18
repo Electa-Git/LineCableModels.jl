@@ -5,9 +5,9 @@ Hold the numerical input of a computation in the coaxial model. Each conductor o
 is an equivalent tube, and the dielectric layers of its interval surround it. Each cable has
 a center and an outer radius. Its plan comes from [`reductions`](@ref) under the `bundle`
 and `kron` options of the formulation. `CoaxialInput(problem, options)` builds the input
-once from the blueprints of the designs and from the placements and the connections of the
-system. The values have the problem's type `T`, and the conductors follow the terminals of
-the system, cable by cable and from the inside out.
+once from the flattened designs and from the placements and the connections of the system.
+The values have the problem's type `T`, and the conductors follow the terminals of the
+system, cable by cable and from the inside out.
 
 The members of a cable that has no conductor around them count as cables.
 
@@ -83,7 +83,50 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     @doc """
     $(TYPEDSIGNATURES)
 
-    Build the blueprints from the problem's cable designs with [`flatten`](@ref).
+    Read the input from the flattened stack of each cable design, as [`flatten`](@ref) gives
+    it. A stack is one assembly of conductors about one axis. The cable lies about its
+    origin. A member of an assembly or of a repeat lies about the centroid of its first
+    conductor. A member without a conductor lies at its placement, and it gives its members
+    and its regions to the assembly around it.
+
+    A terminal over a circle or an annulus is its tube. Any other terminal takes Ametani's
+    cylinder of the area ``S`` and the perimeter ``l`` of its region:
+
+    ```math
+    r_e = \\frac{l}{2\\pi}, \\qquad r_i = \\sqrt{r_e^2 - \\frac{S}{\\pi}}.
+    ```
+
+    An inner radius within `tolerance(r_e)` of zero, decided on `nominal`, is zero. The
+    cylinder keeps the resistance of the region. Its relative permeability gives it the
+    geometric mean radius ``g`` of the region, with ``S_0`` its own section:
+
+    ```math
+    \\mu = \\frac{\\log r_e - \\log g}{\\log r_e - \\log \\operatorname{gmd}(S_0, S_0)}.
+    ```
+
+    The dielectric regions after a terminal in its stack are the layers of its interval. A
+    region that an offset declares, around a conductor that is not round, is the annulus of
+    its thickness outside the layer before it. The interval of a tube reaches from ``r_e``
+    to ``r_d``, and its layer ``k`` of relative permeability ``\\mu_k`` reaches from ``a_k``
+    to ``b_k``. The current of a laid conductor makes ``N`` turns per unit length, which the
+    helix of its lay gives at the outer radius of its region. The interval has
+
+    ```math
+    \\mu_{ins} = \\frac{\\sum_k \\mu_k \\log(b_k / a_k)}{\\log(r_d / r_e)}
+        \\left[1 + \\frac{2 \\pi^2 N^2 (r_d^2 - r_e^2)}{\\log(r_d / r_e)}\\right],
+    ```
+
+    with the last factor evaluated as ``1 + 4 \\pi^2 N^2 r_d r_e \\sinh(u) / u``, where
+    ``u = \\log(r_d / r_e)``, and ``\\sinh(u) / u`` at its limit 1 for ``r_d = r_e``. An
+    interval without layers has ``\\mu_{ins} = 1``.
+
+    The interior of an assembly with members begins with its filler. The filler is one
+    layer of the fill's material, from the axis to the container of the enclosure. The regions of the
+    stack inside the enclosure join the filler, and so do the regions of a member without a
+    conductor. The filler then takes their composite [`Material`](@ref), each with its
+    fraction of the area. The annuli between the enclosure and the first conductor of the
+    stack are the other layers of the interior. A region inside the first conductor of a
+    stack without members lies in no interval.
 
     # Errors
 
@@ -93,41 +136,49 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
             problem::LineParametersProblem{T}, options::FormulationOptions) where {T <:
                                                                                    Real}
         system = problem.system
-        blueprints = [flatten(design) for design in system.designs]
-        tubes = [tube for blueprint in blueprints for tube in blueprint.conductors]
-        dielectrics = [dielectric for blueprint in blueprints
-                       for dielectric in blueprint.dielectrics]
-        tube_starts = cumsum([0;
-                              [length(blueprint.conductors) for blueprint in blueprints]])
-        dielectric_starts = cumsum([0;
-                                    [length(blueprint.dielectrics)
-                                     for blueprint in blueprints]])
+        rows = (r_in = T[], r_ex = T[], material = Material{T, :conductor}[], turns = T[],
+            dielectric_ranges = UnitRange{Int}[], dielectric_r_in = T[],
+            dielectric_r_ex = T[], dielectric_material = Material{T}[],
+            assemblies = UnitRange{Int}[], members = Vector{Int}[],
+            positions = Tuple{T, T}[], interior_ranges = UnitRange{Int}[],
+            fillers = Vector{Pair{Material{T}, T}}[])
+        roots = Int[]
+        tube_ends = Int[]
+        for design in system.designs
+            push!(roots, length(rows.assemblies) + 1)
+            resolve(rows, CoaxialInput, design)
+            push!(tube_ends, length(rows.r_in))
+        end
+        (; r_in, r_ex, material, dielectric_ranges, dielectric_r_in, dielectric_r_ex,
+            assemblies, positions, interior_ranges) = rows
         connection = [row.connection for row in system.terminals]
         (; label, bundles, kept, eliminated, terminals) = reductions(system, options)
-        r_in = [convert(T, tube.r_in) for tube in tubes]
-        r_ex = [convert(T, tube.r_ex) for tube in tubes]
-        material = [convert(Material{T}, tube.material) for tube in tubes]
-        mu_r_ins = [convert(T, mu) for blueprint in blueprints for mu in blueprint.mu_r_ins]
-        dielectric_ranges = [span .+ dielectric_starts[k]
-                             for (k, blueprint) in enumerate(blueprints)
-                             for span in blueprint.dielectric_ranges]
-        dielectric_r_in = [convert(T, dielectric.r_in) for dielectric in dielectrics]
-        dielectric_r_ex = [convert(T, dielectric.r_ex) for dielectric in dielectrics]
         r_ins_ex = [isempty(span) ? outer : dielectric_r_ex[last(span)]
                     for (span, outer) in zip(dielectric_ranges, r_ex)]
-        materials = [convert(Material{T}, dielectric.material)
-                     for dielectric in dielectrics]
-        dielectric_material = collect(Union{map(typeof, materials)...}, materials)
-        assemblies = [span .+ tube_starts[k]
-                      for (k, blueprint) in enumerate(blueprints)
-                      for span in blueprint.assembly_ranges]
-        assembly_starts = cumsum([0;
-                                  [length(blueprint.assembly_ranges)
-                                   for blueprint in blueprints]])
-        members = [isempty(assemblies[assembly_starts[k] + a]) ? Int[] :
-                   indices .+ assembly_starts[k]
-                   for (k, blueprint) in enumerate(blueprints)
-                   for (a, indices) in enumerate(blueprint.members)]
+        dielectric_material = collect(
+            Union{map(typeof, rows.dielectric_material)...}, rows.dielectric_material)
+        mu_r_ins = map(eachindex(r_ex)) do i
+            span = dielectric_ranges[i]
+            isempty(span) && return one(T)
+            u = log(r_ins_ex[i] / r_ex[i])
+            μ = dielectric_material[first(span)].mu_r
+            return (μ +
+                    sum(
+                l -> (dielectric_material[l].mu_r - μ) *
+                     log(dielectric_r_ex[l] / dielectric_r_in[l]) / u,
+                span[2:end]; init = zero(T))) *
+                   (1 +
+                    4π^2 * rows.turns[i]^2 * r_ins_ex[i] * r_ex[i] *
+                    (iszero(nominal(u)) ? one(u) : sinh(u) / u))
+        end
+        # The cables that the earth formulas see: the root of a design, or each member of a
+        # root without a conductor.
+        cables = [(k, row)
+                  for (k, root) in enumerate(roots)
+                  for row in (isempty(assemblies[root]) && !isempty(rows.members[root]) ?
+                       rows.members[root] : [root])]
+        members = [isempty(assemblies[a]) ? Int[] : rows.members[a]
+                   for a in eachindex(assemblies)]
         enclosed = map(eachindex(assemblies)) do a
             head = a
             while !isempty(members[head])
@@ -135,31 +186,20 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
             end
             return first(assemblies[head]):last(assemblies[a])
         end
-        positions = [convert.(T, position)
-                     for blueprint in blueprints for position in blueprint.positions]
-        interior_ranges = [span .+ dielectric_starts[k]
-                           for (k, blueprint) in enumerate(blueprints)
-                           for span in blueprint.interior_ranges]
         exterior_ranges = fill(1:0, length(assemblies))
         for (c, indices) in enumerate(members), m in indices
 
             exterior_ranges[m] = interior_ranges[c]
         end
-        # The cables, each the row of its blueprint that the earth formulas see: the root, or
-        # each member of a root without a conductor.
-        rows = [(k, row) for (k, blueprint) in enumerate(blueprints)
-                for row in (isempty(first(blueprint.assembly_ranges)) &&
-                     !isempty(first(blueprint.members)) ? first(blueprint.members) : [1])]
-        centers = [system.placements[k] * Placement(blueprints[k].positions[row]...)
-                   for (k, row) in rows]
+        centers = [system.placements[k] * Placement(positions[row]...)
+                   for (k, row) in cables]
         x = [convert(T, center.x) for center in centers]
         y = [convert(T, center.y) for center in centers]
-        radius = [r_ins_ex[last(assemblies[assembly_starts[k] + row])] for (k, row) in rows]
+        radius = [r_ins_ex[last(assemblies[row])] for (k, row) in cables]
         # Each cable's conductors end at its last one, and the cables follow the conductors.
-        ends = [isone(row) ? tube_starts[k + 1] :
-                last(assemblies[assembly_starts[k] + row])
-                for (k, row) in rows]
-        cable = [searchsortedfirst(ends, i) for i in eachindex(tubes)]
+        ends = [row == roots[k] ? tube_ends[k] : last(assemblies[row])
+                for (k, row) in cables]
+        cable = [searchsortedfirst(ends, i) for i in eachindex(r_in)]
         depths = cumsum([stratum.thickness for stratum in Base.tail(problem.earth.layers)])
         earth_layer = [center > 0 ? 1 : 1 + searchsortedfirst(depths, -center)
                        for center in y]
@@ -171,6 +211,183 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
             x, y, radius, earth_layer, bundles, kept,
             eliminated, terminals)
     end
+end
+
+# The cable is the first assembly of its design, about its origin. `rows` holds the rows of
+# the input of a system, and each part of a flattened stack adds its own.
+function resolve(rows::NamedTuple, ::Type{CoaxialInput}, design::CableDesign)
+    T = eltype(rows.r_in)
+    l = length(rows.dielectric_r_in)
+    push!(rows.assemblies, 1:0)
+    push!(rows.members, Int[])
+    push!(rows.fillers, Pair{Material{T}, T}[])
+    push!(rows.interior_ranges, (l + 1):l)
+    push!(rows.positions, (zero(T), zero(T)))
+    a = length(rows.assemblies)
+    foreach(item -> resolve(rows, CoaxialInput, Placement(0, 0), a, a, item),
+        flatten(design).items)
+    if isempty(rows.assemblies[a])
+        n = length(rows.r_in)
+        rows.assemblies[a] = (n + 1):n
+    end
+    return rows
+end
+
+# A member in the frame `frame` of its cable is an assembly about the centroid of its first
+# conductor, and a member of the assembly `host`. A member without a conductor lies at its
+# placement. Its members and its regions are those of `host`.
+function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, host::Int,
+        stack::Stack)
+    T = eltype(rows.r_in)
+    l = length(rows.dielectric_r_in)
+    push!(rows.assemblies, 1:0)
+    push!(rows.members, Int[])
+    push!(rows.fillers, Pair{Material{T}, T}[])
+    push!(rows.interior_ranges, (l + 1):l)
+    a = length(rows.assemblies)
+    k = findfirst(item -> item isa Terminal, stack.items)
+    if k === nothing
+        push!(rows.positions, (frame.x, frame.y))
+        foreach(item -> resolve(rows, CoaxialInput, frame, a, host, item), stack.items)
+        n, l = length(rows.r_in), length(rows.dielectric_r_in)
+        rows.assemblies[a] = (n + 1):n
+        rows.interior_ranges[a] = (l + 1):l
+    else
+        push!(rows.positions, frame(centroid(boundary(stack.items[k]))))
+        foreach(item -> resolve(rows, CoaxialInput, frame, a, a, item), stack.items)
+        push!(rows.members[host], a)
+    end
+    return rows
+end
+
+# The tube of a round conductor is its region. It is the next conductor of the assembly
+# `a`, whose interior ends where its first conductor begins.
+function resolve(rows::NamedTuple, ::Type{CoaxialInput}, ::Placement, a::Int, ::Int,
+        terminal::Terminal{<:Region{<:Union{Circle, Annulus}}})
+    region = terminal.part
+    push!(rows.r_in, r_in(region.primitive))
+    push!(rows.r_ex, r_ex(region.primitive))
+    push!(rows.material, convert(Material{eltype(rows.r_in)}, region.material))
+    push!(rows.turns, 0)
+    n, l = length(rows.r_in), length(rows.dielectric_r_in)
+    push!(rows.dielectric_ranges, (l + 1):l)
+    if isempty(rows.assemblies[a])
+        isempty(rows.interior_ranges[a]) && (rows.interior_ranges[a] = (l + 1):l)
+        rows.assemblies[a] = n:n
+    else
+        rows.assemblies[a] = first(rows.assemblies[a]):n
+    end
+    return rows
+end
+
+# Any other conductor takes Ametani's cylinder of its area and its perimeter.
+function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::Int,
+        owner::Int, terminal::Terminal{<:Region})
+    S, medium = terminal.part.primitive, terminal.part.material
+    r_e = perimeter(boundary(S)) / 2π
+    r_i = nominal(r_e^2 - area(S) / π) <= tolerance(r_e)^2 ? zero(r_e) :
+          sqrt(r_e^2 - area(S) / π)
+    tube = iszero(nominal(r_i)) ? Circle(r_e) : Annulus(r_i, r_e)
+    return resolve(rows, CoaxialInput, frame, a, owner,
+        Terminal(terminal.name,
+            Region(terminal.part.tag, tube,
+                Material(Val(:conductor), medium.rho * area(tube) / area(S), 1,
+                    (log(r_e) - log(gmr(S, medium.mu_r))) / (log(r_e) - log(gmr(tube, 1))),
+                    medium.T0, medium.alpha, medium.rho_thermal, medium.theta_max,
+                    medium.tan_delta, medium.sigma_solar))))
+end
+
+# The helix of a laid conductor gives its turns at the outer radius of its region.
+function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::Int,
+        owner::Int, terminal::Terminal{<:Lay})
+    (; helix, part) = terminal.part
+    resolve(rows, CoaxialInput, frame, a, owner, Terminal(terminal.name, part))
+    rows.turns[end] = helix.dir / pitch(helix, r_ex(part.primitive))
+    return rows
+end
+
+# A dielectric annulus after a conductor of its stack is a layer of the interval of that
+# conductor. Before the first conductor and outside the members of the stack, it is a layer
+# of the interior. Before the members, or in a stack without a conductor, it joins the
+# filler of the assembly `owner`.
+function resolve(rows::NamedTuple, ::Type{CoaxialInput}, ::Placement, a::Int, owner::Int,
+        region::Region{<:Annulus})
+    T = eltype(rows.r_in)
+    if owner != a || isempty(rows.assemblies[a]) && isempty(rows.members[a])
+        push!(rows.fillers[owner],
+            convert(Material{T}, region.material) => area(region.primitive))
+        return rows
+    end
+    push!(rows.dielectric_r_in, r_in(region.primitive))
+    push!(rows.dielectric_r_ex, r_ex(region.primitive))
+    push!(rows.dielectric_material, convert(Material{T}, region.material))
+    l = length(rows.dielectric_r_in)
+    if isempty(rows.assemblies[a])
+        rows.interior_ranges[a] = (isempty(rows.interior_ranges[a]) ? l :
+                                   first(rows.interior_ranges[a])):l
+    else
+        i = last(rows.assemblies[a])
+        rows.dielectric_ranges[i] = first(rows.dielectric_ranges[i]):l
+    end
+    return rows
+end
+
+# Any other dielectric region declared by a primitive lies inside the first conductor or the
+# members of its stack, and joins the filler.
+function resolve(rows::NamedTuple, ::Type{CoaxialInput}, ::Placement, ::Int, owner::Int,
+        region::Region{<:AbstractPrimitive})
+    push!(rows.fillers[owner],
+        convert(Material{eltype(rows.r_in)}, region.material) => area(region.primitive))
+    return rows
+end
+
+# A layer that an offset declares, around a conductor that is not round, is the annulus of
+# its thickness outside the layer before it.
+function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::Int,
+        owner::Int, region::Region{<:Offset})
+    i = last(rows.assemblies[a])
+    r = isempty(rows.dielectric_ranges[i]) ? rows.r_ex[i] :
+        rows.dielectric_r_ex[last(rows.dielectric_ranges[i])]
+    return resolve(rows, CoaxialInput, frame, a, owner,
+        Region(region.tag, Annulus(r, r + region.primitive.t), region.material))
+end
+
+# An enclosure gives its members, then its fill. In the stack of an assembly the fill is the
+# filler of the interior, from the axis to its container. The regions that joined the filler
+# share its material by their areas. The area of a fill is that of its container without the
+# outlines of its members, and the method reads it only among several regions.
+function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::Int,
+        owner::Int, enclosure::Enclosure)
+    T = eltype(rows.r_in)
+    resolve(rows, CoaxialInput, frame, a, owner, enclosure.contents)
+    fill, media = enclosure.fill, rows.fillers[owner]
+    (owner != a || !isempty(media)) && push!(media,
+        convert(Material{T}, fill.material) => area(fill.primitive) -
+                                               area(enclosure.contents))
+    owner == a || return rows
+    push!(rows.dielectric_r_in, zero(T))
+    push!(rows.dielectric_r_ex, r_ex(fill.primitive))
+    push!(rows.dielectric_material,
+        isempty(media) ? convert(Material{T}, fill.material) :
+        Material(first.(media), last.(media) ./ sum(last, media)))
+    l = length(rows.dielectric_r_in)
+    rows.interior_ranges[a] = l:l
+    return rows
+end
+
+# Each member of an assembly and each copy of a repeat is a member at its placement.
+function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, ::Int,
+        owner::Int, assembly::Assembly)
+    foreach(
+        member -> resolve(rows, CoaxialInput, frame * member.first, owner, member.second),
+        assembly.members)
+    return rows
+end
+function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, ::Int,
+        owner::Int, repeat::Repeat)
+    foreach(at -> resolve(rows, CoaxialInput, frame * at, owner, repeat.part),
+        repeat.pattern)
+    return rows
 end
 
 # The walls of tubes with a hole, and m·D from the centers and tube radii of buried cables.

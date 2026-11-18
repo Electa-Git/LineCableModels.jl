@@ -92,8 +92,9 @@ type that they promote to with `Float64`.
 
 # Errors
 
-- Throws `DomainError` when `ri` is negative or not finite, or when `ro` is not finite or does
-  not exceed `ri`.
+- Throws `DomainError` when `ri` is negative or not finite, or when `ro` is not finite or
+  lies below `ri` by more than `tolerance(ro)`, on `nominal` values. An annulus whose radii
+  tie has no width, as the fill beyond metal that reaches its container.
 """
 function Annulus(ri::Real, ro::Real, at::Placement)
     T = promote_type(Float64, typeof(ri), typeof(ro), eltype(at))
@@ -103,8 +104,10 @@ end
 function validate(annulus::Annulus)
     isfinite(annulus.ri) && annulus.ri >= zero(annulus.ri) ||
         throw(DomainError(annulus.ri, "Annulus.ri must be nonnegative and finite"))
-    isfinite(annulus.ro) && annulus.ro > annulus.ri ||
-        throw(DomainError(annulus.ro, "Annulus.ro must be finite and exceed Annulus.ri"))
+    isfinite(annulus.ro) &&
+    nominal(annulus.ro) + tolerance(annulus.ro) >= nominal(annulus.ri) ||
+        throw(DomainError(annulus.ro,
+            "Annulus.ro must be finite and must not lie below Annulus.ri"))
     return annulus
 end
 

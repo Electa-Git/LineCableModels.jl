@@ -114,41 +114,26 @@ straight, whereas the strands of each layer are longer than the cable by their o
 which increases their resistance per unit length of cable. The equivalent tube of the core
 then has a resistivity higher than that of copper, and its relative permeability
 reproduces the geometric mean radius of the central wire and the rectangular strands.
-=#
 
-# Equivalent conductors, with radii in m and resistivity in Ω·m:
-blueprint = LineCableModels.flatten(design)
-[(terminal = conductor.terminal, r_in = conductor.r_in, r_ex = conductor.r_ex,
-     rho = conductor.material.rho, mu_r = conductor.material.mu_r)
- for conductor in blueprint.conductors] # [m], [m], [Ω·m], [dimensionless]
-
-# Ratio of the core equivalent resistivity to the copper resistivity:
-blueprint.conductors[1].material.rho / core_metal.rho
-
-#=
 The dielectric layers between the core and the sheath form the insulation interval of the
 core. The semicon screens are included in this interval as dielectrics with a relative
 permittivity of 1000. Due to this high permittivity, their contribution to the potential
 coefficient of the interval is small compared to that of the XLPE.
 =#
 
-# Dielectric layers of the core and sheath intervals:
-[(conductor = k, r_in = layer.r_in, r_ex = layer.r_ex,
-     eps_r = layer.material.eps_r, mu_r = layer.material.mu_r)
- for (k, range) in enumerate(blueprint.dielectric_ranges)
- for layer in blueprint.dielectrics[range]] # [m], [m], [dimensionless], [dimensionless]
+# Regions of the flattened cable, from the core outward, with radii in m and resistivity in Ω·m:
+flat = LineCableModels.flatten(design)
+regions = NamedTuple[]
+foreach(flat) do region
+    push!(regions,
+        (tag = region.tag, r_in = r_in(region.primitive), r_ex = r_ex(region.primitive),
+            rho = region.material.rho, eps_r = region.material.eps_r,
+            mu_r = region.material.mu_r))
+end
+regions # [m], [m], [Ω·m], [dimensionless], [dimensionless]
 
-#=
-The current in a stranded core follows the helices of its rectangular strands and also
-circulates around the cable axis, like the current in a solenoid. This effect introduces
-additional magnetic energy in the insulation interval. The relative permeability of each
-interval, `mu_r_ins`, combines this solenoid correction with the mean permeability of the
-layers. Since the sheath has no lay, the value of its interval is the mean permeability of
-its layers.
-=#
-
-# Relative permeability of the core and sheath intervals:
-blueprint.mu_r_ins
+# Ratio of the core equivalent resistivity to the copper resistivity:
+first(regions).rho / core_metal.rho
 
 #=
 ## Three-phase system in flat formation
@@ -170,6 +155,19 @@ system = build(CableSystem, fill(design, 3), placements;
 
 # Line parameters problem at 70 °C:
 problem = LineParametersProblem(system, earth; temperature = 70.0, frequencies) # [°C]
+
+#=
+The current in a stranded core follows the helices of its rectangular strands and also
+circulates around the cable axis, like the current in a solenoid. This effect introduces
+additional magnetic energy in the insulation interval. The lay over the flattened core
+gives the turns of this current. The numerical input of the coaxial formulation contains the
+relative permeability of each interval, `mu_r_ins`. This value combines the solenoid
+correction with the mean permeability of the layers. Since the sheath has no lay, the value
+of its interval is the mean permeability of its layers.
+=#
+
+# Relative permeability of the core and sheath intervals of the three cables:
+LineCableModels.Engine.CoaxialInput(problem, CoaxialFormulation().options).mu_r_ins
 
 #=
 ## Line parameters at power frequency

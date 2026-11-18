@@ -1,4 +1,4 @@
-@testset "DataModel blueprints" begin
+@testset "Coaxial input of designs" begin
     flatten = LineCableModels.flatten
     copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
     polymer = Material(:insulator, 1.0e14, 2.3)
@@ -6,14 +6,16 @@
     steel = Material(:conductor, 1.7475e-7, 1.0, 36.6326, 20.0, 0.0045)
     air = material(kind = :insulator, rho = Inf)
 
+    coaxial = coaxial_input
+
     @testset "a wire is its own tube" begin
-        wire = flatten(build(CableDesign, "insulated_wire",
+        wire = coaxial(build(CableDesign, "insulated_wire",
             Terminal(:core, Region(:core_metal, Circle(0.0425), copper)),
             Region(:core_insulation, Offset(1.0e-3), polymer)))
-        tube = only(wire.conductors)
-        @test [tube.r_in, tube.r_ex] ≈ [0.0, 0.0425]
-        @test tube.material.rho ≈ copper.rho && tube.material.mu_r ≈ 1
-        @test [only(wire.dielectrics).r_in, only(wire.dielectrics).r_ex] ≈ [0.0425, 0.0435]
+        tube = only(wire.material)
+        @test [only(wire.r_in), only(wire.r_ex)] ≈ [0.0, 0.0425]
+        @test tube.rho ≈ copper.rho && tube.mu_r ≈ 1
+        @test [only(wire.dielectric_r_in), only(wire.dielectric_r_ex)] ≈ [0.0425, 0.0435]
         @test wire.mu_r_ins == [1.0]
     end
 
@@ -26,8 +28,8 @@
                 Region(:bore, Circle(a), polymer),
                 Terminal(:core, Region(:tube, Annulus(a, b), metal)),
                 Region(:jacket, Offset(1e-3), polymer))
-            tube = only(flatten(design).conductors)
-            @test abs(tube.material.mu_r - metal.mu_r) <= 2eps(metal.mu_r)
+            tube = only(coaxial(design).material)
+            @test abs(tube.mu_r - metal.mu_r) <= 2eps(metal.mu_r)
         end
         a = b * (1 - 1e-5)
         design = build(CableDesign, "thin_tube",
@@ -35,18 +37,18 @@
             Terminal(:core,
                 Region(:tube, Annulus(a, ForwardDiff.Dual(b, 1.0)), copper)),
             Region(:jacket, Offset(1e-3), polymer))
-        tube = only(flatten(design).conductors)
-        @test abs(only(ForwardDiff.partials(tube.material.mu_r))) < 1e-20
+        tube = only(coaxial(design).material)
+        @test abs(only(ForwardDiff.partials(tube.mu_r))) < 1e-20
     end
 
     @testset "a wire inside a tube of its copper is a solid conductor" begin
-        core = flatten(build(CableDesign, "wire_and_tube",
+        core = coaxial(build(CableDesign, "wire_and_tube",
             Terminal(:core,
                 Stack(Region(:core_wire, Circle(1.0e-3), copper),
                     Region(:core_tube, Offset(1.0e-3), copper)))))
-        tube = only(core.conductors)
-        @test [tube.r_in, tube.r_ex] ≈ [0.0, 2.0e-3]
-        @test tube.material.rho ≈ copper.rho && tube.material.mu_r ≈ 1
+        tube = only(core.material)
+        @test [only(core.r_in), only(core.r_ex)] ≈ [0.0, 2.0e-3]
+        @test tube.rho ≈ copper.rho && tube.mu_r ≈ 1
     end
 
     # On Julia 1.12.7, x86_64 Linux, the residue outer^2 - sum(area, shapes) / π
@@ -57,9 +59,10 @@
                 Terminal(:core,
                     Region(:core_metal, Circle(r, Placement(20e-3 + r, 0.0)), copper)),
                 Region(:ins, Offset(8e-3), polymer))
-            tube = only(flatten(design).conductors)
-            @test tube.r_in == 0
-            @test tube.material.rho ≈ copper.rho && tube.material.mu_r ≈ 1
+            core = coaxial(design)
+            tube = only(core.material)
+            @test only(core.r_in) == 0
+            @test tube.rho ≈ copper.rho && tube.mu_r ≈ 1
         end
     end
 
@@ -72,10 +75,9 @@
         straight = build(CableDesign, "straight_wire", Terminal(:core, strand),
             Region(:core_insulation, Offset(1.0e-3), polymer))
         @test only(laid.lays).pitches == [Inf]
-        blueprint, expected = flatten(laid), flatten(straight)
-        @test only(blueprint.conductors).material.rho ==
-              only(expected.conductors).material.rho
-        @test blueprint.mu_r_ins == expected.mu_r_ins == [1.0]
+        input, expected = coaxial(laid), coaxial(straight)
+        @test only(input.material).rho == only(expected.material).rho
+        @test input.mu_r_ins == expected.mu_r_ins == [1.0]
     end
 
     # On Julia 1.12.7, x86_64 Linux, gmd at τ = 1e-6 gives
@@ -93,7 +95,7 @@
             armour = Lay(Helix(LayRatio(10)),
                 Repeat(CircularPattern(40; r = 26.5e-3),
                     Region(:armour_wires, Circle(2.0e-3), steel)))
-            blueprint = flatten(build(CableDesign, "coaxial",
+            input = coaxial(build(CableDesign, "coaxial",
                 Terminal(:core,
                     Group(Region(:core_fill, Circle(10.5e-3), air),
                         Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
@@ -105,27 +107,26 @@
                 Terminal(:armour,
                     Group(Region(:armour_fill, Offset(4.0e-3), air), armour)),
                 Region(:armour_jacket, Offset(4.0e-3), polymer)))
-            @test [tube.terminal for tube in blueprint.conductors] == [1, 2, 3]
-            @test [tube.r_in for tube in blueprint.conductors] ≈ [0.0, 20.5e-3, 24.5e-3]
-            @test [tube.r_ex for tube in blueprint.conductors] ≈ [10.5e-3, 21.5e-3, 28.5e-3]
-            @test [layer.material for layer in blueprint.dielectrics] ==
+            @test input.label == ["cable:1:core", "cable:1:sheath", "cable:1:armour"]
+            @test input.r_in ≈ [0.0, 20.5e-3, 24.5e-3]
+            @test input.r_ex ≈ [10.5e-3, 21.5e-3, 28.5e-3]
+            @test input.dielectric_material ==
                   [air, semicon, polymer, semicon, polymer, air, polymer]
-            @test blueprint.dielectric_ranges == [1:4, 5:5, 6:7]
-            @test [layer.r_in for layer in blueprint.dielectrics] ≈
+            @test input.dielectric_ranges == [1:4, 5:5, 6:7]
+            @test input.dielectric_r_in ≈
                   [10.5e-3, 10.5e-3, 11.5e-3, 19.5e-3, 21.5e-3, 28.5e-3, 28.5e-3]
-            @test [layer.r_ex for layer in blueprint.dielectrics] ≈
+            @test input.dielectric_r_ex ≈
                   [10.5e-3, 11.5e-3, 19.5e-3, 20.5e-3, 24.5e-3, 28.5e-3, 32.5e-3]
-            values = [(tube.material.rho, tube.material.mu_r, mu)
-                      for (tube, mu) in zip(blueprint.conductors, blueprint.mu_r_ins)]
+            values = [(tube.rho, tube.mu_r, mu)
+                      for (tube, mu) in zip(input.material, input.mu_r_ins)]
             expected = [core, (copper.rho, 1.0, 1.0),
                 (2.4270115498150639e-7, 5.8715848278702119, 1.1305521523424971)]
             @test all(isapprox(value, target; rtol = 1.0e-12)
             for (row, targets) in zip(values, expected)
             for (value, target) in zip(row, targets))
-            @test [tube.material.alpha for tube in blueprint.conductors] ≈
-                  [0.00393, 0.00393, 0.0045]
-            @test blueprint.assembly_ranges == [1:3] && blueprint.positions == [(0.0, 0.0)]
-            @test isempty(only(blueprint.interior_ranges))
+            @test [tube.alpha for tube in input.material] ≈ [0.00393, 0.00393, 0.0045]
+            @test input.assemblies == [1:3] && input.positions == [(0.0, 0.0)]
+            @test isempty(only(input.interior_ranges))
         end
         # 37 round wires in parallel, the 36 laid ones longer by their overlength.
         wire = copper.rho / (π * 1.5e-3^2)
@@ -141,7 +142,7 @@
         armour = Lay(Helix(LayRatio(10)),
             Repeat(CircularPattern(40; r = 26.5e-3),
                 Region(:armour_wires, Circle(2.0e-3), steel)))
-        blueprint = flatten(build(CableDesign, "coaxial_circular_strands",
+        input = coaxial(build(CableDesign, "coaxial_circular_strands",
             Terminal(:core,
                 Group(Region(:core_fill, Circle(10.5e-3), air),
                     Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
@@ -152,11 +153,10 @@
             Region(:sheath_bedding, Offset(3.0e-3), polymer),
             Terminal(:armour, Group(Region(:armour_fill, Offset(4.0e-3), air), armour)),
             Region(:armour_jacket, Offset(4.0e-3), polymer)))
-        tube = first(blueprint.conductors)
-        layer = first(blueprint.dielectrics[blueprint.dielectric_ranges[1]])
-        @test [tube.r_in, tube.r_ex] ≈ [0.0, 10.4e-3]
-        @test [layer.r_in, layer.r_ex] ≈ [10.4e-3, 10.5e-3]
-        @test layer.material == air
+        l = first(input.dielectric_ranges[1])
+        @test [input.r_in[1], input.r_ex[1]] ≈ [0.0, 10.4e-3]
+        @test [input.dielectric_r_in[l], input.dielectric_r_ex[l]] ≈ [10.4e-3, 10.5e-3]
+        @test input.dielectric_material[l] == air
     end
 
     @testset "only the closing fill of two wire courses forms a layer" begin
@@ -164,7 +164,7 @@
         local air = Material(:insulator, 1.0e14, 1.0)
         for eps_r in (1.0, 4.0)
             compound = Material(:insulator, 1.0e14, eps_r)
-            blueprint = flatten(build(CableDesign, "two_courses",
+            input = coaxial(build(CableDesign, "two_courses",
                 Terminal(:core,
                     Stack(Region(:centre, Circle(2.0e-3), copper),
                         wires(copper; shape = Circle(1.0e-3), n = 6,
@@ -174,21 +174,18 @@
                 Region(:ins, Offset(2.0e-3), polymer),
                 Terminal(:screen, Region(:screen, Offset(0.5e-3), copper)),
                 Region(:jacket, Offset(2.0e-3), polymer)))
-            @test [[tube.r_in, tube.r_ex] for tube in blueprint.conductors] ≈
-                  [[0.0, 0.006], [0.008, 0.0085]] rtol = 1e-12
-            @test [[layer.r_in, layer.r_ex, layer.material.eps_r]
-                   for layer in blueprint.dielectrics[blueprint.dielectric_ranges[1]]] ≈
-                  [[0.006, 0.006, eps_r], [0.006, 0.008, 2.5]] rtol = 1e-12
-            @test [[layer.r_in, layer.r_ex, layer.material.eps_r]
-                   for layer in blueprint.dielectrics[blueprint.dielectric_ranges[2]]] ≈
-                  [[0.0085, 0.0105, 2.5]] rtol = 1e-12
+            @test [input.r_in input.r_ex] ≈ [0.0 0.006; 0.008 0.0085] rtol = 1e-12
+            @test input.dielectric_ranges == [1:2, 3:3]
+            @test [input.dielectric_r_in input.dielectric_r_ex] ≈
+                  [0.006 0.006; 0.006 0.008; 0.0085 0.0105] rtol = 1e-12
+            @test [layer.eps_r for layer in input.dielectric_material] == [eps_r, 2.5, 2.5]
         end
     end
 
     @testset "a fill under metal of its terminal stays inside the tube" begin
         local polymer = Material(:insulator, 1.0e14, 2.5)
         compound = Material(:insulator, 1.0e14, 4.0)
-        blueprint = flatten(build(CableDesign, "covered",
+        input = coaxial(build(CableDesign, "covered",
             Terminal(:core,
                 Stack(
                     Group(Region(:fill, Circle(3.0e-3), compound),
@@ -200,29 +197,28 @@
             Region(:ins, Offset(2.0e-3), polymer),
             Terminal(:screen, Region(:screen, Offset(0.5e-3), copper)),
             Region(:jacket, Offset(2.0e-3), polymer)))
-        @test [[tube.r_in, tube.r_ex] for tube in blueprint.conductors] ≈
-              [[0.0, 0.004], [0.006, 0.006500000000000001]] rtol = 1e-12
-        @test [[layer.r_in, layer.r_ex, layer.material.eps_r]
-               for layer in blueprint.dielectrics[blueprint.dielectric_ranges[1]]] ≈
-              [[0.004, 0.006, 2.5]] rtol = 1e-12
-        @test [[layer.r_in, layer.r_ex, layer.material.eps_r]
-               for layer in blueprint.dielectrics[blueprint.dielectric_ranges[2]]] ≈
-              [[0.006500000000000001, 0.0085, 2.5]] rtol = 1e-12
+        @test [input.r_in input.r_ex] ≈
+              [0.0 0.004; 0.006 0.006500000000000001] rtol = 1e-12
+        @test input.dielectric_ranges == [1:1, 2:2]
+        @test [input.dielectric_r_in input.dielectric_r_ex] ≈
+              [0.004 0.006; 0.006500000000000001 0.0085] rtol = 1e-12
+        @test [layer.eps_r for layer in input.dielectric_material] == [2.5, 2.5]
     end
 
+    # The wire and its fill are one region of the rectangle, which takes Ametani's cylinder
+    # of the area and the perimeter of the rectangle.
     @testset "a rectangular fill keeps the tube of its area and perimeter" begin
         local polymer = Material(:insulator, 1.0e14, 2.5)
-        blueprint = flatten(build(CableDesign, "square",
+        input = coaxial(build(CableDesign, "square",
             Terminal(:core,
                 Group(Region(:fill, Rectangle(20.0e-3, 20.0e-3), polymer),
                     Region(:wire, Circle(5.0e-3), copper))),
             Region(:ins, Offset(2.0e-3), polymer)))
-        tube = only(blueprint.conductors)
-        @test [tube.r_in, tube.r_ex] ≈
-              [0.011709564203152074, 0.012732395447351628] rtol = 1e-12
-        @test [[layer.r_in, layer.r_ex, layer.material.eps_r]
-               for layer in blueprint.dielectrics[only(blueprint.dielectric_ranges)]] ≈
-              [[0.012732395447351628, 0.014732395447351629, 2.5]] rtol = 1e-12
+        @test [only(input.r_in), only(input.r_ex)] ≈
+              [0.005898299700271613, 0.012732395447351628] rtol = 1e-12
+        @test [only(input.dielectric_r_in), only(input.dielectric_r_ex)] ≈
+              [0.012732395447351628, 0.014732395447351629] rtol = 1e-12
+        @test only(input.dielectric_material).eps_r == 2.5
     end
 
     @testset "opposite lays cancel turns" begin
@@ -231,7 +227,7 @@
                            Repeat(CircularPattern(n; r = 3.0e-3k),
                                Region(Symbol(:core_strands_, k), Circle(1.5e-3), copper)))
                        for (k, n) in enumerate((6, 12))]
-            core = flatten(build(CableDesign, "core",
+            core = coaxial(build(CableDesign, "core",
                 Terminal(:core,
                     Group(Region(:core_fill, Circle(7.5e-3), air),
                         Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
@@ -252,11 +248,10 @@
             Terminal(:screen, Region(:core_screen, Offset(0.5e-3), copper)))
         cores = Repeat(CircularPattern(3; r = 3.5e-3), core)
         pipe = Region(:pipe_fill, Circle(6.5e-3), polymer)
-        three = flatten(build(CableDesign, "three_cores", Enclosure(pipe, cores)))
-        @test [tube.assembly for tube in three.conductors] == [2, 2, 3, 3, 4, 4]
+        three = coaxial(build(CableDesign, "three_cores", Enclosure(pipe, cores)))
+        @test three.assemblies == [7:6, 1:2, 3:4, 5:6]
         @test length(three.positions) == 4 && three.positions[1] == (0.0, 0.0)
-        @test [layer.material for layer in three.dielectrics[three.interior_ranges[1]]] ==
-              [polymer]
+        @test three.dielectric_material[three.interior_ranges[1]] == [polymer]
         @test_throws ArgumentError flatten(build(CableDesign, "bonded",
             Terminal(:phase, Enclosure(pipe, cores))))
         warm = Material(:conductor, 1.7241e-8, 1, 1, 25, 0.00393)
@@ -266,21 +261,21 @@
                     Region(:core_tube, Offset(1.0e-3), warm)))))
     end
 
-    # A block that tiles no annulus about the center is the tube of its area and perimeter
-    # (Ametani). The layer around it takes the thickness of its band.
+    # A sector conductor takes Ametani's tube of its area and perimeter. The layer around it
+    # has the thickness of its offset.
     @testset "a sector core is the tube of its area and perimeter" begin
         sector = LineCableModels.Sector(
             0, 10.0e-3, 2π / 3, 1.0e-3 / sin(π / 3), 1.5e-3, Placement(0, 0))
-        blueprint = flatten(build(CableDesign, "sector_core",
+        input = coaxial(build(CableDesign, "sector_core",
             Terminal(:core, Region(:core, sector, copper)),
             Region(:insulation, Offset(1.0e-3), polymer)))
-        tube = only(blueprint.conductors)
-        @test [tube.r_in, tube.r_ex] ≈ [2.3105861599593243e-3, 5.652135443739411e-3] rtol = 1e-12
-        @test π * (tube.r_ex^2 - tube.r_in^2) ≈ 83.59095280005376e-6 rtol = 1e-12
-        @test 2π * tube.r_ex ≈ 35.51341437429244e-3 rtol = 1e-12
-        @test tube.material.rho ≈ copper.rho rtol = 1e-12
-        layer = only(blueprint.dielectrics)
-        @test [layer.r_in, layer.r_ex] ≈ [tube.r_ex, tube.r_ex + 1.0e-3] rtol = 1e-12
+        r_i, r_e = only(input.r_in), only(input.r_ex)
+        @test [r_i, r_e] ≈ [2.3105861599593243e-3, 5.652135443739411e-3] rtol = 1e-12
+        @test π * (r_e^2 - r_i^2) ≈ 83.59095280005376e-6 rtol = 1e-12
+        @test 2π * r_e ≈ 35.51341437429244e-3 rtol = 1e-12
+        @test only(input.material).rho ≈ copper.rho rtol = 1e-12
+        @test [only(input.dielectric_r_in), only(input.dielectric_r_ex)] ≈
+              [r_e, r_e + 1.0e-3] rtol = 1e-12
     end
 
     # An open tape and its fill tile one layer. Under a radial field the two carry their
@@ -288,39 +283,36 @@
     @testset "an open dielectric tape is one layer of the composite material" begin
         polyester = material(kind = :insulator, rho = 1.0e15, eps_r = 3.3, tan_delta = 2.0e-3)
         compound = material(kind = :insulator, rho = 1.0e13, eps_r = 2.2, tan_delta = 5.0e-4)
-        blueprint = flatten(build(CableDesign, "open_tape",
+        input = coaxial(build(CableDesign, "open_tape",
             Terminal(:core, Region(:core, Circle(10.0e-3), copper)),
             tape(polyester; w = 10.0e-3, t = 0.2e-3, lay = LayRatio(10), fill = compound),
             Region(:insulation, Offset(1.0e-3), polymer)))
-        @test length(blueprint.dielectrics) == 2
-        layer = first(blueprint.dielectrics)
+        @test length(input.dielectric_material) == 2
+        layer = first(input.dielectric_material)
         f = 10.0e-3 * 0.2e-3 / (π * (10.2e-3^2 - 10.0e-3^2))
-        @test layer.material isa Material{Float64, :insulator}
-        @test [layer.r_in, layer.r_ex] ≈ [10.0e-3, 10.2e-3] rtol = 1e-12
-        @test 1 / layer.material.rho ≈ f / 1.0e15 + (1 - f) / 1.0e13 rtol = 1e-12
-        @test layer.material.eps_r ≈ f * 3.3 + (1 - f) * 2.2 rtol = 1e-12
-        @test layer.material.eps_r * layer.material.tan_delta ≈
+        @test layer isa Material{Float64, :insulator}
+        @test [input.dielectric_r_in[1], input.dielectric_r_ex[1]] ≈ [10.0e-3, 10.2e-3] rtol = 1e-12
+        @test 1 / layer.rho ≈ f / 1.0e15 + (1 - f) / 1.0e13 rtol = 1e-12
+        @test layer.eps_r ≈ f * 3.3 + (1 - f) * 2.2 rtol = 1e-12
+        @test layer.eps_r * layer.tan_delta ≈
               f * 3.3 * 2.0e-3 + (1 - f) * 2.2 * 5.0e-4 rtol = 1e-12
         for ω in 2π .* (50.0, 1.0e3, 1.0e6)
-            @test 1 / layer.material.rho +
-                  ω * LineCableModels.ε₀ * layer.material.eps_r *
-                  (layer.material.tan_delta + im) ≈
+            @test 1 / layer.rho +
+                  ω * LineCableModels.ε₀ * layer.eps_r *
+                  (layer.tan_delta + im) ≈
                   f * (1 / 1.0e15 + ω * LineCableModels.ε₀ * 3.3 * (2.0e-3 + im)) +
                   (1 - f) * (1 / 1.0e13 + ω * LineCableModels.ε₀ * 2.2 * (5.0e-4 + im)) rtol = 1e-12
         end
     end
 
-    # The same tape and fill give one layer in an interval and outside an interior's filler.
-    # The interior tape lies in a separate assembly without a dielectric lay record.
+    # The same tape and fill give one layer in an interval and outside the filler of an
+    # interior. The interior is that of a cable without a conductor, alone and under the fill
+    # and the wall of a duct.
     @testset "a tiled tape has the same layer in an interval and an interior" begin
         polyester = material(kind = :insulator, rho = 1.0e15, eps_r = 3.3, tan_delta = 2.0e-3)
         compound = material(kind = :insulator, rho = 1.0e13, eps_r = 2.2, tan_delta = 5.0e-4)
         part = tape(polyester; w = 10.0e-3, t = 0.2e-3, lay = LayRatio(10), fill = compound)
-        design = build(CableDesign, "tape_geometry", Region(:seed, Circle(7.0e-3), air), part)
-        placed = only(filter(region -> region.source.tag == :tape, design.regions))
-        sector = Region(:tape, placed.shape, polyester)
-        band = Enclosure(part.fill, Assembly((Placement(0.0, 0.0) => sector,)))
-        interval = flatten(build(CableDesign, "interval_tape",
+        interval = coaxial(build(CableDesign, "interval_tape",
             Terminal(:core, Region(:core, Circle(7.0e-3), copper)),
             part, Region(:insulation, Offset(1.0e-3), polymer)))
         d = 2 * 3.0e-3 / sqrt(3)
@@ -330,27 +322,27 @@
             Enclosure(Region(:cable_fill, Circle(7.0e-3), air),
                 Assembly(Tuple(Placement(d * cos(θ), d * sin(θ)) => core
                 for θ in (π / 2, 7π / 6, 11π / 6)))),
-            band, Region(:cable_jacket, Offset(1.0e-3), polymer))
-        interior = flatten(build(CableDesign, "interior_tape", cable))
-        hosted = flatten(build(CableDesign, "hosted_tape",
-            Enclosure(Region(:duct_fill, Circle(12.0e-3), air),
-                Assembly((Placement(0.0, 0.0) => cable,))),
+            part, Region(:cable_jacket, Offset(1.0e-3), polymer))
+        interior = coaxial(build(CableDesign, "interior_tape", cable))
+        hosted = coaxial(build(CableDesign, "hosted_tape", cable,
+            Region(:duct_fill, Offset(3.8e-3), air),
             Terminal(:duct, Region(:duct, Offset(2.0e-3), steel)),
             Region(:coating, Offset(1.0e-3), polymer)))
-        @test length(interval.dielectrics[only(interval.dielectric_ranges)]) == 2
-        @test length(interior.dielectrics[interior.interior_ranges[1]]) == 3
-        @test length(hosted.dielectrics[hosted.interior_ranges[1]]) == 4
-        expected = first(interval.dielectrics[only(interval.dielectric_ranges)])
+        @test length(only(interval.dielectric_ranges)) == 2
+        @test length(interior.interior_ranges[1]) == 3
+        @test length(hosted.interior_ranges[1]) == 4
+        l = first(only(interval.dielectric_ranges))
+        expected = interval.dielectric_material[l]
         f = 10.0e-3 * 0.2e-3 / (π * (7.2e-3^2 - 7.0e-3^2))
-        @test [expected.r_in, expected.r_ex] ≈ [7.0e-3, 7.2e-3] rtol = 1e-12
-        @test expected.material.eps_r ≈ f * 3.3 + (1 - f) * 2.2 rtol = 1e-12
-        @test 1 / expected.material.rho ≈ f / 1.0e15 + (1 - f) / 1.0e13 rtol = 1e-12
-        for blueprint in (interior, hosted)
-            layer = blueprint.dielectrics[blueprint.interior_ranges[1]][2]
-            @test layer.r_in == expected.r_in
-            @test layer.r_ex == expected.r_ex
-            @test layer.material.eps_r == expected.material.eps_r
-            @test layer.material.rho == expected.material.rho
+        @test [interval.dielectric_r_in[l], interval.dielectric_r_ex[l]] ≈ [7.0e-3, 7.2e-3] rtol = 1e-12
+        @test expected.eps_r ≈ f * 3.3 + (1 - f) * 2.2 rtol = 1e-12
+        @test 1 / expected.rho ≈ f / 1.0e15 + (1 - f) / 1.0e13 rtol = 1e-12
+        for input in (interior, hosted)
+            k = input.interior_ranges[1][2]
+            @test input.dielectric_r_in[k] == interval.dielectric_r_in[l]
+            @test input.dielectric_r_ex[k] == interval.dielectric_r_ex[l]
+            @test input.dielectric_material[k].eps_r == expected.eps_r
+            @test input.dielectric_material[k].rho == expected.rho
         end
     end
 
@@ -361,23 +353,6 @@
             Repeat(CircularPattern(2; r = Offset(0)),
                 Region(:insulation, Rectangle(2.5π * 1e-3, 1e-3), polymer)))
         @test_throws ArgumentError flatten(design)
-    end
-
-    @testset "a shape or a set of shapes fills an annulus about the center" begin
-        isannular = LineCableModels.DataModel.isannular
-        @test isannular(Annulus(1.0e-3, 3.0e-3)) && isannular(Circle(2.0e-3))
-        @test !isannular(Circle(2.0e-3, Placement(5.0e-3, 0.0)))
-        # The armour of the coaxial reference fills one: its wires touch both circles of its
-        # fill. A course of six wires leaves gaps.
-        armoured = build(CableDesign, "armoured",
-            Terminal(:core, Region(:core, Circle(24.5e-3), copper)),
-            Terminal(:armour,
-                Group(Region(:armour_fill, Offset(4.0e-3), air),
-                    Repeat(CircularPattern(40; r = 26.5e-3),
-                        Region(:armour_wires, Circle(2.0e-3), steel)))))
-        @test isannular([placed.shape for placed in armoured.regions[2:end]])
-        @test !isannular([Circle(1.0e-3, Placement(3.0e-3cos(θ), 3.0e-3sin(θ)))
-                          for θ in (0:5) .* (π / 3)])
     end
 
     @testset "two dielectrics combine into the class of their merged material" begin
@@ -399,7 +374,7 @@
         core = LineCableModels.Sector(
             0, 10.0e-3, 2π / 3, 1.0e-3 / sin(π / 3), 1.5e-3, Placement(-c, 0))
         angles = (0, 2π / 3, 4π / 3)
-        blueprint = flatten(build(CableDesign, "three_sector_cores",
+        input = coaxial(build(CableDesign, "three_sector_cores",
             Stack(
                 Enclosure(Region(:fill, Circle(11.0e-3), air),
                     Assembly(Tuple(Placement(c * cos(φ),
@@ -409,21 +384,19 @@
                                        Region(:insulation, Offset(1.0e-3), polymer))
                     for (φ, name) in zip(angles, (:phase_a, :phase_b, :phase_c))))),
                 Region(:jacket, Offset(3.0e-3), polymer))))
-        @test [tube.assembly for tube in blueprint.conductors] == [2, 3, 4]
-        @test all(isapprox([tube.r_in, tube.r_ex],
+        @test all(isapprox([r_i, r_e],
                       [2.3105861599593243e-3, 5.652135443739411e-3]; rtol = 1e-12)
-        for tube in blueprint.conductors)
-        @test [collect(p) for p in blueprint.positions] ≈
+        for (r_i, r_e) in zip(input.r_in, input.r_ex))
+        @test [collect(p) for p in input.positions] ≈
               vcat([[0.0, 0.0]], [[c * cos(φ), c * sin(φ)] for φ in angles]) rtol = 1e-12
-        @test isempty(blueprint.assembly_ranges[1])
-        @test blueprint.assembly_ranges[2:4] == [1:1, 2:2, 3:3]
-        @test blueprint.dielectric_ranges == [1:1, 2:2, 3:3]
-        @test blueprint.interior_ranges[1] == 4:5 &&
-              all(isempty, blueprint.interior_ranges[2:4])
-        @test [layer.material for layer in blueprint.dielectrics] ==
-              [polymer, polymer, polymer, air, polymer]
-        @test all(isapprox(layer.r_ex, layer.r_in + 1.0e-3; rtol = 1e-12)
-        for layer in blueprint.dielectrics[1:3])
+        @test isempty(input.assemblies[1])
+        @test input.assemblies[2:4] == [1:1, 2:2, 3:3]
+        @test input.dielectric_ranges == [1:1, 2:2, 3:3]
+        @test input.interior_ranges[1] == 4:5 &&
+              all(isempty, input.interior_ranges[2:4])
+        @test input.dielectric_material == [polymer, polymer, polymer, air, polymer]
+        @test all(isapprox(input.dielectric_r_ex[l], input.dielectric_r_in[l] + 1.0e-3;
+                      rtol = 1e-12) for l in 1:3)
     end
 
     # Construction 15: three coaxials in a trefoil, each on the wall of a steel pipe. The
@@ -441,24 +414,22 @@
                     Assembly(Tuple(Placement(d * cos(θ), d * sin(θ)) => coax for θ in θs))),
                 Terminal(:pipe, Region(:pipe, Offset(8.0e-3), steel)),
                 Region(:coating, Offset(3.0e-3), polymer)))
-        blueprint = flatten(design)
+        input = coaxial(design)
         R = 0.04740341184434353
-        @test [(tube.terminal, tube.assembly) for tube in blueprint.conductors] ==
-              [(1, 2), (2, 2), (3, 3), (4, 3), (5, 4), (6, 4), (7, 1)]
-        @test [[tube.r_in, tube.r_ex] for tube in blueprint.conductors] ≈
+        @test [[r_i, r_e] for (r_i, r_e) in zip(input.r_in, input.r_ex)] ≈
               [[0, 0.010], [0.018, 0.019], [0, 0.010], [0.018, 0.019], [0, 0.010],
             [0.018, 0.019], [R, R + 0.008]] rtol = 1e-12
-        @test [[layer.r_in, layer.r_ex] for layer in blueprint.dielectrics] ≈
+        @test [[a, b] for (a, b) in zip(input.dielectric_r_in, input.dielectric_r_ex)] ≈
               [[0.010, 0.018], [0.019, 0.022], [0.010, 0.018], [0.019, 0.022],
             [0.010, 0.018], [0.019, 0.022], [0, R], [R + 0.008, R + 0.011]] rtol = 1e-12
-        @test [layer.material for layer in blueprint.dielectrics] ==
+        @test input.dielectric_material ==
               [polymer, polymer, polymer, polymer, polymer, polymer, air, polymer]
-        @test blueprint.dielectric_ranges == [1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 8:8]
-        @test blueprint.assembly_ranges == [7:7, 1:2, 3:4, 5:6]
-        @test blueprint.interior_ranges == [7:7, 1:0, 3:2, 5:4]
-        @test [collect(p) for p in blueprint.positions] ≈
+        @test input.dielectric_ranges == [1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 8:8]
+        @test input.assemblies == [7:7, 1:2, 3:4, 5:6]
+        @test input.interior_ranges == [7:7, 1:0, 3:2, 5:4]
+        @test [collect(p) for p in input.positions] ≈
               vcat([[0.0, 0.0]], [[d * cos(θ), d * sin(θ)] for θ in θs]) rtol = 1e-12
-        @test blueprint.mu_r_ins ≈ ones(7) rtol = 1e-12
+        @test input.mu_r_ins ≈ ones(7) rtol = 1e-12
         system = build(CableSystem, [design], [Placement(0, -1)];
             connections = [(core = 1, screen = 0, pipe = 0)], id = "pipe", line_length = 1.0)
         problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
@@ -480,7 +451,7 @@
     # Construction 16: three round cores in a steel pipe, the geometry of the reference
     # case `three_cores_steel_pipe`. Each member is at the origin, turned, with its core's
     # circle off its origin. The member lies about the circle's center, the centroid of its
-    # terminal. Cores at their own centers give the same blueprint, equal to the bit on
+    # terminal. Cores at their own centers give the same input, equal to the bit on
     # Julia 1.12.7.
     @testset "a member lies about the centroid of its first terminal" begin
         offset = 2 * 28.0e-3 / sqrt(3)
@@ -500,34 +471,32 @@
                            Region(Symbol(name, :_insulation), Offset(8.5e-3), polymer))
         for (name, θ) in zip(names, angles))
         pipe,
-        own = [flatten(build(CableDesign, "pipe_type",
+        own = [coaxial(build(CableDesign, "pipe_type",
                    Enclosure(Region(:filler, Circle(62.0e-3), polymer), Assembly(members)),
                    Terminal(:pipe, Region(:pipe, Offset(3.0e-3), steel)),
                    Region(:jacket, Offset(5.0e-3), polymer)))
                for members in (turned, placed)]
         centers = vcat([[0.0, 0.0]], [[offset * cos(θ), offset * sin(θ)] for θ in angles])
         @test [collect(p) for p in pipe.positions] ≈ centers rtol = 1e-12
-        @test [[tube.r_in, tube.r_ex] for tube in pipe.conductors] ≈
-              [[0, 19.5e-3], [0, 19.5e-3], [0, 19.5e-3], [62.0e-3, 65.0e-3]] rtol = 1e-12
-        @test [[layer.r_in, layer.r_ex] for layer in pipe.dielectrics] ≈
-              [[19.5e-3, 28.0e-3], [19.5e-3, 28.0e-3], [19.5e-3, 28.0e-3], [0, 62.0e-3],
-            [65.0e-3, 70.0e-3]] rtol = 1e-12
-        @test pipe.assembly_ranges == [4:4, 1:1, 2:2, 3:3]
+        @test [pipe.r_in pipe.r_ex] ≈
+              [0 19.5e-3; 0 19.5e-3; 0 19.5e-3; 62.0e-3 65.0e-3] rtol = 1e-12
+        @test [pipe.dielectric_r_in pipe.dielectric_r_ex] ≈
+              [19.5e-3 28.0e-3; 19.5e-3 28.0e-3; 19.5e-3 28.0e-3; 0 62.0e-3;
+               65.0e-3 70.0e-3] rtol = 1e-12
+        @test pipe.assemblies == [4:4, 1:1, 2:2, 3:3]
         @test pipe.interior_ranges == [4:4, 1:0, 2:1, 3:2]
         @test pipe.dielectric_ranges == [1:1, 2:2, 3:3, 5:5]
         @test pipe.members == [[2, 3, 4], Int[], Int[], Int[]]
         @test own.positions == pipe.positions
-        @test [[tube.r_in, tube.r_ex, tube.material.rho, tube.material.mu_r]
-               for tube in own.conductors] ==
-              [[tube.r_in, tube.r_ex, tube.material.rho, tube.material.mu_r]
-               for tube in pipe.conductors]
-        @test [[layer.r_in, layer.r_ex] for layer in own.dielectrics] ==
-              [[layer.r_in, layer.r_ex] for layer in pipe.dielectrics]
+        @test [[own.r_in[k], own.r_ex[k], tube.rho, tube.mu_r]
+               for (k, tube) in enumerate(own.material)] ==
+              [[pipe.r_in[k], pipe.r_ex[k], tube.rho, tube.mu_r]
+               for (k, tube) in enumerate(pipe.material)]
+        @test [own.dielectric_r_in own.dielectric_r_ex] ==
+              [pipe.dielectric_r_in pipe.dielectric_r_ex]
         @test own.mu_r_ins == pipe.mu_r_ins
-        @test (
-            own.assembly_ranges, own.interior_ranges, own.dielectric_ranges, own.members) ==
-              (pipe.assembly_ranges, pipe.interior_ranges,
-            pipe.dielectric_ranges, pipe.members)
+        @test (own.assemblies, own.interior_ranges, own.dielectric_ranges, own.members) ==
+              (pipe.assemblies, pipe.interior_ranges, pipe.dielectric_ranges, pipe.members)
     end
 
     # Construction 17: three wires around a central rod in a fill, under a binder tape. The
@@ -537,18 +506,19 @@
     @testset "an interior is its filler and the annuli outside it" begin
         wire = Stack(Terminal(:core, Region(:core, Circle(0.5e-3), copper)),
             Region(:insulation, Offset(0.25e-3), polymer))
-        blueprint = flatten(build(
+        input = coaxial(build(
             CableDesign, "rod", Region(:rod, Circle(1.0e-3), polymer),
             Enclosure(Region(:fill, Offset(3.0e-3), air),
                 Assembly(Tuple(Placement(2.5e-3 * cos(θ), 2.5e-3 * sin(θ)) => wire
                 for θ in (0.0, 2π / 3, 4π / 3)))),
             Region(:binder, Offset(0.2e-3), polymer)))
-        filler, binder = blueprint.dielectrics[blueprint.interior_ranges[1]]
-        @test [[filler.r_in, filler.r_ex], [binder.r_in, binder.r_ex]] ≈
-              [[0, 4.0e-3], [4.0e-3, 4.2e-3]] rtol = 1e-12
-        @test filler.material.eps_r ≈ (polymer.eps_r + 13.3125 * air.eps_r) / 14.3125 rtol = 1e-14
-        @test filler.material.rho ≈ 14.3125 * polymer.rho rtol = 1e-14
-        @test binder.material == polymer
+        span = input.interior_ranges[1]
+        filler, binder = input.dielectric_material[span]
+        @test [input.dielectric_r_in[span] input.dielectric_r_ex[span]] ≈
+              [0 4.0e-3; 4.0e-3 4.2e-3] rtol = 1e-12
+        @test filler.eps_r ≈ (polymer.eps_r + 13.3125 * air.eps_r) / 14.3125 rtol = 1e-14
+        @test filler.rho ≈ 14.3125 * polymer.rho rtol = 1e-14
+        @test binder == polymer
     end
 
     # Construction 18: a three-core cable without a metallic layer, off the axis of a steel
@@ -556,10 +526,8 @@
     # own centers. Its fill and jacket join the duct's filler. The filler weighs the air,
     # 102π mm², and the jacket, 15π mm², equal to the bit on Julia 1.12.7.
     #
-    # The core at (-1, -1.73) mm covers the axis, 2 mm from its center and inside its outline
-    # of 3 mm. The filler starts at that outline, 1 mm from the axis. With the cable on the
-    # duct's axis, its fill contains the axis. Its jacket and the duct's fill are then annuli
-    # outside the filler.
+    # The same cable on the duct's axis, declared as the layers of one stack, has its fill as
+    # the filler. Its jacket and the duct's fill are then annuli outside the filler.
     @testset "a sub-cable with no conductor of its own gives its members and regions to its container" begin
         d = 2 * 3.0e-3 / sqrt(3)
         angles = (π / 2, 7π / 6, 11π / 6)
@@ -569,27 +537,27 @@
             Enclosure(Region(:cable_fill, Circle(7.0e-3), air),
                 Assembly(Tuple(Placement(d * cos(θ), d * sin(θ)) => core for θ in angles))),
             Region(:cable_jacket, Offset(1.0e-3), polymer))
-        blueprint = flatten(build(CableDesign, "duct",
+        input = coaxial(build(CableDesign, "duct",
             Enclosure(Region(:duct_fill, Circle(12.0e-3), air),
                 Assembly((Placement(2.0e-3, 0.0) => cable,))),
             Terminal(:duct, Region(:duct, Offset(2.0e-3), steel)),
             Region(:coating, Offset(1.0e-3), polymer)))
-        @test blueprint.members == [[3, 4, 5], Int[], Int[], Int[], Int[]]
-        @test [collect(p) for p in blueprint.positions[3:5]] ≈
+        @test input.members == [[3, 4, 5], Int[], Int[], Int[], Int[]]
+        @test [collect(p) for p in input.positions[3:5]] ≈
               [[2.0e-3 + d * cos(θ), d * sin(θ)] for θ in angles] rtol = 1e-12
-        @test isempty(blueprint.assembly_ranges[2]) && isempty(blueprint.interior_ranges[2])
-        filler = only(blueprint.dielectrics[blueprint.interior_ranges[1]])
-        @test [filler.r_in, filler.r_ex] ≈ [1.0e-3, 12.0e-3] rtol = 1e-12
-        @test filler.material.eps_r ≈ (102 * air.eps_r + 15 * polymer.eps_r) / 117 rtol = 1e-14
-        centered = flatten(build(CableDesign, "duct",
-            Enclosure(Region(:duct_fill, Circle(12.0e-3), air),
-                Assembly((Placement(0.0, 0.0) => cable,))),
+        @test isempty(input.assemblies[2]) && isempty(input.interior_ranges[2])
+        f = only(input.interior_ranges[1])
+        @test [input.dielectric_r_in[f], input.dielectric_r_ex[f]] ≈ [0, 12.0e-3] rtol = 1e-12
+        @test input.dielectric_material[f].eps_r ≈
+              (102 * air.eps_r + 15 * polymer.eps_r) / 117 rtol = 1e-14
+        centered = coaxial(build(CableDesign, "duct", cable,
+            Region(:duct_fill, Offset(4.0e-3), air),
             Terminal(:duct, Region(:duct, Offset(2.0e-3), steel)),
             Region(:coating, Offset(1.0e-3), polymer)))
-        interior = centered.dielectrics[centered.interior_ranges[1]]
-        @test [[layer.r_in, layer.r_ex] for layer in interior] ≈
-              [[0, 7.0e-3], [7.0e-3, 8.0e-3], [8.0e-3, 12.0e-3]] rtol = 1e-12
-        @test [layer.material.eps_r for layer in interior] ≈
+        span = centered.interior_ranges[1]
+        @test [centered.dielectric_r_in[span] centered.dielectric_r_ex[span]] ≈
+              [0 7.0e-3; 7.0e-3 8.0e-3; 8.0e-3 12.0e-3] rtol = 1e-12
+        @test [layer.eps_r for layer in centered.dielectric_material[span]] ≈
               [air.eps_r, polymer.eps_r, air.eps_r] rtol = 1e-14
     end
 
@@ -608,11 +576,11 @@
             Region(:core_insulation, Offset(2.0e-3), polymer))
         members = [Placement(-12.0e-3, 0.0) => cable,
             Placement(14.0e-3, 0.0) => core]
-        blueprint = flatten(build(CableDesign, "pipe",
+        input = coaxial(build(CableDesign, "pipe",
             Enclosure(Region(:fill, Circle(30.0e-3), air), Assembly(Tuple(members))),
             Terminal(:pipe, Region(:pipe, Offset(3.0e-3), steel)),
             Region(:coating, Offset(2.0e-3), polymer)))
-        @test blueprint.members == [[3, 4, 5], Int[], Int[], Int[], Int[]]
+        @test input.members == [[3, 4, 5], Int[], Int[], Int[], Int[]]
     end
 
     # Construction 19: a terminal of two courses of 6 and 12 wires at the lay ratio 12, around
@@ -625,50 +593,50 @@
                        Repeat(CircularPattern(n; r = 3.0e-3k),
                            Region(Symbol(:wires_, k), Circle(1.5e-3), copper)))
                    for (k, n) in enumerate((6, 12))]
-        tube = only(flatten(build(CableDesign, "rod",
+        input = coaxial(build(CableDesign, "rod",
             Group(Region(:core_fill, Circle(7.5e-3), air),
                 Stack(Region(:rod, Circle(1.5e-3), polymer),
                     Terminal(:core, Stack(courses...)))),
-            Region(:insulation, Offset(3.0e-3), polymer))).conductors)
-        @test [tube.r_in, tube.r_ex] ≈ [0, 7.5e-3] rtol = 1e-12
+            Region(:insulation, Offset(3.0e-3), polymer)))
+        @test [only(input.r_in), only(input.r_ex)] ≈ [0, 7.5e-3] rtol = 1e-12
         resistance = copper.rho * sqrt(1 + (π / 12)^2) / (18π * 1.5e-3^2)
-        @test tube.material.rho / (π * 7.5e-3^2) ≈ resistance rtol = 1e-12
+        @test only(input.material).rho / (π * 7.5e-3^2) ≈ resistance rtol = 1e-12
     end
 
     # Construction 21: one insulated core in a steel pipe, on its axis and 6 mm off it. The
-    # pipe's fill is the interior of the root, from the nearest point of the core's insulation.
+    # pipe's fill is the filler of the root, from its axis to the pipe.
     @testset "a single core in a pipe has the pipe's fill as its filler" begin
         core = Stack(Terminal(:core, Region(:core, Circle(10.0e-3), copper)),
             Region(:insulation, Offset(2.0e-3), polymer))
-        for (offset, nearest) in ((0.0, 12.0e-3), (6.0e-3, 6.0e-3))
-            blueprint = flatten(build(CableDesign, "pipe",
+        for offset in (0.0, 6.0e-3)
+            input = coaxial(build(CableDesign, "pipe",
                 Enclosure(Region(:fill, Circle(30.0e-3), air),
                     Assembly((Placement(offset, 0.0) => core,))),
                 Terminal(:pipe, Region(:pipe, Offset(3.0e-3), steel)),
                 Region(:coating, Offset(2.0e-3), polymer)))
-            @test [[tube.r_in, tube.r_ex] for tube in blueprint.conductors] ≈
-                  [[0.0, 10.0e-3], [30.0e-3, 33.0e-3]] rtol = 1e-12
-            filler = only(blueprint.dielectrics[blueprint.interior_ranges[1]])
-            @test [filler.r_in, filler.r_ex] ≈ [nearest, 30.0e-3] rtol = 1e-12
-            @test collect(blueprint.positions[2]) ≈ [offset, 0.0] rtol = 1e-12
+            @test [input.r_in input.r_ex] ≈ [0.0 10.0e-3; 30.0e-3 33.0e-3] rtol = 1e-12
+            f = only(input.interior_ranges[1])
+            @test [input.dielectric_r_in[f], input.dielectric_r_ex[f]] ≈ [0, 30.0e-3] rtol = 1e-12
+            @test input.dielectric_material[f] == air
+            @test collect(input.positions[2]) ≈ [offset, 0.0] rtol = 1e-12
         end
     end
 
     # Construction 20: one coaxial in a steel pipe, on its axis and 5 mm off it. The filler is
-    # the pipe's fill, from the nearest point of the coaxial's outline to the pipe.
-    @testset "the filler of a pipe starts at the nearest point of its member" begin
+    # the pipe's fill, from the axis to the pipe.
+    @testset "the filler of a pipe reaches from its axis to the pipe" begin
         coax = Stack(Terminal(:core, Region(:core, Circle(10.0e-3), copper)),
             Region(:insulation, Offset(8.0e-3), polymer),
             Terminal(:screen, Region(:screen, Offset(1.0e-3), copper)),
             Region(:jacket, Offset(3.0e-3), polymer))
-        for (offset, nearest) in ((0.0, 22.0e-3), (5.0e-3, 17.0e-3))
+        for offset in (0.0, 5.0e-3)
             enclosure = Enclosure(Region(:fill, Circle(30.0e-3), air),
                 Assembly((Placement(offset, 0.0) => coax,)))
-            blueprint = flatten(build(CableDesign, "pipe",
+            input = coaxial(build(CableDesign, "pipe",
                 Stack(enclosure, Terminal(:pipe, Region(:pipe, Offset(8.0e-3), steel)),
                     Region(:coating, Offset(3.0e-3), polymer))))
-            filler = only(blueprint.dielectrics[blueprint.interior_ranges[1]])
-            @test [filler.r_in, filler.r_ex] ≈ [nearest, 30.0e-3] rtol = 1e-12
+            f = only(input.interior_ranges[1])
+            @test [input.dielectric_r_in[f], input.dielectric_r_ex[f]] ≈ [0, 30.0e-3] rtol = 1e-12
         end
     end
 end

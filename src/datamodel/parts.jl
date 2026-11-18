@@ -390,14 +390,19 @@ The helix has the [`pitch`](@ref) and [`overlength`](@ref) at that radius, the p
 by the direction of the helix. A copy at the radius 0 lies straight, with an infinite pitch
 and an overlength of 1.
 
+A lay over one region is a conductor that [`flatten`](@ref) reduced. Its region stands for
+laid metal, and the helix at the outer radius of the region gives the turns of its current
+per unit length.
+
 $(TYPEDFIELDS)
 """
-struct Lay{H <: Helix, R <: Repeat} <: AbstractCablePart
+struct Lay{H <: Helix, R <: Union{Repeat, Region, CablePart}} <: AbstractCablePart
     "Helix that the copies follow."
     helix::H
-    "Repeat whose copies the helix lays."
+    "Repeat whose copies the helix lays, or the one region of a flattened conductor."
     part::R
-    function Lay(helix::H, part::R) where {H <: Helix, R <: Repeat}
+    function Lay(helix::H,
+            part::R) where {H <: Helix, R <: Union{Repeat, Region, CablePart}}
         return new{H, R}(helix, part)
     end
 end
@@ -406,6 +411,12 @@ function resolve(outline::Union{EmptyBoundary, AbstractShape}, lay::Lay,
         regions::Vector{CablePart})
     resolved = resolve(outline, lay.part, regions)
     return Pair{AbstractCablePart, AbstractShape}(Lay(lay.helix, resolved.first), resolved.second)
+end
+
+# A lay over one region adds its region and no row of lays.
+function resolve(rows::NamedTuple, scope::Vector{Int}, lay::Lay{<:Helix, <:CablePart})
+    resolve(
+        rows, scope, lay.part)
 end
 
 # The laid regions are the copies of the first row of repeats that the repeat adds. The lay
@@ -554,6 +565,12 @@ function boundary(repeat::Repeat{<:AbstractVector{<:Placement}, <:CablePart})
     return Circle(maximum(at -> support(resolve(at, repeat.part.shape)), repeat.pattern))
 end
 
+# The members of an assembly and the copies of a repeat cover the areas inside their outlines.
+area(assembly::Assembly) = sum(member -> area(boundary(member.second)), assembly.members)
+function area(repeat::Repeat{<:AbstractVector{<:Placement}})
+    return length(repeat.pattern) * area(boundary(repeat.part))
+end
+
 # A part equals another of its node when their fields are equal.
 Base.:(==)(a::Stack, b::Stack) = a.items == b.items
 Base.:(==)(a::Terminal, b::Terminal) = a.name == b.name && a.part == b.part
@@ -561,8 +578,9 @@ Base.:(==)(a::Repeat, b::Repeat) = a.pattern == b.pattern && a.part == b.part
 Base.:(==)(a::Assembly, b::Assembly) = a.members == b.members
 Base.:(==)(a::Enclosure, b::Enclosure) = a.fill == b.fill && a.contents == b.contents
 
-# `foreach` calls `f` on each region of a resolved part, from the inside out. A repeat gives
-# the region of its part once for each copy, and a group its contents before its fill.
+# `foreach` calls `f` on each region of a part, from the inside out. A repeat gives the
+# region of its part once for each copy, and a group its contents before its fill.
+Base.foreach(f, region::Region) = f(region)
 Base.foreach(f, placed::CablePart) = f(placed)
 Base.foreach(f, stack::Stack) = foreach(item -> foreach(f, item), stack.items)
 Base.foreach(f, terminal::Terminal) = foreach(f, terminal.part)
@@ -597,6 +615,13 @@ function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real, terminal::T
 end
 function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real, group::Group)
     return resolve(strands, at, ℓ, N, group.contents)
+end
+
+# The sub-cables of an enclosure or an assembly are no strands of one conductor.
+function resolve(::Vector, ::Placement, ::Real, ::Real, part::Union{Enclosure, Assembly})
+    throw(ArgumentError(
+        "flatten reduces the conductive regions of one conductor; " *
+        "a terminal around the sub-cables of a $(nameof(typeof(part))) is no such conductor"))
 end
 
 # Each part of the stack of a terminal lists a conductive region. The dielectric layers of a

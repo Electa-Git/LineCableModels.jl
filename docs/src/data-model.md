@@ -149,15 +149,23 @@ cross-sections and the materials promote to `T` together with `Float64`.
 ## Equivalent coaxial representation
 
 The coaxial formulations represent a cable as a set of concentric tubes. The function
-`LineCableModels.flatten(design)` returns this representation as a
-[`CableBlueprint`](@ref), composed of one [`BlueprintConductor`](@ref) per terminal and of
-the [`BlueprintDielectric`](@ref) layers in the insulation interval of each conductor. The
-tube of a terminal spans its conductive regions and the fillers between them, and its
+`LineCableModels.flatten(design)` returns this representation as a [`Stack`](@ref) of the
+parts that declare a cable. Each conductor is one [`Terminal`](@ref) over one
+[`Region`](@ref), and each dielectric layer of its insulation interval is one region. The
+region of a terminal spans its conductive regions and the fillers between them, and its
 material reproduces the DC resistance and the geometric mean radius of those regions. A
 strand laid on a helix is longer than the cable by its overlength, which increases the
-resistivity of the tube. The helical path of the current also introduces a solenoid
-correction in the relative permeability of the interval, `mu_r_ins`. The equations are given
-in the docstring of [`flatten`](@ref).
+resistivity of the region.
+
+A conductor whose current follows helices has a [`Lay`](@ref) over its region, which gives
+the turns of the current. An [`Enclosure`](@ref) and an [`Assembly`](@ref) keep their form
+around their flattened members. The equations are given in the docstring of
+[`flatten`](@ref).
+
+The numerical input of the coaxial formulation, `CoaxialInput`, reads this stack. There the
+helical path of the current introduces a solenoid correction in the relative permeability of
+the interval, `mu_r_ins`. A conductor that is not round takes the equivalent cylinder of its
+area and its perimeter.
 
 The members of an [`Assembly`](@ref) and the copies of a repeated part are sub-cables, and
 `members` lists them for each assembly. Each sub-cable reduces to its own concentric

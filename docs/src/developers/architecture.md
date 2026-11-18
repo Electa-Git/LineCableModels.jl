@@ -51,7 +51,7 @@ The package is six modules in one load order, and four extensions.
 | `Materials` | `Material{T, K}`, the properties of a material with its class `K` as a type parameter |
 | `Earth` | `EarthLayer`, `EarthModel`, `homogeneous`: the air and the earth as a stack of layers. `EquivalentEarthLayer` is the medium that a model computes for the layers at a frequency. |
 | `BaseGeometry` | the plane geometry of the placement, the segments, arcs and elliptic arcs, the contour and every method on them, and the verb `draw`, which walks a contour to its curves on a target |
-| `DataModel` | the cross-sections of a cable, each with its contour, the declared parts, the cable design, the cable system, the blueprint and the builders of the surface syntax |
+| `DataModel` | the cross-sections of a cable, each with its contour, the declared parts, the cable design, the cable system, the flattened stack and the builders of the surface syntax |
 | `Engine` | the problem, the formulations, the backends, the formula families, the numerical input, the buffers, the loop, the reductions, the spectral tools and the result |
 | `LineCableModelsGmshExt` | the finite-element backend, with its model, geometry, meshes, GetDP scan and result |
 | `LineCableModelsMeasurementsExt` | the propagation of input uncertainty: methods only |
@@ -157,14 +157,18 @@ belongs to one sub-cable.
 
 ### Equivalence
 
-`flatten(design)` builds a `CableBlueprint` for the coaxial formulations. Each terminal
-becomes an equivalent tube. A course of laid wires becomes a tube whose material reproduces
-the direct-current resistance and the geometric mean radius of the wires. The overlength of
-the helix enters the resistivity. The solenoid effect of the helix enters the relative
-permeability of the dielectric interval, `mu_r_ins`. The dielectric layers between two
-consecutive conductors form the interval of the inner one. The regions of an assembly
-around its members form the interior of that assembly. The lay correction is made in the
-equivalence. The earth-return formulas never see it.
+`flatten(design)` reduces a design to a stack of the same nodes for the coaxial
+formulations. Each terminal becomes one region. A course of laid wires becomes a region
+whose material reproduces the direct-current resistance and the geometric mean radius of the
+wires. The overlength of the helix enters the resistivity, and the turns of the current stay
+as a lay over the region. The dielectric layers between two consecutive conductors form the
+interval of the inner one. An enclosure and an assembly keep their form around their
+flattened members.
+
+`CoaxialInput` reads the stack. There the solenoid effect of the helix enters the relative
+permeability of the dielectric interval, `mu_r_ins`, and a conductor that is not round takes
+Ametani's cylinder. The regions of an assembly around its members form the interior of that
+assembly. The earth-return formulas never see the lay correction.
 
 ### System
 
@@ -321,7 +325,7 @@ it arrives, calls it per point, never the reverse. Its steps are fixed.
 
 1. `validate(problem, formulation)`: the options against the frequencies and
    `validate(problem, formula)` for each formula.
-2. `CoaxialInput(problem, options)` builds the blueprint of every cable, the placements and
+2. `CoaxialInput(problem, options)` reads the flattened stack of every cable, the placements and
    the reduction plan from `reductions(system, options)`.
 3. `validate(input, formulation)`: the formula of each earth place against the pairs of layers
    of the input.

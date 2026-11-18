@@ -146,3 +146,15 @@ const REFERENCES = let
     end
     cases
 end
+
+# The coaxial input of one cable buried at 1 m in a homogeneous earth. Each terminal name of
+# the design is a conductor of its own.
+function coaxial_input(design::CableDesign)
+    names = unique([row.name for row in design.terminals])
+    system = build(CableSystem, [design], [Placement(0.0, -1.0)];
+        connections = [NamedTuple{Tuple(names)}(Tuple(eachindex(names)))],
+        id = design.id, line_length = 1.0)
+    return LineCableModels.Engine.CoaxialInput(
+        LineParametersProblem(system, homogeneous(rho = 100.0); frequencies = [50.0]),
+        LineCableModels.FormulationOptions(CoaxialFormulation))
+end

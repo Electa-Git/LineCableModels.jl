@@ -29,7 +29,8 @@ export boundary, r_in, r_ex, placements,
 export PerforatedShape, ArcPolygon
 export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Group, Enclosure, Assembly
 export CablePart, CableDesign, CableSystem
-export CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
+export flatten
+public gmr
 export @design, @terminal, core, insulation, screen, sheath, bedding, jacket, stranded,
        wires, tape, trefoil, flat
 
@@ -41,7 +42,6 @@ include("parts.jl")
 include("design.jl")
 include("system.jl")
 include("flatten.jl")
-include("blueprint.jl")
 include("builders.jl")
 
 end

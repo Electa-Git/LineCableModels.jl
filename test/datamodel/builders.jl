@@ -90,20 +90,20 @@
             for (a, b) in zip(design.lays, reference.lays)
             for f in (row -> row.radii, row -> row.pitches, row -> row.overlengths))
 
-            blueprint, expected = flatten(design), flatten(reference)
-            @test [tube.terminal for tube in blueprint.conductors] ==
-                  [tube.terminal for tube in expected.conductors]
+            input, expected = coaxial_input(design), coaxial_input(reference)
+            @test input.label == expected.label
+            @test all(isapprox(a, b; rtol = 1.0e-12, atol = 1.0e-15)
+            for f in (input -> input.r_in, input -> input.r_ex)
+            for (a, b) in zip(f(input), f(expected)))
             @test all(isapprox(f(a), f(b); rtol = 1.0e-12, atol = 1.0e-15)
-            for (a, b) in zip(blueprint.conductors, expected.conductors)
-            for f in (tube -> tube.r_in, tube -> tube.r_ex, tube -> tube.material.rho,
-                tube -> tube.material.mu_r, tube -> tube.material.alpha))
-            @test all(isapprox(f(a), f(b); rtol = 1.0e-12)
-            for (a, b) in zip(blueprint.dielectrics, expected.dielectrics)
-            for f in (layer -> layer.r_in, layer -> layer.r_ex))
-            @test [layer.material for layer in blueprint.dielectrics] ==
-                  [layer.material for layer in expected.dielectrics]
-            @test blueprint.dielectric_ranges == expected.dielectric_ranges
-            @test isapprox(blueprint.mu_r_ins, expected.mu_r_ins; rtol = 1.0e-12)
+            for (a, b) in zip(input.material, expected.material)
+            for f in (tube -> tube.rho, tube -> tube.mu_r, tube -> tube.alpha))
+            @test all(isapprox(a, b; rtol = 1.0e-12)
+            for f in (input -> input.dielectric_r_in, input -> input.dielectric_r_ex)
+            for (a, b) in zip(f(input), f(expected)))
+            @test input.dielectric_material == expected.dielectric_material
+            @test input.dielectric_ranges == expected.dielectric_ranges
+            @test isapprox(input.mu_r_ins, expected.mu_r_ins; rtol = 1.0e-12)
         end
     end
 
@@ -156,8 +156,8 @@
             end
         end
         @test [taped.regions[row.region].source.tag for row in taped.fills] == [:tape_fill]
-        tube = last(flatten(taped).conductors)
-        @test [tube.r_in, tube.r_ex] ≈ [2.0e-3, 2.1e-3]
+        input = coaxial_input(taped)
+        @test [last(input.r_in), last(input.r_ex)] ≈ [2.0e-3, 2.1e-3]
         conductor = stranded(copper; center = Circle(1.5e-3), shape = Circle(1.5e-3),
             n = (6, 12), lay = (LayRatio(10), LayRatio(12)), boundary = Circle(7.5e-3),
             φ0 = (0, π / 12))

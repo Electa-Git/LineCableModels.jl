@@ -196,18 +196,16 @@ looped(M, k, rows) = [M[i, j] - M[i, k] - M[k, j] + M[k, k] for i in rows, j in 
         problem = Dict(REFERENCES)["three_cores_steel_pipe"]
         schelkunoff = LineCableModels.Engine.InternalImpedance.Formula(Val(:schelkunoff1934))
         result = compute(problem, CoaxialFormulation(); trace = true)
-        blueprint = LineCableModels.flatten(only(problem.system.designs))
-        tubes = blueprint.conductors
-        centers = [complex(position...) for position in blueprint.positions[2:4]]
-        c = tubes[4].r_in
+        input = LineCableModels.Engine.CoaxialInput(problem, CoaxialFormulation().options)
+        tubes = input.material
+        centers = [complex(position...) for position in input.positions[2:4]]
+        c = input.r_in[4]
         for (k, f) in enumerate(problem.frequencies)
             s = im * (2π * f)
-            bore = schelkunoff(c, tubes[4].r_ex, tubes[4].material.rho,
-                tubes[4].material.mu_r, s).inner
+            bore = schelkunoff(c, input.r_ex[4], tubes[4].rho, tubes[4].mu_r, s).inner
             expected = [bore + (i == j ?
-                         schelkunoff(0.0, tubes[i].r_ex, tubes[i].material.rho,
-                            tubes[i].material.mu_r, s).outer +
-                         s * LineCableModels.μ₀ / 2π * log(c / tubes[i].r_ex) :
+                         schelkunoff(0.0, input.r_ex[i], tubes[i].rho, tubes[i].mu_r, s).outer +
+                         s * LineCableModels.μ₀ / 2π * log(c / input.r_ex[i]) :
                          s * LineCableModels.μ₀ / 2π *
                          log(c / abs(centers[i] - centers[j])))
                         for i in 1:3, j in 1:3]
