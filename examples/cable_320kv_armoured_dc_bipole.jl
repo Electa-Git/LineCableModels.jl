@@ -69,6 +69,10 @@ is completed with an insulating filler. The thickness of the bedding is chosen s
 68 wires fit side by side in their layer.
 =#
 
+# Armor of 68 steel wires:
+armor = wires(steel; shape = Circle(5.82e-3 / 2), n = 68, # armor_wire_diameter / 2 [m]
+    lay = LayRatio(15.0), tag = :armor_wires) # armor_lay_ratio
+
 # Build the cable design and inspect its outer radius:
 design = @design "cable_320kv_armoured" begin
     @terminal :core begin
@@ -85,20 +89,20 @@ design = @design "cable_320kv_armoured" begin
     jacket(pe; t = 3.0e-3, tag = :sheath_inner_pe) # inner_pe_thickness [m]
     bedding(pp; t = 0.009376520171274612, tag = :sheath_bedding) # bedding_thickness [m]
     @terminal :armor begin
-        wires(steel; shape = Circle(5.82e-3 / 2), n = 68, # armor_wire_diameter / 2 [m]
-            lay = LayRatio(15.0), tag = :armor_wires) # armor_lay_ratio
+        armor
     end
     jacket(pp; t = 10.0e-3, tag = :armor_jacket) # jacket_thickness [m]
 end
 r_ex(design.outer) # [m]
 
 #=
-The armor wires follow a helix at the radius of their centers. The helix gives the pitch
-and the overlength of the wires.
+The armor wires follow a helix at the radius of their centers. The [`wires`](@ref) builder
+returns the group of the fill around the lay of the wires, and the helix of that lay gives
+their pitch and overlength.
 =#
 
 # Lay radius, pitch and overlength of the armor wires:
-armor_helix = Helix(LayRatio(15.0)) # armor_lay_ratio
+armor_helix = armor.contents.helix
 armor_wire = first(filter(placed -> placed.source.tag == :armor_wires, design.regions))
 armor_radius = hypot(centroid(armor_wire.shape)...)
 (radius = armor_radius, pitch = pitch(armor_helix, armor_radius),

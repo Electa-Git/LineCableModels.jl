@@ -101,12 +101,12 @@ defined as the length of a strand per unit length of cable. For a constant lay r
 overlength is the same for all layers.
 =#
 
-# Lay radius, pitch and overlength of each layer:
-helix = Helix(LayRatio(15.0)) # core_lay_ratio
+# Lay radius, pitch and overlength of each layer, from the helix of its declaration:
 map(1:6) do k
     strand = first(filter(
         placed -> placed.source.tag == Symbol(:core_strands_, k), design.regions))
     radius = hypot(centroid(strand.shape)...)
+    helix = courses[k].helix
     (radius = radius, pitch = pitch(helix, radius), overlength = overlength(helix, radius))
 end # [m], [m], [dimensionless]
 

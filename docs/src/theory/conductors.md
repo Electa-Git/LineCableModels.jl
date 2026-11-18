@@ -24,9 +24,12 @@ is zero. The surface impedances at an order relate the axial electric field to t
 ``H_\varphi`` at the two surfaces [Schelkunoff1934](@cite), [Kane1995](@cite). The formula
 `:schelkunoff1934` gives them at every order, and at ``n = 0`` they are the three above.
 
-A stranded conductor or an armor enters as the equivalent tube of its terminal, which the data
-model builds: the tube spans the conductive regions and takes their direct-current resistance
-and geometric mean radius. A strand on a helix is longer than the cable by its overlength, so
+A stranded conductor or an armor enters as the equivalent tube of its terminal. The data
+model reduces the conductive regions of a terminal to one region, with their direct-current
+resistance and geometric mean radius. Inside a round outline, that region is the tube, and
+it spans the conductive regions. For any other outline, the coaxial input takes the cylinder
+with the area and the perimeter of the region. The cylinder keeps the resistance and the
+geometric mean radius. A strand on a helix is longer than the cable by its overlength, so
 the resistance of the tube includes it, as [Cable data model](../data-model.md) describes.
 
 The resistivity of each conductor follows from its material at the operating temperature of
