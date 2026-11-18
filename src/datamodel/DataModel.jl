@@ -40,6 +40,7 @@ include("gmd.jl")
 include("parts.jl")
 include("design.jl")
 include("system.jl")
+include("flatten.jl")
 include("blueprint.jl")
 include("builders.jl")
 

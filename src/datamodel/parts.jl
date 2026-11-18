@@ -536,6 +536,82 @@ function resolve(rows::NamedTuple, scope::Vector{Int}, part::Union{Group, Enclos
     return rows
 end
 
+# The outline of a resolved part is that of its outermost region. The copies of a strand lie
+# in the circle about the center that contains them.
+boundary(placed::CablePart) = boundary(placed.shape)
+boundary(stack::Stack) = boundary(last(stack.items))
+boundary(terminal::Terminal) = boundary(terminal.part)
+boundary(lay::Lay) = boundary(lay.part)
+boundary(group::Group{<:CablePart}) = boundary(group.fill.shape)
+function boundary(repeat::Repeat{<:AbstractVector{<:Placement}, <:CablePart})
+    return Circle(maximum(at -> support(resolve(at, repeat.part.shape)), repeat.pattern))
+end
+
+# A resolved part begins at its nearest region, and a group where its container begins.
+distance(placed::CablePart) = distance(placed.shape)
+distance(stack::Stack) = minimum(distance, stack.items)
+distance(terminal::Terminal) = distance(terminal.part)
+distance(lay::Lay) = distance(lay.part)
+distance(group::Group{<:CablePart}) = distance(group.fill.shape.outer)
+function distance(repeat::Repeat{<:AbstractVector{<:Placement}, <:CablePart})
+    return minimum(at -> distance(resolve(at, repeat.part.shape)), repeat.pattern)
+end
+
+# The strands of a resolved part are its conductive regions. Each lies in the frame `at`, with
+# the overlength `ℓ` and the turns per unit length `N` of the lays above it, and carries its
+# geometric mean radius `g`.
+function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real,
+        placed::CablePart{<:Region{<:Union{AbstractPrimitive, Offset},
+            <:Material{<:Real, :conductor}}})
+    push!(strands,
+        (S = resolve(at, placed.shape), material = placed.source.material, ℓ = ℓ, N = N,
+            g = gmr(placed.shape, placed.source.material.mu_r)))
+    return strands
+end
+resolve(strands::Vector, ::Placement, ::Real, ::Real, ::CablePart) = strands
+
+function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real, stack::Stack)
+    foreach(item -> resolve(strands, at, ℓ, N, item), stack.items)
+    return strands
+end
+function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real, terminal::Terminal)
+    return resolve(strands, at, ℓ, N, terminal.part)
+end
+function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real, group::Group)
+    return resolve(strands, at, ℓ, N, group.contents)
+end
+
+# The part of a repeat lists its conductive regions once, in its own frame, and each copy
+# places them.
+function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real,
+        repeat::Repeat{<:AbstractVector{<:Placement}})
+    own = resolve(NamedTuple[], Placement(0, 0), one(ℓ), zero(N), repeat.part)
+    for copy in repeat.pattern, strand in own
+
+        push!(strands,
+            (S = resolve(at * copy, strand.S), material = strand.material,
+                ℓ = ℓ * strand.ℓ, N = N + strand.N, g = strand.g))
+    end
+    return strands
+end
+
+# A laid strand follows the helix at the lay radius `r` of its centroid. The overlengths of
+# nested lays multiply, and their turns add.
+function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real,
+        lay::Lay{<:Helix, <:Repeat{<:AbstractVector{<:Placement}, <:CablePart}})
+    own = resolve(NamedTuple[], Placement(0, 0), one(ℓ), zero(N), lay.part.part)
+    c = centroid(lay.part.part.shape)
+    for copy in lay.part.pattern, strand in own
+
+        r = distance(copy(c))
+        push!(strands,
+            (S = resolve(at * copy, strand.S), material = strand.material,
+                ℓ = ℓ * overlength(lay.helix, r) * strand.ℓ,
+                N = N + inv(lay.helix.dir * pitch(lay.helix, r)) + strand.N, g = strand.g))
+    end
+    return strands
+end
+
 function Base.map(f, region::Region)
     return Region(region.tag, map(f, region.primitive), map(f, region.material))
 end
