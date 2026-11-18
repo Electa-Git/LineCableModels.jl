@@ -1568,7 +1568,15 @@ function offset_reads(directory)
                 string.(syntax_name(kind(type) == K"curly" ? type[1] : type)), ".") ==
                     "Offset"),
         "src/engine/input.jl" => (("resolve",),
-            type -> occursin("Region{<:Offset}", JuliaSyntax.sourcetext(type))))
+            function (type)
+                # The region itself, or the one under a terminal or a resolved part.
+                while kind(type) == K"curly" &&
+                    syntax_name(type[1]) in ((:Terminal,), (:CablePart,))
+                    type = kind(type[2]) == K"<:" ? type[2][1] : type[2]
+                end
+                return kind(type) == K"curly" && syntax_name(type[1]) == (:Region,) &&
+                       kind(type[2]) == K"<:" && syntax_name(type[2][1]) == (:Offset,)
+            end))
     for base in ("src", "ext"), (path, _, names) in walkdir(joinpath(directory, base)),
         name in names
         file = joinpath(path, name)
@@ -1590,7 +1598,7 @@ function offset_reads(directory)
                 end
             end
             if kind(node) == K"." && numchildren(node) == 2 &&
-               endswith(join(string.(syntax_name(node)), "."), ".t")
+               JuliaSyntax.sourcetext(node[2]) == "t"
                 count!(found, string(relative(file, directory), " | ", JuliaSyntax.source_line(node)))
             end
             return true
