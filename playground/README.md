@@ -8,15 +8,17 @@ controls, and `assets/` holds the palette.
 
 ## Render and serve
 
-Every render passes `-M engine:markdown`, which tells Quarto to leave every code
-block as text:
+From the folder that holds `playground/`:
 
 ```sh
-quarto render playground -M engine:markdown
-python3 -m http.server --directory playground/_site 8080
+julia --project=playground -m Playground
 ```
 
-The site is then at `http://127.0.0.1:8080/`.
+The command renders the project with the Quarto of `quarto_jll` and serves
+`_site`. The site is then at `http://127.0.0.1:8080/`. The options `--host` and
+`--port` set the address, and `--no-render` serves the site of the last render.
+Every render passes `-M engine:markdown`, which tells Quarto to leave every code
+block as text.
 
 ## Start a presentation
 

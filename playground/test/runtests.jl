@@ -1,0 +1,85 @@
+using HTTP: HTTP
+using Playground: Playground
+using Sockets: Sockets
+using Test: @test, @testset
+using quarto_jll: quarto
+
+root = pkgdir(Playground)
+
+@testset "Playground" begin
+    @testset "julia -m Playground serves the landing page and the presentations" begin
+        port, listener = Sockets.listenany(Sockets.localhost, 18094)
+        close(listener)
+        address = "http://127.0.0.1:$port"
+        server = run(`$(Base.julia_cmd()) --project=$root -m Playground --port $port`; wait = false)
+        try
+            timedwait(600; pollint = 1) do
+                process_exited(server) || try
+                    HTTP.get(address; retry = false).status == 200
+                catch
+                    false
+                end
+            end
+            @test process_running(server)
+
+            landing = String(HTTP.get(address).body)
+            @test occursin("href=\"./presentations/specimen/index.html\"", landing)
+            @test occursin("href=\"./presentations/starter/index.html\"", landing)
+            @test occursin("LCM presentation hostile specimen", landing)
+            @test occursin("Presentation title", landing)
+
+            specimen = String(HTTP.get("$address/presentations/specimen/").body)
+            slides = split(specimen, "<section ")[2:end]
+            slots = Dict(
+                "full-canvas" => 1,
+                "balanced" => 2,
+                "feature-sidebar" => 2,
+                "top-split" => 3,
+                "dashboard-grid" => 4,
+                "media-story" => 2
+            )
+            layouts = [layout.captures[1]
+                       for slide in slides
+                       for layout in eachmatch(r"data-lcm-layout=\"([^\"]+)\"", slide)]
+            @test length(layouts) == 8
+            @test Set(layouts) == Set(keys(slots))
+            for slide in slides, layout in eachmatch(r"data-lcm-layout=\"([^\"]+)\"", slide)
+
+                @test count(r"class=\"lcm-slot[ \"]", slide) == slots[layout.captures[1]]
+            end
+            notes = [note.captures[1]
+                     for slide in slides
+                     for note in eachmatch(r"data-lcm-math-target=\"([^\"]+)\"", slide)]
+            @test Set(notes) == Set(["impedance-imag", "admittance-imag"])
+            for slide in slides,
+                note in eachmatch(r"data-lcm-math-target=\"([^\"]+)\"", slide)
+
+                @test occursin("\\cssId{$(note.captures[1])}", slide)
+            end
+        finally
+            kill(server)
+            wait(server)
+        end
+    end
+
+    @testset "deck.lua refuses a deck it cannot lay out" begin
+        refusals = [
+            "unknown-layout.qmd" => "lcm-deck: unknown layout 'mosaic'",
+            "missing-anchor.qmd" => "lcm-deck: missing \\cssId anchor for 'impedance-imag'",
+            "anchor-elsewhere.qmd" => "lcm-deck: math note and anchor 'impedance-imag' must be on the same slide",
+            "wrong-slots.qmd" => "lcm-deck: layout 'balanced' requires 2 direct .lcm-slot children; found 1"
+        ]
+        mktempdir(@__DIR__) do folder
+            cp(joinpath(root, "_extensions"), joinpath(folder, "_extensions"))
+            cp(joinpath(root, "assets"), joinpath(folder, "assets"))
+            for (fixture, sentence) in refusals
+                cp(joinpath(@__DIR__, "fixtures", fixture), joinpath(folder, fixture))
+                output = IOBuffer()
+                render = `$(quarto()) render $(joinpath(folder, fixture)) -M engine:markdown`
+                process = run(pipeline(ignorestatus(render); stdout = output, stderr = output))
+                @test process.exitcode != 0
+                @test occursin(sentence, String(take!(output)))
+            end
+        end
+    end
+end

@@ -1,0 +1,14 @@
+---
+title: Missing anchor
+format: lcm-deck-revealjs
+---
+
+## A slide
+
+$$
+Z = R + j\omega L
+$$
+
+::: {.lcm-math-note target="impedance-imag"}
+The imaginary part.
+:::

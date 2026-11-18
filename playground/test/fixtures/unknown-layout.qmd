@@ -1,0 +1,12 @@
+---
+title: Unknown layout
+format: lcm-deck-revealjs
+---
+
+## A slide
+
+::: {.lcm-layout-mosaic}
+::: {.lcm-slot}
+One
+:::
+:::

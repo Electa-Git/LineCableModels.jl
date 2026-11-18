@@ -1,0 +1,16 @@
+---
+title: Anchor on another slide
+format: lcm-deck-revealjs
+---
+
+## The equation
+
+$$
+L = \frac{\cssId{impedance-imag}{\Im(Z)}}{\omega}
+$$
+
+## The note
+
+::: {.lcm-math-note target="impedance-imag"}
+The imaginary part.
+:::

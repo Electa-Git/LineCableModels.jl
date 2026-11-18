@@ -1,0 +1,12 @@
+---
+title: Wrong number of slots
+format: lcm-deck-revealjs
+---
+
+## A slide
+
+::: {.lcm-layout-balanced}
+::: {.lcm-slot}
+One
+:::
+:::

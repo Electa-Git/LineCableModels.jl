@@ -37,7 +37,7 @@ local function layout_name(div)
 end
 
 local function fail(message)
-  error("lcm-deck: " .. message, 0)
+  assert(false, "lcm-deck: " .. message)
 end
 
 -- Read literal \cssId anchors, not the mathematics inside their second argument.
