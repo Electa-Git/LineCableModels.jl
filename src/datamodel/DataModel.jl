@@ -22,7 +22,8 @@ using ..BaseGeometry: Placement, Segment, Arc, EllipticArc, Curve, parallel, dir
 
 export AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
 export Sector, Ellipse, Polygon
-export AbstractLayoutPattern, CircularPattern, LinearPattern, Helix, LayRatio
+export AbstractLayoutPattern, CircularPattern, LinearPattern, Helix, LayRatio, Pitch,
+       LayAngle
 export boundary, r_in, r_ex, placements,
        overlength,
        pitch

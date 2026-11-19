@@ -58,7 +58,7 @@ nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "f
     "layer", "model", "problem", "label", "base_geometry", "holes",
     "positions", "arc", "span", "offset", "members"]
 qualifiers = ["cable", "outer", "equivalent"]
-symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "φ", "φ0", "r", "a", "b", "q"]
+symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "φ", "φ0", "r", "a", "b", "q", "p"]
 prepositions = ["at"]
 
 [global.verbs]
@@ -88,10 +88,10 @@ nouns = ["shape", "primitive", "circle", "annulus", "rectangle", "sector",
     "regions", "id", "tree", "repeats",
     "designs", "connections", "assembly", "core", "screen", "sheath", "bedding",
     "jacket", "tape", "wires", "spacing", "trefoil", "apex", "fillet",
-    "polygon", "ellipse", "vertices", "gmr", "conductor"]
+    "polygon", "ellipse", "vertices", "gmr", "conductor", "angle"]
 qualifiers = ["circular", "empty", "perforated", "stranded",
     "layout", "flat", "linear"]
-symbols = ["ri", "ro", "w", "h", "t", "n", "gap_frac", "dir"]
+symbols = ["ri", "ro", "w", "h", "t", "n", "gap_frac", "dir", "β"]
 
 [modules.DataModel.verbs]
 flatten = "reduce a part to the part that the coaxial model reads, in the same nodes: a design to the flattened stack of its resolved parts; a stack to one region per terminal and per dielectric layer; a terminal to one region with the material that stands for its metal, under the lay that keeps the turns of its current; an enclosure, an assembly or a repeat to itself around its flattened contents; and the outline of a conductor to the cross-section of that one region"
@@ -126,7 +126,6 @@ nouns = ["placement", "segment", "curve", "contour", "area", "centroid", "perime
     "distance", "dimension", "parallel", "clearance", "turn", "direction", "overlap", "vertex",
     "apsides", "winding", "moment", "parameter", "derivative", "gmd"]
 qualifiers = ["elliptic", "lowest", "stationary", "tangent"]
-symbols = ["p"]
 
 [modules.BaseGeometry.verbs]
 draw = "draw a system, a design, a placed region, a shape, a contour, a path or a curve on a target, in the target's own primitives"
@@ -192,6 +191,8 @@ Sector = "a sector: the region bounded by a back arc about its center of curvatu
 CircularPattern = "n members placed evenly on a circle about the center of the enclosing part, at a radius or an offset"
 Helix = "the helical path of the members of a course along the cable"
 LayRatio = "the lay length of a helix over the mean diameter of its course"
+Pitch = "the lay length of a helix, the same at every radius"
+LayAngle = "the angle between a helix and the axis of the cable, the same at every radius"
 boundary = "the outline of a shape: a circle, a rectangle, a sector, an ellipse, a polygon or an arc polygon itself, an annulus's outer circle, a perforated shape's outer's; the next part resolves against it and an enclosure removes it from its fill; of a resolved part or of a region declared by a primitive, the outline of its outermost region, of an enclosure that of its fill, and of the copies of a strand or the members of an assembly the circle about the center that contains them"
 r_in = "the inner radius of a circular shape"
 r_ex = "the outer radius of a circular shape"

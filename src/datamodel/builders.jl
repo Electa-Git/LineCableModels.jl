@@ -139,7 +139,7 @@ annular sector of the same area, around the part inside its course.
 
 - `shape`: cross-section of one strand, a circle or a rectangle.
 - `n`: number of members in each course, from the inside out.
-- `lay`: [`LayRatio`](@ref) of every course, or one per course.
+- `lay`: lay of every course or one per course, as [`Helix`](@ref) takes it.
 - `boundary`: container of the fill: a primitive, or an [`Offset`](@ref) from the outline of
   the part inside the conductor.
 - `fill`: material of the fill. Default: an insulator with infinite resistivity and unit
@@ -184,7 +184,7 @@ the course, such as `:screen` or `:armor`.
 
 - `shape`: cross-section of one wire, a [`Circle`](@ref).
 - `n`: number of wires.
-- `lay`: [`LayRatio`](@ref) of the course.
+- `lay`: lay of the course, as [`Helix`](@ref) takes it.
 - `fill`: material of the fill. Default: an insulator with infinite resistivity and unit
   relative permittivity and permeability.
 - `tag`: name of the regions of the wires. Default: `:wires`.
@@ -216,7 +216,7 @@ occupies, as thick as the tape. Its region takes the name `<tag>_fill`.
 
 - `w`: width of the tape \\[m\\].
 - `t`: thickness of the tape \\[m\\].
-- `lay`: [`LayRatio`](@ref) of the tape.
+- `lay`: lay of the tape, as [`Helix`](@ref) takes it.
 - `fill`: material of the fill. Default: an insulator with infinite resistivity and unit
   relative permittivity and permeability.
 - `tag`: name of the region of the tape. Default: `:tape`.

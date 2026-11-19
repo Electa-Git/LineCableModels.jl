@@ -227,6 +227,21 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
         @test overlength(helix, 0.0) == 1
         @test pitch(helix, 3.0e-3) ≈ 72.0e-3
         @test pitch(helix, 0.0) === Inf
+        # A lay length and a lay angle that describe that helix at the radius 3 mm.
+        r = 3.0e-3
+        for lay in (Pitch(72.0e-3), LayAngle(atan(2π * r, 72.0e-3)))
+            @test pitch(Helix(lay), r) ≈ pitch(helix, r) rtol = 1.0e-14
+            @test overlength(Helix(lay), r) ≈ overlength(helix, r) rtol = 1.0e-14
+            @test overlength(Helix(lay), 0.0) == 1
+            @test pitch(Helix(lay), 0.0) === Inf
+        end
+        # A lay length is the same at every radius, and so is a lay angle.
+        @test pitch(Helix(Pitch(72.0e-3)), 2r) == 72.0e-3
+        @test overlength(Helix(Pitch(72.0e-3)), 2r) ≈ sqrt(1 + (4π * r / 72.0e-3)^2)
+        @test pitch(Helix(LayAngle(π / 12)), 2r) ≈ 4π * r / tan(π / 12)
+        @test overlength(Helix(LayAngle(π / 12)), 2r) ≈ sec(π / 12)
+        @test_throws DomainError Pitch(0.0)
+        @test_throws DomainError LayAngle(π / 2)
     end
 
     @testset "mixed inputs" begin

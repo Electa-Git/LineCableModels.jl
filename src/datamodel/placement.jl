@@ -363,18 +363,91 @@ end
 """
 $(TYPEDEF)
 
-Represent the helical path of the members of a course along the cable.
+Store the lay length of a helix, which is the same at every radius.
 
 $(TYPEDFIELDS)
 """
-struct Helix{L <: LayRatio, T <: Real}
+struct Pitch{T <: Real}
+    "Lay length \\[m\\]."
+    p::T
+    function Pitch{T}(p::T) where {T <: Real}
+        return validate(new{T}(p))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct the lay length `p` \\[m\\].
+
+# Errors
+
+- Throws `DomainError` when `p` is not positive and finite.
+"""
+function Pitch(p::Real)
+    T = promote_type(Float64, typeof(p))
+    return Pitch{T}(convert(T, p))
+end
+
+function validate(lay::Pitch)
+    isfinite(lay.p) && lay.p > zero(lay.p) ||
+        throw(DomainError(lay.p, "Pitch.p must be positive and finite"))
+    return lay
+end
+
+"""
+$(TYPEDEF)
+
+Store the angle between a helix and the axis of the cable, which is the same at every
+radius.
+
+$(TYPEDFIELDS)
+"""
+struct LayAngle{T <: Real}
+    "Angle between the helix and the axis of the cable \\[rad\\]."
+    β::T
+    function LayAngle{T}(β::T) where {T <: Real}
+        return validate(new{T}(β))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct the lay angle `β` \\[rad\\].
+
+# Errors
+
+- Throws `DomainError` when `β` is outside (0, π/2).
+"""
+function LayAngle(β::Real)
+    T = promote_type(Float64, typeof(β))
+    return LayAngle{T}(convert(T, β))
+end
+
+function validate(lay::LayAngle)
+    zero(lay.β) < lay.β < π / 2 ||
+        throw(DomainError(lay.β, "LayAngle.β must lie in (0, π/2)"))
+    return lay
+end
+
+"""
+$(TYPEDEF)
+
+Represent the helical path of the members of a course along the cable. Its lay is a
+[`LayRatio`](@ref), a [`Pitch`](@ref) or a [`LayAngle`](@ref).
+
+$(TYPEDFIELDS)
+"""
+struct Helix{L <: Union{LayRatio, Pitch, LayAngle}, T <: Real}
     "Lay of the helix."
     lay::L
     "Handedness of the lay, `1` or `-1` \\[dimensionless\\]."
     dir::Int
     "Angle at which the helix starts \\[rad\\]."
     φ0::T
-    function Helix{L, T}(lay::L, dir::Int, φ0::T) where {L <: LayRatio, T <: Real}
+    function Helix{L, T}(lay::L, dir::Int,
+            φ0::T) where {L <: Union{LayRatio, Pitch, LayAngle}, T <: Real}
         return validate(new{L, T}(lay, dir, φ0))
     end
 end
@@ -390,7 +463,7 @@ handedness is `1` and the helix starts at angle zero.
 - Throws `ArgumentError` when `dir` is not `1` or `-1`, and `DomainError` when `φ0` is not
   finite.
 """
-function Helix(lay::LayRatio; dir::Integer = 1, φ0::Real = 0)
+function Helix(lay::Union{LayRatio, Pitch, LayAngle}; dir::Integer = 1, φ0::Real = 0)
     T = promote_type(Float64, typeof(φ0))
     return Helix{typeof(lay), T}(lay, Int(dir), convert(T, φ0))
 end
@@ -421,6 +494,38 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Return the ratio of the length of `helix` to the length of the cable, at the lay radius
+`radius` \\[m\\]:
+
+```math
+\\frac{\\ell}{\\ell_0} = \\sqrt{1 + \\left(\\frac{2 \\pi r}{p}\\right)^2},
+```
+
+where ``p`` is the lay length \\[m\\] and ``r`` the radius \\[m\\].
+"""
+overlength(helix::Helix{<:Pitch}, radius::Real) = sqrt(1 + (2π * radius / helix.lay.p)^2)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the ratio of the length of `helix` to the length of the cable, at the lay radius
+`radius` \\[m\\]:
+
+```math
+\\frac{\\ell}{\\ell_0} = \\frac{1}{\\cos\\beta},
+```
+
+where ``\\beta`` is the lay angle \\[rad\\]. A path at zero radius lies straight along the
+axis, with ratio 1.
+"""
+function overlength(helix::Helix{<:LayAngle}, radius::Real)
+    factor = inv(cos(helix.lay.β))
+    return iszero(radius) ? one(factor) : factor
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Return the lay length of `helix` at the lay radius `radius` \\[m\\]:
 
 ```math
@@ -435,6 +540,35 @@ function pitch(helix::Helix{<:LayRatio}, radius::Real)
     return iszero(radius) ? oftype(p, Inf) : p
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the lay length of `helix` at the lay radius `radius` \\[m\\], which is its declared
+lay length ``p`` \\[m\\]. A path at zero radius lies straight along the axis, with an
+infinite lay length.
+"""
+function pitch(helix::Helix{<:Pitch}, radius::Real)
+    p = helix.lay.p
+    return iszero(radius) ? oftype(p, Inf) : p
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the lay length of `helix` at the lay radius `radius` \\[m\\]:
+
+```math
+p = \\frac{2 \\pi r}{\\tan\\beta},
+```
+
+where ``\\beta`` is the lay angle \\[rad\\] and ``r`` the radius \\[m\\]. A path at zero
+radius lies straight along the axis, with an infinite lay length.
+"""
+function pitch(helix::Helix{<:LayAngle}, radius::Real)
+    p = 2π * radius / tan(helix.lay.β)
+    return iszero(radius) ? oftype(p, Inf) : p
+end
+
 function Base.map(f, pattern::CircularPattern{T, T}) where {T}
     return CircularPattern(pattern.n; r = f(pattern.r), φ0 = f(pattern.φ0),
         span = f(pattern.span), gap_frac = f(pattern.gap_frac))
@@ -444,7 +578,9 @@ function Base.map(f, pattern::CircularPattern{T, Offset{T}}) where {T}
         span = f(pattern.span), gap_frac = f(pattern.gap_frac))
 end
 Base.map(f, lay::LayRatio) = LayRatio(f(lay.q))
+Base.map(f, lay::Pitch) = Pitch(f(lay.p))
+Base.map(f, lay::LayAngle) = LayAngle(f(lay.β))
 Base.map(f, helix::Helix) = Helix(map(f, helix.lay); dir = helix.dir, φ0 = f(helix.φ0))
 
-# A lay ratio broadcasts as one value, as a number does.
-Base.broadcastable(lay::LayRatio) = Ref(lay)
+# A lay broadcasts as one value, as a number does.
+Base.broadcastable(lay::Union{LayRatio, Pitch, LayAngle}) = Ref(lay)

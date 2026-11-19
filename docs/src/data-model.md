@@ -100,6 +100,9 @@ All parts are subtypes of [`AbstractCablePart`](@ref):
 - [`Enclosure`](@ref): filler of one material around sub-cables, occupying the container
   without the outlines of its outermost contents.
 
+A [`Pitch`](@ref) declares the lay of a helix by the lay length itself. A
+[`LayAngle`](@ref) declares it by the angle between the helix and the axis of the cable.
+
 A [`LinearPattern`](@ref) places `n` copies on a line at a pitch, centered on the center of
 the part that contains them.
 

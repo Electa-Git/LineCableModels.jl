@@ -26,7 +26,7 @@ using .BaseGeometry: Placement, area, perimeter, centroid, support, distance, is
 using .DataModel: AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle,
                   Offset, Sector, Ellipse, Polygon, AbstractLayoutPattern, CircularPattern,
                   LinearPattern, Helix,
-                  LayRatio, boundary, r_in,
+                  LayRatio, Pitch, LayAngle, boundary, r_in,
                   r_ex,
                   placements, overlength, pitch, PerforatedShape, ArcPolygon,
                   AbstractCablePart, Region,
@@ -50,7 +50,8 @@ using PrecompileTools: @setup_workload, @compile_workload
 export Material, material, EarthLayer, EquivalentEarthLayer, EarthModel, homogeneous,
        @layers
 export Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
-export AbstractLayoutPattern, CircularPattern, LinearPattern, Helix, LayRatio
+export AbstractLayoutPattern, CircularPattern, LinearPattern, Helix, LayRatio, Pitch,
+       LayAngle
 export area, perimeter, centroid, support, distance, boundary, r_in, r_ex, placements,
        overlength,
        pitch

@@ -192,6 +192,30 @@
                     lay = LayRatio(12), boundary = Circle(4.5e-3))))
     end
 
+    @testset "a course declared by its lay ratio, its lay length or its lay angle" begin
+        # The wires of the screen lie at the radius 2.5 mm, where a lay ratio of 10 is a lay
+        # length of 50 mm.
+        r, p = 2.5e-3, 50.0e-3
+        inputs = map((LayRatio(10), Pitch(p), LayAngle(atan(2π * r, p)))) do lay
+            design = @design "screened_wire" begin
+                @terminal :core begin
+                    core(copper; r = 1.0e-3)
+                end
+                insulation(polymer; t = 1.0e-3)
+                @terminal :screen begin
+                    wires(copper; shape = Circle(0.5e-3), n = 12, lay, tag = :screen)
+                end
+            end
+            return coaxial_input(design)
+        end
+        @test all(isapprox(f(a), f(b); rtol = 1.0e-12)
+        for input in inputs[2:3]
+        for (a, b) in zip(input.material, first(inputs).material)
+        for f in (tube -> tube.rho, tube -> tube.mu_r))
+        @test all(isapprox(input.mu_r_ins, first(inputs).mu_r_ins; rtol = 1.0e-12)
+        for input in inputs[2:3])
+    end
+
     @testset "a tape alone and the courses of a stranded core" begin
         taped = @design "taped_wire" begin
             @terminal :core begin
