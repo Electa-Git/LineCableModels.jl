@@ -731,6 +731,14 @@ r_ex(circle::Circle) = circle.r
 r_ex(annulus::Annulus) = annulus.ro
 r_ex(sector::Sector) = sector.ro
 
+# An annulus whose radii tie has no width, and neither has an offset of no thickness, each
+# decided on `nominal` within `tolerance`. They are empty. Any other primitive has a width.
+function Base.isempty(annulus::Annulus)
+    return nominal(annulus.ro) - nominal(annulus.ri) <= tolerance(annulus.ro)
+end
+Base.isempty(offset::Offset) = nominal(offset.t) <= tolerance(offset.t)
+Base.isempty(::AbstractPrimitive) = false
+
 # The first part of a cable keeps its declared cross-section.
 resolve(::EmptyBoundary, primitive::AbstractPrimitive) = primitive
 

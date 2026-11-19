@@ -604,6 +604,11 @@ function Base.hash(enclosure::Enclosure, h::UInt)
     return hash(enclosure.contents, hash(enclosure.fill, hash(:Enclosure, h)))
 end
 
+# A region is empty when its cross-section has no width. An enclosure or an assembly is
+# never empty.
+Base.isempty(region::Region) = isempty(region.primitive)
+Base.isempty(::Union{Enclosure, Assembly}) = false
+
 # `foreach` calls `f` on each region of a part, from the inside out. A repeat gives the
 # region of its part once for each copy, and a group its contents before its fill.
 Base.foreach(f, region::Region) = f(region)

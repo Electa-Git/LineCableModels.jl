@@ -1556,27 +1556,27 @@ function narrow_floats(directory)
     return found
 end
 
-# Offset thickness reads belong to geometry's typed resolve, validate and Base.map methods,
-# and to the method of resolve that reads, for the coaxial input, a region that an offset
-# declares.
+# The thickness of an offset is read by the offset's own methods, those of geometry that
+# take an `Offset`, and by the method of resolve that reads, for the coaxial input, a region
+# that an offset declares. Any other read is a thickness that code outside them applies.
 function offset_reads(directory)
     found = Dict{String, Int}()
-    # Per file: the functions, and what the type of an argument is in a method that reads.
+    # Per file: the methods that read. `name` is the function of a method, and `type` the
+    # type of one of its arguments.
     typed = Dict(
-        "src/datamodel/geometry.jl" => (("resolve", "validate", "Base.map"),
-            type -> join(
-                string.(syntax_name(kind(type) == K"curly" ? type[1] : type)), ".") ==
-                    "Offset"),
-        "src/engine/input.jl" => (("resolve",),
-            function (type)
-                # The region itself, or the one under a terminal or a resolved part.
-                while kind(type) == K"curly" &&
-                    syntax_name(type[1]) in ((:Terminal,), (:CablePart,))
-                    type = kind(type[2]) == K"<:" ? type[2][1] : type[2]
-                end
-                return kind(type) == K"curly" && syntax_name(type[1]) == (:Region,) &&
-                       kind(type[2]) == K"<:" && syntax_name(type[2][1]) == (:Offset,)
-            end))
+        "src/datamodel/geometry.jl" => function (name, type)
+            return syntax_name(kind(type) == K"curly" ? type[1] : type) == (:Offset,)
+        end,
+        "src/engine/input.jl" => function (name, type)
+            name == (:resolve,) || return false
+            # The region itself, or the one under a terminal or a resolved part.
+            while kind(type) == K"curly" &&
+                syntax_name(type[1]) in ((:Terminal,), (:CablePart,))
+                type = kind(type[2]) == K"<:" ? type[2][1] : type[2]
+            end
+            return kind(type) == K"curly" && syntax_name(type[1]) == (:Region,) &&
+                   kind(type[2]) == K"<:" && syntax_name(type[2][1]) == (:Offset,)
+        end)
     for base in ("src", "ext"), (path, _, names) in walkdir(joinpath(directory, base)),
         name in names
         file = joinpath(path, name)
@@ -1589,11 +1589,11 @@ function offset_reads(directory)
                 while kind(signature) in (K"where", K"::") && numchildren(signature) == 2
                     signature = signature[1]
                 end
-                if kind(signature) == K"call" &&
-                   join(string.(syntax_name(signature[1])), ".") in first(typed[source])
+                if kind(signature) == K"call"
                     for argument in children(signature)[2:end]
                         kind(argument) == K"::" &&
-                            last(typed[source])(last_child(argument)) && return false
+                            typed[source](syntax_name(signature[1]), last_child(argument)) &&
+                            return false
                     end
                 end
             end

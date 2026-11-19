@@ -148,11 +148,29 @@ flattened stack is its own flattened form.
 - Throws `ArgumentError` when a part of the stack is neither a terminal, a group, an
   enclosure, an assembly nor a region.
 - Throws `ArgumentError` when two parts of the stack declare one terminal.
+- Throws `ArgumentError` when two terminals of the stack are in contact, with no dielectric
+  of some width between them.
 """
 function flatten(stack::Stack)
     items = AbstractCablePart[]
     foreach(item -> flatten(items, item), stack.items)
-    return Stack(items)
+    return validate(Stack(items), flatten)
+end
+
+# A dielectric of some width lies between each terminal of a flattened stack and the next
+# one. `gap` counts the parts from the terminal `i` to the next one.
+function validate(stack::Stack, ::typeof(flatten))
+    items = stack.items
+    i = findfirst(item -> item isa Terminal, items)
+    i === nothing && return stack
+    while true
+        gap = findfirst(item -> item isa Terminal, view(items, (i + 1):lastindex(items)))
+        gap === nothing && break
+        all(isempty, view(items, (i + 1):(i + gap - 1))) && throw(ArgumentError(
+            "the terminals :$(items[i].name) and :$(items[i + gap].name) are in contact with no dielectric between them and cannot be two terminals. A dielectric between two terminals is a region of the design between them. Metal of one phase in contact is one terminal."))
+        i += gap
+    end
+    return stack
 end
 
 """

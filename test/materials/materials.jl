@@ -20,5 +20,7 @@
               0.25 * 3.3 * 2.0e-3 + 0.75 * 2.2 * 5.0e-4
         @test Material([polyester, semicon], [0.5, 0.5]) isa Material{Float64, :semicon}
         @test Material([compound], [1.0]) === compound
+        # The weighted sums of these fractions give a loss tangent of 0.0004999999999999999.
+        @test Material([compound, compound], [0.3, 0.7]) === compound
     end
 end

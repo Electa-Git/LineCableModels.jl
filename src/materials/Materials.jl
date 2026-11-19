@@ -99,9 +99,11 @@ act in parallel:
 ```
 
 The other properties are those of the last material. The composite is an insulator when
-each material is one, and a semicon otherwise. One material alone is its own composite.
+each material is one, and a semicon otherwise. Regions of one material have that material
+as their composite, whatever their fractions.
 """
 function Material(media::AbstractVector{<:Material}, f::AbstractVector{<:Real})
+    allequal(media) && return first(media)
     eps_r = sum(f .* [medium.eps_r for medium in media])
     base = last(media)
     values = (

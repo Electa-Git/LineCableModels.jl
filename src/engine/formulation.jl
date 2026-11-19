@@ -495,8 +495,6 @@ $(TYPEDSIGNATURES)
 
 Check the interiors of the input for the recipes of the formulation at the frequencies of the
 problem, before the loop.
-Check the consecutive conductors of one assembly for an interval of no width between them,
-decided on `nominal` within `tolerance`.
 The data model's `isdisjoint`, `⊆` and `istangent` predicates compare `nominal` positions
 and radii to decide whether the circles overlap or touch within `tolerance`.
 
@@ -522,7 +520,6 @@ shielded by that member's conductor.
 
 # Errors
 
-- Throws `ArgumentError` when two terminals of one assembly are in contact with no dielectric between them.
 - Throws `ArgumentError` when an assembly has members and a conductor, and no region around
   the members.
 - Throws `ArgumentError` when `order ≥ 1` and the bodies of two members overlap, or a
@@ -534,14 +531,6 @@ shielded by that member's conductor.
 """
 function validate(input::CoaxialInput, formulation::CoaxialFormulation,
         problem::LineParametersProblem)
-    for a in eachindex(input.assemblies),
-        i in first(input.assemblies[a]):(last(input.assemblies[a]) - 1)
-
-        abs(nominal(input.r_ins_ex[i]) - nominal(input.r_ex[i])) <=
-        tolerance(max(nominal(input.r_ins_ex[i]), nominal(input.r_ex[i]))) &&
-            throw(ArgumentError(
-                "conductors $(input.label[i]) and $(input.label[i + 1]) are in contact with no dielectric between them and cannot be two terminals. A dielectric between two terminals is a region of the design between them. Metal of one phase in contact is one terminal."))
-    end
     N = formulation.options.order
     θ = problem.temperature
     for (a, members) in enumerate(input.members)

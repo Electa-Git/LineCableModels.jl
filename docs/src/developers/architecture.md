@@ -509,7 +509,7 @@ A baseline, a ratchet or a count does not exist.
 | clones of every body | no function body of at least 90 tokens repeats three quarters of another body's shingles. The rule admits a pair of constructors of package types and a pair of methods of formulas or formulations |
 | the method table over the curves | a generic with a method on one member of the closed `Curve` union has a method for every other member, or one on the union |
 | narrow floats | no number type narrower than `Float64`, and no literal of one, under `src/`, `ext/`, `test/` or `docs/src/` |
-| offset reads | only the methods that apply, resolve, validate or map an offset read its field `t` |
+| offset reads | only the methods of the geometry that take an offset, and the reader of the coaxial input, read its field `t` |
 | distance across on a concrete primitive | no `dimension` method on a concrete primitive type: the distance across is one computation over the contour |
 | distance across outside `dimension` and `section` | under `ext/`, no hand computation of the distance across, such as `ro - ri`, `min(w, h)`, `2r` or a bounding box |
 | register | the package defines exactly the names of `names.toml` |

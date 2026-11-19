@@ -154,6 +154,37 @@ using LineCableModels.Commons: tolerance
         @test [r_in(sheath.part.primitive), r_ex(sheath.part.primitive)] ≈ [2e-3, 3.2e-3]
     end
 
+    # Metal of two terminals in contact is one node of the circuit. Wires of radius 1 mm
+    # lie at 2 mm from the center. They touch a container of 3 mm, and a container of
+    # 3.5 mm leaves 0.5 mm of fill around them.
+    @testset "two terminals of a stack lie apart" begin
+        contact = "the terminals :core and :screen are in contact with no dielectric between them"
+        screen = Terminal(:screen, Region(:screen, Offset(1.0e-3), copper))
+        wire = Terminal(:core, Region(:core, Circle(10.0e-3), copper))
+        @test_throws contact flatten(build(CableDesign, "tubes", wire, screen))
+        @test_throws contact flatten(build(CableDesign, "no_thickness", wire,
+            Region(:film, Offset(0.0), polymer), screen))
+        film = flatten(build(CableDesign, "film", wire,
+            Region(:film, Offset(1.0e-6), polymer), screen))
+        @test [item.name for item in film.items if item isa Terminal] == [:core, :screen]
+        strands = Stack(Region(:center, Circle(1.0e-3), copper),
+            Repeat(CircularPattern(6; r = 2.0e-3), Region(:wire, Circle(1.0e-3), copper)))
+        @test_throws contact flatten(build(CableDesign, "reached",
+            Terminal(:core, Group(Region(:core_fill, Circle(3.0e-3), air), strands)), screen))
+        short = flatten(build(CableDesign, "short",
+            Terminal(:core, Group(Region(:core_fill, Circle(3.5e-3), air), strands)), screen))
+        @test [r_in(short.items[2].primitive), r_ex(short.items[2].primitive)] ≈
+              [3.0e-3, 3.5e-3]
+        sector = Terminal(:core,
+            Region(:core,
+                LineCableModels.Sector(
+                    0, 10.0e-3, 2π / 3, 1.0e-3 / sin(π / 3), 1.5e-3, Placement(0, 0)),
+                copper))
+        @test_throws contact flatten(build(CableDesign, "sector", sector, screen))
+        @test length(flatten(build(CableDesign, "insulated_sector", sector,
+            Region(:insulation, Offset(1.0e-3), polymer), screen)).items) == 3
+    end
+
     @testset "a stack flattens to the tubes of its terminals and their layers" begin
         helix = Helix(LayRatio(12))
         courses = [Lay(helix,

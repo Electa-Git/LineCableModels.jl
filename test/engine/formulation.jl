@@ -332,7 +332,7 @@ end
             connections = [(core = 1, screen = 2)], id = "contact", line_length = 1.0)
         problem = LineParametersProblem(system, homogeneous(rho = 100); frequencies = [50.0])
         @test_throws ArgumentError compute(problem, CoaxialFormulation())
-        @test_throws "conductors cable:1:core and cable:1:screen are in contact with no dielectric between them" compute(
+        @test_throws "the terminals :core and :screen are in contact with no dielectric between them" compute(
             problem, CoaxialFormulation())
     end
 

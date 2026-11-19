@@ -298,6 +298,39 @@ looped(M, k, rows) = [M[i, j] - M[i, k] - M[k, j] + M[k, k] for i in rows, j in 
         for k in 1:4)
     end
 
+    # The tubes of three sector cores lie 0.82 mm apart, and the tubes with their insulation
+    # overlap by 0.58 mm. A filler of two regions of the insulation's paper has the medium
+    # of the insulation. The body of a core is then its tube, and the cable computes. In a
+    # filler of oil the insulation is a body. Measured on Julia 1.12.7: the weighted sums
+    # of the fractions of the two regions of paper give a relative permittivity of
+    # 3.4999999999999996 for 3.5.
+    @testset "an insulation of the material of a filler of two regions is no body" begin
+        sector = LineCableModels.Sector(
+            0, 10.0e-3, 2π / 3, 1.0e-3 / sin(π / 3), 1.5e-3, Placement(0, 0))
+        c = first(LineCableModels.centroid(sector))
+        core = LineCableModels.Sector(
+            0, 10.0e-3, 2π / 3, 1.0e-3 / sin(π / 3), 1.5e-3, Placement(-c, 0))
+        designs = map((paper, oil)) do filler
+            members = Tuple(Placement(7.0e-3 * cos(φ),
+                                7.0e-3 * sin(φ),
+                                φ) => Stack(
+                                Terminal(name, Region(:core, core, copper)),
+                                Region(:insulation, Offset(0.7e-3), paper))
+            for (φ, name) in zip((0, 2π / 3, 4π / 3), (:a, :b, :c)))
+            build(CableDesign, "sectors",
+                Region(:center, Circle(0.3e-3), filler),
+                Enclosure(Region(:fill, Annulus(0.3e-3, 25.0e-3), filler),
+                    Assembly(members)),
+                Terminal(:pipe, Region(:pipe, Offset(3.0e-3), steel)),
+                Region(:coating, Offset(5.0e-3), polymer))
+        end
+        connections = (a = 1, b = 2, c = 3, pipe = 4)
+        @test size(interior_result(
+            [designs[1]], [Placement(0, -1)], [connections]; order = 1).Z) == (4, 4, 4)
+        @test_throws "the body of the member cable:1:a" interior_result(
+            [designs[2]], [Placement(0, -1)], [connections]; order = 1)
+    end
+
     # Insulated cores in a common jacket, with no conductor around them, are cables of the
     # system. Each has its own earth return.
     let
