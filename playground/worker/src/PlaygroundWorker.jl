@@ -7,6 +7,9 @@ Evaluate the cells of one presentation and serve each as a Bonito app at `/cells
 under the path `--prefix`. Once the server listens, the worker prints `ready <port>`. It then evaluates the cells
 marked `autorun` in order and returns at the end of its input.
 
+The worker answers 403 to the requests whose header `Playground-Secret` does not hold the value of the
+environment variable `PLAYGROUND_SECRET`.
+
 The cells run one at a time in `Main`, with the soft scope of the REPL, on the default thread pool. The page of a
 cell shows its source in an editor when `echo` is true, and a button that runs it again. Below them come its
 printed output, capped at 1 MiB, and its value or the message and trace of its error.
@@ -14,6 +17,7 @@ printed output, capped at 1 MiB, and its value or the message and trace of its e
 module PlaygroundWorker
 
 using Bonito: Bonito, App, Asset, Button, CodeEditor, DOM, Observable, Session, on, route!
+using HTTP: HTTP
 using JSON: JSON
 using REPL: REPL
 
@@ -68,7 +72,10 @@ function (@main)(arguments)
              for entry in JSON.parsefile(arguments[1])]
     log = open(Libc.dup(RawFD(2)))
     Base.CoreLogging.global_logger(Base.CoreLogging.ConsoleLogger(log))
-    server = Bonito.Server("127.0.0.1", 0; proxy_url = prefix)
+    secret = ENV["PLAYGROUND_SECRET"]
+    server = Bonito.Server("127.0.0.1", 0; proxy_url = prefix,
+        handler = context -> HTTP.header(context.request, "Playground-Secret") == secret ?
+                             Bonito.HTTPServer.delegate(context) : HTTP.Response(403))
     queue = Channel{Pair{Int, Cell}}(Inf)
     for (index, cell) in enumerate(cells)
         route!(server, "/cells/$index" => App(cell; title = "Julia cell $index"))

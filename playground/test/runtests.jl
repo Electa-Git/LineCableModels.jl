@@ -75,6 +75,25 @@ root = pkgdir(Playground)
             states = JSON.parse(String(HTTP.get("$address/api/presentations").body))
             @test states["specimen"]["state"] == "stopped"
             @test states["starter"]["state"] == "stopped"
+
+            live = "$address/presentations/specimen/live"
+            page = String(HTTP.get("$live/cells/1").body)
+            @test occursin("lc-widget-shell", page)
+            @test JSON.parse(String(HTTP.get("$address/api/presentations").body))["specimen"]["state"] ==
+                  "running"
+            brand = match(r"href=\"(/presentations/specimen/live/assets/[0-9a-f]+-brand\.css)\"", page)
+            @test HTTP.get("$address$(brand.captures[1])").status == 200
+            @test HTTP.get("$address/presentations/unknown/live/cells/1"; status_exception = false).status ==
+                  404
+            closing = try
+                HTTP.WebSockets.open(ws -> foreach(identity, ws),
+                    "ws://127.0.0.1:$port/presentations/specimen/live/0")
+                1000
+            catch error
+                error.message.code
+            end
+            @test closing == 4404
+
             @test HTTP.post("$address/api/presentations/specimen/restart").status == 202
             @test HTTP.post("$address/api/presentations/unknown/restart"; status_exception = false).status ==
                   404
@@ -111,6 +130,18 @@ root = pkgdir(Playground)
             kill(server)
             wait(server)
         end
+    end
+
+    @testset "a presentation's process refuses a request without its secret" begin
+        presentation = Playground.Presentation("specimen")
+        try
+            cell = "http://127.0.0.1:$(presentation.port)/cells/1"
+            @test HTTP.get(cell; status_exception = false).status == 403
+            @test HTTP.get(cell, ["Playground-Secret" => presentation.secret]).status == 200
+        finally
+            close(presentation)
+        end
+        @test !isopen(presentation)
     end
 
     @testset "julia -m Playground refuses a presentation name the relay cannot carry" begin

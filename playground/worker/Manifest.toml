@@ -2,7 +2,7 @@
 
 julia_version = "1.12.7"
 manifest_format = "2.0"
-project_hash = "213b47b6974a9eadf8fc8017ef084c319a4313e7"
+project_hash = "89e49a5492ba93ebb98506a18d0ce0f4ab5574cd"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -225,7 +225,7 @@ uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
 version = "3.0.6"
 
 [[deps.PlaygroundWorker]]
-deps = ["Bonito", "JSON", "REPL"]
+deps = ["Bonito", "HTTP", "JSON", "REPL"]
 path = "."
 uuid = "afc90662-734a-4d5d-a4d8-db226582d105"
 version = "0.1.0"

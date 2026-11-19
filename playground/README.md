@@ -213,4 +213,15 @@ The server answers two requests about the processes:
 After a start that failed, the field `error` beside the state gives the message
 and the last lines that the process wrote.
 
+The server passes the HTTP requests and the WebSocket connections under
+`/presentations/<name>/live/` to the presentation's process, with that prefix
+removed. The slides and their frames then share one origin. The first of these
+requests and connections starts the process.
+
+The server draws a secret for each process and puts it in the process's
+environment variable `PLAYGROUND_SECRET`. The server sends the secret in the
+header `Playground-Secret` of all the requests that it passes on. The process
+refuses the requests without the secret, so that a page of another site cannot
+reach the port where the cells run.
+
 A process ends when the server ends.

@@ -7,7 +7,8 @@ Render the Quarto project of this folder and serve its site: the landing page at
 
 Each presentation's cells run in a Julia process of their own, a [`Presentation`](@ref). `GET /api/presentations`
 answers the state of each presentation's process, and `POST /api/presentations/<name>/restart` ends the process
-and starts it again.
+and starts it again. The HTTP requests and the WebSocket connections under `/presentations/<name>/live/` go to the
+presentation's process with that prefix removed. The first of them starts the process.
 """
 module Playground
 
@@ -26,6 +27,9 @@ otherwise. The constructor returns once the process listens. The process ends wh
 [`close`](@ref) closes it, and so does the end of this process. Each line that the process writes to its error
 stream appears on this one, prefixed by the name. When the process ends before it listens, the constructor fails
 with the last 20 lines.
+
+The process gets a secret, drawn for it, in the environment variable `PLAYGROUND_SECRET`. It refuses the requests
+whose header `Playground-Secret` does not hold the secret.
 """
 struct Presentation
     name::String
@@ -42,9 +46,11 @@ function Presentation(name::String)
     cells = joinpath(root, "_site", "presentations", name, "cells.json")
     command = `$(Base.julia_cmd()) --startup-file=no --threads=2,1 --project=$project
                -m PlaygroundWorker $cells --prefix /presentations/$name/live`
+    secret = bytes2hex(rand(RandomDevice(), UInt8, 32))
+    environment = addenv(
+        command, "JULIA_LOAD_PATH" => "@:$worker:@stdlib", "PLAYGROUND_SECRET" => secret)
     errors = Pipe()
-    process = open(
-        pipeline(addenv(command, "JULIA_LOAD_PATH" => "@:$worker:@stdlib"); stderr = errors), "r+")
+    process = open(pipeline(environment; stderr = errors), "r+")
     close(errors.in)
     lines = String[]
     forwarding = @async for line in eachline(errors)
@@ -58,8 +64,7 @@ function Presentation(name::String)
         wait(forwarding)
         error("the process of $name ended before it was ready:\n", join(lines, '\n'))
     end
-    return Presentation(
-        name, process, parse(Int, line[7:end]), bytes2hex(rand(RandomDevice(), UInt8, 32)))
+    return Presentation(name, process, parse(Int, line[7:end]), secret)
 end
 
 """
@@ -116,40 +121,79 @@ function (@main)(arguments)
 
     started = Dict{String, Task}()
     guard = ReentrantLock()
-    router = HTTP.Router(HTTP.fileserver(joinpath(root, "_site")))
-    HTTP.register!(router, "GET", "/api/presentations") do _
-        states = lock(guard) do
-            Dict(map(names) do name
-                if !haskey(started, name)
-                    name => Dict("state" => "stopped")
-                elseif !istaskdone(started[name])
-                    name => Dict("state" => "starting")
-                elseif istaskfailed(started[name])
-                    name => Dict("state" => "stopped",
-                        "error" => sprint(showerror, started[name].exception))
-                else
-                    name => Dict("state" => isopen(fetch(started[name])) ? "running" :
-                                            "stopped")
+    router = HTTP.Router(HTTP.streamhandler(HTTP.fileserver(joinpath(root, "_site"))))
+    HTTP.register!(router,
+        "GET",
+        "/api/presentations",
+        HTTP.streamhandler() do _
+            states = lock(guard) do
+                Dict(map(names) do name
+                    if !haskey(started, name)
+                        name => Dict("state" => "stopped")
+                    elseif !istaskdone(started[name])
+                        name => Dict("state" => "starting")
+                    elseif istaskfailed(started[name])
+                        name => Dict("state" => "stopped",
+                            "error" => sprint(showerror, started[name].exception))
+                    else
+                        name => Dict("state" => isopen(fetch(started[name])) ? "running" :
+                                                "stopped")
+                    end
+                end)
+            end
+            return HTTP.Response(200, ["Content-Type" => "application/json"], JSON.json(states))
+        end)
+    HTTP.register!(router,
+        "POST",
+        "/api/presentations/{name}/restart",
+        HTTP.streamhandler() do request
+            name = HTTP.getparam(request, "name")
+            name in names || return HTTP.Response(404)
+            lock(guard) do
+                previous = haskey(started, name) ? [started[name]] : Task[]
+                started[name] = Threads.@spawn begin
+                    waitall(previous; failfast = false, throw = false)
+                    foreach(task -> istaskfailed(task) || close(fetch(task)), previous)
+                    Presentation(name)
                 end
-            end)
+            end
+            return HTTP.Response(202)
+        end)
+    HTTP.register!(router, "/presentations/{name}/live/**") do stream
+        name = HTTP.getparam(stream.message, "name")
+        name in names || return HTTP.streamhandler(_ -> HTTP.Response(404))(stream)
+        task = lock(guard) do
+            get!(() -> Threads.@spawn(Presentation(name)), started, name)
         end
-        return HTTP.Response(200, ["Content-Type" => "application/json"], JSON.json(states))
-    end
-    HTTP.register!(router, "POST", "/api/presentations/{name}/restart") do request
-        name = HTTP.getparam(request, "name")
-        name in names || return HTTP.Response(404)
-        lock(guard) do
-            previous = haskey(started, name) ? [started[name]] : Task[]
-            started[name] = Threads.@spawn begin
-                waitall(previous; failfast = false, throw = false)
-                foreach(task -> istaskfailed(task) || close(fetch(task)), previous)
-                Presentation(name)
+        presentation = fetch(task)
+        worker = "127.0.0.1:$(presentation.port)" *
+                 chopprefix(stream.message.target, "/presentations/$name/live")
+        secret = "Playground-Secret" => presentation.secret
+        HTTP.WebSockets.isupgrade(stream.message) ||
+            return HTTP.streamhandler(request -> HTTP.request(
+                request.method, "http://$worker", [request.headers; secret], request.body;
+                decompress = false, redirect = false, retry = false, status_exception = false))(stream)
+        HTTP.WebSockets.upgrade(stream; maxframesize = typemax(Int) ÷ 4,
+            maxfragmentation = typemax(Int)) do browser
+            HTTP.WebSockets.open("ws://$worker"; headers = [secret], redirect = false,
+                maxframesize = typemax(Int) ÷ 4, maxfragmentation = typemax(Int)) do process
+                directions = map(((browser, process), (process, browser))) do (from, to)
+                    Threads.@spawn try
+                        for message in from
+                            HTTP.WebSockets.send(to, message)
+                        end
+                        close(to, from.closebody)
+                    catch error
+                        error isa HTTP.WebSockets.WebSocketError || rethrow()
+                        close(to, error.message)
+                    end
+                end
+                waitall(directions; failfast = false, throw = false)
             end
         end
-        return HTTP.Response(202)
     end
     try
-        HTTP.serve(router, host, port)
+        HTTP.listen(router, host, port)
     finally
         tasks = lock(() -> collect(values(started)), guard)
         waitall(tasks; failfast = false, throw = false)

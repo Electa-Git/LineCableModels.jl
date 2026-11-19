@@ -4,6 +4,7 @@ version = "0.1.0"
 
 [deps]
 Bonito = "824d6782-a2ef-11e9-3a09-e5662e0c26f8"
+HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 REPL = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 
@@ -15,9 +16,8 @@ julia = "1.12"
 quarto_jll = "1.9.38"
 
 [extras]
-HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 quarto_jll = "b7163347-bfae-5fd9-aba4-19f139889d78"
 
 [targets]
-test = ["HTTP", "Test", "quarto_jll"]
+test = ["Test", "quarto_jll"]
