@@ -9,9 +9,12 @@
   const readyFrames = new WeakSet();
   const connections = new WeakMap();
   const timeouts = new WeakMap();
-  let deck, status, readiness, laserButton, pageNumber, pointer;
+  let deck, status, readiness, laserButton, restartButton, pageNumber, pointer;
   let settling = false, printing = false, laser = false, overview = false;
   let generation = 0, settleTimer = 0, previousPrintClass = false;
+  // The playground's server reports the state of the presentation's Julia process and the number of its starts.
+  const presentation = location.pathname.match(/\/presentations\/([^/]+)\//)?.[1];
+  let julia = '', starts = Infinity;
   let pointerPosition = { x: innerWidth / 2, y: innerHeight / 2 };
 
   const slideFrames = slide => slide ? [...slide.querySelectorAll('.lcm-live-viewport iframe')] : [];
@@ -29,6 +32,8 @@
       receiver ? 'Presenter preview' : overview ? 'Slide overview' :
       !deck?.isReady() ? 'Loading presentation…' : failed ? 'Live view unavailable' :
       pending ? 'Loading live view…' : settling ? 'Resizing…' : 'Ready';
+    if (julia) readiness.textContent += ' · Julia ' + julia;
+    restartButton.hidden = !julia || !usable();
     const busy = !deck?.isReady() || (usable() && (pending || settling));
     status.dataset.state = failed && usable() ? 'error' : busy ? 'busy' : 'ready';
     laserButton.textContent = 'Laser ' + (laser ? 'on' : 'off') + ' · L';
@@ -243,6 +248,9 @@
       status.append(node);
       return node;
     };
+    restartButton = button('Restart Julia', () => fetch(
+      '/api/presentations/' + presentation + '/restart', { method: 'POST' }).catch(() => {}));
+    restartButton.hidden = true;
     laserButton = button('Laser off · L', toggleLaser);
     status.append(playgroundHomeLink());
     if (!staticMode) {
@@ -330,6 +338,18 @@
       root.dataset.lcmDeckReady = 'true';
     };
     initialize();
+    // A new start of the process ends its earlier sessions. The loaded frames then load their route again.
+    if (frames.length && presentation && !staticMode) setInterval(async () => {
+      try {
+        const answer = (await (await fetch('/api/presentations')).json())[presentation];
+        if (answer.starts > starts) {
+          frames.filter(frame => frame.hasAttribute('src')).forEach(frame => { frame.src = frame.dataset.lcmSrc; });
+        }
+        starts = answer.starts;
+        julia = answer.state;
+        updateStatus();
+      } catch (_) { /* Without the playground's server, the deck does not show a state of Julia. */ }
+    }, 1000);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
   else start();

@@ -73,14 +73,24 @@ root = pkgdir(Playground)
             @test !any(frame -> occursin(" src=", frame), frames)
 
             states = JSON.parse(String(HTTP.get("$address/api/presentations").body))
-            @test states["specimen"]["state"] == "stopped"
-            @test states["starter"]["state"] == "stopped"
+            @test states["specimen"] == Dict("state" => "stopped", "starts" => 0)
+            @test states["starter"] == Dict("state" => "stopped", "starts" => 0)
 
             live = "$address/presentations/specimen/live"
+            waiting = HTTP.get("$live/cells/1"; status_exception = false)
+            @test waiting.status == 503
+            @test occursin("lc-widget-shell", String(copy(waiting.body)))
+            @test occursin("Julia starting", String(waiting.body))
+            @test JSON.parse(String(HTTP.get("$address/api/presentations").body))["specimen"] ==
+                  Dict("state" => "starting", "starts" => 1)
+            timedwait(600; pollint = 1) do
+                JSON.parse(String(HTTP.get("$address/api/presentations").body))["specimen"]["state"] !=
+                "starting"
+            end
             page = String(HTTP.get("$live/cells/1").body)
             @test occursin("lc-widget-shell", page)
-            @test JSON.parse(String(HTTP.get("$address/api/presentations").body))["specimen"]["state"] ==
-                  "running"
+            @test JSON.parse(String(HTTP.get("$address/api/presentations").body))["specimen"] ==
+                  Dict("state" => "running", "starts" => 1)
             brand = match(r"href=\"(/presentations/specimen/live/assets/[0-9a-f]+-brand\.css)\"", page)
             @test HTTP.get("$address$(brand.captures[1])").status == 200
             @test HTTP.get("$address/presentations/unknown/live/cells/1"; status_exception = false).status ==
@@ -101,8 +111,8 @@ root = pkgdir(Playground)
                 JSON.parse(String(HTTP.get("$address/api/presentations").body))["specimen"]["state"] !=
                 "starting"
             end
-            @test JSON.parse(String(HTTP.get("$address/api/presentations").body))["specimen"]["state"] ==
-                  "running"
+            @test JSON.parse(String(HTTP.get("$address/api/presentations").body))["specimen"] ==
+                  Dict("state" => "running", "starts" => 2)
 
             worker = parse(Int, readchomp(`pgrep -P $(getpid(server))`))
             run(`kill -9 $worker`)
@@ -113,6 +123,11 @@ root = pkgdir(Playground)
             @test JSON.parse(String(HTTP.get("$address/api/presentations").body))["specimen"]["state"] ==
                   "stopped"
             @test HTTP.get("$address/presentations/specimen/").status == 200
+            stopped = HTTP.get("$live/cells/1"; status_exception = false)
+            @test stopped.status == 503
+            @test occursin("Julia stopped", String(stopped.body))
+            @test JSON.parse(String(HTTP.get("$address/api/presentations").body))["specimen"] ==
+                  Dict("state" => "stopped", "starts" => 2)
 
             HTTP.post("$address/api/presentations/specimen/restart")
             timedwait(600; pollint = 1) do

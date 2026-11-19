@@ -6,9 +6,11 @@ Render the Quarto project of this folder and serve its site: the landing page at
 (default `127.0.0.1`), `--port` (default `8080`) and `--no-render`, which serves the site of the last render.
 
 Each presentation's cells run in a Julia process of their own, a [`Presentation`](@ref). `GET /api/presentations`
-answers the state of each presentation's process, and `POST /api/presentations/<name>/restart` ends the process
-and starts it again. The HTTP requests and the WebSocket connections under `/presentations/<name>/live/` go to the
-presentation's process with that prefix removed. The first of them starts the process.
+answers the state of each presentation's process, `stopped`, `starting` or `running`, and how many times it
+started. `POST /api/presentations/<name>/restart` ends the process and starts it again. The HTTP requests and
+the WebSocket connections under `/presentations/<name>/live/` go to the presentation's process with that prefix
+removed. The first of them starts the process. While the process starts, or after it stopped, they get a page that
+says so and reloads once the process runs.
 """
 module Playground
 
@@ -120,6 +122,7 @@ function (@main)(arguments)
     render && run(`$(quarto()) render $root -M engine:markdown`)
 
     started = Dict{String, Task}()
+    starts = Dict(name => 0 for name in names)
     guard = ReentrantLock()
     router = HTTP.Router(HTTP.streamhandler(HTTP.fileserver(joinpath(root, "_site"))))
     HTTP.register!(router,
@@ -129,15 +132,16 @@ function (@main)(arguments)
             states = lock(guard) do
                 Dict(map(names) do name
                     if !haskey(started, name)
-                        name => Dict("state" => "stopped")
+                        name => Dict("state" => "stopped", "starts" => starts[name])
                     elseif !istaskdone(started[name])
-                        name => Dict("state" => "starting")
+                        name => Dict("state" => "starting", "starts" => starts[name])
                     elseif istaskfailed(started[name])
-                        name => Dict("state" => "stopped",
+                        name => Dict("state" => "stopped", "starts" => starts[name],
                             "error" => sprint(showerror, started[name].exception))
                     else
-                        name => Dict("state" => isopen(fetch(started[name])) ? "running" :
-                                                "stopped")
+                        name => Dict(
+                            "state" => isopen(fetch(started[name])) ? "running" : "stopped",
+                            "starts" => starts[name])
                     end
                 end)
             end
@@ -151,6 +155,7 @@ function (@main)(arguments)
             name in names || return HTTP.Response(404)
             lock(guard) do
                 previous = haskey(started, name) ? [started[name]] : Task[]
+                starts[name] += 1
                 started[name] = Threads.@spawn begin
                     waitall(previous; failfast = false, throw = false)
                     foreach(task -> istaskfailed(task) || close(fetch(task)), previous)
@@ -163,7 +168,47 @@ function (@main)(arguments)
         name = HTTP.getparam(stream.message, "name")
         name in names || return HTTP.streamhandler(_ -> HTTP.Response(404))(stream)
         task = lock(guard) do
-            get!(() -> Threads.@spawn(Presentation(name)), started, name)
+            get!(started, name) do
+                starts[name] += 1
+                Threads.@spawn Presentation(name)
+            end
+        end
+        if !istaskdone(task) || istaskfailed(task) || !isopen(fetch(task))
+            # The page joins the deck as a live view does: the lifecycle script sends the deck lcm:child-ready and the
+            # class lc-widget-shell marks the page. It polls the state and reloads once the process runs.
+            state = istaskdone(task) ? "stopped" : "starting"
+            page = """
+                <!doctype html>
+                <html lang="en">
+                <head>
+                <meta charset="utf-8">
+                <title>Julia $state</title>
+                <style>
+                $(read(joinpath(root, "assets", "brand.css"), String))
+                body { margin: 0; background: var(--lc-bg); color: var(--lc-muted);
+                       font: 14px/1.4 Lato, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+                .lc-widget-shell { display: grid; place-content: center; min-height: 100vh; padding: 0 1em; }
+                pre { color: var(--lc-danger); white-space: pre-wrap; }
+                </style>
+                </head>
+                <body>
+                <div class="lc-widget-shell"><p>Julia $state</p><pre></pre></div>
+                <script>$(read(joinpath(root, "worker", "src", "lifecycle.js"), String))</script>
+                <script>
+                setInterval(async () => {
+                  try {
+                    const presentation = (await (await fetch('/api/presentations')).json())['$name'];
+                    if (presentation.state === 'running') location.reload();
+                    document.querySelector('p').textContent = 'Julia ' + presentation.state;
+                    document.querySelector('pre').textContent = presentation.error || '';
+                  } catch (_) { /* The next poll tries again. */ }
+                }, 1000);
+                </script>
+                </body>
+                </html>
+                """
+            return HTTP.streamhandler(_ -> HTTP.Response(
+                503, ["Content-Type" => "text/html; charset=utf-8"], page))(stream)
         end
         presentation = fetch(task)
         worker = "127.0.0.1:$(presentation.port)" *

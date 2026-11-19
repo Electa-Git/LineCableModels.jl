@@ -41,3 +41,28 @@ a:focus-visible, .quarto-grid-item.card:focus-visible {
   outline: 2px solid var(--lc-focus-ring);
   outline-offset: 2px;
 }
+
+.quarto-grid-item output {
+  display: block;
+  margin-top: 0.5rem;
+  color: var(--lc-muted);
+  font-size: 0.85em;
+}
+
+.quarto-grid-item output::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: var(--lc-disabled);
+}
+
+.quarto-grid-item output[data-state="running"]::before {
+  background: var(--lc-focus);
+}
+
+.quarto-grid-item output[data-state="starting"]::before {
+  background: var(--lc-link);
+}

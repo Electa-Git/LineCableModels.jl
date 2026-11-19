@@ -15,3 +15,26 @@ format:
     page-layout: full
     toc: false
 ---
+
+```{=html}
+<script>
+// Each card shows the state of its presentation's Julia process, as the playground's server answers it.
+(() => {
+  const update = async () => {
+    try {
+      const states = await (await fetch('/api/presentations')).json();
+      document.querySelectorAll('a.quarto-grid-link').forEach(link => {
+        const name = link.getAttribute('href').match(/presentations\/([^/]+)\//)?.[1];
+        const body = link.querySelector('.card-body');
+        if (!states[name] || !body) return;
+        const mark = body.querySelector('output') ?? body.appendChild(document.createElement('output'));
+        mark.dataset.state = states[name].state;
+        mark.textContent = 'Julia ' + states[name].state;
+      });
+    } catch (_) { /* Without the playground's server, the cards do not show a state. */ }
+  };
+  update();
+  setInterval(update, 2000);
+})();
+</script>
+```
