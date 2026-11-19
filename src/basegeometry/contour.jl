@@ -1103,8 +1103,10 @@ end
 function validate(contour::Contour{T}) where {T}
     for path in (contour.outer, contour.holes...)
         isempty(path) && throw(DomainError(path, "Contour paths must be nonempty"))
-        largest = maximum(abs(coordinate)
-        for curve in path for t in (0, 1) for coordinate in curve(t))
+        largest = zero(T)
+        for curve in path, t in (0, 1), coordinate in curve(t)
+            largest = max(largest, abs(coordinate))
+        end
         for k in eachindex(path)
             endpoint = path[k](1)
             nextpoint = path[mod1(k + 1, length(path))](0)
