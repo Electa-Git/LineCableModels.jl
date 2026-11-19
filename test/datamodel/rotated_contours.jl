@@ -35,3 +35,20 @@ include("shape_gallery.jl")
               bound
     end
 end
+
+# No check of the ends runs where a cross-section builds its contour. Each such method
+# closes its paths, the sector's in each of its forms.
+@testset "the contour of each shape is closed" begin
+    at = Placement(0.012, -0.007, 0.4)
+    sectors = [Sector(ri, 10.0e-3, span, apex, fillet, at)
+               for (ri, span, apex, fillet) in (
+        (0, 2π, 0, 0), (4.0e-3, 2π, 0, 0), (0, 2π / 3, 0, 0), (4.0e-3, 2π / 3, 0, 0),
+        (0, 2π / 3, 1.0e-3, 0), (4.0e-3, 2π / 3, 1.0e-3, 0),
+        (0, 2π / 3, 1.0e-3, 1.0e-3), (4.0e-3, 2π / 3, 1.0e-3, 1.0e-3))]
+    @testset "$(nameof(typeof(shape)))" for shape in
+                                            [shape_gallery(); sectors;
+                                             Annulus(0, 3.0e-3, at)]
+        contour = Contour(shape)
+        @test LineCableModels.validate(contour) === contour
+    end
+end

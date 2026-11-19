@@ -38,7 +38,7 @@ Return `shape.outer` as the outer path with no holes.
 Coordinates are in \\[m\\] and angles in \\[rad\\].
 """
 function Contour(shape::ArcPolygon{T}) where {T}
-    return Contour(shape.outer, Vector{Curve{T}}[])
+    return Contour{T}(shape.outer, Vector{Curve{T}}[])
 end
 
 area(shape::ArcPolygon) = area(Contour(shape))
@@ -183,7 +183,7 @@ function Contour(rectangle::Rectangle{T}) where {T}
     w, h, at = rectangle.w, rectangle.h, rectangle.at
     points = [at((-w / 2, -h / 2)), at((w / 2, -h / 2)),
         at((w / 2, h / 2)), at((-w / 2, h / 2))]
-    return Contour(Curve{T}[Segment(points[k], points[mod1(k + 1, 4)]) for k in 1:4],
+    return Contour{T}(Curve{T}[Segment(points[k], points[mod1(k + 1, 4)]) for k in 1:4],
         Vector{Curve{T}}[])
 end
 
@@ -199,7 +199,7 @@ function Contour(circle::Circle{T}) where {T}
     c = circle.at
     outer = Curve{T}[Arc(Placement(c.x, c.y, c.φ + T(k * π / 2)), circle.r, T(π / 2))
                      for k in 0:3]
-    return Contour(outer, Vector{Curve{T}}[])
+    return Contour{T}(outer, Vector{Curve{T}}[])
 end
 
 """
@@ -210,10 +210,10 @@ the outer path and its inner radius bounds one hole. Radii and center coordinate
 Both paths start at the placement's rotation and each arc spans a quarter turn \\[rad\\].
 A zero inner radius gives the contour of a circle, with no hole.
 """
-function Contour(annulus::Annulus)
+function Contour(annulus::Annulus{T}) where {T}
     disc = Contour(Circle(annulus.ro, annulus.at))
     iszero(nominal(annulus.ri)) && return disc
-    return Contour(disc.outer, [Contour(Circle(annulus.ri, annulus.at)).outer])
+    return Contour{T}(disc.outer, [Contour(Circle(annulus.ri, annulus.at)).outer])
 end
 
 """
@@ -244,13 +244,13 @@ function Contour(sector::Sector{T}) where {T}
         if iszero(nominal(ρ))
             if iszero(nominal(sector.ri))
                 tip = c((sector.apex, zero(sector.apex)))
-                return Contour(
+                return Contour{T}(
                     Curve{T}[outer, Segment(outer(1), tip),
                         Segment(tip, outer(0))], Vector{Curve{T}}[])
             end
             γ = α - asin(g / sector.ri)
             inner = Arc(Placement(c.x, c.y, c.φ + γ), sector.ri, -2γ)
-            return Contour(
+            return Contour{T}(
                 Curve{T}[outer, Segment(outer(1), inner(0)), inner,
                     Segment(inner(1), outer(0))],
                 Vector{Curve{T}}[])
@@ -276,7 +276,7 @@ function Contour(sector::Sector{T}) where {T}
             inner = Arc(Placement(c.x, c.y, c.φ + γ), sector.ri, -2γ)
             lower_base = Arc(Placement(lower..., c.φ + π - γ),
                 ρ, γ + π / 2 - α)
-            return Contour(
+            return Contour{T}(
                 Curve{T}[outer, upper_back,
                     Segment(upper_back(1), upper_base(0)), upper_base, inner, lower_base,
                     Segment(lower_base(1), lower_back(0)), lower_back],
@@ -284,7 +284,7 @@ function Contour(sector::Sector{T}) where {T}
         end
         tip = c((sector.apex + ρ / sin(α), zero(ρ)))
         tip_arc = Arc(Placement(tip..., c.φ + α + π / 2), ρ, π - sector.span)
-        return Contour(
+        return Contour{T}(
             Curve{T}[outer, upper_back,
                 Segment(upper_back(1), tip_arc(0)), tip_arc,
                 Segment(tip_arc(1), lower_back(0)), lower_back],
@@ -301,12 +301,12 @@ function Contour(sector::Sector{T}) where {T}
         center = (c.x, c.y)
         inward = Segment(outer(1), center)
         outward = Segment(center, outer(0))
-        return Contour(Curve{T}[outer, inward, outward], Vector{Curve{T}}[])
+        return Contour{T}(Curve{T}[outer, inward, outward], Vector{Curve{T}}[])
     end
     inner = Arc(Placement(c.x, c.y, c.φ + sector.span / 2), sector.ri, -sector.span)
     inward = Segment(outer(1), inner(0))
     outward = Segment(inner(1), outer(0))
-    return Contour(Curve{T}[outer, inward, inner, outward], Vector{Curve{T}}[])
+    return Contour{T}(Curve{T}[outer, inward, inner, outward], Vector{Curve{T}}[])
 end
 
 """
@@ -317,11 +317,11 @@ in \\[rad\\]. Keep the contour of `shape.outer` and append `Contour(hole).outer`
 member of `shape.holes` to its holes. All paths run counterclockwise about the regions they
 bound.
 """
-function Contour(shape::PerforatedShape)
+function Contour(shape::PerforatedShape{T}) where {T}
     contour = Contour(shape.outer)
     holes = copy(contour.holes)
     append!(holes, [Contour(hole).outer for hole in shape.holes])
-    return Contour(contour.outer, holes)
+    return Contour{T}(contour.outer, holes)
 end
 
 """
@@ -332,7 +332,7 @@ Construct the four counterclockwise elliptic quadrants of `ellipse`,
 Semi-axes and center coordinates are in \\[m\\].
 """
 function Contour(ellipse::Ellipse{T}) where {T}
-    return Contour(
+    return Contour{T}(
         Curve{T}[EllipticArc(ellipse.at, ellipse.a, ellipse.b, T(k * π / 2),
                      T(π / 2)) for k in 0:3],
         Vector{Curve{T}}[])
@@ -346,7 +346,7 @@ Close the last edge to the first vertex. The contour has no holes.
 """
 function Contour(polygon::Polygon{T}) where {T}
     points = [polygon.at(vertex) for vertex in polygon.vertices]
-    return Contour(
+    return Contour{T}(
         Curve{T}[Segment(points[i], points[mod1(i + 1, length(points))])
                  for i in eachindex(points)],
         Vector{Curve{T}}[])

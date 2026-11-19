@@ -1090,6 +1090,9 @@ struct Contour{T <: Real}
     ends of consecutive curves meet within the [`tolerance`](@ref) of the largest absolute
     coordinate at the path's ends.
 
+    `Contour{T}(outer, holes)` does not check the paths. It takes paths that their builder
+    closes, such as the four arcs of a circle.
+
     # Errors
 
     - Throws `DomainError` if a path is empty or its ends do not meet.
@@ -1097,6 +1100,11 @@ struct Contour{T <: Real}
     function Contour(outer::Vector{Curve{T}},
             holes::Vector{Vector{Curve{T}}}) where {T <: Real}
         return validate(new{T}(outer, holes))
+    end
+    # Paths that their builder closes take no check of their ends.
+    function Contour{T}(outer::Vector{Curve{T}},
+            holes::Vector{Vector{Curve{T}}}) where {T <: Real}
+        return new{T}(outer, holes)
     end
 end
 
