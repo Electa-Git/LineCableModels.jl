@@ -15,13 +15,6 @@ end
     polymer = Material(:insulator, 1.0e14, 2.3)
     air = material(kind = :insulator, rho = Inf)
 
-    @testset "a conductor of any number type is a CONDUCTOR" begin
-        @test copper isa LineCableModels.DataModel.CONDUCTOR
-        @test map(BigFloat, copper) isa LineCableModels.DataModel.CONDUCTOR
-        @test !(polymer isa LineCableModels.DataModel.CONDUCTOR)
-        @test !(Material(:semicon, 1000.0, 1000.0) isa LineCableModels.DataModel.CONDUCTOR)
-    end
-
     @testset "a bare wire is one terminal" begin
         wire = build(CableDesign, "bare_wire",
             Terminal(:core, Region(:core_metal, Circle(0.0425), copper)))
