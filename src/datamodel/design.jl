@@ -54,12 +54,14 @@ function validate(design::CableDesign)
         throw(DomainError(covered,
             "the regions of the cable $(design.id) must cover its outline of " *
             "$outline m²: a gap or an overlap lies between its parts"))
-    conductive = [index
-                  for (index, placed) in pairs(design.regions)
-                  if placed.source.material isa Material{<:Real, :conductor}]
-    assigned = [index for row in design.terminals for index in row.regions]
+    assigned = falses(length(design.regions))
+    for row in design.terminals
+        assigned[row.regions] .= true
+    end
     loose = unique([design.regions[index].source.tag
-                    for index in setdiff(conductive, assigned)])
+                    for index in findall(!, assigned)
+                    if design.regions[index].source.material isa
+                       Material{<:Real, :conductor}])
     isempty(loose) || throw(ArgumentError(
         "the conductive regions $loose of the cable $(design.id) must lie inside a " *
         "Terminal, which names their terminal"))
