@@ -141,6 +141,26 @@ function resolve(::Union{EmptyBoundary, AbstractShape}, pattern::CircularPattern
     return pattern
 end
 
+# A course of wires with no part inside it lies about the center of the cable. One wire lies
+# on the center, and more wires touch each other at the clearance of the pattern.
+function resolve(::EmptyBoundary, pattern::CircularPattern{T, Offset{T}},
+        circle::Circle) where {T}
+    intervals = abs(nominal(pattern.span) - 2π) <= tolerance(2π) ? pattern.n :
+                pattern.n - 1
+    r = pattern.n == 1 ? zero(T) :
+        circle.r * (1 + pattern.gap_frac) / sin(pattern.span / intervals / 2)
+    return CircularPattern(pattern.n; r, φ0 = pattern.φ0, span = pattern.span,
+        gap_frac = pattern.gap_frac)
+end
+
+# A circular pattern bends a rectangular strand around the part inside it.
+function resolve(::EmptyBoundary, pattern::CircularPattern{T, Offset{T}},
+        rectangle::Rectangle) where {T}
+    throw(DomainError(rectangle.h,
+        "a rectangular strand bends around the part inside its course; " *
+        "declare that part, such as a central wire, before the rectangular strands"))
+end
+
 # The members' centers lie on the outline of the layer of the clearance plus the member's
 # radial half extent.
 function resolve(outline::AbstractShape, pattern::CircularPattern{T, Offset{T}},

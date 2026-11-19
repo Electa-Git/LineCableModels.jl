@@ -349,13 +349,13 @@ end
     @testset "stranded wires inside an ellipse" begin
         design = build(CableDesign, "elliptical_stranded",
             Terminal(:core,
-                stranded(copper; center = Circle(1.0e-3), shape = Circle(1.0e-3),
-                    n = (6,), lay = LayRatio(12), boundary = Ellipse(4.0e-3, 3.0e-3))))
+                stranded(copper; shape = Circle(1.0e-3),
+                    n = (1, 6), lay = LayRatio(12), boundary = Ellipse(4.0e-3, 3.0e-3))))
         @test only(design.terminals).regions == collect(1:7)
         @test_throws DomainError build(CableDesign, "crossing_stranded",
             Terminal(:core,
-                stranded(copper; center = Circle(1.0e-3), shape = Circle(1.0e-3),
-                    n = (6,), lay = LayRatio(12), boundary = Ellipse(4.0e-3, 2.5e-3))))
+                stranded(copper; shape = Circle(1.0e-3),
+                    n = (1, 6), lay = LayRatio(12), boundary = Ellipse(4.0e-3, 2.5e-3))))
     end
     @testset "an elliptical duct with its wall builds" begin
         air = Material(:insulator, Inf)

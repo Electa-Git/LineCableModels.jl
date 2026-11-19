@@ -97,7 +97,7 @@
         push!(cables,
             (@design "builders" begin
                 @terminal :core begin
-                    stranded(copper; center = Circle(r), shape = Circle(r), n = (6, 12),
+                    stranded(copper; shape = Circle(r), n = (1, 6, 12),
                         lay = LayRatio(13.0), boundary = Circle(5r), tag = :core)
                 end
                 screen(semicon; t = 0.8e-3, tag = :semicon_inner)

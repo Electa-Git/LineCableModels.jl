@@ -124,39 +124,44 @@ jacket(material::Material; t, tag = :jacket) = Region(tag, Offset(t), material)
 """
 $(TYPEDSIGNATURES)
 
-Declare a stranded conductor of `material` at the center of the cable. Courses of round wires
-or rectangular strands lie around a center wire, inside the outline that `boundary`
-declares. The center wire is a strand at the radius 0, straight along the axis. Each course
-lies on the course inside it, at no offset from its outline, with its own lay and the angle
-of its first member. A circular pattern bends a rectangular strand into an annular sector of
-the same area on its course. A fill takes `boundary` without the wires and sectors, and its
-region takes the name `<tag>_fill`.
+Declare a stranded conductor of `material`: courses of round wires or rectangular strands
+inside the outline that `boundary` declares. A fill takes `boundary` without the wires and
+sectors, and its region takes the name `<tag>_fill`.
+
+The first course lies on the part inside the conductor, such as a central wire, a tube or a
+filler. With no part inside, it lies about the center of the cable. A course of one wire is
+then the wire on the center, and the wires of a larger course touch each other. Each next
+course lies on the course inside it, at no offset from its outline. Each course has its own
+lay and the angle of its first member. A circular pattern bends a rectangular strand into an
+annular sector of the same area, around the part inside its course.
 
 # Keywords
 
-- `center`: cross-section of the center wire.
 - `shape`: cross-section of one strand, a circle or a rectangle.
 - `n`: number of members in each course, from the inside out.
 - `lay`: [`LayRatio`](@ref) of every course, or one per course.
-- `boundary`: container of the fill, any primitive.
+- `boundary`: container of the fill: a primitive, or an [`Offset`](@ref) from the outline of
+  the part inside the conductor.
 - `fill`: material of the fill. Default: an insulator with infinite resistivity and unit
   relative permittivity and permeability.
 - `φ0`: angle of the first member of every course \\[rad\\], or one angle per course.
   Default: `0`.
-- `tag`: name of the regions of the center wire and the courses. Default: `:stranded`.
+- `tag`: name of the regions of the courses. Default: `:stranded`.
 
 # Returns
 
-- A [`Group`](@ref) of the fill region around a [`Stack`](@ref) of the
-  [`Repeat`](@ref) of the center wire and the [`Lay`](@ref) of each course.
+- A [`Group`](@ref) of the fill region around a [`Stack`](@ref) of the [`Lay`](@ref) of
+  each course.
 
 # Errors
 
 - Throws `DimensionMismatch` when `lay` or `φ0` gives neither one value nor one per course.
 - Throws `DomainError` when a course does not fit on the course inside it, or when a wire or
   sector crosses `boundary`.
+- Throws `DomainError` when a rectangular strand has no part inside its course to bend
+  around.
 """
-function stranded(material::Material; center, shape,
+function stranded(material::Material; shape,
         n::Union{Tuple{Vararg{Integer}}, AbstractVector{<:Integer}}, lay, boundary,
         fill = Material(:insulator, Inf), φ0 = 0, tag = :stranded)
     courses = broadcast(n, lay, φ0) do count, ratio, angle
@@ -164,8 +169,7 @@ function stranded(material::Material; center, shape,
             Repeat(CircularPattern(count; r = Offset(0), φ0 = angle),
                 Region(tag, shape, material)))
     end
-    return Group(Region(Symbol(tag, "_fill"), boundary, fill),
-        Stack(Repeat(CircularPattern(1; r = 0), Region(tag, center, material)), courses...))
+    return Group(Region(Symbol(tag, "_fill"), boundary, fill), Stack(courses...))
 end
 
 """

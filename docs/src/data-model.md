@@ -112,15 +112,17 @@ one terminal. The builders below return the parts of the usual cable layers:
 - [`core`](@ref): solid conductor of radius `r`.
 - [`insulation`](@ref), [`screen`](@ref), [`sheath`](@ref), [`bedding`](@ref) and
   [`jacket`](@ref): layer of thickness `t` over the outline of the part beneath it.
-- [`stranded`](@ref): central wire and layers of round wires or rectangular strands on
-  helices, with the filler of the conductor.
+- [`stranded`](@ref): layers of round wires or rectangular strands on helices, with the
+  filler of the conductor.
 - [`wires`](@ref): one layer of round wires on a helix, placed directly over the outline
   beneath them and completed by the filler of the layer.
 - [`tape`](@ref): a tape on a helix over the outline beneath it, bent into an annular sector
   of its area.
 
 Each layer of [`stranded`](@ref) takes its own lay ratio and the angle of its first member,
-or one value for all layers. A filler completes the layer of a [`tape`](@ref).
+or one value for all layers. The first layer lies on the part inside the conductor, such as
+a central wire or a filler. With no part inside, a layer of one wire is the wire on the
+center of the cable. A filler completes the layer of a [`tape`](@ref).
 
 Build the insulated wire of the [`@design`](@ref) example and inspect its outer radius:
 
