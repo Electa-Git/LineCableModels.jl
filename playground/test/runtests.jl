@@ -63,7 +63,7 @@ root = pkgdir(Playground)
             sources = [cell.captures[1]
                        for cell in
                            eachmatch(r"```\{\.julia \.lcm-cell[^}]*\}\n(.*?)\n```"s, source)]
-            @test length(sources) == 2
+            @test length(sources) == 5
             @test [cell["source"] for cell in cells] == sources
             @test [cell["index"] for cell in cells] == 1:length(sources)
             frames = [frame.match

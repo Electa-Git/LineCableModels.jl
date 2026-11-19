@@ -4,15 +4,22 @@
 Evaluate the cells of one presentation and serve each as a Bonito app at `/cells/<n>`. Run it with
 `julia --threads=2,1 -m PlaygroundWorker <cells.json> --prefix <path>`. The file `cells.json` is the list that
 `deck.lua` writes beside the rendered presentation. The browser loads the pages of the cells and their assets
-under the path `--prefix`. Once the server listens, the worker prints `ready <port>`. It then evaluates the cells
-marked `autorun` in order and returns at the end of its input.
+under the path `--prefix`. Once the server listens, the worker prints `ready <port>` and logs the version of
+Bonito it loaded. It then evaluates the cells marked `autorun` in order and returns at the end of its input.
+
+Each browser session that asks for a cell gets its own copy of the cell, with the source of the presentation. The
+value of that copy goes to that session alone. A cell marked `autorun` runs again for the session, and the worker
+serves its page when that run ends. So a WebGL figure belongs to one session, and a reloaded frame draws its own
+figure.
 
 The worker answers 403 to the requests whose header `Playground-Secret` does not hold the value of the
 environment variable `PLAYGROUND_SECRET`.
 
 The cells run one at a time in `Main`, with the soft scope of the REPL, on the default thread pool. The page of a
 cell shows its source in an editor when `echo` is true, and a button that runs it again. Below them come its
-printed output, capped at 1 MiB, and its value or the message and trace of its error.
+printed output, capped at 1 MiB, and its value or the message and trace of its error. The page fills its frame,
+and the value takes the height that the editor, the button and the output leave. A run keeps the previous value
+until it ends.
 """
 module PlaygroundWorker
 
@@ -46,12 +53,15 @@ function Bonito.jsrender(session::Session, cell::Cell)
         Asset(joinpath(assets, "code-theme.css")),
         Asset(joinpath(assets, "control-contract.css")),
         DOM.script(read(joinpath(@__DIR__, "lifecycle.js"), String)),
+        DOM.style("body { margin: 0; }"),
         cell.echo ? editor : DOM.span(),
-        button,
-        DOM.pre(cell.output),
-        cell.value;
+        DOM.div(button),
+        DOM.pre(cell.output; style = "margin: 0"),
+        DOM.div(cell.value;
+            style = "display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); flex: 1 1 0; min-height: 0");
         class = "lc-widget-shell",
-        style = "background: var(--lc-bg); color: var(--lc-text)"
+        style = "display: flex; flex-direction: column; gap: 8px; height: 100vh; box-sizing: border-box; " *
+                "padding: 8px; background: var(--lc-bg); color: var(--lc-text)"
     )
     return Bonito.jsrender(session, shell)
 end
@@ -70,7 +80,7 @@ function (@main)(arguments)
     end
     cells = [Cell(entry["source"], entry["autorun"], entry["echo"])
              for entry in JSON.parsefile(arguments[1])]
-    log = open(Libc.dup(RawFD(2)))
+    log = Base.Filesystem.File(Libc.dup(RawFD(2)))
     Base.CoreLogging.global_logger(Base.CoreLogging.ConsoleLogger(log))
     secret = ENV["PLAYGROUND_SECRET"]
     server = Bonito.Server("127.0.0.1", 0; proxy_url = prefix,
@@ -78,16 +88,27 @@ function (@main)(arguments)
                              Bonito.HTTPServer.delegate(context) : HTTP.Response(403))
     queue = Channel{Pair{Int, Cell}}(Inf)
     for (index, cell) in enumerate(cells)
-        route!(server, "/cells/$index" => App(cell; title = "Julia cell $index"))
         on(cell.source) do _
             put!(queue, index => cell)
         end
+        route!(server,
+            "/cells/$index" => App(; title = "Julia cell $index") do
+                shown = Cell(cell.source[], cell.autorun, cell.echo)
+                on(_ -> put!(queue, index => shown), shown.source)
+                if shown.autorun
+                    ran = Base.Event()
+                    on(_ -> notify(ran), shown.value)
+                    notify(shown.source)
+                    wait(ran)
+                end
+                return shown
+            end)
     end
+    @info "Bonito $(pkgversion(Bonito))"
     println("ready ", server.port)
     flush(stdout)
     Threads.@spawn :default for (index, cell) in queue
         cell.output[] = ""
-        cell.value[] = DOM.span()
         pipe = Pipe()
         forwarding = @async begin
             printed = 0

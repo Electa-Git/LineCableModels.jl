@@ -10,10 +10,17 @@ playground = normpath(root, "..")
     run(pipeline(`$(quarto()) render $(joinpath(specimen, "index.qmd")) -M engine:markdown`; stdout = devnull))
     lists = [joinpath(@__DIR__, "fixtures", "cells.json"),
         joinpath(playground, "_site", "presentations", "specimen", "cells.json")]
-    command = `$(Base.julia_cmd()) --threads=2,1 --project=$root -m PlaygroundWorker`
     secret = ["Playground-Secret" => "a secret of the test"]
-    workers = [open(addenv(`$command $list --prefix /live`, "PLAYGROUND_SECRET" => secret[1][2]), "r+")
-               for list in lists]
+    logs = [Pipe() for list in lists]
+    workers = [open(
+                   pipeline(
+                       addenv(
+                           `$(Base.julia_cmd()) --threads=2,1 --project=$project -m PlaygroundWorker $list --prefix /live`,
+                           "JULIA_LOAD_PATH" => "@:$root:@stdlib", "PLAYGROUND_SECRET" => secret[1][2]);
+                       stderr = log),
+                   "r+") for (project, list, log) in zip([root, specimen], lists, logs)]
+    foreach(log -> close(log.in), logs)
+    printed = [@async(read(log, String)) for log in logs]
     try
         addresses = [replace(readline(worker), "ready " => "http://127.0.0.1:")
                      for worker in workers]
@@ -37,6 +44,24 @@ playground = normpath(root, "..")
             @test occursin("cell 3:2", pages[3])
             @test !occursin("PlaygroundWorker.jl", pages[3])
         end
+        @testset "a second session runs the cell again" begin
+            @test occursin(r"<span class=\"text-plain\"[^>]*>7</span>",
+                String(HTTP.get("$fixture/cells/2", secret).body))
+        end
+        @testset "the specimen's plot is a figure of each session's own" begin
+            plots = [String(HTTP.get("$presentation/cells/4", secret).body)
+                     for session in 1:2]
+            @test all(page -> occursin("Earth resistivity ρ", page), plots)
+            @test all(page -> occursin("WGLMakie", page), plots)
+            @test !any(page -> occursin("--lc-danger", page), plots)
+        end
+        @testset "each session gets a canvas probe of its own" begin
+            probes = [String(HTTP.get("$presentation/cells/5", secret).body)
+                      for session in 1:2]
+            found = [match(r"data-session-id=\"([^\"]+)\"", page) for page in probes]
+            @test all(session -> session !== nothing, found)
+            @test found[1].captures[1] != found[2].captures[1]
+        end
         @testset "the specimen's first cell is a page of the deck's live frame" begin
             page = String(HTTP.get("$presentation/cells/1", secret).body)
             @test occursin("lc-widget-shell", page)
@@ -56,5 +81,8 @@ playground = normpath(root, "..")
     end
     @testset "the worker returns at the end of its input" begin
         @test all(success, workers)
+    end
+    @testset "the worker logs the version of Bonito it loaded" begin
+        @test all(log -> occursin(r"Bonito \d+\.\d+\.\d+", fetch(log)), printed)
     end
 end
