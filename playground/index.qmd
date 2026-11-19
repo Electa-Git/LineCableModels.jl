@@ -18,19 +18,23 @@ format:
 
 ```{=html}
 <script>
-// Each card shows the state of its presentation's Julia process, as the playground's server answers it.
+// The card of each presentation with cells shows the state of its Julia process, as the playground's server answers
+// it. A presentation without cells starts no process, and its card shows no state.
 (() => {
+  const cells = {};
   const update = async () => {
     try {
       const states = await (await fetch('/api/presentations')).json();
-      document.querySelectorAll('a.quarto-grid-link').forEach(link => {
+      for (const link of document.querySelectorAll('a.quarto-grid-link')) {
         const name = link.getAttribute('href').match(/presentations\/([^/]+)\//)?.[1];
         const body = link.querySelector('.card-body');
-        if (!states[name] || !body) return;
+        if (!states[name] || !body) continue;
+        cells[name] ??= (await (await fetch('presentations/' + name + '/cells.json')).json()).length;
+        if (!cells[name]) continue;
         const mark = body.querySelector('output') ?? body.appendChild(document.createElement('output'));
         mark.dataset.state = states[name].state;
         mark.textContent = 'Julia ' + states[name].state;
-      });
+      }
     } catch (_) { /* Without the playground's server, the cards do not show a state. */ }
   };
   update();

@@ -31,7 +31,8 @@ format: lcm-deck-revealjs
 
 The landing page shows the `title`, `subtitle`, `description` and `image` of
 each presentation's front matter. Quarto takes the description and the image
-of a presentation from its front matter only, and each presentation states both.
+of a presentation from its front matter only, and each presentation states both. The
+card of a presentation with cells also shows the state of its Julia process.
 
 Start each slide with a level-two heading, and nest no slide inside another.
 Below each heading, put one named layout with the exact number of direct
@@ -225,3 +226,41 @@ refuses the requests without the secret, so that a page of another site cannot
 reach the port where the cells run.
 
 A process ends when the server ends.
+
+## The browser gate
+
+`test/browser/run-presentation.sh` checks the specimen in Chrome, which Node 24
+drives through the DevTools protocol. The script renders the project and starts
+`Playground` on port 18094. Then it starts a headless Chrome whose DevTools
+listen on port 19334, and `test/browser/presentation_browser.mjs` checks these
+points in it.
+
+- The incremental lists of the starter and the specimen, forward, back and in print.
+- The landing page, with the state of the process of each presentation that has cells.
+- The theme saved by an earlier visit, the home link and the Tools menu.
+- The geometry of the six layouts at 1280 × 720, 1920 × 1080, 1280 × 1024, 1366 × 768 and 2560 × 1080.
+- The equation notes in both themes, by clicks and by keys (`math_notes_browser.mjs`).
+- The arrow keys of a focused range control, and `L` outside it.
+- A frame that keeps its Bonito session across slides and through the overview.
+- The overview and the PDF preview, opened by real clicks in the menu.
+- Exact clicks on the canvas probe at two display sizes, and the laser over the frame.
+- A change of theme, in the deck and in the frame.
+- A cell that runs with the definitions of the cell before it, and the slider that draws the plot again.
+- `kill -9` of the specimen's process, the slides that still turn, and the restart.
+- The PDF preview, `?view=print`, `?print-pdf` and the speaker view's `?receiver`, with each cell's source in place of its frame.
+
+Chrome prints two PDFs, one of the slides and one of the PDF preview. Each
+has nine pages and, in place of each cell's frame, the first line of the
+cell's source.
+
+From the folder that holds `playground/`:
+
+```sh
+playground/test/browser/run-presentation.sh
+```
+
+The script exits 0 when every check passes. `LCM_PRESENTATION_TEST_PORT` and
+`LCM_PRESENTATION_DEBUG_PORT` set the two ports, and `LCM_BROWSER` names the
+browser. The temporary files go under `TMPDIR`. Chrome puts its socket there
+too, and a long `TMPDIR` makes it fail with "Socket path too long". The first
+start of the specimen's process loads WGLMakie, which takes about a minute.
