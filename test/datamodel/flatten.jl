@@ -133,6 +133,82 @@ using LineCableModels.Commons: tolerance
         @test log(7.5e-3) - region.material.mu_r / 4 ≈ log_g
     end
 
+    # The core of a Milliken cable is one group around seven groups of wires. One group is
+    # the round center, and six are segments. The wires of a segment lie on two arcs about
+    # the center of the cable, inside a wedge. A binder of paper lies around the segments.
+    @testset "the groups inside a group associate once each, then together" begin
+        paper = Material(:insulator, 1.0e12, 3.5)
+        a = 1.0e-3
+        center = stranded(copper; shape = Circle(a), n = (1, 6), lay = LayRatio(12),
+            boundary = Circle(3a), fill = air, tag = :center)
+        arcs = [Lay(Helix(LayRatio(14)),
+                    Repeat(CircularPattern(n; r, φ0 = -φ, span = 2φ),
+                        Region(:segment_wires, Circle(a), copper)))
+                for (n, r, φ) in ((2, 4.7e-3, 0.25), (3, 6.7e-3, 0.33))]
+        wedge = LineCableModels.Sector(
+            3.5e-3, 7.7e-3, deg2rad(58), 0, 0.5e-3, Placement(0, 0))
+        segment = Group(Region(:segment_fill, wedge, air), Stack(arcs...))
+        design = build(CableDesign, "milliken",
+            Terminal(:core,
+                Group(Region(:core_fill, Circle(7.9e-3), paper),
+                    Stack(center, Repeat(CircularPattern(6; r = 0), segment)))),
+            Region(:insulation, Offset(10.0e-3), polymer))
+        @test [(row.name, length(row.regions)) for row in design.terminals] == [(:core, 37)]
+        core, binder, insulation = flatten(design.tree).items
+        region = core.part.part
+        @test [r_in(region.primitive), r_ex(region.primitive)] ≈ [0, 7.7e-3]
+        @test (binder.tag, binder.material) == (:core_fill, paper)
+        @test [r_in(binder.primitive), r_ex(binder.primitive)] ≈ [7.7e-3, 7.9e-3]
+        # The 7 wires of the center come first, then the 5 wires of each segment. Equal
+        # wires have conductances in the inverse ratio of their overlengths.
+        wires = [placed.shape
+                 for placed in design.regions
+                 if placed.source.material === copper]
+        members = [[1:7]; [(8 + 5k):(12 + 5k) for k in 0:5]]
+        G = [1; fill(inv(hypot(1, π / 12)), 6); fill(inv(hypot(1, π / 14)), 30)]
+        R = copper.rho / (π * a^2 * sum(G))
+        @test region.material.rho / area(region.primitive) ≈ R rtol = 1e-12
+        # The geometric mean distance of two members weighs the distances between their
+        # wires by the shares of the wires in each member. A member with itself gives its
+        # geometric mean radius: one value for the center and one for the six segments.
+        function mutual(A, B)
+            return sum(G[i] * G[j] *
+                       log(i == j ? gmr(wires[i], 1.0) :
+                           hypot((centroid(wires[i]) .- centroid(wires[j]))...))
+            for i in A, j in B) / (sum(G[A]) * sum(G[B]))
+        end
+        own = [mutual(members[1], members[1]); fill(mutual(members[2], members[2]), 6)]
+        w = [sum(G[A]) for A in members] ./ sum(G)
+        log_g = sum(w .^ 2 .* own) +
+                2sum(w[k] * w[l] * mutual(members[k], members[l])
+        for k in 1:7 for l in (k + 1):7)
+        @test log(gmr(region.primitive, region.material.mu_r)) ≈ log_g rtol = 1e-12
+        # A wire at the radius r of a course of lay ratio q makes 1 / (2 r q) turns per
+        # unit length.
+        turns = [0; fill(inv(2 * 2a * 12), 6);
+                 repeat([fill(inv(2 * 4.7e-3 * 14), 2); fill(inv(2 * 6.7e-3 * 14), 3)], 6)]
+        N = sum(G .* turns) / sum(G)
+        @test core.part.helix.dir / pitch(core.part.helix, 7.7e-3) ≈ N rtol = 1e-12
+        # The core computes as the solid conductor of that resistance, that geometric mean
+        # radius and those turns does.
+        solid = build(CableDesign, "solid",
+            Terminal(:core,
+                Lay(Helix(LayRatio(1 / (2 * 7.7e-3 * N))),
+                    Region(:core, Circle(7.7e-3), R, exp(log_g), 20, copper.alpha))),
+            Region(:core_fill, Offset(0.2e-3), paper),
+            Region(:insulation, Offset(10.0e-3), polymer))
+        results = map((design, solid)) do cable
+            system = build(CableSystem, [cable], [Placement(0.0, -1.0)];
+                connections = [(core = 1,)], id = cable.id, line_length = 1.0)
+            return compute(
+                LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+                    frequencies = [50.0, 1.0e4]),
+                CoaxialFormulation())
+        end
+        @test first(results).Z ≈ last(results).Z rtol = 1e-12
+        @test first(results).Y ≈ last(results).Y rtol = 1e-12
+    end
+
     @testset "a terminal with its conductor and its dielectric layers" begin
         # A layer declared inside the terminal is the layer declared after it.
         bar = Region(:bar, Rectangle(10e-3, 5e-3), copper)
