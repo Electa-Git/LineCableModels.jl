@@ -63,7 +63,7 @@ prepositions = ["at"]
 
 [global.verbs]
 validate = "check an input, a computed medium or a result before its consumer uses it; return it unchanged, or throw; warn once where it is computable but questionable"
-resolve = "give a declared part or layer its geometry in its context, place a shape in a frame, or list the placed regions, the table rows or the strands of a resolved part, or the rows of the coaxial input of a flattened part"
+resolve = "give a declaration what its context determines: a declared part or layer its geometry against the outline inside it, a shape its place in a frame, a resolved part its rows in the tables of its design and its strands under a terminal, and a flattened part its rows in the coaxial input"
 build = "construct a completed object of a type from its declarations"
 compute = "run one computation of a problem by a formulation, on the backend that runs it"
 select = "fit a user's selection to the slot or option key it fills, lifting a Symbol to its type"
@@ -94,7 +94,7 @@ qualifiers = ["circular", "empty", "perforated", "stranded",
 symbols = ["ri", "ro", "w", "h", "t", "n", "gap_frac", "dir"]
 
 [modules.DataModel.verbs]
-flatten = "reduce a cable design to the flattened stack of its resolved parts, a stack to one region per terminal and per dielectric layer, around the flattened members of its enclosures and assemblies, a terminal to one region with the material that stands for its metal, under the lay that keeps the turns of its current, outside the part inside it, or the outline of a conductor to the cross-section of that region"
+flatten = "reduce a part to the part that the coaxial model reads, in the same nodes: a design to the flattened stack of its resolved parts; a stack to one region per terminal and per dielectric layer; a terminal to one region with the material that stands for its metal, under the lay that keeps the turns of its current; an enclosure, an assembly or a repeat to itself around its flattened contents; and the outline of a conductor to the cross-section of that one region"
 
 [modules.Engine]
 nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resistivity",
@@ -151,7 +151,7 @@ lifts = ["select"]
 
 [register.Commons.public]
 validate = "check an input, a computed medium or a result before its consumer uses it; return it unchanged, or throw; warn once where it is computable but questionable"
-resolve = "give a declared part or layer its geometry in its context, place a shape in a frame, or list the placed regions, the table rows or the strands of a resolved part, or the rows of the coaxial input of a flattened part"
+resolve = "give a declaration what its context determines: a declared part or layer its geometry against the outline inside it, a shape its place in a frame, a resolved part its rows in the tables of its design and its strands under a terminal, and a flattened part its rows in the coaxial input"
 build = "construct a completed object of a type from its declarations"
 compute = "run one computation of a problem by a formulation, on the backend that runs it"
 select = "fit a user's selection to the slot or option key it fills, lifting a Symbol to its type"
@@ -213,7 +213,7 @@ CablePart = "a declared region with its resolved cross-section, the leaf of a re
 Assembly = "sub-cables of different parts, each at its placement in the frame of the part that encloses them"
 CableDesign = "a cable described: its resolved parts, its placed regions and the tables of its terminals and repeats"
 CableSystem = "the cables of a line in one cross-section, placed, with the conductor index of each terminal"
-flatten = "of a cable design, the flattened stack of its resolved parts; of a stack, the stack of its flattened terminals and layers, with its enclosures and assemblies around their flattened members; of an enclosure, an assembly or a repeat, the same node around its flattened contents, members or part, each a stack in its own frame; of a terminal and the outline of the part inside it, the terminal over one region of the equivalent material, under a lay that keeps the turns of its current per unit length; of a terminal over one region or over the lay of one, itself; of the outline of a conductor, the outline of the part inside it and its metal, the cross-section of that one region: a circle or an annulus inside a round outline, and any other outline itself"
+flatten = "reduce a part to the part that the coaxial model reads, in the same nodes: a design to the flattened stack of its resolved parts; a stack to one region per terminal and per dielectric layer; a terminal to one region with the material that stands for its metal, under the lay that keeps the turns of its current; an enclosure, an assembly or a repeat to itself around its flattened contents; and the outline of a conductor to the cross-section of that one region"
 "@design" = "the cable design built from the parts of a block, from the inside out"
 "@terminal" = "the terminal of a name around the parts of a block"
 core = "a solid round conductor at the center of a cable"

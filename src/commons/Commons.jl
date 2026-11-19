@@ -33,9 +33,11 @@ function validate end
 """
     resolve(context, declaration)
 
-Return the geometry that `declaration` takes in `context`. The outline of a part gives its
-geometry to the layer or part declared around it, and a placement locates a cross-section in
-its frame. A resolved part lists its placed regions and the rows of its tables.
+Give `declaration` what `context` determines. A declared part or layer takes its geometry
+against the outline of the part inside it, and a placement locates a cross-section in its
+frame. The tables of a design take their rows from its resolved parts, and a terminal takes
+the conductive regions of its resolved part. The coaxial input takes its rows from a
+flattened part.
 """
 function resolve end
 
