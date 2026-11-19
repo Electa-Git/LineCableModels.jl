@@ -110,15 +110,16 @@ Lengths are in \\[m\\], angles in \\[rad\\], and the tolerance is that of a circ
 """
 function Base.isdisjoint(B::AbstractShape, hole::AbstractShape)
     content = Contour(B)
+    outline = Contour(hole)
     directions = [atan(-(edge.q[1] - edge.p[1]), edge.q[2] - edge.p[2])
-                  for edge in Contour(hole).outer if edge isa Segment]
+                  for edge in outline.outer if edge isa Segment]
     append!(directions,
         [atan(-(edge.q[1] - edge.p[1]), edge.q[2] - edge.p[2]) + π
          for edge in content.outer if edge isa Segment])
     apart = false
     for ψ in directions
         radius = support(content, ψ + π)
-        apart |= nominal(support(hole, ψ)) <= -nominal(radius) + tolerance(radius)
+        apart |= nominal(support(outline, ψ)) <= -nominal(radius) + tolerance(radius)
     end
     return apart
 end
