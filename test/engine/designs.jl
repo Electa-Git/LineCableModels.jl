@@ -653,4 +653,41 @@
             @test [input.dielectric_r_in[f], input.dielectric_r_ex[f]] ≈ [0, 30.0e-3] rtol = 1e-12
         end
     end
+
+    # A flexible cable has three phase cores that touch each other and three earth cores in
+    # the gaps between them. One filler and one jacket lie around the six cores, and no
+    # metallic layer.
+    @testset "the cores of one jacket compute as cables of their own at their places" begin
+        pvc = Material(:insulator, 1.0e13, 4.0)
+        phase = Stack(core(copper; r = 1.5e-3), insulation(pvc; t = 0.8e-3))
+        earth = Stack(core(copper; r = 0.4e-3), insulation(pvc; t = 0.3e-3))
+        r, g = 2.3e-3 / sinpi(1 / 3), 3.6e-3
+        members = [Placement(d * cospi(θ), d * sinpi(θ)) => Terminal(name, part)
+                   for (name, part, d, θ) in (
+            (:a, phase, r, 0), (:b, phase, r, 2 / 3), (:c, phase, r, 4 / 3),
+            (:e1, earth, g, 1 / 3), (:e2, earth, g, 1), (:e3, earth, g, 5 / 3))]
+        cable = build(CableDesign, "flexible",
+            duct(pvc; shape = Circle(5.5e-3), contents = Assembly(Tuple(members))),
+            jacket(pvc; t = 1.5e-3))
+        @test [row.name for row in cable.terminals] == [:a, :b, :c, :e1, :e2, :e3]
+        at = Placement(0.0, -1.0)
+        whole = build(CableSystem, [cable], [at];
+            connections = [(a = 1, b = 2, c = 3, e1 = 4, e2 = 5, e3 = 6)], id = "whole",
+            line_length = 1.0)
+        apart = build(CableSystem,
+            [build(CableDesign, String(member.name), member) for (place, member) in members],
+            [at * place for (place, member) in members];
+            connections = [NamedTuple{(member.name,)}((k,))
+                           for (k, (place, member)) in enumerate(members)],
+            id = "apart", line_length = 1.0)
+        results = map((whole, apart)) do system
+            return compute(
+                LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+                    frequencies = [50.0, 1.0e4]),
+                CoaxialFormulation())
+        end
+        @test size(first(results).Z) == (6, 6, 2)
+        @test first(results).Z ≈ last(results).Z rtol = 1e-12
+        @test first(results).Y ≈ last(results).Y rtol = 1e-12
+    end
 end
