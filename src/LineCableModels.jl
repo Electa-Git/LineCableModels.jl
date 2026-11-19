@@ -32,9 +32,10 @@ using .DataModel: AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle,
                   AbstractCablePart, Region,
                   Stack, Terminal, Repeat, Lay, Group, Enclosure, Assembly, CablePart,
                   CableDesign,
-                  CableSystem, flatten, @design, @terminal, core, insulation, screen,
+                  CableSystem, flatten, @design, @terminal, @at, @assembly, @system, core,
+                  solid, filler, insulation, screen,
                   sheath, bedding,
-                  jacket, stranded, wires, tape, trefoil, flat
+                  jacket, stranded, rope, wires, tape, cores, duct, trefoil, flat
 using .Engine: ε₀, μ₀, AbstractInternalImpedance,
                AbstractInsulationImpedance, AbstractInsulationAdmittance,
                AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt,
@@ -58,8 +59,8 @@ export area, perimeter, centroid, support, distance, boundary, r_in, r_ex, place
 export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Group, Enclosure, Assembly,
        CableDesign,
        CableSystem, build
-export @design, @terminal, core, insulation, screen, sheath, bedding, jacket, stranded,
-       wires, tape, trefoil, flat
+export @design, @terminal, @at, @assembly, @system, core, solid, filler, insulation, screen,
+       sheath, bedding, jacket, stranded, rope, wires, tape, cores, duct, trefoil, flat
 public Commons, Materials, Earth, DataModel, validate, resolve, Sector, Ellipse, Polygon,
        PerforatedShape, ArcPolygon
 public CablePart, flatten, istangent

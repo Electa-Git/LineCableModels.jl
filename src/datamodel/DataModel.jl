@@ -4,9 +4,9 @@
 Describe the cross-section of a cable. Its declared parts build a design, which holds the
 resolved parts, the placed regions and the tables of its terminals and repeats. Designs
 placed in one cross-section of a line, with the conductor index of each terminal, build a
-system. The macros [`@design`](@ref) and [`@terminal`](@ref) and the builders of the layers,
-the stranded conductor, the courses of wires and the tapes declare the parts of a cable. The
-formations return the placements of the cables of a system.
+system. The macros [`@design`](@ref) and [`@terminal`](@ref) and the builders declare the
+parts of a cable, and [`@assembly`](@ref) places sub-cables in it. The formations return the
+placements of the cables of a system, and [`@system`](@ref) builds it.
 """
 module DataModel
 
@@ -32,8 +32,8 @@ export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Group, Enclosure
 export CablePart, CableDesign, CableSystem
 export flatten
 public gmr, CONDUCTOR
-export @design, @terminal, core, insulation, screen, sheath, bedding, jacket, stranded,
-       wires, tape, trefoil, flat
+export @design, @terminal, @at, @assembly, @system, core, solid, filler, insulation, screen,
+       sheath, bedding, jacket, stranded, rope, wires, tape, cores, duct, trefoil, flat
 
 include("geometry.jl")
 include("contour.jl")

@@ -216,6 +216,123 @@
         for input in inputs[2:3])
     end
 
+    @testset "a tube around a filler, a sector and a pipe" begin
+        oil = Material(:insulator, 1.0e12, 2.2)
+        @test solid(copper; shape = Offset(5.0e-3)) == Region(:core, Offset(5.0e-3), copper)
+        @test filler(oil; shape = Circle(5.0e-3)) == Region(:filler, Circle(5.0e-3), oil)
+        hollow = @design "hollow" begin
+            filler(oil; shape = Circle(5.0e-3))
+            @terminal :core begin
+                solid(copper; shape = Offset(5.0e-3))
+                insulation(polymer; t = 8.0e-3)
+            end
+        end
+        input = coaxial_input(hollow)
+        @test [only(input.r_in), only(input.r_ex)] ≈ [5.0e-3, 10.0e-3]
+        @test [only(input.dielectric_r_in), only(input.dielectric_r_ex)] ≈
+              [10.0e-3, 18.0e-3]
+
+        # The sector cable and the pipe of the references, declared with the builders.
+        designs = Dict(first(case) => first(last(case).system.designs)
+        for case in REFERENCES)
+        aluminum = Material(:conductor, 2.8264e-8, 1, 1, 20, 0.00429)
+        pvc = Material(:insulator, Inf, 8.0)
+        t = 1.1e-3
+        sector = LineCableModels.Sector(
+            0, 10.24e-3, deg2rad(119.0), t / sind(60), 1.02e-3, Placement(0, 0))
+        single = @design "insulated_sector" begin
+            @terminal :core begin
+                solid(aluminum; shape = sector)
+                insulation(pvc; t, tag = :core_insulation)
+            end
+            jacket(pvc; t = 3.0e-3)
+        end
+        reference = designs["one_insulated_sector"]
+        @test single.regions == reference.regions
+        @test single.terminals == reference.terminals
+
+        pe = material(kind = :insulator, rho = 1.0e15, eps_r = 2.3)
+        xlpe = material(kind = :insulator, rho = 1.97e14, eps_r = 2.5, tan_delta = 1.0e-3)
+        pipe_aluminum = Material(:conductor, 3.365e-8, 1, 1, 20, 0.00429)
+        pipe_steel = Material(:conductor, 7.0e-8, 1, 10, 20, 0.0045)
+        at = Placement(2 * 28.0e-3 / sqrt(3), 0.0)
+        function round_core(name)
+            return Stack(
+                Terminal(name, solid(pipe_aluminum; shape = Circle(19.5e-3, at), tag = name)),
+                insulation(xlpe; t = 8.5e-3, tag = Symbol(name, :_insulation)))
+        end
+        pipe = @design "pipe_type_3x1000" begin
+            duct(xlpe; shape = Circle(62.0e-3), tag = :filler,
+                contents = @assembly begin
+                    @at round_core(:a) (0.0, 0.0, 0.0)
+                    @at round_core(:b) (0.0, 0.0, 2π / 3)
+                    @at round_core(:c) (0.0, 0.0, 4π / 3)
+                end)
+            Terminal(:pipe, sheath(pipe_steel; t = 3.0e-3, tag = :pipe))
+            jacket(pe; t = 5.0e-3)
+        end
+        reference = designs["three_cores_steel_pipe"]
+        @test pipe.tree == reference.tree
+        @test pipe.regions == reference.regions
+        @test pipe.terminals == reference.terminals
+    end
+
+    @testset "equal cores under a name each, and a rope" begin
+        # The cores on a circle are conductors of their own, each with its insulation.
+        member = @terminal :core begin
+            core(copper; r = 5.0e-3)
+            insulation(polymer; t = 3.0e-3)
+        end
+        r = 9.3e-3
+        trio = cores(member; r, names = (:a, :b, :c))
+        @test trio.members[1] == (Placement(r, 0.0, 0.0) => Terminal(:a, member.part))
+        @test [first(pair).φ for pair in trio.members] ≈ [0, 2π / 3, 4π / 3]
+        @test [last(pair).name for pair in trio.members] == [:a, :b, :c]
+        design = @design "three_cores" begin
+            duct(polymer; shape = Circle(20.0e-3), contents = trio)
+            jacket(polymer; t = 2.0e-3)
+        end
+        @test [(row.name, length(row.regions)) for row in design.terminals] ==
+              [(:a, 1), (:b, 1), (:c, 1)]
+        input = coaxial_input(design)
+        @test input.label == ["cable:1:a", "cable:1:b", "cable:1:c"]
+        # A rope of seven members of seven wires: one member on the center and six around it.
+        strand = stranded(copper; shape = Circle(1.5e-3), n = (1, 6), lay = LayRatio(12),
+            boundary = Circle(4.5e-3))
+        laid = rope(strand; n = (1, 6), lay = LayRatio(14), boundary = Circle(13.5e-3))
+        @test laid == Group(Region(:rope_fill, Circle(13.5e-3), Material(:insulator, Inf)),
+            Stack(
+                Lay(Helix(LayRatio(14)),
+                    Repeat(CircularPattern(1; r = Offset(0)), strand)),
+                Lay(Helix(LayRatio(14)),
+                    Repeat(CircularPattern(6; r = Offset(0)), strand))))
+        roped = build(CableDesign, "rope", Terminal(:core, laid),
+            Region(:insulation, Offset(4.0e-3), polymer))
+        @test only(roped.terminals).name == :core
+        @test length(only(roped.terminals).regions) == 49
+        @test r_ex(roped.outer) ≈ 17.5e-3
+    end
+
+    @testset "a system from the cables of a block" begin
+        wire = @design "insulated_wire" begin
+            @terminal :core begin
+                core(copper; r = 0.0425)
+                insulation(polymer; t = 1.0e-3)
+            end
+        end
+        system = @system "pair" line_length = 1000.0 begin
+            @at wire (0.0, -1.0) core = 1
+            @at wire (0.1, -1.0) core = 2
+        end
+        reference = build(CableSystem, [wire, wire],
+            [Placement(0.0, -1.0), Placement(0.1, -1.0)];
+            connections = [(core = 1,), (core = 2,)], id = "pair", line_length = 1000.0)
+        @test (system.id, system.line_length, system.placements) ==
+              (reference.id, reference.line_length, reference.placements)
+        @test system.regions == reference.regions
+        @test system.terminals == reference.terminals
+    end
+
     @testset "a tape alone and the courses of a stranded core" begin
         taped = @design "taped_wire" begin
             @terminal :core begin

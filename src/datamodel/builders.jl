@@ -58,6 +58,108 @@ macro terminal(name, block)
 end
 
 """
+    @at part (x, y)
+    @at part (x, y, φ)
+    @at design (x, y) name = index ...
+
+Place `part` at the coordinates `x` and `y` \\[m\\], turned by the angle `φ` \\[rad\\], in
+the frame of the assembly that lists it, as `Placement(x, y, φ) => part` does. In a
+[`@system`](@ref) block, the placed design is a cable of the system, and each `name = index`
+gives the conductor index of one of its terminals.
+
+# Arguments
+
+- `part`: member of an assembly, or design of a cable of a system.
+- `(x, y)` or `(x, y, φ)`: coordinates \\[m\\] and angle \\[rad\\] of its
+  [`Placement`](@ref).
+- `name = index`: conductor index of the terminal `name` of the design, as
+  [`build`](@ref)`(CableSystem, …)` takes it in a connection.
+
+# Returns
+
+- The pair of the [`Placement`](@ref) and the part. With conductor indices, the pair of
+  that pair and the connection.
+"""
+macro at(part, coordinates)
+    return :($Placement($(map(esc, coordinates.args)...)) => $(esc(part)))
+end
+macro at(design, coordinates, connection...)
+    indices = [Expr(:kw, line.args[1], esc(line.args[2])) for line in connection]
+    return :(($Placement($(map(
+        esc, coordinates.args)...)) => $(esc(design))) => $(Expr(:tuple, Expr(:parameters, indices...))))
+end
+
+"""
+    @assembly begin
+        members...
+    end
+
+Place the members of the block in the frame of the part that encloses them, as
+[`Assembly`](@ref) does. Each line of the block is one member, placed with [`@at`](@ref).
+
+# Arguments
+
+- `members`: pairs of a [`Placement`](@ref) and a part, each on its own line of the block.
+
+# Returns
+
+- An [`Assembly`](@ref).
+"""
+macro assembly(block)
+    members = [esc(member) for member in block.args if !(member isa LineNumberNode)]
+    return :($Assembly(($(members...),)))
+end
+
+"""
+    @system id line_length = value begin
+        cables...
+    end
+
+Build the system `id` of the cables of a line, as [`build`](@ref)`(CableSystem, …)` does.
+Each line of the block is one cable: a design placed with [`@at`](@ref), with the conductor
+index of each of its terminals.
+
+# Arguments
+
+- `id`: name of the system.
+- `line_length`: length of the line \\[m\\].
+- `cables`: the cables, each on its own line of the block.
+
+# Returns
+
+- A [`CableSystem`](@ref).
+
+# Examples
+
+```jldoctest
+copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+wire = @design "bare_wire" begin
+    @terminal :core begin
+        core(copper; r = 4.0e-3) # [m]
+    end
+end
+pair = @system "pair" line_length = 1000.0 begin
+    @at wire (0.0, -1.0) core = 1
+    @at wire (0.1, -1.0) core = 2
+end
+@assert [row.connection for row in pair.terminals] == [1, 2]
+# output
+```
+"""
+macro system(id, line_length, block)
+    lines = [esc(line) for line in block.args if !(line isa LineNumberNode)]
+    keyword = Expr(:kw, line_length.args[1], esc(line_length.args[2]))
+    return quote
+        let cables = ($(lines...),)
+            $build($CableSystem, [cable.first.second for cable in cables],
+                [cable.first.first for cable in cables];
+                connections = [cable.second for cable in cables], id = $(esc(id)),
+                $keyword)
+        end
+    end
+end
+
+"""
 $(TYPEDSIGNATURES)
 
 Declare a solid round conductor of `material` at the center of the cable.
@@ -72,6 +174,59 @@ Declare a solid round conductor of `material` at the center of the cable.
 - A [`Region`](@ref) with a [`Circle`](@ref) of radius `r`.
 """
 core(material::Material; r, tag = :core) = Region(tag, Circle(r), material)
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare a solid conductor of `material` in the cross-section `shape`, such as a sector or a
+tube around a filler.
+
+# Keywords
+
+- `shape`: cross-section of the conductor: a primitive, or an [`Offset`](@ref) from the
+  outline of the part inside it.
+- `tag`: name of the region. Default: `:core`.
+
+# Returns
+
+- A [`Region`](@ref) of `material` in `shape`.
+"""
+solid(material::Material; shape, tag = :core) = Region(tag, shape, material)
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare a filler of `material` in the cross-section `shape`, such as the oil duct at the
+center of a hollow conductor. It takes the keywords of [`solid`](@ref), with the default tag
+`:filler`.
+"""
+filler(material::Material; shape, tag = :filler) = Region(tag, shape, material)
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare a duct: the container `shape`, filled with `material` around the sub-cables inside
+it. A pipe is a duct with a conductive layer around it.
+
+# Keywords
+
+- `shape`: container of the fill: a primitive, or an [`Offset`](@ref) from the outline of the
+  part inside the duct.
+- `contents`: sub-cables inside the container, such as an [`Assembly`](@ref) or a
+  [`Repeat`](@ref) of a part.
+- `tag`: name of the region of the fill. Default: `:duct`.
+
+# Returns
+
+- An [`Enclosure`](@ref) of the fill region around `contents`.
+
+# Errors
+
+- The design throws `DomainError` when a region of `contents` leaves the container.
+"""
+function duct(material::Material; shape, contents::AbstractCablePart, tag = :duct)
+    return Enclosure(Region(tag, shape, material), contents)
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -170,6 +325,79 @@ function stranded(material::Material; shape,
                 Region(tag, shape, material)))
     end
     return Group(Region(Symbol(tag, "_fill"), boundary, fill), Stack(courses...))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare a rope: courses of the part `member` inside the outline that `boundary` declares.
+The member is a part such as a stranded conductor. The courses lie as those of
+[`stranded`](@ref) do. A course of one member with no part inside it is the member on the
+center of the cable. The lay of a course and the lays inside its members both lengthen a
+wire. A fill takes `boundary` without the members, and its region takes the name
+`<tag>_fill`.
+
+# Keywords
+
+- `n`: number of members in each course, from the inside out.
+- `lay`: lay of every course or one per course, as [`Helix`](@ref) takes it.
+- `boundary`: container of the fill: a primitive, or an [`Offset`](@ref) from the outline of
+  the part inside the rope.
+- `fill`: material of the fill. Default: an insulator with infinite resistivity and unit
+  relative permittivity and permeability.
+- `φ0`: angle of the first member of every course \\[rad\\], or one angle per course.
+  Default: `0`.
+- `tag`: prefix of the name of the fill region. Default: `:rope`.
+
+# Returns
+
+- A [`Group`](@ref) of the fill region around a [`Stack`](@ref) of the [`Lay`](@ref) of
+  each course.
+
+# Errors
+
+- Throws `DimensionMismatch` when `lay` or `φ0` gives neither one value nor one per course.
+- Throws `DomainError` when a course does not fit on the course inside it, or when a member
+  crosses `boundary`.
+"""
+function rope(member::AbstractCablePart;
+        n::Union{Tuple{Vararg{Integer}}, AbstractVector{<:Integer}}, lay, boundary,
+        fill = Material(:insulator, Inf), φ0 = 0, tag = :rope)
+    courses = broadcast(n, lay, φ0) do count, ratio, angle
+        return Lay(Helix(ratio),
+            Repeat(CircularPattern(count; r = Offset(0), φ0 = angle), member))
+    end
+    return Group(Region(Symbol(tag, "_fill"), boundary, fill), Stack(courses...))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare equal cores on a circle about the center of the part that encloses them. Each core
+is the part of the terminal `member` under a name of its own, so each is a conductor of its
+own. Core ``k = 0, \\ldots, n - 1`` of ``n`` names lies at the angle
+``\\phi_k = \\phi_0 + 2 \\pi k / n`` on the circle of radius ``r``, turned by that angle.
+
+# Keywords
+
+- `r`: radius of the circle through the centers of the cores \\[m\\]. Cores declared about
+  the center, such as sectors, take `r = 0`.
+- `names`: name of the terminal of each core.
+- `φ0`: angle of the first core \\[rad\\]. Default: `0`.
+
+# Returns
+
+- An [`Assembly`](@ref) of one member per name, each a [`Terminal`](@ref) of that name
+  around the part of `member`.
+
+# Errors
+
+- The design throws `DomainError` when two cores overlap.
+"""
+function cores(member::Terminal; r::Real, names, φ0::Real = 0)
+    angles = φ0 .+ 2π .* (0:(length(names) - 1)) ./ length(names)
+    return Assembly(Tuple(Placement(r * cos(φ), r * sin(φ), φ) => Terminal(name, member.part)
+    for (name, φ) in zip(names, angles)))
 end
 
 """

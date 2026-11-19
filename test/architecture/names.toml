@@ -88,9 +88,10 @@ nouns = ["shape", "primitive", "circle", "annulus", "rectangle", "sector",
     "regions", "id", "tree", "repeats",
     "designs", "connections", "assembly", "core", "screen", "sheath", "bedding",
     "jacket", "tape", "wires", "spacing", "trefoil", "apex", "fillet",
-    "polygon", "ellipse", "vertices", "gmr", "conductor", "angle"]
+    "polygon", "ellipse", "vertices", "gmr", "conductor", "angle", "filler", "duct", "rope",
+    "cores", "names"]
 qualifiers = ["circular", "empty", "perforated", "stranded",
-    "layout", "flat", "linear"]
+    "layout", "flat", "linear", "solid"]
 symbols = ["ri", "ro", "w", "h", "t", "n", "gap_frac", "dir", "β"]
 
 [modules.DataModel.verbs]
@@ -218,7 +219,15 @@ CableSystem = "the cables of a line in one cross-section, placed, with the condu
 flatten = "reduce a part to the part that the coaxial model reads, in the same nodes: a design to the flattened stack of its resolved parts; a stack to one region per terminal and per dielectric layer; a terminal to one region with the material that stands for its metal, under the lay that keeps the turns of its current; an enclosure, an assembly or a repeat to itself around its flattened contents; and the outline of a conductor to the cross-section of that one region"
 "@design" = "the cable design built from the parts of a block, from the inside out"
 "@terminal" = "the terminal of a name around the parts of a block"
+"@at" = "a part at its coordinates and angle in the frame that lists it: a member of an assembly, or, with the conductor index of each terminal, a cable of a system"
+"@assembly" = "the assembly of the members of a block, each placed with @at"
+"@system" = "the cable system of the cables of a block, each a design placed with @at with the conductor index of each of its terminals"
 core = "a solid round conductor at the center of a cable"
+solid = "a solid conductor in any cross-section: a primitive, or an offset from the outline of the part inside it"
+filler = "a filler of a material in a cross-section, such as the duct at the center of a hollow conductor"
+duct = "a container filled with a material around the sub-cables inside it; a pipe is a duct with a conductive layer around it"
+rope = "a rope: courses of a part, such as a stranded conductor, on the part inside it or about the center of the cable, inside an outline that a fill completes"
+cores = "equal cores on a circle, each the part of one terminal under a name of its own"
 insulation = "an insulation layer of a thickness around the part inside it"
 screen = "a screen layer of a thickness around the part inside it"
 sheath = "a sheath layer of a thickness around the part inside it"

@@ -183,9 +183,10 @@ cross it. `:martins2026` and the finite-element model refuse a cable that touche
 
 ### Surface syntax
 
-`@design` and `@terminal` and the builders `core`, `insulation`, `screen`, `sheath`,
-`bedding`, `jacket`, `stranded`, `wires` and `tape` lower to the nodes above, and `trefoil`
-and `flat` return the placements of the cables of a system. They do not add a capability.
+`@design`, `@terminal`, `@assembly` and `@at` and the builders `core`, `solid`, `filler`,
+`insulation`, `screen`, `sheath`, `bedding`, `jacket`, `stranded`, `rope`, `wires`, `tape`,
+`cores` and `duct` lower to the nodes above. `trefoil` and `flat` return the placements of
+the cables of a system, and `@system` lowers to its `build`. They do not add a capability.
 
 ```julia
 copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)

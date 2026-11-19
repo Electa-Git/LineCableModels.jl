@@ -110,9 +110,15 @@ the part that contains them.
 
 The macro [`@design`](@ref) builds a design from the parts listed in its block, from the
 inside out, and the macro [`@terminal`](@ref) assigns the conductive regions of its block to
-one terminal. The builders below return the parts of the usual cable layers:
+one terminal. A terminal can list the dielectric layers of its conductor in the same block.
+The macro [`@assembly`](@ref) places the members listed in its block, each with
+[`@at`](@ref). The builders below return the parts of the usual cable layers:
 
 - [`core`](@ref): solid conductor of radius `r`.
+- [`solid`](@ref): solid conductor in the cross-section `shape`, such as a sector or a tube
+  around a filler.
+- [`filler`](@ref): filler in the cross-section `shape`, such as the oil duct of a hollow
+  conductor.
 - [`insulation`](@ref), [`screen`](@ref), [`sheath`](@ref), [`bedding`](@ref) and
   [`jacket`](@ref): layer of thickness `t` over the outline of the part beneath it.
 - [`stranded`](@ref): layers of round wires or rectangular strands on helices, with the
@@ -121,6 +127,11 @@ one terminal. The builders below return the parts of the usual cable layers:
   beneath them and completed by the filler of the layer.
 - [`tape`](@ref): a tape on a helix over the outline beneath it, bent into an annular sector
   of its area.
+- [`rope`](@ref): layers of a stranded conductor or of another part on helices, with the
+  filler between them.
+- [`cores`](@ref): equal cores on a circle, each one a terminal with a name of its own.
+- [`duct`](@ref): container filled with a material around the sub-cables inside it, such
+  as the inside of a pipe.
 
 Each layer of [`stranded`](@ref) takes its own lay ratio and the angle of its first member,
 or one value for all layers. The first layer lies on the part inside the conductor, such as
@@ -197,6 +208,9 @@ in a formation. A trefoil places three cables on the vertices of an equilateral 
 flat formation places `n` cables on a line in the direction `φ`. The keyword `spacing` is the
 distance between the centers of neighbors, and cables touch when it equals their outer
 diameter.
+
+The macro [`@system`](@ref) builds a system from the cables listed in its block. Each line
+places one design with [`@at`](@ref) and gives the conductor index of each of its terminals.
 
 ## Earth model
 

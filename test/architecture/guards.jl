@@ -2687,7 +2687,7 @@ function chunks(name)
 end
 
 # The role of the terms in each list of a section of the names file. A preposition is
-# sanctioned only as a whole field or keyword name.
+# sanctioned only as a whole field or keyword name, or as the whole name of a macro.
 const ROLES = Dict("verbs" => :verb, "nouns" => :noun, "qualifiers" => :qualifier,
     "symbols" => :symbol, "prepositions" => :preposition)
 
@@ -2796,14 +2796,14 @@ function owned_names(tree::PackageTree, mandated)
     return unique(item -> (item.kind, item.path, item.name), found)
 end
 
-# The form of a name, from the roles of its terms: `nothing` when it conforms.
-function form(kind, roles, abstract)
+# The form of a name, from the roles of its terms: `nothing` when it conforms. `whole` says
+# that a preposition may be the whole name: of a field, of a keyword or of a macro.
+function form(kind, roles, abstract, whole)
     roles = copy(roles)
     kind === :type && abstract && !isempty(roles) && roles[1] === :marker &&
         popfirst!(roles)
     (isempty(roles) || :marker in roles) && return "form"
-    :preposition in roles &&
-        return kind in (:field, :keyword) && roles == [:preposition] ? nothing : "form"
+    :preposition in roles && return whole && roles == [:preposition] ? nothing : "form"
     if kind === :function
         roles[1] === :predicate &&
             return length(roles) == 2 && !(roles[2] in (:verb, :predicate)) ? nothing :
@@ -2862,7 +2862,8 @@ function naming_rule(methods, tree::PackageTree, names)
         abstract = item.value isa Type && isabstracttype(Base.unwrap_unionall(item.value))
         cap = shape[string(item.kind)] + (abstract && roles[1] === :marker ? 1 : 0)
         length(roles) > cap && entry("shape", item, "length")
-        length(roles) <= cap && form(item.kind, roles, abstract) !== nothing &&
+        whole = item.kind in (:field, :keyword) || startswith(string(item.name), "@")
+        length(roles) <= cap && form(item.kind, roles, abstract, whole) !== nothing &&
             entry("shape", item, "form")
         if item.kind in (:function, :type, :constant, :module) && !item.exported
             clash = intersect(Set(c for t in only(options) for c in split(t, '_')), context(tree, item.path))
