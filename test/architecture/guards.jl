@@ -2772,8 +2772,9 @@ function owned_names(tree::PackageTree, mandated)
             push!(found, (;
                 kind, path = path(M), name, exported = exported(M, name, value), value))
             if value isa Type
+                # A constant bound to a struct of another module owns none of its fields.
                 T = Base.unwrap_unionall(value)
-                T isa DataType && isstructtype(T) &&
+                T isa DataType && isstructtype(T) && parentmodule(T) === M &&
                     for field in fieldnames(T)
                         field isa Symbol && push!(found,
                             (kind = :field, path = path(M), name = field,

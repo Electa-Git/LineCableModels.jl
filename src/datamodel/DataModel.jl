@@ -30,7 +30,7 @@ export PerforatedShape, ArcPolygon
 export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Group, Enclosure, Assembly
 export CablePart, CableDesign, CableSystem
 export flatten
-public gmr
+public gmr, CONDUCTOR
 export @design, @terminal, core, insulation, screen, sheath, bedding, jacket, stranded,
        wires, tape, trefoil, flat
 

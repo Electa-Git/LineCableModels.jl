@@ -88,7 +88,7 @@ nouns = ["shape", "primitive", "circle", "annulus", "rectangle", "sector",
     "regions", "id", "tree", "repeats",
     "designs", "connections", "assembly", "core", "screen", "sheath", "bedding",
     "jacket", "tape", "wires", "spacing", "trefoil", "apex", "fillet",
-    "polygon", "ellipse", "vertices", "gmr"]
+    "polygon", "ellipse", "vertices", "gmr", "conductor"]
 qualifiers = ["circular", "empty", "perforated", "stranded",
     "layout", "flat", "linear"]
 symbols = ["ri", "ro", "w", "h", "t", "n", "gap_frac", "dir"]
@@ -227,6 +227,7 @@ wires = "a course of round wires laid on the part inside it, in a fill as thick 
 tape = "a tape wound on the part inside it: a rectangle that a circular pattern of one member bends into a sector of its area"
 trefoil = "the placements of three cables on the vertices of an equilateral triangle at a spacing"
 flat = "the placements of cables on a line at a spacing"
+CONDUCTOR = "the type of a material of the class conductor, in any number type"
 
 [register.DataModel.private]
 EmptyBoundary = "the outline at the center of a cable, before its first part"

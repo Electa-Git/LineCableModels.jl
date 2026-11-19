@@ -166,7 +166,7 @@ import ...Commons: defaults, validate
 using ...Commons: FormulationOptions, nominal
 using ..Engine: AbstractInternalImpedance, LineParametersProblem
 using ..Engine: μ₀
-using ...Materials: Material
+using ...DataModel: CONDUCTOR
 import ..Engine: domain
 using ..Engine: impedance!
 using IntervalSets: (..)
@@ -230,7 +230,7 @@ function validate(problem::LineParametersProblem, formula::Formula)
     for row in terminals
         rho = [region.source.material.rho
                for region in regions[row.regions]
-               if region.source.material isa Material{<:Real, :conductor}]
+               if region.source.material isa CONDUCTOR]
         any(isfinite, rho) && continue
         design = designs[row.cable]
         throw(DomainError(rho,

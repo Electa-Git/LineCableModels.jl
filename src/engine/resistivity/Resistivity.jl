@@ -38,6 +38,7 @@ using ..Engine: AbstractResistivity, LineParametersProblem
 import ..Engine: domain
 using IntervalSets: (..)
 using ...Materials: Material
+using ...DataModel: CONDUCTOR
 
 export Formula, FORMULAS
 

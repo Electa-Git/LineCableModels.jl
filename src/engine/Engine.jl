@@ -18,7 +18,8 @@ using ..Commons: AbstractFormulation, AbstractBackend, FormulationOptions,
 using ..Materials: Material
 using ..Earth: EarthLayer, EquivalentEarthLayer, EarthModel
 using ..BaseGeometry: Placement, area, centroid, perimeter, support, istangent
-using ..DataModel: AbstractPrimitive, AbstractShape, Annulus, Assembly, CableDesign,
+using ..DataModel: AbstractPrimitive, AbstractShape, Annulus, Assembly, CONDUCTOR,
+                   CableDesign,
                    CablePart, CableSystem, Circle, Enclosure, Lay, Offset, PerforatedShape,
                    Region, Repeat, Stack, Terminal, boundary, flatten, gmr, pitch, r_ex,
                    r_in

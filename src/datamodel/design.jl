@@ -60,8 +60,7 @@ function validate(design::CableDesign)
     end
     loose = unique([design.regions[index].source.tag
                     for index in findall(!, assigned)
-                    if design.regions[index].source.material isa
-                       Material{<:Real, :conductor}])
+                    if design.regions[index].source.material isa CONDUCTOR])
     isempty(loose) || throw(ArgumentError(
         "the conductive regions $loose of the cable $(design.id) must lie inside a " *
         "Terminal, which names their terminal"))

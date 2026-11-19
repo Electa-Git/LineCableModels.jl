@@ -598,8 +598,7 @@ function domain(problem::LineParametersProblem{T},
         Γ = ClosedInterval(extrema(z -> abs(nominal(z)), options.Γ)...),
         Δθ = ClosedInterval(extrema(N[nominal(abs(temperature - region.source.material.T0))
                                       for region in system.regions
-                                      if region.source.material isa
-                                         Material{<:Real, :conductor}])...))
+                                      if region.source.material isa CONDUCTOR])...))
 end
 
 # The quantities of every formulation, and the highest order that the recipes keep.

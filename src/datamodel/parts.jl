@@ -6,6 +6,9 @@ lays, groups or encloses parts.
 """
 abstract type AbstractCablePart end
 
+"Type of a material of the class `:conductor`, in any number type."
+const CONDUCTOR = Material{<:Real, :conductor}
+
 """
 $(TYPEDEF)
 
@@ -189,8 +192,7 @@ function resolve(rows::NamedTuple, scope::Vector{Int}, terminal::Terminal)
     resolve(rows, scope, terminal.part)
     conductive = Int[index
                      for index in (start + 1):length(rows.regions)
-                     if rows.regions[index].source.material isa
-                        Material{<:Real, :conductor}]
+                     if rows.regions[index].source.material isa CONDUCTOR]
     own = scope[2:end]
     named = Int[index
                 for row in rows.terminals
@@ -655,7 +657,7 @@ end
 # geometric mean radius `g`.
 function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real,
         placed::CablePart{<:Region{<:Union{AbstractPrimitive, Offset},
-            <:Material{<:Real, :conductor}}})
+            <:CONDUCTOR}})
     push!(strands,
         (S = resolve(at, placed.shape), material = placed.source.material, ℓ = ℓ, N = N,
             g = gmr(placed.shape, placed.source.material.mu_r)))

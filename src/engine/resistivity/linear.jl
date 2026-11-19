@@ -8,7 +8,7 @@ function validate(problem::LineParametersProblem, formula::Formula{:linear})
                region.source.material.alpha *
                (problem.temperature - region.source.material.T0)
                for region in problem.system.regions
-               if region.source.material isa Material{<:Real, :conductor}]
+               if region.source.material isa CONDUCTOR]
     all(factor -> isfinite(factor) && factor > 0, factors) || throw(DomainError(factors,
         "the factor 1 + α (θ − T0) of the linear law must be positive and finite"))
     return problem
