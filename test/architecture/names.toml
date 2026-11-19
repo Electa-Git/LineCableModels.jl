@@ -63,7 +63,7 @@ prepositions = ["at"]
 
 [global.verbs]
 validate = "check an input, a computed medium or a result before its consumer uses it; return it unchanged, or throw; warn once where it is computable but questionable"
-resolve = "give a declaration what its context determines: a declared part or layer its geometry against the outline inside it, a shape its place in a frame, a resolved part its rows in the tables of its design and its strands under a terminal, and a flattened part its rows in the coaxial input"
+resolve = "give a declaration what its context determines: a declared part or layer its geometry against the outline inside it, a shape its place in a frame, a resolved part its rows in the tables of its design, its strands under a terminal and its outermost regions inside a fill, and a flattened part its rows in the coaxial input"
 build = "construct a completed object of a type from its declarations"
 compute = "run one computation of a problem by a formulation, on the backend that runs it"
 select = "fit a user's selection to the slot or option key it fills, lifting a Symbol to its type"
@@ -151,7 +151,7 @@ lifts = ["select"]
 
 [register.Commons.public]
 validate = "check an input, a computed medium or a result before its consumer uses it; return it unchanged, or throw; warn once where it is computable but questionable"
-resolve = "give a declaration what its context determines: a declared part or layer its geometry against the outline inside it, a shape its place in a frame, a resolved part its rows in the tables of its design and its strands under a terminal, and a flattened part its rows in the coaxial input"
+resolve = "give a declaration what its context determines: a declared part or layer its geometry against the outline inside it, a shape its place in a frame, a resolved part its rows in the tables of its design, its strands under a terminal and its outermost regions inside a fill, and a flattened part its rows in the coaxial input"
 build = "construct a completed object of a type from its declarations"
 compute = "run one computation of a problem by a formulation, on the backend that runs it"
 select = "fit a user's selection to the slot or option key it fills, lifting a Symbol to its type"

@@ -36,8 +36,8 @@ function validate end
 Give `declaration` what `context` determines. A declared part or layer takes its geometry
 against the outline of the part inside it, and a placement locates a cross-section in its
 frame. The tables of a design take their rows from its resolved parts, and a terminal takes
-the conductive regions of its resolved part. The coaxial input takes its rows from a
-flattened part.
+the conductive regions of its resolved part. A fill takes the outermost regions of its
+resolved contents. The coaxial input takes its rows from a flattened part.
 """
 function resolve end
 

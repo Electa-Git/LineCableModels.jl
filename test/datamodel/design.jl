@@ -301,7 +301,7 @@ end
                     Region(:core, Circle(1.0e-3, Placement(5.0e-3, 5.5e-3)), copper))))
     end
 
-    @testset "contents nest by containment" begin
+    @testset "a group in a fill is one hole, and a tape beside wires another" begin
         sector = Sector(0, 10.0e-3, 2π / 3, 1.0e-3 / sin(π / 3),
             1.5e-3, Placement(0, 0))
         design = build(CableDesign, "nested_sector",

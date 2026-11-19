@@ -496,8 +496,9 @@ end
 $(TYPEDSIGNATURES)
 
 Resolve the fill of a group or an enclosure around its contents. The fill takes its container
-minus the contents' outlines. The holes are the outlines of the contents that lie within no
-other content's outline, by `⊆`. The placed fill joins `regions` after its contents.
+minus the contents' outlines. The holes are the outlines of the outermost regions of the
+contents, and the resolved contents say which regions those are. Each region of the contents
+lies within the container, by `⊆`. The placed fill joins `regions` after its contents.
 
 # Returns
 
@@ -508,14 +509,39 @@ function resolve(outline::Union{EmptyBoundary, AbstractShape}, fill::Region,
     container = resolve(outline, fill.primitive)
     start = length(regions)
     resolved = resolve(outline, contents, regions)
-    shapes = [validate(regions[index].shape, fill, container)
-              for index in (start + 1):length(regions)]
-    outlines = map(boundary, shapes)
-    holes = [outlines[i]
-             for i in eachindex(shapes)
-             if !any(shapes[i] ⊆ outlines[j] for j in eachindex(shapes) if j != i)]
+    for index in (start + 1):length(regions)
+        validate(regions[index].shape, fill, container)
+    end
+    holes = [boundary(regions[start + k].shape)
+             for k in findall(resolve(Bool[], resolved.first))]
     push!(regions, CablePart(fill, PerforatedShape(container, holes)))
     return Pair{AbstractCablePart, AbstractShape}(resolved.first, boundary(container))
+end
+
+# A resolved part says which of its regions are outermost, inside no other region of the
+# part. `outermost` takes one value per region, in the order of the regions. A region, a
+# group and an enclosure contain the parts inside them in their stack. The copies of a
+# repeat and the members of an assembly lie beside those parts.
+resolve(outermost::Vector{Bool}, ::CablePart) = push!(fill!(outermost, false), true)
+function resolve(outermost::Vector{Bool},
+        part::Union{Group{<:CablePart}, Enclosure{<:CablePart}})
+    resolve(outermost, part.contents)
+    return push!(fill!(outermost, false), true)
+end
+function resolve(outermost::Vector{Bool}, stack::Stack)
+    foreach(item -> resolve(outermost, item), stack.items)
+    return outermost
+end
+resolve(outermost::Vector{Bool}, terminal::Terminal) = resolve(outermost, terminal.part)
+resolve(outermost::Vector{Bool}, lay::Lay) = resolve(outermost, lay.part)
+function resolve(outermost::Vector{Bool}, repeat::Repeat{<:AbstractVector{<:Placement}})
+    own = resolve(Bool[], repeat.part)
+    foreach(at -> append!(outermost, own), repeat.pattern)
+    return outermost
+end
+function resolve(outermost::Vector{Bool}, assembly::Assembly)
+    foreach(member -> append!(outermost, resolve(Bool[], member.second)), assembly.members)
+    return outermost
 end
 
 function resolve(outline::Union{EmptyBoundary, AbstractShape}, group::Group,
