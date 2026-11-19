@@ -310,7 +310,7 @@ function gmd(A::Contour{TA}, B::Contour{TB}) where {TA, TB}
                                     rtol = cfg.rtol, atol = budget,
                                     segbuf = allocated[2], norm = abs ∘ nominal))...)
                             if far
-                                subtotal += (u1 - u0) * dot(weights, integral)
+                                subtotal += (u1 - u0) * dot(weights, integral::Vector{T})
                                 gapestimate = bound
                             else
                                 value, gap = integral::Tuple{T, Float64}
