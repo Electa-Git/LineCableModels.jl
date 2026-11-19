@@ -84,6 +84,16 @@ function Base.issubset(B::AbstractShape, A::Union{Rectangle, Polygon, Ellipse, A
     return true
 end
 
+# A content whose support and distance are those of its contour takes both from one contour.
+function Base.issubset(B::Union{Rectangle, Sector, Ellipse, ArcPolygon},
+        A::Union{Circle, Annulus})
+    contour = Contour(resolve(Placement(-A.at.x, -A.at.y), B))
+    outer = nominal(r_ex(A))
+    inner = nominal(r_in(A))
+    return nominal(support(contour)) <= outer + tolerance(outer) &&
+           nominal(distance(contour)) + tolerance(inner) >= inner
+end
+
 """
 $(TYPEDSIGNATURES)
 
