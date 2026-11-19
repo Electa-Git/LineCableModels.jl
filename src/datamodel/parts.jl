@@ -683,24 +683,6 @@ function resolve(::Vector, ::Placement, ::Real, ::Real, part::Union{Enclosure, A
         "a terminal around the sub-cables of a $(nameof(typeof(part))) is no such conductor"))
 end
 
-# Each part of the stack of a terminal lists a conductive region. The dielectric layers of a
-# terminal follow it in the stack around it.
-function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real,
-        terminal::Terminal{<:Stack})
-    for item in terminal.part.items
-        listed = length(strands)
-        resolve(strands, at, ℓ, N, item)
-        validate(strands, terminal, listed)
-    end
-    return strands
-end
-function validate(strands::Vector, terminal::Terminal, listed::Int)
-    length(strands) > listed || throw(ArgumentError(
-        "each part of the terminal :$(terminal.name) must hold a conductive region; " *
-        "declare its dielectric layers after the terminal"))
-    return strands
-end
-
 # The part of a repeat lists its conductive regions once, in its own frame, and each copy
 # places them.
 function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real,

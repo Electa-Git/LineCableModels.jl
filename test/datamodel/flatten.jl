@@ -110,7 +110,7 @@ using LineCableModels.Commons: tolerance
                 Group(Region(:core_fill, Circle(7.5e-3), air),
                     Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
             Region(:insulation, Offset(3.0e-3), polymer))
-        core = flatten(EmptyBoundary(), first(design.tree.items))
+        core = first(flatten(design.tree).items)
         region = core.part.part
         @test core.name == :core
         @test region.tag == :core
@@ -133,12 +133,29 @@ using LineCableModels.Commons: tolerance
         @test log(7.5e-3) - region.material.mu_r / 4 ≈ log_g
     end
 
-    @testset "a terminal holds its conductor alone" begin
+    @testset "a terminal with its conductor and its dielectric layers" begin
+        # A layer declared inside the terminal is the layer declared after it.
         bar = Region(:bar, Rectangle(10e-3, 5e-3), copper)
-        design = build(CableDesign, "wrapped",
-            Terminal(:core, Stack(bar, Region(:insulation, Offset(1e-3), polymer))))
-        @test_throws ArgumentError flatten(EmptyBoundary(), only(design.tree.items))
-        @test_throws ArgumentError flatten(design.tree)
+        layer = Region(:insulation, Offset(1e-3), polymer)
+        inside = build(CableDesign, "inside", Terminal(:core, Stack(bar, layer)))
+        outside = build(CableDesign, "outside", Terminal(:core, Stack(bar)), layer)
+        @test [(row.name, row.regions) for row in inside.terminals] == [(:core, [1])]
+        @test flatten(inside.tree) == flatten(outside.tree)
+        # A tube around a filler, with the filler and the insulation inside the terminal.
+        duct = Region(:duct, Circle(5e-3), polymer)
+        tube = Region(:tube, Offset(5e-3), copper)
+        inside = build(CableDesign, "inside", Terminal(:core, Stack(duct, tube, layer)))
+        outside = build(CableDesign, "outside", duct, Terminal(:core, Stack(tube)), layer)
+        @test flatten(inside.tree) == flatten(outside.tree)
+        @test [nameof(typeof(item)) for item in flatten(inside.tree).items] ==
+              [:Region, :Terminal, :Region]
+        # Conductors with a dielectric between them are terminals of their own, and a
+        # terminal contains metal.
+        sheath = Region(:sheath, Offset(1e-3), copper)
+        apart = build(CableDesign, "apart", Terminal(:core, Stack(bar, layer, sheath)))
+        @test_throws ArgumentError flatten(apart.tree)
+        empty = build(CableDesign, "empty", Terminal(:core, Stack(duct)))
+        @test_throws ArgumentError flatten(empty.tree)
     end
 
     @testset "a stack declares the conductor of a terminal in one part" begin

@@ -22,7 +22,8 @@ $(TYPEDSIGNATURES)
 
 Reduce a terminal to one region with the material that stands for its metal, under the name
 of the terminal. `inner` is the outline of the part inside the terminal in its stack, and an
-`EmptyBoundary` when there is none.
+`EmptyBoundary` when there is none. `O` is the outline of the conductor of the terminal, and
+`strands` lists its conductive regions.
 
 The conductive regions ``i`` of the terminal carry direct current in parallel. A region of
 resistivity ``\\rho_i``, cross-section ``S_i`` and overlength ``\\ell_i`` along its helices
@@ -36,7 +37,7 @@ Its geometric mean radius ``g`` follows from
 ```
 
 where ``g_i`` is the [`gmr`](@ref) of region ``i``. The cross-section ``S`` of the one
-region is what [`flatten`](@ref) gives the outline of the terminal outside `inner`. It is a
+region is what [`flatten`](@ref) gives the outline `O` outside `inner`. It is a
 circle or an annulus inside a round outline, and any other outline itself. The region is
 the [`Region`](@ref) of the cross-section ``S`` with the resistance ``R`` and the geometric
 mean radius ``g``. The method sums the differences
@@ -57,18 +58,17 @@ radius of the region. Its pitch at that radius is ``1 / \\lvert N \\rvert``.
 
 # Errors
 
-- Throws `ArgumentError` when a part of the stack of the terminal lists only dielectric
-  regions.
+- Throws `ArgumentError` when the terminal does not contain a conductive region.
 - Throws `ArgumentError` when the conductive regions of the terminal have different
   reference temperatures.
 """
-function flatten(inner::Union{EmptyBoundary, AbstractShape}, terminal::Terminal)
-    strands = validate(
-        resolve(NamedTuple[], Placement(0, 0), 1.0, 0.0, terminal), flatten, terminal)
+function flatten(inner::Union{EmptyBoundary, AbstractShape}, terminal::Terminal,
+        @nospecialize(O::AbstractShape), strands::Vector)
+    validate(strands, flatten, terminal)
     S = [strand.S for strand in strands]
     G = [area(strand.S) / (strand.material.rho * strand.ℓ) for strand in strands]
     w = G ./ sum(G)
-    tube = flatten(boundary(terminal.part), inner, S)
+    tube = flatten(O, inner, S)
     b = log(gmr(tube, 0))
     gap = sum(w[i]^2 * (b - log(strands[i].g)) for i in eachindex(strands)) +
           2sum(
@@ -85,8 +85,11 @@ function flatten(inner::Union{EmptyBoundary, AbstractShape}, terminal::Terminal)
             region))
 end
 
-# The conductive regions of a terminal share one reference temperature.
+# A terminal contains a conductive region, and its conductive regions share one reference
+# temperature.
 function validate(strands::Vector, ::typeof(flatten), terminal::Terminal)
+    isempty(strands) && throw(ArgumentError(
+        "the terminal :$(terminal.name) does not contain a conductive region"))
     all(
         strand -> nominal(strand.material.T0) == nominal(first(strands).material.T0),
         strands) || throw(ArgumentError(
@@ -133,10 +136,11 @@ conductor is a tube. The fill of its group beyond its metal is a layer of its ow
 layer has no width where the metal ends at the container of the group. A group around a
 terminal is the conductor of that terminal.
 
-Any other group is one layer of the composite material of its regions, by their fractions
-of the area. A dielectric circle or annulus is its own layer, and any other region is its
-declaration. An enclosure and an assembly keep their form around their flattened members. A
-flattened stack is its own flattened form.
+The dielectric parts of a terminal, before its conductive parts or after them, are layers
+of the stack. Any other group is one layer of the composite material of its regions, by
+their fractions of the area. A dielectric circle or annulus is its own layer, and any other
+region is its declaration. An enclosure and an assembly keep their form around their
+flattened members. A flattened stack is its own flattened form.
 
 # Returns
 
@@ -148,6 +152,8 @@ flattened stack is its own flattened form.
 - Throws `ArgumentError` when a part of the stack is neither a terminal, a group, an
   enclosure, an assembly nor a region.
 - Throws `ArgumentError` when two parts of the stack declare one terminal.
+- Throws `ArgumentError` when a terminal does not contain a conductive region, or when a
+  dielectric part lies between its conductive parts.
 - Throws `ArgumentError` when two terminals of the stack are in contact, with no dielectric
   of some width between them.
 """
@@ -193,9 +199,48 @@ flatten(design::CableDesign) = flatten(design.tree)
 # inside it.
 function flatten(items::Vector{AbstractCablePart}, terminal::Terminal)
     validate(terminal, flatten, items)
-    flat = flatten(isempty(items) ? EmptyBoundary() : boundary(last(items)), terminal)
+    flat = flatten(isempty(items) ? EmptyBoundary() : boundary(last(items)), terminal,
+        boundary(terminal.part), resolve(NamedTuple[], Placement(0, 0), 1.0, 0.0, terminal))
     push!(items, flat)
     return flatten(items, flat, terminal.part)
+end
+
+# The conductive parts of the stack of a terminal are its conductor. Its dielectric parts
+# are layers of the flattened stack: `before` of them lie inside the conductor and `after`
+# of them around it.
+function flatten(items::Vector{AbstractCablePart}, terminal::Terminal{<:Stack})
+    validate(terminal, flatten, items)
+    parts = terminal.part.items
+    strands = NamedTuple[]
+    before = after = 0
+    for part in parts
+        listed = length(strands)
+        resolve(strands, Placement(0, 0), 1.0, 0.0, part)
+        if length(strands) > listed
+            validate(terminal, flatten, after)
+        elseif isempty(strands)
+            before += 1
+        else
+            after += 1
+        end
+    end
+    foreach(part -> flatten(items, part), Iterators.take(parts, before))
+    conductor = parts[end - after]
+    flat = flatten(isempty(items) ? EmptyBoundary() : boundary(last(items)), terminal,
+        boundary(conductor), strands)
+    push!(items, flat)
+    flatten(items, flat, conductor)
+    foreach(part -> flatten(items, part), Iterators.drop(parts, length(parts) - after))
+    return items
+end
+
+# The conductive parts of a terminal follow one another. `after` counts the dielectric parts
+# that follow the conductive parts listed so far.
+function validate(terminal::Terminal, ::typeof(flatten), after::Int)
+    after == 0 || throw(ArgumentError(
+        "a dielectric part lies between the conductive parts of the terminal " *
+        ":$(terminal.name); two conductors with a dielectric between them are two terminals"))
+    return terminal
 end
 function flatten(items::Vector{AbstractCablePart},
         terminal::Terminal{<:Union{
