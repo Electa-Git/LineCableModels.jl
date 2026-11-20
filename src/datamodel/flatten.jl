@@ -7,7 +7,17 @@ the cross-sections `S`.
 
 Inside a circle, the cross-section is a tube about the center of `O`. It reaches the
 farthest extent of the metal from that center. It begins where the part inside it ends, and
-it is a circle when there is none. Any other outline is the cross-section itself.
+it is a circle when there is none.
+
+Any other outline moves inward until it meets the metal. The cross-section is the region
+inside its parallel at the nearest distance from the metal to the outline. That distance is
+zero for metal that touches the outline.
+
+# Errors
+
+- Throws `DomainError` where the inward parallel of the outline fails, as
+  `parallel(contour, d)` refuses it. It fails for a nearest distance at or above the radius
+  of a rounded corner of the outline.
 """
 function flatten(O::Circle, ::EmptyBoundary, S::AbstractVector{<:AbstractShape})
     return Circle(maximum(shape -> support(resolve(inv(O.at), shape)), S), O.at)
@@ -15,7 +25,12 @@ end
 function flatten(O::Circle, inner::Circle, S::AbstractVector{<:AbstractShape})
     return Annulus(inner.r, maximum(shape -> support(resolve(inv(O.at), shape)), S), O.at)
 end
-flatten(O::AbstractPrimitive, ::EmptyBoundary, ::AbstractVector{<:AbstractShape}) = O
+function flatten(O::AbstractPrimitive, ::EmptyBoundary, S::AbstractVector{<:AbstractShape})
+    outline = Contour(O)
+    s = minimum(clearance(a, b)[3]
+    for shape in S for a in outline.outer for b in Contour(shape).outer)
+    return ArcPolygon(parallel(outline, -s).outer)
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -38,7 +53,8 @@ Its geometric mean radius ``g`` follows from
 
 where ``g_i`` is the [`gmr`](@ref) of region ``i``. The cross-section ``S`` of the one
 region is what [`flatten`](@ref) gives the outline `O` outside `inner`. It is a
-circle or an annulus inside a round outline, and any other outline itself. The region is
+circle or an annulus inside a round outline, and any other outline moved inward until it
+meets the metal. The region is
 the [`Region`](@ref) of the cross-section ``S`` with the resistance ``R`` and the geometric
 mean radius ``g``. The method sums the differences
 ``\\log \\operatorname{gmr}(S, 0) - \\log g_i`` and
@@ -133,9 +149,10 @@ $(TYPEDSIGNATURES)
 
 Reduce a stack to one region per terminal and per dielectric layer, from the inside out.
 Each terminal becomes one region, as [`flatten`](@ref) of a terminal gives it. A round
-conductor is a tube. The fill of its group beyond its metal is a layer of its own. The
-layer has no width where the metal ends at the container of the group. A group around a
-terminal is the conductor of that terminal.
+conductor is a tube, and the outline of any other conductor moves inward to its metal. The
+fill of its group beyond it is a layer of its own. The layer has no width where the metal
+ends at the container of the group. A group around a terminal is the conductor of that
+terminal.
 
 The dielectric parts of a terminal, before its conductive parts or after them, are layers
 of the stack. Any other group is one layer of the composite material of its regions, by
@@ -335,6 +352,17 @@ function flatten(items::Vector{AbstractCablePart}, core::Terminal,
         Region(group.fill.source.tag,
             Annulus(r_ex(boundary(core)), r_ex(container), container.at),
             group.fill.source.material))
+    return items
+end
+
+# The fill of any other group reaches from the outline of its conductor to its container. It
+# is the layer of the nearest distance between the two, which an offset declares.
+function flatten(items::Vector{AbstractCablePart}, core::Terminal,
+        group::Group{<:CablePart{<:Region, <:PerforatedShape}})
+    container = Contour(group.fill.shape.outer)
+    conductor = Contour(boundary(core))
+    s = minimum(clearance(a, b)[3] for a in container.outer for b in conductor.outer)
+    push!(items, Region(group.fill.source.tag, Offset(s), group.fill.source.material))
     return items
 end
 function flatten(items::Vector{AbstractCablePart}, core::Terminal, stack::Stack)

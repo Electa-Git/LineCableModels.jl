@@ -206,20 +206,24 @@
         @test [layer.eps_r for layer in input.dielectric_material] == [2.5, 2.5]
     end
 
-    # The wire and its fill are one region of the rectangle, which takes Ametani's cylinder
-    # of the area and the perimeter of the rectangle.
-    @testset "a rectangular fill keeps the tube of its area and perimeter" begin
+    # A wire of 5 mm radius lies 5 mm inside a square fill of 20 mm. The square moves
+    # inward by 5 mm to the wire. The conductor is that square of 10 mm, which takes
+    # Ametani's cylinder of its area and its perimeter. The fill beyond it is a layer of
+    # 5 mm.
+    @testset "a wire in a rectangular fill is the rectangle moved in to the wire" begin
         local polymer = Material(:insulator, 1.0e14, 2.5)
         input = coaxial(build(CableDesign, "square",
             Terminal(:core,
                 Group(Region(:fill, Rectangle(20.0e-3, 20.0e-3), polymer),
                     Region(:wire, Circle(5.0e-3), copper))),
             Region(:ins, Offset(2.0e-3), polymer)))
-        @test [only(input.r_in), only(input.r_ex)] ≈
-              [0.005898299700271613, 0.012732395447351628] rtol = 1e-12
-        @test [only(input.dielectric_r_in), only(input.dielectric_r_ex)] ≈
-              [0.012732395447351628, 0.014732395447351629] rtol = 1e-12
-        @test only(input.dielectric_material).eps_r == 2.5
+        r_e = 40.0e-3 / 2π
+        r_i = sqrt(r_e^2 - 100.0e-6 / π)
+        @test [only(input.r_in), only(input.r_ex)] ≈ [r_i, r_e] rtol = 1e-12
+        @test only(input.material).rho / 100.0e-6 ≈ copper.rho / (π * 5.0e-3^2) rtol = 1e-12
+        @test [input.dielectric_r_in input.dielectric_r_ex] ≈
+              [r_e r_e+5.0e-3; r_e+5.0e-3 r_e+7.0e-3] rtol = 1e-12
+        @test [layer.eps_r for layer in input.dielectric_material] == [2.5, 2.5]
     end
 
     @testset "opposite lays cancel turns" begin
@@ -318,6 +322,89 @@
               [1.749196663688495, 5.401337489441598] rtol = 1e-12
     end
 
+    # A fill whose container is the outline of a sector core at 2 mm is the layer of 2 mm
+    # declared after the core. Measured on Julia 1.12.7, x86_64 Linux: the radii differ by
+    # 1.6e-15 and the resistivity by 6.7e-16, relative.
+    @testset "a fill around a sector core is the layer declared after it" begin
+        sector = LineCableModels.Sector(
+            0, 10.0e-3, 2π / 3, 1.0e-3 / sin(π / 3), 1.5e-3, Placement(0, 0))
+        container = LineCableModels.resolve(sector, Offset(2.0e-3)).outer
+        inside = coaxial(build(CableDesign, "inside",
+            Terminal(:core,
+                Group(Region(:fill, container, polymer), Region(:core, sector, copper))),
+            Region(:insulation, Offset(1.0e-3), polymer)))
+        after = coaxial(build(CableDesign, "after",
+            Terminal(:core, Region(:core, sector, copper)),
+            Region(:fill, Offset(2.0e-3), polymer),
+            Region(:insulation, Offset(1.0e-3), polymer)))
+        @test [inside.r_in inside.r_ex] ≈ [after.r_in after.r_ex] rtol = 1e-12
+        @test [inside.dielectric_r_in inside.dielectric_r_ex] ≈
+              [after.dielectric_r_in after.dielectric_r_ex] rtol = 1e-12
+        @test only(inside.material).rho ≈ only(after.material).rho rtol = 1e-12
+        @test only(inside.material).mu_r ≈ only(after.material).mu_r rtol = 1e-12
+        @test inside.dielectric_material == after.dielectric_material
+    end
+
+    # The sector core of a 1 kV cable of three cores has 17 round wires on four arcs about
+    # the center of the sector. The wires of the outer arc touch the back of the sector. The
+    # conductor is then the sector, with the tube of the solid sector, and the fill beyond it
+    # is a layer of no width. Wires 0.1 mm smaller at the same places end 0.1 mm inside the
+    # sector. The tube ends 0.1 mm lower, and the fill beyond it is a layer of 0.1 mm.
+    @testset "the conductor of a stranded sector ends at its wires" begin
+        aluminum = Material(:conductor, 2.8264e-8, 1, 1, 20, 0.00429)
+        pvc = Material(:insulator, Inf, 8.0)
+        wedge = LineCableModels.Sector(
+            0, 10.24e-3, deg2rad(119.0), 1.1e-3 / sind(60), 1.02e-3, Placement(0, 0))
+        function strands(a)
+            wire = Region(:wires, Circle(a), aluminum)
+            arcs = [Repeat(CircularPattern(n; r, φ0 = -φ, span = 2φ), wire)
+                    for (n, r, φ) in (
+                (3, 4.99e-3, 0.594), (5, 7.09e-3, 0.731), (8, 9.19e-3, 0.8029))]
+            return Group(Region(:core_fill, wedge, air),
+                Stack(Repeat(CircularPattern(1; r = 2.89e-3), wire), arcs...))
+        end
+        r_i, r_e = 2.584596240685967e-3, 5.84878960554347e-3
+        for (a, gap) in ((1.05e-3, 0.0), (0.95e-3, 0.1e-3))
+            input = coaxial(build(CableDesign, "sector", Terminal(:core, strands(a)),
+                Region(:insulation, Offset(1.1e-3), pvc)))
+            @test [only(input.r_in), only(input.r_ex)] ≈ [r_i, r_e - gap] rtol = 1e-9
+            @test only(input.material).rho /
+                  (π * (only(input.r_ex)^2 - only(input.r_in)^2)) ≈
+                  aluminum.rho / (17π * a^2) rtol = 1e-12
+            @test [input.dielectric_r_in input.dielectric_r_ex] ≈
+                  [r_e-gap r_e; r_e r_e+1.1e-3] rtol = 1e-9
+            @test input.dielectric_material == [air, pvc]
+        end
+        # A cable has such a core for each phase, under a neutral of 30 wires. Each core
+        # has the tube of the core alone and lies about the centroid of its sector. The
+        # tubes of the cores overlap. Order 0 computes the cable, and a higher order
+        # refuses it.
+        r_wire, r_center = 0.79e-3, 14.36e-3
+        member = Terminal(:core,
+            Stack(strands(1.05e-3), Region(:insulation, Offset(1.1e-3), pvc)))
+        cable = build(CableDesign, "three_sectors",
+            Enclosure(Region(:filler, Circle(r_center - r_wire), pvc),
+                cores(member; r = 0, names = (:a, :b, :c))),
+            Terminal(:neutral,
+                Group(Region(:neutral_fill, Offset(2r_wire), pvc),
+                    Repeat(CircularPattern(30; r = Offset(0)),
+                        Region(:neutral_wires, Circle(r_wire), copper)))),
+            Region(:jacket, Offset(2.1e-3), pvc))
+        input = coaxial(cable)
+        @test [input.r_in[1:3] input.r_ex[1:3]] ≈ repeat([r_i r_e], 3) rtol = 1e-9
+        c = first(LineCableModels.centroid(wedge))
+        @test [collect(p) for p in input.positions[2:4]] ≈
+              [[c * cos(φ), c * sin(φ)] for φ in (0, 2π / 3, 4π / 3)] rtol = 1e-9
+        system = build(CableSystem, [cable], [Placement(0.0, -1.0)];
+            connections = [(a = 1, b = 2, c = 3, neutral = 4)], id = "three_sectors",
+            line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+            frequencies = [50.0, 1.0e4])
+        @test size(compute(problem, CoaxialFormulation()).Z) == (4, 4, 2)
+        @test_throws "the expansions about their axes diverge above order 0; order = 0 computes them" compute(
+            problem, CoaxialFormulation(order = 1))
+    end
+
     # A circle is its own tube, and a solid ellipse takes Ametani's cylinder. The impedance
     # and the admittance of the ellipse approach those of the circle in proportion to ε,
     # the relative difference of its semi-axes. Measured on Julia 1.12.7, x86_64 Linux, as
@@ -343,6 +430,41 @@
             ellipse = result(LineCableModels.Ellipse(a * (1 + ε), a))
             @test maximum(abs, ellipse.Z - circle.Z) <= 0.07ε * maximum(abs, circle.Z)
             @test maximum(abs, ellipse.Y - circle.Y) <= 0.35ε * maximum(abs, circle.Y)
+        end
+    end
+
+    # A core has 37 laid wires of 1.4 mm in a round fill of 10.5 mm. A layer of air of
+    # 0.1 mm lies around its tube. In an elliptical fill the ellipse moves inward to the
+    # wires. The impedance and the admittance approach those of the round fill in proportion
+    # to ε, the relative difference of the semi-axes. Measured on Julia 1.12.7, x86_64 Linux,
+    # as the largest entry from ε = 1e-2 down to 1e-10: at most 0.048 ε for Z and 0.252 ε
+    # for Y.
+    @testset "wires in an elliptical fill compute as in the circle that it approaches" begin
+        function result(container)
+            courses = [Lay(Helix(LayRatio(12)),
+                           Repeat(CircularPattern(n; r = 3.0e-3k),
+                               Region(Symbol(:wires_, k), Circle(1.4e-3), copper)))
+                       for (k, n) in enumerate((6, 12, 18))]
+            design = build(CableDesign, "core",
+                Terminal(:core,
+                    Group(Region(:core_fill, container, air),
+                        Stack(Region(:center, Circle(1.4e-3), copper), courses...))),
+                Region(:insulation, Offset(8.0e-3), polymer),
+                Terminal(:sheath, Region(:sheath, Offset(1.0e-3), copper)),
+                Region(:jacket, Offset(3.0e-3), polymer))
+            system = build(CableSystem, [design], [Placement(0.0, -1.0)];
+                connections = [(core = 1, sheath = 2)], id = "core", line_length = 1.0)
+            return compute(
+                LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+                    frequencies = [50.0, 1.0e3, 1.0e5]),
+                CoaxialFormulation())
+        end
+        b = 10.5e-3
+        circle = result(Circle(b))
+        for ε in (1.0e-2, 1.0e-6, 1.0e-10)
+            ellipse = result(LineCableModels.Ellipse(b * (1 + ε), b))
+            @test maximum(abs, ellipse.Z - circle.Z) <= 0.05ε * maximum(abs, circle.Z)
+            @test maximum(abs, ellipse.Y - circle.Y) <= 0.26ε * maximum(abs, circle.Y)
         end
     end
 

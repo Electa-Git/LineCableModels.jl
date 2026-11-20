@@ -18,7 +18,7 @@ using SpecialFunctions: ellipe
 import ..BaseGeometry: Contour, area, perimeter, centroid, support, distance, dimension,
                        draw, istangent, gmd
 using ..BaseGeometry: Placement, Segment, Arc, EllipticArc, Curve, parallel, direction,
-                      apsides
+                      apsides, clearance
 
 export AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
 export Sector, Ellipse, Polygon

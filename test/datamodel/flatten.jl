@@ -48,10 +48,19 @@ using LineCableModels.Commons: tolerance
         @test moved.at == at
     end
 
-    @testset "any other outline is the cross-section of its merged region" begin
+    # The wires of 1 mm radius lie 1 mm from the short sides of a bar of 10 mm by 5 mm. The
+    # bar moves inward by 1 mm, and the cross-section has 8 mm by 3 mm. Wires that touch
+    # the short sides leave the bar as it is.
+    @testset "any other outline moves inward until it meets the metal" begin
         bar = Rectangle(10e-3, 5e-3)
         wires = [Circle(1e-3, Placement(x, 0)) for x in (-3e-3, -1e-3, 1e-3, 3e-3)]
-        @test flatten(bar, EmptyBoundary(), wires) === bar
+        inner = flatten(bar, EmptyBoundary(), wires)
+        @test area(inner) ≈ 8e-3 * 3e-3 rtol = 1e-12
+        @test perimeter(inner) ≈ 2 * (8e-3 + 3e-3) rtol = 1e-12
+        reaching = [Circle(1e-3, Placement(x, 0)) for x in (-4e-3, 4e-3)]
+        whole = flatten(bar, EmptyBoundary(), reaching)
+        @test area(whole) ≈ area(bar) rtol = 1e-12
+        @test perimeter(whole) ≈ perimeter(bar) rtol = 1e-12
     end
 
     @testset "a terminal over one region that is not round is its declaration" begin
@@ -66,19 +75,25 @@ using LineCableModels.Commons: tolerance
         @test flatten(Terminal(:core, bar)) == Terminal(:core, bar)
     end
 
-    @testset "a conductor in a fill that is not round merges into its outline" begin
+    # A wire of 5 mm radius lies 5 mm inside a square fill of 20 mm. The square moves
+    # inward by 5 mm to the wire, and the fill beyond it is a layer of 5 mm.
+    @testset "a conductor in a fill that is not round ends at its metal" begin
         square = Rectangle(20.0e-3, 20.0e-3)
         design = build(CableDesign, "square",
             Terminal(:core,
                 Group(Region(:fill, square, polymer), Region(:wire, Circle(5.0e-3), copper))),
             Region(:insulation, Offset(2.0e-3), polymer))
-        core, insulation = flatten(design.tree).items
+        core, layer, insulation = flatten(design.tree).items
         @test core.part.tag == :core
-        @test core.part.primitive === square
-        # The square has the resistance and the geometric mean radius of the wire.
-        @test core.part.material.rho / area(square) ≈ copper.rho / (π * 5.0e-3^2) rtol = 1e-12
-        @test gmr(square, core.part.material.mu_r) ≈ gmr(Circle(5.0e-3), 1.0) rtol = 1e-12
+        inner = core.part.primitive
+        @test area(inner) ≈ 100.0e-6 rtol = 1e-12
+        @test perimeter(inner) ≈ 40.0e-3 rtol = 1e-12
+        # The inner square has the resistance and the geometric mean radius of the wire.
+        @test core.part.material.rho / area(inner) ≈ copper.rho / (π * 5.0e-3^2) rtol = 1e-12
+        @test gmr(inner, core.part.material.mu_r) ≈ gmr(Circle(5.0e-3), 1.0) rtol = 1e-12
         @test core.part.material.alpha ≈ copper.alpha
+        @test (layer.tag, layer.material) == (:fill, polymer)
+        @test layer.primitive.t ≈ 5.0e-3 rtol = 1e-12
         @test insulation == Region(:insulation, Offset(2.0e-3), polymer)
     end
 

@@ -173,6 +173,11 @@ material reproduces the DC resistance and the geometric mean radius of those reg
 strand laid on a helix is longer than the cable by its overlength, which increases the
 resistivity of the region.
 
+The region ends at the metal. Inside a round container it is a tube out to the farthest
+metal. Any other container moves inward until it meets the metal. The fill beyond the
+region is the first layer of the interval, of no width where the metal touches the
+container.
+
 A conductor whose current follows helices has a [`Lay`](@ref) over its region, which gives
 the turns of the current. Only a helix about the axis of the conductor adds turns. The strand
 lay of a rope member off that axis only lengthens its wires. An [`Enclosure`](@ref) and an [`Assembly`](@ref) keep their form
