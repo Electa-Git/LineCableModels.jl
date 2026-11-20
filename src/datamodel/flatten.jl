@@ -10,8 +10,9 @@ farthest extent of the metal from that center. It begins where the part inside i
 it is a circle when there is none.
 
 Any other outline moves inward until it meets the metal. The cross-section is the region
-inside its parallel at the nearest distance from the metal to the outline. That distance is
-zero for metal that touches the outline.
+inside its parallel at the nearest distance from the metal to the outline. Metal that
+touches the outline, within `tolerance` of the extent of `O`, leaves the outline where it
+is, and the cross-section is `O` itself.
 
 # Errors
 
@@ -29,6 +30,7 @@ function flatten(O::AbstractPrimitive, ::EmptyBoundary, S::AbstractVector{<:Abst
     outline = Contour(O)
     s = minimum(clearance(a, b)[3]
     for shape in S for a in outline.outer for b in Contour(shape).outer)
+    nominal(s) <= tolerance(support(O)) && return O
     return ArcPolygon(parallel(outline, -s).outer)
 end
 

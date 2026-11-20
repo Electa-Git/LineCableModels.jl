@@ -327,6 +327,15 @@ using LineCableModels.Commons: tolerance
         apart = build(CableDesign, "apart", Terminal(:core, wire),
             Region(:fill, Annulus(5e-3, 6e-3), polymer))
         @test flatten(grouped.tree) == flatten(apart.tree)
+        # One region that fills a container other than a circle flattens to that region too.
+        for shape in
+            (LineCableModels.Sector(0, 10e-3, 2π / 3, 1e-3, 1.5e-3, Placement(0, 0)),
+            Rectangle(10e-3, 5e-3), LineCableModels.Ellipse(6e-3, 4e-3))
+            core = Region(:core, shape, copper)
+            filled = build(CableDesign, "filled",
+                Terminal(:core, Group(Region(:fill, shape, polymer), core)))
+            @test first(flatten(filled.tree).items) == Terminal(:core, core)
+        end
         single = build(CableDesign, "single",
             Terminal(:core,
                 stranded(copper; shape = Circle(5e-3), n = (1,), lay = LayRatio(12),
