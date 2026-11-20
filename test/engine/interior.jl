@@ -467,6 +467,44 @@ looped(M, k, rows) = [M[i, j] - M[i, k] - M[k, j] + M[k, k] for i in rows, j in 
         @test input.assemblies == [6:6, 3:3, 1:1, 2:2, 4:5]
     end
 
+    # A pipe-type cable of three cores is a member of a larger pipe, off its axis. Inside
+    # its own pipe the cable is the cable alone. From its outer surface outward, that pipe
+    # is the same tube with a filler in its bore. A conductor inside the inner pipe has the
+    # terms of the cable alone, with the tube's own term in place of the pipe's. Measured as
+    # the largest entry: 2.4e-16 for Z and 6.4e-15 for the inverse of Y at order 0, 2.1e-16
+    # and 1.2e-14 at order 20.
+    @testset "a pipe inside a pipe is the inner cable alone and its pipe as a tube" begin
+        phase = Terminal(:core,
+            Stack(core(copper; r = 2.0e-3), insulation(polymer; t = 1.0e-3)))
+        wall = (Terminal(:inner_pipe, sheath(steel; t = 1.0e-3, tag = :inner_pipe)),
+            jacket(polymer; t = 1.0e-3, tag = :inner_jacket))
+        inner = Stack(
+            duct(oil; shape = Circle(8.0e-3), tag = :inner_fill,
+                contents = cores(phase; r = 3.6e-3, names = (:a, :b, :c))), wall...)
+        tube = Stack(filler(oil; shape = Circle(8.0e-3)), wall...)
+        place, at = Placement(12.0e-3, 5.0e-3), [Placement(0, -1)]
+        shielded = (:warn,
+            "the coaxial formulation computes the impedances above order 0 of the interior of cable:1:inner_pipe as shielded by that conductor from the interior around it: the field that crosses that conductor is left out")
+        for (order, logs) in ((0, ()), (20, (shielded,)))
+            nested = @test_logs logs... interior_result(
+                [piped_design("nested", [place => inner], air, steel, polymer)], at,
+                [(a = 1, b = 2, c = 3, inner_pipe = 4, pipe = 5)]; order)
+            alone = interior_result([build(CableDesign, "alone", inner)], at,
+                [(a = 1, b = 2, c = 3, inner_pipe = 4)]; order)
+            hollow = interior_result(
+                [piped_design("hollow", [place => tube], air, steel, polymer)], at,
+                [(inner_pipe = 1, pipe = 2)]; order)
+            @test size(nested.Z) == (5, 5, 4)
+            for (N, A, H) in ((nested.Z, alone.Z, hollow.Z),
+                map(result -> stack(inv, eachslice(result.Y; dims = 3)),
+                    (nested, alone, hollow)))
+                @test N[1:4, 1:4, :] ≈ A .- A[4:4, 4:4, :] .+ H[1:1, 1:1, :] rtol = 1.0e-12
+                @test N[1:4, 5:5, :] ≈ repeat(H[1:1, 2:2, :], 4) rtol = 1.0e-12
+                @test N[5, 5, :] ≈ H[2, 2, :] rtol = 1.0e-12
+            end
+        end
+    end
+
     # A formula of order 0 alone serves an interior at order 0, and the formulation refuses
     # it above order 0.
     @testset "the members above order 0 need surfaces at every order" begin
