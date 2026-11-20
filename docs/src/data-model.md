@@ -174,7 +174,8 @@ strand laid on a helix is longer than the cable by its overlength, which increas
 resistivity of the region.
 
 A conductor whose current follows helices has a [`Lay`](@ref) over its region, which gives
-the turns of the current. An [`Enclosure`](@ref) and an [`Assembly`](@ref) keep their form
+the turns of the current. Only a helix about the axis of the conductor adds turns. The strand
+lay of a rope member off that axis only lengthens its wires. An [`Enclosure`](@ref) and an [`Assembly`](@ref) keep their form
 around their flattened members. The equations are given in the docstring of
 [`flatten`](@ref).
 

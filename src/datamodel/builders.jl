@@ -333,9 +333,12 @@ $(TYPEDSIGNATURES)
 Declare a rope: courses of the part `member` inside the outline that `boundary` declares.
 The member is a part such as a stranded conductor. The courses lie as those of
 [`stranded`](@ref) do. A course of one member with no part inside it is the member on the
-center of the cable. The lay of a course and the lays inside its members both lengthen a
-wire. A fill takes `boundary` without the members, and its region takes the name
-`<tag>_fill`.
+center of the cable. A fill takes `boundary` without the members, and its region takes the
+name `<tag>_fill`.
+
+The lay of a course and the lays inside its members both lengthen a wire. The lay of a
+course gives its turns to every wire of its members. A lay inside a member gives turns to
+the conductor only for the member on the center of the cable.
 
 # Keywords
 

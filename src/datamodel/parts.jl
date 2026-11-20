@@ -697,7 +697,8 @@ function resolve(::Vector, ::Placement, ::Real, ::Real, part::Union{Enclosure, A
 end
 
 # The part of a repeat lists its conductive regions once, in its own frame, and each copy
-# places them.
+# places them. The turns of the part are turns about its own axis. They count for a copy on
+# the axis of the repeat, and a helix about another axis only lengthens its regions.
 function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real,
         repeat::Repeat{<:AbstractVector{<:Placement}})
     own = resolve(NamedTuple[], Placement(0, 0), one(ℓ), zero(N), repeat.part)
@@ -705,24 +706,30 @@ function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real,
 
         push!(strands,
             (S = resolve(at * copy, strand.S), material = strand.material,
-                ℓ = ℓ * strand.ℓ, N = N + strand.N, g = strand.g))
+                ℓ = ℓ * strand.ℓ,
+                N = N + (iszero(nominal(distance(copy))) ? strand.N : zero(strand.N)),
+                g = strand.g))
     end
     return strands
 end
 
-# A laid strand follows the helix at the lay radius `r` of its centroid. The overlengths of
-# nested lays multiply, and their turns add.
+# A laid member follows the helix at the lay radius `r` of the centroid of its outline, and
+# so does each of its regions. The overlengths of nested lays multiply. The turns of the lay
+# add to the turns of the member for a copy on the axis of the lay. Elsewhere the turns of
+# the member are turns about another axis and do not count.
 function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real,
-        lay::Lay{<:Helix, <:Repeat{<:AbstractVector{<:Placement}, <:CablePart}})
+        lay::Lay{<:Helix, <:Repeat{<:AbstractVector{<:Placement}}})
     own = resolve(NamedTuple[], Placement(0, 0), one(ℓ), zero(N), lay.part.part)
-    c = centroid(lay.part.part.shape)
+    c = centroid(boundary(lay.part.part))
     for copy in lay.part.pattern, strand in own
 
         r = distance(copy(c))
         push!(strands,
             (S = resolve(at * copy, strand.S), material = strand.material,
                 ℓ = ℓ * overlength(lay.helix, r) * strand.ℓ,
-                N = N + inv(lay.helix.dir * pitch(lay.helix, r)) + strand.N, g = strand.g))
+                N = N + inv(lay.helix.dir * pitch(lay.helix, r)) +
+                    (iszero(nominal(distance(copy))) ? strand.N : zero(strand.N)),
+                g = strand.g))
     end
     return strands
 end

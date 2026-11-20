@@ -209,6 +209,81 @@ using LineCableModels.Commons: tolerance
         @test first(results).Y ≈ last(results).Y rtol = 1e-12
     end
 
+    # A rope has seven members of seven wires each. One member lies on the axis of the rope
+    # and six lie around it. A wire is the center of its member or one of the six around it.
+    # The overlengths of the strand lay and of the rope lay multiply. The rope lay gives its
+    # turns to every wire of a member around the axis. The strand lay gives turns in the
+    # member on the axis alone, since in any other member it winds about the axis of that
+    # member.
+    @testset "the lays of a rope multiply their overlengths and add their turns about its axis" begin
+        a = 1.5e-3
+        member = stranded(copper; shape = Circle(a), n = (1, 6), lay = LayRatio(12),
+            boundary = Circle(3a))
+        around = Repeat(CircularPattern(6; r = Offset(0)), member)
+        ℓ_s, ℓ_r = hypot(1, π / 12), hypot(1, π / 14)
+        N_s, N_r = inv(2 * 2a * 12), inv(2 * 6a * 14)
+        # Each case gives the members around the axis. Then come the overlengths and the
+        # turns of the wires, for the member on the axis and for a member around it.
+        for (course, lengths, turns) in (
+            (Lay(Helix(LayRatio(14)), around),
+                [1; fill(ℓ_s, 6); ℓ_r; fill(ℓ_s * ℓ_r, 6)], [0; fill(N_s, 6); fill(N_r, 7)]),
+            (around, [1; fill(ℓ_s, 6); 1; fill(ℓ_s, 6)], [0; fill(N_s, 6); zeros(7)]))
+            design = build(CableDesign, "rope",
+                Terminal(:core,
+                    Group(Region(:rope_fill, Circle(9a), air), Stack(member, course))),
+                Region(:insulation, Offset(4.0e-3), polymer))
+            @test [(row.name, length(row.regions)) for row in design.terminals] ==
+                  [(:core, 49)]
+            core = first(flatten(design.tree).items)
+            region = core.part.part
+            @test [r_in(region.primitive), r_ex(region.primitive)] ≈ [0, 9a]
+            # The 7 wires of the member on the axis come first, then the 7 of each member
+            # around it.
+            wires = [placed.shape
+                     for placed in design.regions
+                     if placed.source.material === copper]
+            G = inv.([lengths[1:7]; repeat(lengths[8:14], 6)])
+            @test region.material.rho / area(region.primitive) ≈
+                  copper.rho / (π * a^2 * sum(G)) rtol = 1e-12
+            w = G ./ sum(G)
+            log_g = sum(w[i] * w[j] *
+                        log(i == j ? gmr(wires[i], 1.0) :
+                            hypot((centroid(wires[i]) .- centroid(wires[j]))...))
+            for i in eachindex(wires), j in eachindex(wires))
+            @test log(gmr(region.primitive, region.material.mu_r)) ≈ log_g rtol = 1e-12
+            N = sum(w .* [turns[1:7]; repeat(turns[8:14], 6)])
+            @test core.part.helix.dir / pitch(core.part.helix, 9a) ≈ N rtol = 1e-12
+        end
+    end
+
+    # The segments of a Milliken core follow one lay about its axis. A segment follows the
+    # helix at the radius of the centroid of its wedge, and so does each of its wires.
+    @testset "the segments of a core laid up take the lay at the centroid of their outline" begin
+        a = 1.0e-3
+        arcs = [Repeat(CircularPattern(n; r, φ0 = -φ, span = 2φ),
+                    Region(:segment_wires, Circle(a), copper))
+                for (n, r, φ) in ((2, 4.7e-3, 0.25), (3, 6.7e-3, 0.33))]
+        wedge = LineCableModels.Sector(
+            3.5e-3, 7.7e-3, deg2rad(58), 0, 0.5e-3, Placement(0, 0))
+        segment = Group(Region(:segment_fill, wedge, air), Stack(arcs...))
+        design = build(CableDesign, "segments",
+            Terminal(:core,
+                Group(Region(:core_fill, Circle(7.9e-3), air),
+                    Stack(Region(:center, Circle(3.0e-3), copper),
+                        Lay(Helix(LayRatio(14)),
+                            Repeat(CircularPattern(6; r = 0), segment))))),
+            Region(:insulation, Offset(10.0e-3), polymer))
+        core = first(flatten(design.tree).items)
+        region = core.part.part
+        # The center is one wire of 3 mm, straight on the axis. Each of the 30 wires of the
+        # segments is longer by the overlength of the lay.
+        G = [9; fill(inv(hypot(1, π / 14)), 30)]
+        @test region.material.rho / area(region.primitive) ≈
+              copper.rho / (π * a^2 * sum(G)) rtol = 1e-12
+        N = sum(G[2:end]) / sum(G) * inv(2 * hypot(centroid(wedge)...) * 14)
+        @test core.part.helix.dir / pitch(core.part.helix, 7.7e-3) ≈ N rtol = 1e-12
+    end
+
     @testset "a terminal with its conductor and its dielectric layers" begin
         # A layer declared inside the terminal is the layer declared after it.
         bar = Region(:bar, Rectangle(10e-3, 5e-3), copper)
