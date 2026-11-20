@@ -940,6 +940,152 @@
         @test piped.Y ≈ expected.Y rtol = 1e-12
     end
 
+    # These cables have one core, and the builders declare them from the inside out. The
+    # first four are a solid wire, an insulated core, a core with tubes of conductors and
+    # insulators, and a tube around a filler. The next five have a conductor of wires
+    # inside a circle, with a fill and a lay, about a central wire or around a filler. The
+    # last one adds a ring of wires under a tape, with a terminal of its own. Each cable
+    # flattens to circles and annuli and computes as its flattened cable.
+    @testset "the cables of one core flatten to circles and annuli" begin
+        oil = Material(:insulator, 1.0e12, 2.2)
+        a, b, w, t = 1.5e-3, 0.5e-3, 10.0e-3, 0.1e-3
+        strands = stranded(copper; shape = Circle(a), n = (1, 6, 12), lay = LayRatio(12),
+            boundary = Circle(5a), fill = air)
+        hollow = stranded(copper; shape = Circle(a), n = (12, 18), lay = LayRatio(12),
+            boundary = Offset(4a), fill = oil)
+        solid_wire = @design "solid_wire" begin
+            @terminal :core begin
+                core(copper; r = 4.0e-3)
+            end
+        end
+        insulated_wire = @design "insulated_wire" begin
+            @terminal :core begin
+                core(copper; r = 4.0e-3)
+                insulation(polymer; t = 1.0e-3)
+            end
+        end
+        core_and_tubes = @design "core_and_tubes" begin
+            @terminal :core begin
+                core(copper; r = 10.0e-3)
+                screen(semicon; t = 1.0e-3)
+                insulation(polymer; t = 8.0e-3)
+                screen(semicon; t = 1.0e-3)
+            end
+            @terminal :sheath begin
+                sheath(copper; t = 1.0e-3)
+                bedding(polymer; t = 2.0e-3)
+            end
+            @terminal :armor begin
+                sheath(steel; t = 3.0e-3, tag = :armor)
+                jacket(polymer; t = 4.0e-3)
+            end
+        end
+        tube_and_filler = @design "tube_and_filler" begin
+            filler(oil; shape = Circle(5.0e-3))
+            @terminal :core begin
+                solid(copper; shape = Offset(5.0e-3))
+                insulation(polymer; t = 8.0e-3)
+            end
+        end
+        bare_strands = @design "bare_strands" begin
+            @terminal :core begin
+                strands
+            end
+        end
+        bare_rods = @design "bare_rods" begin
+            @terminal :core begin
+                core(copper; r = a)
+                stranded(
+                    copper; shape = Rectangle(2a, 2a), n = (6, 12), lay = LayRatio(12),
+                    boundary = Offset(4a), fill = air)
+            end
+        end
+        strands_and_filler = @design "strands_and_filler" begin
+            filler(oil; shape = Circle(4a))
+            @terminal :core begin
+                hollow
+            end
+        end
+        insulated_strands = @design "insulated_strands" begin
+            @terminal :core begin
+                strands
+                insulation(polymer; t = 8.0e-3)
+            end
+        end
+        insulated_hollow = @design "insulated_strands_and_filler" begin
+            filler(oil; shape = Circle(4a))
+            @terminal :core begin
+                hollow
+                insulation(polymer; t = 8.0e-3)
+            end
+        end
+        screened_strands = @design "screened_strands" begin
+            @terminal :core begin
+                strands
+                tape(semicon; w = 20.0e-3, t = 0.5e-3, lay = LayRatio(10), fill = air,
+                    tag = :binder)
+                insulation(polymer; t = 8.0e-3)
+            end
+            @terminal :screen begin
+                wires(copper; shape = Circle(b), n = 40, lay = LayRatio(10), fill = air,
+                    tag = :screen)
+                tape(copper; w, t, lay = LayRatio(10))
+                jacket(polymer; t = 2.0e-3)
+            end
+        end
+        # Each cable with the radii of its tubes, the radii of its layers and the resistance
+        # of each conductor. The wires of a conductor carry its current in parallel. `wire`
+        # is the resistance of one wire and `ℓ` the overlength of its lay.
+        wire = copper.rho / (π * a^2)
+        ℓ = hypot(1, π / 12)
+        cases = [
+            (solid_wire, [0.0 4.0e-3], zeros(0, 2), [copper.rho / (π * 4.0e-3^2)]),
+            (insulated_wire, [0.0 4.0e-3], [4.0e-3 5.0e-3], [copper.rho / (π * 4.0e-3^2)]),
+            (core_and_tubes, [0.0 10.0e-3; 20.0e-3 21.0e-3; 23.0e-3 26.0e-3],
+                [10.0e-3 11.0e-3; 11.0e-3 19.0e-3; 19.0e-3 20.0e-3; 21.0e-3 23.0e-3;
+                 26.0e-3 30.0e-3],
+                [copper.rho / (π * 10.0e-3^2), copper.rho / (π * 41.0e-6),
+                    steel.rho / (π * 147.0e-6)]),
+            (tube_and_filler, [5.0e-3 10.0e-3], [10.0e-3 18.0e-3],
+                [copper.rho / (π * 75.0e-6)]),
+            (bare_strands, [0.0 5a], [5a 5a], [wire / (1 + 18 / ℓ)]),
+            (bare_rods, [0.0 5a], [5a 5a], [copper.rho / (π * a^2 + 18 * 4a^2 / ℓ)]),
+            (strands_and_filler, [4a 8a], [8a 8a], [wire * ℓ / 30]),
+            (insulated_strands, [0.0 5a], [5a 5a; 5a 5a+8.0e-3], [wire / (1 + 18 / ℓ)]),
+            (insulated_hollow, [4a 8a], [8a 8a; 8a 8a+8.0e-3], [wire * ℓ / 30]),
+            (screened_strands, [0.0 5a; 16.0e-3 17.1e-3],
+                [5a 5a; 5a 8.0e-3; 8.0e-3 16.0e-3; 17.1e-3 17.1e-3; 17.1e-3 19.1e-3],
+                [wire / (1 + 18 / ℓ), copper.rho * hypot(1, π / 10) / (40π * b^2 + w * t)])]
+        for (design, tubes, layers, R) in cases
+            flat = flatten(design)
+            @test all(flat.items) do item
+                region = item isa Terminal ?
+                         (item.part isa Lay ? item.part.part : item.part) : item
+                return region.primitive isa Union{Circle, Annulus}
+            end
+            input = coaxial(design)
+            @test [input.r_in input.r_ex] ≈ tubes rtol = 1e-12
+            @test [input.dielectric_r_in input.dielectric_r_ex] ≈ layers rtol = 1e-12
+            @test [medium.rho / (π * (r_e^2 - r_i^2))
+                   for (medium, r_i, r_e) in zip(input.material, input.r_in, input.r_ex)] ≈
+                  R rtol = 1e-12
+            names = Tuple(row.name for row in design.terminals)
+            direct,
+            flattened = map((design, build(CableDesign, design.id, flat.items...))) do cable
+                system = build(CableSystem, [cable], [Placement(0.0, -1.0)];
+                    connections = [NamedTuple{names}(Tuple(eachindex(names)))],
+                    id = cable.id, line_length = 1.0)
+                return compute(
+                    LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+                        frequencies = [50.0, 1.0e4]),
+                    CoaxialFormulation())
+            end
+            @test size(direct.Z) == (length(names), length(names), 2)
+            @test direct.Z ≈ flattened.Z rtol = 1e-12
+            @test direct.Y ≈ flattened.Y rtol = 1e-12
+        end
+    end
+
     # A tube of 1 mm lies on a rectangular filler of 10 mm by 5 mm. No conductor and no
     # layer lies before it, and it takes Ametani's cylinder of its own cross-section. The
     # inner radius of the cylinder is the perimeter of the filler over 2π. A layer that an
