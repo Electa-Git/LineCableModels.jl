@@ -61,6 +61,9 @@ mean radius ``g``. The method sums the differences
 ``\\log \\operatorname{gmr}(S, 0) - \\log \\operatorname{gmd}(S_i,S_j)``, because ``g`` lies
 close to ``\\operatorname{gmr}(S, 0)`` for a thin tube.
 
+One conductive region that fills ``S`` and lies straight is the conductor itself. The
+terminal then has that region, with its own name and material.
+
 The current of the terminal makes ``N = \\sum_i w_i N_i`` turns per unit length. ``N_i``
 sums the inverse pitches of the helices that region ``i`` follows about the axis of the
 conductor, signed by their direction. A helix about another axis only lengthens the region.
@@ -93,27 +96,40 @@ function flatten(inner::Union{EmptyBoundary, AbstractShape}, terminal::Terminal,
     validate(strands, flatten, terminal)
     S = [strand.S for strand in strands]
     media = validate([strand.material for strand in strands], flatten, terminal)
+    # A terminal with one conductive region gives the name of that region.
+    tag = terminal.name
+    if length(strands) == 1
+        pieces = CablePart[]
+        foreach(placed -> push!(pieces, placed), terminal)
+        tag = only(placed.source.tag
+        for placed in pieces if placed.source.material isa CONDUCTOR)
+    end
     return flatten(terminal.name, flatten(O, inner, S), S, media,
         [strand.ℓ for strand in strands], [strand.g for strand in strands],
-        [strand.N for strand in strands])
+        [strand.N for strand in strands], tag)
 end
 
 # The sums of the association run on the columns of the conductive regions, each a vector
 # of one type. `S` holds their cross-sections and `media` their materials. `ℓ` holds their
-# overlengths and `g` their geometric mean radii. `N` holds their turns.
+# overlengths and `g` their geometric mean radii. `N` holds their turns. One straight region
+# that fills the cross-section `tube` is the conductor itself, under its own name `tag`.
 function flatten(name::Symbol, tube::AbstractPrimitive, S::Vector{<:AbstractShape},
         media::Vector{<:Material}, ℓ::Vector{<:Real}, g::Vector{<:Real},
-        N::Vector{<:Real})
+        N::Vector{<:Real}, tag::Symbol)
     G = [area(S[i]) / (media[i].rho * ℓ[i]) for i in eachindex(S)]
     w = G ./ sum(G)
-    b = log(gmr(tube, 0))
-    gap = sum(w[i]^2 * (b - log(g[i])) for i in eachindex(S)) +
-          2sum(
-        (w[i] * w[j] * (b - log(gmd(S[i], S[j])))
-        for i in eachindex(S) for j in (i + 1):length(S));
-        init = zero(eltype(w)))
-    region = Region(name, tube, 1 / sum(G), exp(b - gap), first(media).T0,
-        sum(w .* [medium.alpha for medium in media]))
+    region = if length(S) == 1 && only(S) == tube && isone(nominal(only(ℓ)))
+        Region(tag, tube, only(media))
+    else
+        b = log(gmr(tube, 0))
+        gap = sum(w[i]^2 * (b - log(g[i])) for i in eachindex(S)) +
+              2sum(
+            (w[i] * w[j] * (b - log(gmd(S[i], S[j])))
+            for i in eachindex(S) for j in (i + 1):length(S));
+            init = zero(eltype(w)))
+        Region(name, tube, 1 / sum(G), exp(b - gap), first(media).T0,
+            sum(w .* [medium.alpha for medium in media]))
+    end
     turns = sum(w .* N)
     iszero(nominal(turns)) && return Terminal(name, region)
     return Terminal(name,

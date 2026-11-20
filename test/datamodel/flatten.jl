@@ -319,6 +319,20 @@ using LineCableModels.Commons: tolerance
         @test flatten(inside.tree) == flatten(alone.tree) ==
               Stack(Terminal(:core, bar), layer)
         @test flatten(under.tree) == flatten(twice.tree) == flatten(alone.tree)
+        # A group of one wire that fills its tube flattens to that wire. The fill beyond the
+        # wire flattens to the layer that follows the wire in the second cable.
+        wire = Region(:wire, Circle(5e-3), copper)
+        grouped = build(CableDesign, "grouped",
+            Terminal(:core, Group(Region(:fill, Circle(6e-3), polymer), wire)))
+        apart = build(CableDesign, "apart", Terminal(:core, wire),
+            Region(:fill, Annulus(5e-3, 6e-3), polymer))
+        @test flatten(grouped.tree) == flatten(apart.tree)
+        single = build(CableDesign, "single",
+            Terminal(:core,
+                stranded(copper; shape = Circle(5e-3), n = (1,), lay = LayRatio(12),
+                    boundary = Circle(5e-3))))
+        @test first(flatten(single.tree).items) ==
+              Terminal(:core, Region(:stranded, Circle(5e-3), copper))
         # A tube around a filler, with the filler and the insulation inside the terminal.
         duct = Region(:duct, Circle(5e-3), polymer)
         tube = Region(:tube, Offset(5e-3), copper)
