@@ -27,7 +27,8 @@
     end
 
     @testset "the coaxial cables of the references" begin
-        for strand in (Circle(1.5e-3), Rectangle(3.0e-3, 3.0e-3))
+        for (case, strand) in (("coaxial_circular_strands", Circle(1.5e-3)),
+            ("coaxial_rectangular_strands", Rectangle(3.0e-3, 3.0e-3)))
             design = @design "coaxial" begin
                 @terminal :core begin
                     core(copper; r = 1.5e-3)
@@ -47,28 +48,9 @@
                 end
                 jacket(polymer; t = 4.0e-3)
             end
-            # The node tree of the reference, with the radii of its courses and its sheath,
-            # and its central wire a part before its courses.
-            courses = [Lay(Helix(LayRatio(12)),
-                           Repeat(CircularPattern(n; r = 3.0e-3k),
-                               Region(Symbol(:core_strands_, k), strand, copper)))
-                       for (k, n) in enumerate((6, 12, 18))]
-            armour = Lay(Helix(LayRatio(10)),
-                Repeat(CircularPattern(40; r = 26.5e-3),
-                    Region(:armour_wires, Circle(2.0e-3), steel)))
-            reference = build(CableDesign, "coaxial",
-                Terminal(:core,
-                    Stack(Region(:core_centre, Circle(1.5e-3), copper),
-                        Group(Region(:core_fill, Annulus(1.5e-3, 10.5e-3), air),
-                            Stack(courses...)))),
-                Region(:core_semicon_inner, Offset(1.0e-3), semicon),
-                Region(:core_insulation, Offset(8.0e-3), polymer),
-                Region(:core_semicon_outer, Offset(1.0e-3), semicon),
-                Terminal(:sheath, Region(:sheath_copper, Annulus(20.5e-3, 21.5e-3), copper)),
-                Region(:sheath_bedding, Offset(3.0e-3), polymer),
-                Terminal(:armour,
-                    Group(Region(:armour_fill, Offset(4.0e-3), air), armour)),
-                Region(:armour_jacket, Offset(4.0e-3), polymer))
+            # The reference cable declares its central wire inside the fill of its core, with
+            # the radii of its courses and its sheath.
+            reference = first(Dict(REFERENCES)[case].system.designs)
 
             @test [placed.source.material for placed in design.regions] ==
                   [placed.source.material for placed in reference.regions]

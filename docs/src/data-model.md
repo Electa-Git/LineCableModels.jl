@@ -133,7 +133,7 @@ The macro [`@assembly`](@ref) places the members listed in its block, each with
 - [`duct`](@ref): container filled with a material around the sub-cables inside it, such
   as the inside of a pipe.
 
-Each layer of [`stranded`](@ref) takes its own lay ratio and the angle of its first member,
+Each layer of [`stranded`](@ref) takes its own lay and the angle of its first member,
 or one value for all layers. The first layer lies on the part inside the conductor, such as
 a central wire or a filler. With no part inside, a layer of one wire is the wire on the
 center of the cable. A filler completes the layer of a [`tape`](@ref).
@@ -167,7 +167,9 @@ cross-sections and the materials promote to `T` together with `Float64`.
 The coaxial formulations represent a cable as a set of concentric tubes. The function
 `LineCableModels.flatten(design)` returns this representation as a [`Stack`](@ref) of the
 parts that declare a cable. Each conductor is one [`Terminal`](@ref) over one
-[`Region`](@ref), and each dielectric layer of its insulation interval is one region. The
+[`Region`](@ref), and each dielectric layer of its insulation interval is one region. A
+conductor that an [`Offset`](@ref) declares around an outline other than a circle keeps its
+resolved cross-section under its terminal. The
 region of a terminal spans its conductive regions and the fillers between them, and its
 material reproduces the DC resistance and the geometric mean radius of those regions. A
 strand laid on a helix is longer than the cable by its overlength, which increases the
