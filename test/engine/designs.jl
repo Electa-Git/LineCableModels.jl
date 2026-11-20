@@ -1129,4 +1129,42 @@
             @test maximum(abs, ellipse.Y - circle.Y) <= 0.22ε * maximum(abs, circle.Y)
         end
     end
+
+    # The test computes a rod with a tube on it in one terminal. It also computes the two
+    # as terminals on one connection, with a film of 1 μm between them. Metals of one
+    # permeability agree. Measured on Julia 1.12.7, x86_64 Linux, at 50 Hz and 1 kHz: the
+    # resistance within 2.2 % and the reactance within 1.2 %. A tube of iron around copper
+    # shields it. At 50 Hz the merged region has less than a tenth of the resistance of the
+    # layers, and `flatten` warns.
+    @testset "one region stands for metals of one permeability" begin
+        aluminum = Material(:conductor, 2.8264e-8, 1, 1, 20, 0.00429)
+        lead = Material(:conductor, 2.14e-7, 1, 1, 20, 0.004)
+        iron = Material(:conductor, 1.0e-7, 1, 300, 20, 0.005)
+        function results(rod, tube)
+            inner = Region(:rod, Circle(10.0e-3), rod)
+            outer = Region(:tube, Offset(2.0e-3), tube)
+            merged = build(CableDesign, "merged", Terminal(:core, Stack(inner, outer)),
+                Region(:insulation, Offset(5.0e-3), polymer))
+            layers = build(CableDesign, "layers", Terminal(:core, inner),
+                Region(:film, Offset(1.0e-6), polymer), Terminal(:tube, outer),
+                Region(:insulation, Offset(5.0e-3), polymer))
+            return map(((merged, (core = 1,)), (layers, (core = 1, tube = 1)))) do case
+                system = build(CableSystem, [first(case)], [Placement(0.0, -1.0)];
+                    connections = [last(case)], id = first(case).id, line_length = 1.0)
+                return compute(
+                    LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+                        frequencies = [50.0, 1.0e3]),
+                    CoaxialFormulation()).Z[1, 1, :]
+            end
+        end
+        for (rod, tube) in ((copper, aluminum), (copper, lead), (aluminum, copper))
+            merged, layers = @test_logs results(rod, tube)
+            @test real(merged) ≈ real(layers) rtol = 2.5e-2
+            @test imag(merged) ≈ imag(layers) rtol = 1.5e-2
+        end
+        merged,
+        layers = @test_logs (:warn, r"merges metals of different relative permeability") results(
+            copper, iron)
+        @test real(merged[1]) < 0.1 * real(layers[1])
+    end
 end

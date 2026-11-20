@@ -102,7 +102,10 @@ using LineCableModels.Commons: tolerance
         design = build(CableDesign, "plated",
             Terminal(:core, Stack(bar, Region(:plating, Offset(0.5e-3), steel))),
             Region(:insulation, Offset(1e-3), polymer))
-        core, insulation = flatten(design.tree).items
+        # The plating is magnetic and the bar is not, and `flatten` warns of the merge.
+        core,
+        insulation = (@test_logs (
+            :warn, r"merges metals of different relative permeability") flatten(design.tree)).items
         metal = design.regions[1:2]
         outline = core.part.primitive
         @test area(outline) ≈ sum(placed -> area(placed.shape), metal) rtol = 1e-12

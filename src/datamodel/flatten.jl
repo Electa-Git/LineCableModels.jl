@@ -74,6 +74,14 @@ A terminal with turns has a [`Lay`](@ref) over its region. The helix has the lay
 - A [`Terminal`](@ref) of the same name over one [`Region`](@ref), or over a [`Lay`](@ref)
   of that region when its current has turns.
 
+# Notes
+
+- The one region stands for metals of one relative permeability. The method warns when the
+  conductive regions of the terminal have several. The region then keeps their shares of the
+  direct current. It leaves out the flux of the current of one metal in another, and the
+  exchange of current between the metals above DC. Magnetic metal with a dielectric between
+  it and the other metal is a terminal of its own, on the same connection.
+
 # Errors
 
 - Throws `ArgumentError` when the terminal does not contain a conductive region.
@@ -84,18 +92,19 @@ function flatten(inner::Union{EmptyBoundary, AbstractShape}, terminal::Terminal,
         @nospecialize(O::AbstractShape), strands::Vector)
     validate(strands, flatten, terminal)
     S = [strand.S for strand in strands]
-    return flatten(terminal.name, flatten(O, inner, S), S,
-        [area(strand.S) / (strand.material.rho * strand.ℓ) for strand in strands],
-        [strand.g for strand in strands], [strand.N for strand in strands],
-        first(strands).material.T0, [strand.material.alpha for strand in strands])
+    media = validate([strand.material for strand in strands], flatten, terminal)
+    return flatten(terminal.name, flatten(O, inner, S), S, media,
+        [strand.ℓ for strand in strands], [strand.g for strand in strands],
+        [strand.N for strand in strands])
 end
 
 # The sums of the association run on the columns of the conductive regions, each a vector
-# of one type. `S` holds their cross-sections and `G` their conductances. `g` holds their
-# geometric mean radii and `N` their turns. `alpha` holds their temperature coefficients.
+# of one type. `S` holds their cross-sections and `media` their materials. `ℓ` holds their
+# overlengths and `g` their geometric mean radii. `N` holds their turns.
 function flatten(name::Symbol, tube::AbstractPrimitive, S::Vector{<:AbstractShape},
-        G::Vector{<:Real}, g::Vector{<:Real}, N::Vector{<:Real}, T0::Real,
-        alpha::Vector{<:Real})
+        media::Vector{<:Material}, ℓ::Vector{<:Real}, g::Vector{<:Real},
+        N::Vector{<:Real})
+    G = [area(S[i]) / (media[i].rho * ℓ[i]) for i in eachindex(S)]
     w = G ./ sum(G)
     b = log(gmr(tube, 0))
     gap = sum(w[i]^2 * (b - log(g[i])) for i in eachindex(S)) +
@@ -103,23 +112,32 @@ function flatten(name::Symbol, tube::AbstractPrimitive, S::Vector{<:AbstractShap
         (w[i] * w[j] * (b - log(gmd(S[i], S[j])))
         for i in eachindex(S) for j in (i + 1):length(S));
         init = zero(eltype(w)))
-    region = Region(name, tube, 1 / sum(G), exp(b - gap), T0, sum(w .* alpha))
+    region = Region(name, tube, 1 / sum(G), exp(b - gap), first(media).T0,
+        sum(w .* [medium.alpha for medium in media]))
     turns = sum(w .* N)
     iszero(nominal(turns)) && return Terminal(name, region)
     return Terminal(name,
         Lay(Helix(Pitch(1 / abs(turns)); dir = nominal(turns) > 0 ? 1 : -1), region))
 end
 
-# A terminal contains a conductive region, and its conductive regions share one reference
-# temperature.
+# A terminal contains a conductive region.
 function validate(strands::Vector, ::typeof(flatten), terminal::Terminal)
     isempty(strands) && throw(ArgumentError(
         "the terminal :$(terminal.name) does not contain a conductive region"))
-    all(
-        strand -> nominal(strand.material.T0) == nominal(first(strands).material.T0),
-        strands) || throw(ArgumentError(
-        "the materials of the terminal :$(terminal.name) must share one reference temperature"))
     return strands
+end
+
+# The materials of the conductive regions of a terminal share one reference temperature.
+# One region stands for metals of one relative permeability. With several, it keeps their
+# shares of the direct current. It leaves out the flux of the current of one metal in
+# another, and the exchange of current between them above DC.
+function validate(media::Vector{<:Material}, ::typeof(flatten), terminal::Terminal)
+    all(medium -> nominal(medium.T0) == nominal(first(media).T0), media) ||
+        throw(ArgumentError(
+            "the materials of the terminal :$(terminal.name) must share one reference temperature"))
+    all(medium -> nominal(medium.mu_r) == nominal(first(media).mu_r), media) ||
+        @warn "the terminal :$(terminal.name) merges metals of different relative permeability into one region; the region keeps their shares of the direct current and leaves out the flux of the current of one metal in another"
+    return media
 end
 
 """
