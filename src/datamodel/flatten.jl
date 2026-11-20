@@ -299,10 +299,10 @@ function flatten(items::Vector{AbstractCablePart}, @nospecialize(terminal::Termi
     return flatten(items, flat, conductor)
 end
 
-# A layer that an offset declares around another outline than a circle may be the whole
-# conductor of a terminal, and so may a region under the lay of its turns. The terminal over
-# such a part alone is its own flattened form, with the layers of the stack around it. Other
-# metal of the terminal inside the part merges into its outline.
+# A layer that an offset declares around another outline than a circle is the whole
+# conductor of a terminal with no other metal. So is a region under the lay of its turns.
+# The terminal over such a part alone is its own flattened form, with the layers of the
+# stack around it. Other metal of the terminal inside the part merges into its outline.
 function flatten(items::Vector{AbstractCablePart}, terminal::Terminal,
         conductor::Union{CablePart{<:Region{<:Offset}, <:PerforatedShape},
             Lay{<:Helix, <:CablePart}},
