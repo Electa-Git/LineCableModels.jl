@@ -84,22 +84,30 @@ function flatten(inner::Union{EmptyBoundary, AbstractShape}, terminal::Terminal,
         @nospecialize(O::AbstractShape), strands::Vector)
     validate(strands, flatten, terminal)
     S = [strand.S for strand in strands]
-    G = [area(strand.S) / (strand.material.rho * strand.ℓ) for strand in strands]
+    return flatten(terminal.name, flatten(O, inner, S), S,
+        [area(strand.S) / (strand.material.rho * strand.ℓ) for strand in strands],
+        [strand.g for strand in strands], [strand.N for strand in strands],
+        first(strands).material.T0, [strand.material.alpha for strand in strands])
+end
+
+# The sums of the association run on the columns of the conductive regions, each a vector
+# of one type. `S` holds their cross-sections and `G` their conductances. `g` holds their
+# geometric mean radii and `N` their turns. `alpha` holds their temperature coefficients.
+function flatten(name::Symbol, tube::AbstractPrimitive, S::Vector{<:AbstractShape},
+        G::Vector{<:Real}, g::Vector{<:Real}, N::Vector{<:Real}, T0::Real,
+        alpha::Vector{<:Real})
     w = G ./ sum(G)
-    tube = flatten(O, inner, S)
     b = log(gmr(tube, 0))
-    gap = sum(w[i]^2 * (b - log(strands[i].g)) for i in eachindex(strands)) +
+    gap = sum(w[i]^2 * (b - log(g[i])) for i in eachindex(S)) +
           2sum(
         (w[i] * w[j] * (b - log(gmd(S[i], S[j])))
         for i in eachindex(S) for j in (i + 1):length(S));
         init = zero(eltype(w)))
-    region = Region(terminal.name, tube, 1 / sum(G), exp(b - gap),
-        first(strands).material.T0,
-        sum(w .* [strand.material.alpha for strand in strands]))
-    N = sum(w .* [strand.N for strand in strands])
-    iszero(nominal(N)) && return Terminal(terminal.name, region)
-    return Terminal(terminal.name,
-        Lay(Helix(Pitch(1 / abs(N)); dir = nominal(N) > 0 ? 1 : -1), region))
+    region = Region(name, tube, 1 / sum(G), exp(b - gap), T0, sum(w .* alpha))
+    turns = sum(w .* N)
+    iszero(nominal(turns)) && return Terminal(name, region)
+    return Terminal(name,
+        Lay(Helix(Pitch(1 / abs(turns)); dir = nominal(turns) > 0 ? 1 : -1), region))
 end
 
 # A terminal contains a conductive region, and its conductive regions share one reference
