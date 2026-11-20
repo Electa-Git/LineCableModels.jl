@@ -310,6 +310,15 @@ using LineCableModels.Commons: tolerance
         outside = build(CableDesign, "outside", Terminal(:core, Stack(bar)), layer)
         @test [(row.name, row.regions) for row in inside.terminals] == [(:core, [1])]
         @test flatten(inside.tree) == flatten(outside.tree)
+        # One region with all the metal of its terminal is its own flattened form. It is so
+        # alone in its terminal, in a stack with its layer, and under a terminal inside it.
+        alone = build(CableDesign, "alone", Terminal(:core, bar), layer)
+        under = build(CableDesign, "under",
+            Terminal(:core, Stack(Terminal(:bar, bar), layer)))
+        twice = build(CableDesign, "twice", Terminal(:core, Terminal(:bar, bar)), layer)
+        @test flatten(inside.tree) == flatten(alone.tree) ==
+              Stack(Terminal(:core, bar), layer)
+        @test flatten(under.tree) == flatten(twice.tree) == flatten(alone.tree)
         # A tube around a filler, with the filler and the insulation inside the terminal.
         duct = Region(:duct, Circle(5e-3), polymer)
         tube = Region(:tube, Offset(5e-3), copper)

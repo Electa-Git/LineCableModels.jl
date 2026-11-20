@@ -299,20 +299,28 @@ function flatten(items::Vector{AbstractCablePart}, @nospecialize(terminal::Termi
     return flatten(items, flat, conductor)
 end
 
-# A layer that an offset declares around another outline than a circle is the whole
-# conductor of a terminal with no other metal. So is a region under the lay of its turns.
-# The terminal over such a part alone is its own flattened form, with the layers of the
-# stack around it. Other metal of the terminal inside the part merges into its outline.
+# One region with all the metal of a terminal is its conductor, with the lay of its turns or
+# without it. The terminal over that region alone is its own flattened form, and the stack
+# adds its layers around it. Other metal of the terminal inside the region merges into its
+# outline.
 function flatten(items::Vector{AbstractCablePart}, terminal::Terminal,
-        conductor::Union{CablePart{<:Region{<:Offset}, <:PerforatedShape},
-            Lay{<:Helix, <:CablePart}},
-        strands::Vector)
+        conductor::Union{CablePart, Lay{<:Helix, <:CablePart}}, strands::Vector)
     length(strands) == 1 &&
         return push!(items, flatten(Terminal(terminal.name, conductor)))
     push!(items,
         flatten(isempty(items) ? EmptyBoundary() : boundary(last(items)), terminal,
             boundary(conductor), strands))
     return items
+end
+
+# The part of a terminal inside a terminal is the part of the terminal around it, in a stack
+# or alone.
+function flatten(items::Vector{AbstractCablePart}, terminal::Terminal,
+        conductor::Terminal, strands::Vector)
+    return flatten(items, terminal, conductor.part, strands)
+end
+function flatten(items::Vector{AbstractCablePart}, terminal::Terminal{<:Terminal})
+    return flatten(items, Terminal(terminal.name, terminal.part.part))
 end
 
 function flatten(items::Vector{AbstractCablePart},
