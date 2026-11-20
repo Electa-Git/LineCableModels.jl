@@ -181,7 +181,9 @@ around their flattened members. The equations are given in the docstring of
 The numerical input of the coaxial formulation, `CoaxialInput`, reads this stack. There the
 helical path of the current introduces a solenoid correction in the relative permeability of
 the interval, `mu_r_ins`. A conductor that is not round takes the equivalent cylinder of its
-area and its perimeter.
+area and its perimeter. The filler of a duct with another outline than a circle, such as a
+rectangular duct, ends at the circle of the duct's perimeter. A layer around such a duct is
+the annulus of its thickness outside that circle.
 
 The members of an [`Assembly`](@ref) and the copies of a repeated part are sub-cables, and
 `members` lists them for each assembly. Each sub-cable reduces to its own concentric

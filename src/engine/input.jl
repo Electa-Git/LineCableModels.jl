@@ -105,7 +105,7 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     ```
 
     The dielectric regions after a terminal in its stack are the layers of its interval. A
-    region that an offset declares, around a conductor that is not round, is the annulus of
+    region that an offset declares around another outline than a circle is the annulus of
     its thickness outside the layer before it. The interval of a tube reaches from ``r_e``
     to ``r_d``, and its layer ``k`` of relative permeability ``\\mu_k`` reaches from ``a_k``
     to ``b_k``. The current of a laid conductor makes ``N`` turns per unit length, which the
@@ -121,12 +121,15 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     interval without layers has ``\\mu_{ins} = 1``.
 
     The interior of an assembly with members begins with its filler. The filler is one
-    layer of the fill's material, from the axis to the container of the enclosure. The regions of the
-    stack inside the enclosure join the filler, and so do the regions of a member without a
-    conductor. The filler then takes their composite [`Material`](@ref), each with its
-    fraction of the area. The annuli between the enclosure and the first conductor of the
-    stack are the other layers of the interior. A region inside the first conductor of a
-    stack without members lies in no interval.
+    layer of the fill's material, from the axis to the container of the enclosure. A
+    container that is not round ends at the outer radius of Ametani's cylinder,
+    ``l / 2\\pi`` for its perimeter ``l``.
+
+    The regions of the stack inside the enclosure join the filler, and so do the regions of
+    a member without a conductor. The filler then takes their composite [`Material`](@ref),
+    each with its fraction of the area. The annuli between the enclosure and the first
+    conductor of the stack are the other layers of the interior. A region inside the first
+    conductor of a stack without members lies in no interval.
 
     # Errors
 
@@ -291,14 +294,26 @@ function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::In
         iszero(nominal(r_i)) ? Circle(r_e) : Annulus(r_i, r_e))
 end
 
-# A conductor that an offset declares around another outline than a circle is the tube of
-# its thickness outside the layer before it.
+# A part that an offset declares around another outline than a circle begins at the outer
+# radius `r` of the layer before it. In an assembly with a conductor, that layer is the last
+# one of its last conductor, or that conductor. Before the first conductor, it is the last
+# layer of the interior.
 function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::Int,
-        owner::Int, terminal::Terminal{<:CablePart{<:Region{<:Offset}, <:PerforatedShape}})
+        owner::Int,
+        part::Union{Region{<:Offset},
+            Terminal{<:CablePart{<:Region{<:Offset}, <:PerforatedShape}}})
+    span = isempty(rows.assemblies[a]) ? rows.interior_ranges[a] :
+           rows.dielectric_ranges[last(rows.assemblies[a])]
+    r = isempty(span) ? rows.r_ex[last(rows.assemblies[a])] :
+        rows.dielectric_r_ex[last(span)]
+    return resolve(rows, CoaxialInput, frame, a, owner, part, r)
+end
+
+# Such a conductor is the tube of its thickness outside the radius `r`.
+function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::Int,
+        owner::Int, terminal::Terminal{<:CablePart{<:Region{<:Offset}, <:PerforatedShape}},
+        r::Real)
     placed = terminal.part
-    i = last(rows.assemblies[a])
-    r = isempty(rows.dielectric_ranges[i]) ? rows.r_ex[i] :
-        rows.dielectric_r_ex[last(rows.dielectric_ranges[i])]
     return resolve(rows, CoaxialInput, frame, a, owner,
         Terminal(terminal.name, placed.source), placed.shape,
         Annulus(r, r + placed.source.primitive.t))
@@ -360,23 +375,33 @@ function resolve(rows::NamedTuple, ::Type{CoaxialInput}, ::Placement, ::Int, own
     return rows
 end
 
-# A layer that an offset declares, around a conductor that is not round, is the annulus of
-# its thickness outside the layer before it.
+# A layer that an offset declares is the annulus of its thickness outside the radius `r`.
 function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::Int,
-        owner::Int, region::Region{<:Offset})
-    i = last(rows.assemblies[a])
-    r = isempty(rows.dielectric_ranges[i]) ? rows.r_ex[i] :
-        rows.dielectric_r_ex[last(rows.dielectric_ranges[i])]
+        owner::Int, region::Region{<:Offset}, r::Real)
     return resolve(rows, CoaxialInput, frame, a, owner,
         Region(region.tag, Annulus(r, r + region.primitive.t), region.material))
 end
 
-# An enclosure gives its members, then its fill. In the stack of an assembly the fill is the
-# filler of the interior, from the axis to its container. The regions that joined the filler
-# share its material by their areas. The cross-section of the resolved fill is its container
-# without the outlines of its members.
+# The filler of an enclosure ends at the outer radius of the circle that stands for its
+# container. A circle or an annulus is its own circle. Any other container takes the outer
+# radius of Ametani's cylinder, from its perimeter.
 function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::Int,
         owner::Int, enclosure::Enclosure{<:CablePart})
+    return resolve(rows, CoaxialInput, frame, a, owner, enclosure,
+        enclosure.fill.shape.outer)
+end
+function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::Int,
+        owner::Int, enclosure::Enclosure{<:CablePart}, container::AbstractShape)
+    return resolve(rows, CoaxialInput, frame, a, owner, enclosure,
+        Circle(perimeter(boundary(container)) / 2π))
+end
+
+# An enclosure gives its members, then its fill. In the stack of an assembly the fill is the
+# filler of the interior, from the axis to the circle `container`. The regions that joined
+# the filler share its material by their areas. The cross-section of the resolved fill is its
+# container without the outlines of its members.
+function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::Int,
+        owner::Int, enclosure::Enclosure{<:CablePart}, container::Union{Circle, Annulus})
     T = eltype(rows.r_in)
     resolve(rows, CoaxialInput, frame, a, owner, enclosure.contents)
     fill, media = enclosure.fill, rows.fillers[owner]
@@ -384,7 +409,7 @@ function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::In
         push!(media, convert(Material{T}, fill.source.material) => area(fill.shape))
     owner == a || return rows
     push!(rows.dielectric_r_in, zero(T))
-    push!(rows.dielectric_r_ex, r_ex(fill.shape.outer))
+    push!(rows.dielectric_r_ex, r_ex(container))
     push!(rows.dielectric_material,
         isempty(media) ? convert(Material{T}, fill.source.material) :
         Material(first.(media), last.(media) ./ sum(last, media)))

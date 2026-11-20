@@ -702,4 +702,71 @@
             @test first(results).Y ≈ last(results).Y rtol = 1e-12
         end
     end
+
+    # A rectangular duct of 60 mm by 30 mm contains three insulated cores side by side. With
+    # a wall of polymer, or with none, no conductor surrounds the cores, and they compute as
+    # cables of their own at their places.
+    #
+    # A wall of aluminum makes the duct a pipe. Its filler ends at the outer radius of
+    # Ametani's cylinder of the rectangle, which is 180 mm / 2π. The tube of the wall begins
+    # there and has the thickness of the wall. That tube is Ametani's cylinder of the wall,
+    # with its area and its outer perimeter. The pipe computes as the round pipe of that
+    # tube, with the resistance and the geometric mean radius of the wall. Each pair of
+    # results is equal to the bit on Julia 1.12.7.
+    @testset "a rectangular duct is the pipe of its perimeter" begin
+        aluminum = Material(:conductor, 2.8264e-8, 1, 1, 20, 0.00429)
+        part = Stack(core(copper; r = 5.0e-3), insulation(polymer; t = 3.0e-3))
+        members = [Placement(x, 0.0) => Terminal(name, part)
+                   for (name, x) in ((:a, -18.0e-3), (:b, 0.0), (:c, 18.0e-3))]
+        contents = Assembly(Tuple(members))
+        w, h, t = 60.0e-3, 30.0e-3, 3.0e-3
+        ducts = [build(CableDesign, "duct", duct(air; shape = Rectangle(w, h), contents),
+                     layers...) for layers in ((jacket(polymer; t, tag = :wall),), ())]
+        trunk = build(CableDesign, "trunk", duct(air; shape = Rectangle(w, h), contents),
+            Terminal(:trunk, sheath(aluminum; t, tag = :trunk)), jacket(polymer; t = 2.0e-3))
+        input = coaxial(trunk)
+        c = (w + h) / π
+        f = only(input.interior_ranges[1])
+        @test [input.dielectric_r_in[f], input.dielectric_r_ex[f]] ≈ [0, c] rtol = 1e-12
+        @test [input.r_in[4], input.r_ex[4]] ≈ [c, c + t] rtol = 1e-12
+        @test [input.dielectric_r_in[end], input.dielectric_r_ex[end]] ≈
+              [c + t, c + t + 2.0e-3] rtol = 1e-12
+        wall = only(placed for placed in trunk.regions if placed.source.tag == :trunk)
+        @test π * (input.r_ex[4]^2 - input.r_in[4]^2) ≈ area(wall.shape) rtol = 1e-12
+        @test 2π * input.r_ex[4] ≈ perimeter(boundary(wall.shape)) rtol = 1e-12
+        tube = build(CableDesign, "tube", duct(air; shape = Circle(c), contents),
+            Terminal(:trunk,
+                Region(:trunk, Annulus(c, c + t), aluminum.rho / area(wall.shape),
+                    LineCableModels.DataModel.gmr(wall.shape, aluminum.mu_r),
+                    aluminum.T0, aluminum.alpha)),
+            jacket(polymer; t = 2.0e-3))
+        at = Placement(0.0, -1.0)
+        apart = build(CableSystem,
+            [build(CableDesign, String(member.name), member) for (place, member) in members],
+            [at * place for (place, member) in members];
+            connections = [(a = 1,), (b = 2,), (c = 3,)], id = "apart", line_length = 1.0)
+        systems = [apart;
+                   [build(CableSystem, [design], [at];
+                        connections = [NamedTuple{names}(Tuple(eachindex(names)))],
+                        id = design.id, line_length = 1.0)
+                    for (design, names) in (
+                       (first(ducts), (:a, :b, :c)), (last(ducts), (:a, :b, :c)),
+                       (trunk, (:a, :b, :c, :trunk)), (tube, (:a, :b, :c, :trunk)))]]
+        cables, walled,
+        bare,
+        piped,
+        expected = map(systems) do system
+            return compute(
+                LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+                    frequencies = [50.0, 1.0e4]),
+                CoaxialFormulation())
+        end
+        for result in (walled, bare)
+            @test result.Z ≈ cables.Z rtol = 1e-12
+            @test result.Y ≈ cables.Y rtol = 1e-12
+        end
+        @test size(piped.Z) == (4, 4, 2)
+        @test piped.Z ≈ expected.Z rtol = 1e-12
+        @test piped.Y ≈ expected.Y rtol = 1e-12
+    end
 end
