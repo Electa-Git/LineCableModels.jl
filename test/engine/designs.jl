@@ -318,6 +318,34 @@
               [1.749196663688495, 5.401337489441598] rtol = 1e-12
     end
 
+    # A circle is its own tube, and a solid ellipse takes Ametani's cylinder. The impedance
+    # and the admittance of the ellipse approach those of the circle in proportion to ε,
+    # the relative difference of its semi-axes. Measured on Julia 1.12.7, x86_64 Linux, as
+    # the largest entry from ε = 1e-1 down to 1e-10: at most 0.065 ε for Z and 0.343 ε
+    # for Y.
+    @testset "a solid ellipse computes as the circle that it approaches" begin
+        function result(shape)
+            design = build(CableDesign, "core",
+                Terminal(:core, Region(:core, shape, copper)),
+                Region(:insulation, Offset(4.0e-3), polymer),
+                Terminal(:sheath, Region(:sheath, Offset(1.0e-3), copper)),
+                Region(:jacket, Offset(2.0e-3), polymer))
+            system = build(CableSystem, [design], [Placement(0.0, -1.0)];
+                connections = [(core = 1, sheath = 2)], id = "core", line_length = 1.0)
+            return compute(
+                LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+                    frequencies = [50.0, 1.0e3, 1.0e5]),
+                CoaxialFormulation())
+        end
+        a = 10.0e-3
+        circle = result(Circle(a))
+        for ε in (1.0e-2, 1.0e-6, 1.0e-10)
+            ellipse = result(LineCableModels.Ellipse(a * (1 + ε), a))
+            @test maximum(abs, ellipse.Z - circle.Z) <= 0.07ε * maximum(abs, circle.Z)
+            @test maximum(abs, ellipse.Y - circle.Y) <= 0.35ε * maximum(abs, circle.Y)
+        end
+    end
+
     # An open tape and its fill tile one layer. Under a radial field the two carry their
     # currents in parallel, and the admittivity of the layer is the area-weighted sum of theirs.
     @testset "an open dielectric tape is one layer of the composite material" begin
