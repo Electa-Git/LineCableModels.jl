@@ -285,6 +285,18 @@ using LineCableModels.BaseGeometry: Curve, Segment, Arc, EllipticArc, Contour, p
                 sector.apex, sector.ro, at)
             @test_throws DomainError Sector(0, sector.ro, sector.span,
                 0, 1.01sector.ro / (csc(sector.span / 2) + 1), at)
+            # With an inner radius, the sides meet inside the inner circle. The fillets of a
+            # side fit between the two circles and within the span.
+            @test_throws "Sector.apex must be below ri" Sector(
+                1.0e-3, sector.ro, sector.span, 3.0e-3, 0, at)
+            @test_throws "Sector.apex must be below ri" Sector(
+                1.0e-3, sector.ro, sector.span, 3.0e-3, 1.0e-3, at)
+            @test_throws "Sector.apex must be below ro" Sector(
+                0, sector.ro, 4π / 3, 1.2sector.ro, 0, at)
+            @test_throws "ri + 2 fillet < ro" Sector(
+                0.9sector.ro, sector.ro, sector.span, 0, 1.0e-3, at)
+            @test_throws "fillet (csc(span / 2) - 1) + apex < ri" Sector(
+                1.0e-3, sector.ro, 0.2, 0, 1.0e-3, at)
             t = sector.apex * sin(sector.span / 2) + 1.0e-3
             layer = LineCableModels.resolve(sector, Offset(t))
             @test area(layer) ≈ perimeter(sector) * t + π * t^2 rtol = 1e-12

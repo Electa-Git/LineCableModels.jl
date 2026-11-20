@@ -277,6 +277,12 @@ function validate(sector::Sector)
      nominal(sector.apex) < nominal(sector.ro) * cos(nominal(sector.span) / 2)) ||
         throw(DomainError(sector.apex,
             "Sector.apex must be nonnegative and finite, and below ro cos(span / 2) when span < π"))
+    nominal(sector.apex) < nominal(sector.ro) ||
+        throw(DomainError(sector.apex,
+            "Sector.apex must be below ro: the sides meet inside the outer circle"))
+    iszero(nominal(sector.ri)) || nominal(sector.apex) < nominal(sector.ri) ||
+        throw(DomainError(sector.apex,
+            "Sector.apex must be below ri when ri is positive: the sides meet inside the inner circle"))
     isfinite(nominal(sector.fillet)) &&
     nominal(sector.fillet) >= zero(nominal(sector.fillet)) ||
         throw(DomainError(sector.fillet, "Sector.fillet must be nonnegative and finite"))
@@ -291,6 +297,15 @@ function validate(sector::Sector)
             nominal(sector.ro) - 2nominal(sector.fillet) ||
                 throw(DomainError(sector.fillet,
                     "Sector.fillet must satisfy fillet (csc(span / 2) - 1) + apex < ro - 2 fillet"))
+        else
+            nominal(sector.ri) + 2nominal(sector.fillet) < nominal(sector.ro) ||
+                throw(DomainError(sector.fillet,
+                    "Sector.fillet must satisfy ri + 2 fillet < ro"))
+            nominal(sector.span) >= π ||
+                nominal(sector.fillet) * (csc(nominal(sector.span) / 2) - 1) +
+                nominal(sector.apex) < nominal(sector.ri) ||
+                throw(DomainError(sector.fillet,
+                    "Sector.fillet must satisfy fillet (csc(span / 2) - 1) + apex < ri when span < π"))
         end
     end
     return sector
