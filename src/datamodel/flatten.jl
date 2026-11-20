@@ -50,9 +50,8 @@ sums the inverse pitches of the helices that region ``i`` follows about the axis
 conductor, signed by their direction. A helix about another axis only lengthens the region.
 The strand lay of a rope member off the axis of the rope is such a helix.
 
-A terminal with turns has a [`Lay`](@ref) over its region. The helix has the lay ratio
-``1 / (2 r_e \\lvert N \\rvert)`` and the direction of ``N``, where ``r_e`` is the outer
-radius of the region. Its pitch at that radius is ``1 / \\lvert N \\rvert``.
+A terminal with turns has a [`Lay`](@ref) over its region. The helix has the lay length
+``1 / \\lvert N \\rvert`` and the direction of ``N``.
 
 # Returns
 
@@ -84,8 +83,7 @@ function flatten(inner::Union{EmptyBoundary, AbstractShape}, terminal::Terminal,
     N = sum(w .* [strand.N for strand in strands])
     iszero(nominal(N)) && return Terminal(terminal.name, region)
     return Terminal(terminal.name,
-        Lay(Helix(LayRatio(1 / (2 * r_ex(tube) * abs(N))); dir = nominal(N) > 0 ? 1 : -1),
-            region))
+        Lay(Helix(Pitch(1 / abs(N)); dir = nominal(N) > 0 ? 1 : -1), region))
 end
 
 # A terminal contains a conductive region, and its conductive regions share one reference

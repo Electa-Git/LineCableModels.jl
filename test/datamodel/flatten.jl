@@ -375,8 +375,8 @@ using LineCableModels.Commons: tolerance
         @test [r_in(fill_layer.primitive), r_ex(fill_layer.primitive)] ≈ [7.5e-3, 8.0e-3]
         @test [r_in(insulation.primitive), r_ex(insulation.primitive)] ≈ [8.0e-3, 11.0e-3]
         # The lay over the region of the core gives the turns of its current. Its helix has
-        # the pitch 1 / N at the outer radius of the region. The layers of the interval have
-        # the materials of their declarations.
+        # the lay length 1 / N. The layers of the interval have the materials of their
+        # declarations.
         radii = [3.0e-3, 6.0e-3]
         G = [1; fill(inv(overlength(helix, radii[1])), 6);
              fill(inv(overlength(helix, radii[2])), 12)]

@@ -238,6 +238,26 @@
         @test relative[2] < relative[1]
     end
 
+    # A rectangular fill contains a straight wire and a course of wires in a lay about it.
+    # A wire of the course has the overlength of the lay and makes one turn per lay length.
+    # The helix of the flattened conductor has the lay length of the turns of its current.
+    @testset "laid wires inside a rectangle keep their turns" begin
+        a = 1.0e-3
+        design = build(CableDesign, "bar",
+            Terminal(:core,
+                stranded(copper; shape = Circle(a), n = (1, 6), lay = LayRatio(14),
+                    boundary = Rectangle(7.0e-3, 6.2e-3), fill = air)),
+            Region(:insulation, Offset(1.0e-3), polymer))
+        ℓ = hypot(1, π / 14)
+        N = 6 / ℓ / (1 + 6 / ℓ) / (2 * 2a * 14)
+        helix = first(flatten(design).items).part.helix
+        @test helix.dir / pitch(helix, 1.0) ≈ N rtol = 1e-12
+        input = coaxial(design)
+        r_e, r_d = only(input.r_ex), only(input.r_ins_ex)
+        u = log(r_d / r_e)
+        @test only(input.mu_r_ins) ≈ 1 + 4π^2 * N^2 * r_d * r_e * sinh(u) / u rtol = 1e-12
+    end
+
     @testset "designs without coaxial tubes" begin
         strands = Lay(Helix(LayRatio(12)),
             Repeat(CircularPattern(6; r = 1.0e-3), Region(:core_wires, Circle(0.5e-3), copper)))

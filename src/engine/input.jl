@@ -109,7 +109,7 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     its thickness outside the layer before it. The interval of a tube reaches from ``r_e``
     to ``r_d``, and its layer ``k`` of relative permeability ``\\mu_k`` reaches from ``a_k``
     to ``b_k``. The current of a laid conductor makes ``N`` turns per unit length, which the
-    helix of its lay gives at the outer radius of its region. The interval has
+    helix of its lay gives at the outer radius of its tube. The interval has
 
     ```math
     \\mu_{ins} = \\frac{\\sum_k \\mu_k \\log(b_k / a_k)}{\\log(r_d / r_e)}
@@ -331,12 +331,12 @@ function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::In
                 medium.T0, medium.alpha)))
 end
 
-# The helix of a laid conductor gives its turns at the outer radius of its region.
+# The helix of a laid conductor gives its turns at the outer radius of its tube.
 function resolve(rows::NamedTuple, ::Type{CoaxialInput}, frame::Placement, a::Int,
         owner::Int, terminal::Terminal{<:Lay})
     (; helix, part) = terminal.part
     resolve(rows, CoaxialInput, frame, a, owner, Terminal(terminal.name, part))
-    rows.turns[end] = helix.dir / pitch(helix, r_ex(part.primitive))
+    rows.turns[end] = helix.dir / pitch(helix, rows.r_ex[end])
     return rows
 end
 
