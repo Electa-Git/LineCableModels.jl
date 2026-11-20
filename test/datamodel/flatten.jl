@@ -315,6 +315,16 @@ using LineCableModels.Commons: tolerance
         @test flatten(inside.tree) == flatten(outside.tree)
         @test [nameof(typeof(item)) for item in flatten(inside.tree).items] ==
               [:Region, :Terminal, :Region]
+        # A screen that an offset declares around the insulation of the bar keeps its
+        # resolved part, with its jacket inside the terminal or after it.
+        screen = Region(:screen, Offset(0.2e-3), copper)
+        jacket = Region(:jacket, Offset(2e-3), polymer)
+        inside = build(CableDesign, "inside", Terminal(:core, bar), layer,
+            Terminal(:screen, Stack(screen, jacket)))
+        outside = build(CableDesign, "outside", Terminal(:core, bar), layer,
+            Terminal(:screen, screen), jacket)
+        @test flatten(inside.tree) == flatten(outside.tree)
+        @test flatten(inside.tree).items[3] == outside.tree.items[3]
         # Conductors with a dielectric between them are terminals of their own, and a
         # terminal contains metal.
         sheath = Region(:sheath, Offset(1e-3), copper)

@@ -939,4 +939,48 @@
         @test piped.Z ≈ expected.Z rtol = 1e-12
         @test piped.Y ≈ expected.Y rtol = 1e-12
     end
+
+    # A tube of 1 mm lies on a rectangular filler of 10 mm by 5 mm. No conductor and no
+    # layer lies before it, and it takes Ametani's cylinder of its own cross-section. The
+    # inner radius of the cylinder is the perimeter of the filler over 2π. A layer that an
+    # offset declares on such a filler has no radius to begin at, and the input refuses it.
+    #
+    # A tube of 2 mm on an elliptical filler approaches the tube on the round filler in
+    # proportion to ε, the relative difference of the semi-axes. Measured on Julia 1.12.7,
+    # x86_64 Linux, as the largest entry from ε = 1e-1 down to 1e-10: at most 0.044 ε for Z
+    # and 0.218 ε for Y.
+    @testset "a tube on a filler that is not round is the cylinder of its cross-section" begin
+        bar = filler(polymer; shape = Rectangle(10.0e-3, 5.0e-3))
+        tube = Terminal(:tube, sheath(copper; t = 1.0e-3))
+        design = build(CableDesign, "hollow_bar", bar, tube, jacket(polymer; t = 2.0e-3))
+        input = coaxial(design)
+        r = 30.0e-3 / 2π
+        @test [only(input.r_in), only(input.r_ex)] ≈ [r, r + 1.0e-3] rtol = 1e-12
+        @test only(input.material).rho / (π * ((r + 1.0e-3)^2 - r^2)) ≈
+              copper.rho / area(design.regions[2].shape) rtol = 1e-12
+        @test [only(input.dielectric_r_in), only(input.dielectric_r_ex)] ≈
+              [r + 1.0e-3, r + 3.0e-3] rtol = 1e-12
+        lined = build(CableDesign, "lined_bar", bar,
+            insulation(polymer; t = 0.5e-3, tag = :liner), tube)
+        @test_throws "the region :liner declares an Offset from the outline of a filler that is not round" coaxial(lined)
+        function result(shape)
+            hollow = build(CableDesign, "hollow", filler(polymer; shape),
+                Terminal(:core, solid(copper; shape = Offset(2.0e-3))),
+                insulation(polymer; t = 4.0e-3),
+                Terminal(:sheath, sheath(copper; t = 1.0e-3)), jacket(polymer; t = 2.0e-3))
+            system = build(CableSystem, [hollow], [Placement(0.0, -1.0)];
+                connections = [(core = 1, sheath = 2)], id = "hollow", line_length = 1.0)
+            return compute(
+                LineParametersProblem(system, homogeneous(rho = 100.0, eps_r = 10.0);
+                    frequencies = [50.0, 1.0e3, 1.0e5]),
+                CoaxialFormulation())
+        end
+        a = 5.0e-3
+        circle = result(Circle(a))
+        for ε in (1.0e-2, 1.0e-6, 1.0e-10)
+            ellipse = result(LineCableModels.Ellipse(a * (1 + ε), a))
+            @test maximum(abs, ellipse.Z - circle.Z) <= 0.05ε * maximum(abs, circle.Z)
+            @test maximum(abs, ellipse.Y - circle.Y) <= 0.22ε * maximum(abs, circle.Y)
+        end
+    end
 end

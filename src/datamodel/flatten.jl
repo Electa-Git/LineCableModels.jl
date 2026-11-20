@@ -243,11 +243,7 @@ function flatten(items::Vector{AbstractCablePart}, terminal::Terminal{<:Stack})
         end
     end
     foreach(part -> flatten(items, part), Iterators.take(parts, before))
-    conductor = parts[end - after]
-    flat = flatten(isempty(items) ? EmptyBoundary() : boundary(last(items)), terminal,
-        boundary(conductor), strands)
-    push!(items, flat)
-    flatten(items, flat, conductor)
+    flatten(items, terminal, parts[end - after], strands)
     foreach(part -> flatten(items, part), Iterators.drop(parts, length(parts) - after))
     return items
 end
@@ -260,6 +256,30 @@ function validate(terminal::Terminal, ::typeof(flatten), after::Int)
         ":$(terminal.name); two conductors with a dielectric between them are two terminals"))
     return terminal
 end
+
+# The conductor of the stack of a terminal adds its one region to `items`, then the fill
+# beyond its metal. `conductor` is the outermost conductive part of the stack, and `strands`
+# lists the conductive regions of the terminal.
+function flatten(items::Vector{AbstractCablePart}, @nospecialize(terminal::Terminal),
+        @nospecialize(conductor::AbstractCablePart), strands::Vector)
+    flat = flatten(isempty(items) ? EmptyBoundary() : boundary(last(items)), terminal,
+        boundary(conductor), strands)
+    push!(items, flat)
+    return flatten(items, flat, conductor)
+end
+
+# A layer that an offset declares around another outline than a circle is the whole
+# conductor of a terminal with no other metal. It stays its resolved part, as a terminal
+# over it alone does. Other metal of the terminal inside it merges into its outline.
+function flatten(items::Vector{AbstractCablePart}, terminal::Terminal,
+        conductor::CablePart{<:Region{<:Offset}, <:PerforatedShape}, strands::Vector)
+    length(strands) == 1 && return push!(items, Terminal(terminal.name, conductor))
+    push!(items,
+        flatten(isempty(items) ? EmptyBoundary() : boundary(last(items)), terminal,
+            boundary(conductor), strands))
+    return items
+end
+
 function flatten(items::Vector{AbstractCablePart},
         terminal::Terminal{<:Union{
             Region, CablePart, Lay{<:Helix, <:Union{Region, CablePart}}}})
