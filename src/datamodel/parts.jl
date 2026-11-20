@@ -89,6 +89,18 @@ function resolve(outline::Union{EmptyBoundary, AbstractShape}, region::Region,
     return Pair{AbstractCablePart, AbstractShape}(last(regions), boundary(shape))
 end
 
+# An offset is a distance from the outline of the part before it in its stack, and a first
+# part has none. The fill of a first group or enclosure is such a region.
+function resolve(::EmptyBoundary, region::Region{<:Offset}, ::Vector{CablePart})
+    throw(ArgumentError(
+        "the region :$(region.tag) declares an Offset from the outline of the part before it in its stack, " *
+        "and a first part has none; a first part declares its cross-section as a primitive, such as a Circle"))
+end
+function resolve(outline::EmptyBoundary, fill::Region{<:Offset}, ::AbstractCablePart,
+        regions::Vector{CablePart})
+    return resolve(outline, fill, regions)
+end
+
 # The placed region with its cross-section in `T`: itself when the cross-section is in `T`,
 # and a conversion otherwise. A perforated cross-section always converts, so that its holes are
 # a vector of `AbstractShape{T}` whatever they are.
@@ -439,10 +451,10 @@ $(TYPEDEF)
 
 Gather the primitives of one conductor, or of one dielectric layer, in a container and fill
 the space between them with a material. The fill region declares the container as its
-primitive, either explicitly or as an offset from the part inside the group. It takes the
-container without the outlines of the outermost regions of its contents, those that lie
-inside no other content's outline. The design refuses an empty hollow inside such an outline
-as a gap.
+primitive. The primitive is the container itself, or an offset from the outline of the part
+before the group in its stack. The fill takes the container without the outlines of the
+outermost regions of its contents, those that lie inside no other content's outline. The
+design refuses an empty hollow inside such an outline as a gap.
 
 The container is a primitive or a resolved cross-section. Its outline is the outline of the
 group, and `⊆` tests whether each content lies within it.
@@ -465,10 +477,11 @@ end
 $(TYPEDEF)
 
 Contain sub-cables in a filler, such as the cores of a pipe or the cable of a duct. The fill
-region declares the container as its primitive, either explicitly or as an offset from the
-part inside the enclosure. It takes the container without the outlines of the outermost
-regions of its contents, those that lie inside no other content's outline. The design refuses
-an empty hollow inside such an outline as a gap.
+region declares the container as its primitive. The primitive is the container itself, or an
+offset from the outline of the part before the enclosure in its stack. The fill takes the
+container without the outlines of the outermost regions of its contents, those that lie
+inside no other content's outline. The design refuses an empty hollow inside such an outline
+as a gap.
 
 The container is a primitive or a resolved cross-section. Its outline is the outline of the
 enclosure, and `⊆` tests whether each content lies within it.

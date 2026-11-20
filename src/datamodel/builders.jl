@@ -211,7 +211,7 @@ it. A pipe is a duct with a conductive layer around it.
 # Keywords
 
 - `shape`: container of the fill: a primitive, or an [`Offset`](@ref) from the outline of the
-  part inside the duct.
+  part before the duct in its stack.
 - `contents`: sub-cables inside the container, such as an [`Assembly`](@ref) or a
   [`Repeat`](@ref) of a part.
 - `tag`: name of the region of the fill. Default: `:duct`.

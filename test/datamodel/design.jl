@@ -234,6 +234,18 @@ end
         @test_throws "holds the terminals [:a, :b]" build(CableDesign, "two",
             Group(Region(:core_fill, Circle(4.0e-3), air),
                 Stack(Terminal(:a, wire), Terminal(:b, tube))))
+        # An offset has no outline to start from in a first part. The fill of a first
+        # enclosure and the first part of a member are such parts.
+        member = Stack(Terminal(:core, wire), Region(:core_insulation, Offset(1.0e-3), polymer))
+        ring = Repeat(CircularPattern(3; r = 3.0e-3), member)
+        for parts in ((Terminal(:core, tube),),
+            (Enclosure(Region(:fill, Offset(2.0e-3), air), ring),),
+            (Enclosure(Region(:fill, Circle(8.0e-3), air),
+                Assembly((Placement(0.0, 0.0) => Terminal(:core, tube),))),))
+            @test_throws ArgumentError build(CableDesign, "offset_first", parts...)
+            @test_throws "a first part declares its cross-section as a primitive" build(
+                CableDesign, "offset_first", parts...)
+        end
     end
 
     @testset "mixed inputs" begin
