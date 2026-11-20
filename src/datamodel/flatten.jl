@@ -251,10 +251,15 @@ end
 
 # The conductive parts of the stack of a terminal are its conductor. Its dielectric parts
 # are layers of the flattened stack: `before` of them lie inside the conductor and `after`
-# of them around it.
+# of them around it. A stack inside the stack gives its parts in their order.
 function flatten(items::Vector{AbstractCablePart}, terminal::Terminal{<:Stack})
     validate(terminal, flatten, items)
     parts = terminal.part.items
+    k = findfirst(part -> part isa Stack, parts)
+    k === nothing || return flatten(items,
+        Terminal(terminal.name,
+            Stack(AbstractCablePart[view(parts, 1:(k - 1)); parts[k].items;
+                                    view(parts, (k + 1):lastindex(parts))])))
     strands = NamedTuple[]
     before = after = 0
     for part in parts
@@ -294,12 +299,16 @@ function flatten(items::Vector{AbstractCablePart}, @nospecialize(terminal::Termi
     return flatten(items, flat, conductor)
 end
 
-# A layer that an offset declares around another outline than a circle is the whole
-# conductor of a terminal with no other metal. It stays its resolved part, as a terminal
-# over it alone does. Other metal of the terminal inside it merges into its outline.
+# A layer that an offset declares around another outline than a circle may be the whole
+# conductor of a terminal, and so may a region under the lay of its turns. The terminal over
+# such a part alone is its own flattened form, with the layers of the stack around it. Other
+# metal of the terminal inside the part merges into its outline.
 function flatten(items::Vector{AbstractCablePart}, terminal::Terminal,
-        conductor::CablePart{<:Region{<:Offset}, <:PerforatedShape}, strands::Vector)
-    length(strands) == 1 && return push!(items, Terminal(terminal.name, conductor))
+        conductor::Union{CablePart{<:Region{<:Offset}, <:PerforatedShape},
+            Lay{<:Helix, <:CablePart}},
+        strands::Vector)
+    length(strands) == 1 &&
+        return push!(items, flatten(Terminal(terminal.name, conductor)))
     push!(items,
         flatten(isempty(items) ? EmptyBoundary() : boundary(last(items)), terminal,
             boundary(conductor), strands))

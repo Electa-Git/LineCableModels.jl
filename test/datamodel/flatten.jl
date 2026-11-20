@@ -318,6 +318,17 @@ using LineCableModels.Commons: tolerance
         @test flatten(inside.tree) == flatten(outside.tree)
         @test [nameof(typeof(item)) for item in flatten(inside.tree).items] ==
               [:Region, :Terminal, :Region]
+        # A stack inside the stack of a terminal gives its parts in their order.
+        nested = build(CableDesign, "nested",
+            Terminal(:core, Stack(Stack(duct, tube), layer)))
+        @test flatten(nested.tree) == flatten(outside.tree)
+        # A conductor that `flatten` reduced, with the lay of its turns, is its own flattened
+        # form with its layer inside its terminal or after it.
+        reduced = Lay(Helix(Pitch(0.2)), Region(:core, Circle(5e-3), copper))
+        inside = build(CableDesign, "inside", Terminal(:core, Stack(reduced, layer)))
+        outside = build(CableDesign, "outside", Terminal(:core, reduced), layer)
+        @test flatten(inside.tree) == flatten(outside.tree)
+        @test first(flatten(inside.tree).items) == Terminal(:core, reduced)
         # A screen that an offset declares around the insulation of the bar keeps its
         # resolved part, with its jacket inside the terminal or after it.
         screen = Region(:screen, Offset(0.2e-3), copper)

@@ -415,14 +415,14 @@ the repeat, at the lay radius of its centroid:
 r = \\lvert \\mathbf c \\rvert,
 ```
 
-where ``\\mathbf c`` is the centroid of the regions of the copy, in \\[m\\] from that center.
+where ``\\mathbf c`` is the centroid of the outline of the copy, in \\[m\\] from that center.
 The helix has the [`pitch`](@ref) and [`overlength`](@ref) at that radius, the pitch signed
 by the direction of the helix. A copy at the radius 0 lies straight, with an infinite pitch
 and an overlength of 1.
 
 A lay over one region is a conductor that [`flatten`](@ref) reduced. Its region stands for
-laid metal, and the helix at the outer radius of the region gives the turns of its current
-per unit length.
+laid metal, and the helix gives the turns of its current per unit length. A helix that a
+lay ratio or a lay angle declares gives them at the outer radius of the region.
 
 $(TYPEDFIELDS)
 """
@@ -711,6 +711,14 @@ function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real,
                 g = strand.g))
     end
     return strands
+end
+
+# A lay over one region is a conductor that `flatten` reduced. The resistance of the region
+# includes the overlength of its metal, and its helix adds the turns of its current.
+function resolve(strands::Vector, at::Placement, ℓ::Real, N::Real,
+        lay::Lay{<:Helix, <:CablePart})
+    return resolve(strands, at, ℓ,
+        N + inv(lay.helix.dir * pitch(lay.helix, support(lay.part.shape))), lay.part)
 end
 
 # A laid member follows the helix at the lay radius `r` of the centroid of its outline, and
